@@ -65,8 +65,8 @@ fi
 /bin/cat >"$execPath/$name" <<EOF
 #!/bin/sh
 ABSPATH=\$(cd "\$(dirname "\$0")"; pwd)
-/bin/cp "\$ABSPATH/Chrome" "\$ABSPATH/$name Chrome"
-exec "\$ABSPATH/$name Chrome" --app="$url" --user-data-dir="\$ABSPATH/../Profile" "\$@"
+PROFILEPATH=\$(dirname "\$ABSPATH")"/Profile"
+exec "\$ABSPATH/Chrome" --app="$url" --user-data-dir="\$PROFILEPATH" "\$@"
 EOF
 /bin/chmod +x "$execPath/$name"
 
@@ -88,6 +88,8 @@ EOF
 <string>com.google.Chrome.$name</string>
 <key>CFBundleIdentifier</key>
 <string>com.google.Chrome.$name</string>
+<key>CFBundleShortVersionString</key>
+<string>1.0</string>
 </dict>
 </plist>
 EOF
