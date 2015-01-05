@@ -41,12 +41,11 @@ appRoot=`/bin/pwd`
 # various paths used when creating the app
 resourcePath="$appRoot/$name.app/Contents/Resources"
 execPath="$appRoot/$name.app/Contents/MacOS" 
-profilePath="$appRoot/$name.app/Contents/Profile"
 plistPath="$appRoot/$name.app/Contents/Info.plist"
 versionsPath="$appRoot/$name.app/Contents/Versions"
 
 # make the directories
-/bin/mkdir -p  "$resourcePath" "$execPath" "$profilePath"
+/bin/mkdir -p  "$resourcePath" "$execPath"
 
 # convert the icon and copy into Resources
 if [ -f "$icon" ] ; then
@@ -65,7 +64,7 @@ fi
 /bin/cat >"$execPath/$name" <<EOF
 #!/bin/sh
 ABSPATH=\$(cd "\$(dirname "\$0")"; pwd)
-PROFILEPATH=\$(dirname "\$ABSPATH")"/Profile"
+PROFILEPATH="\${HOME}/Library/Application Support/Chrome SSB/$name"
 exec "\$ABSPATH/Chrome" --app="$url" --user-data-dir="\$PROFILEPATH" "\$@"
 EOF
 /bin/chmod +x "$execPath/$name"

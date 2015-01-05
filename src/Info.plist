@@ -10,8 +10,6 @@
 	<string>applet</string>
 	<key>CFBundleIconFile</key>
 	<string>applet</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.ScriptEditor.id.Make-Chrome-SSB-Editable</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -29,24 +27,5 @@
 	</dict>
 	<key>LSRequiresCarbon</key>
 	<true/>
-	<key>WindowState</key>
-	<dict>
-		<key>bundleDividerCollapsed</key>
-		<true/>
-		<key>bundlePositionOfDivider</key>
-		<real>0.0</real>
-		<key>dividerCollapsed</key>
-		<false/>
-		<key>eventLogLevel</key>
-		<integer>2</integer>
-		<key>name</key>
-		<string>ScriptWindowState</string>
-		<key>positionOfDivider</key>
-		<real>1243</real>
-		<key>savedFrame</key>
-		<string>45 35 1611 1382 0 0 2560 1417 </string>
-		<key>selectedTab</key>
-		<string>result</string>
-	</dict>
 </dict>
 </plist>
