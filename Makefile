@@ -22,6 +22,7 @@ APP=chromessb.app/Contents
 APP_RSRC=$(APP)/Resources
 APP_SCPT=$(APP_RSRC)/Scripts
 
+INSTALL_PATH="/Applications/Make Chrome SSB.app"
 
 .PHONY: all install clean
 
@@ -34,7 +35,8 @@ clean-all: clean
 	find . -name '*~' -o -name '.DS_Store' -exec rm {} \;
 
 install: all
-	cp -aR chromessb.app "/Applications/Chrome Apps/Make Chrome SSB.app"
+	rm -rf $(INSTALL_PATH)
+	cp -aR chromessb.app $(INSTALL_PATH)
 
 $(APP_SCPT)/main.scpt: src/main.applescript
 	osacompile -x -o "chromessb.app" src/main.applescript
