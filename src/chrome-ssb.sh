@@ -89,6 +89,18 @@ EOF
 <string>com.google.Chrome.$name</string>
 <key>CFBundleShortVersionString</key>
 <string>1.0</string>
+<key>CFBundleURLTypes</key>
+<array>
+<dict>
+<key>CFBundleURLName</key>
+<string>Web site URL</string>
+<key>CFBundleURLSchemes</key>
+<array>
+<string>http</string>
+<string>https</string>
+</array>
+</dict>
+</array>
 </dict>
 </plist>
 EOF
