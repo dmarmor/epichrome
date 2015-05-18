@@ -17,40 +17,65 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
-APP=chromessb.app/Contents
-APP_RSRC=$(APP)/Resources
+APP=makechromessb.app
+APP_CTNT=$(APP)/Contents
+APP_RSRC=$(APP_CTNT)/Resources
 APP_SCPT=$(APP_RSRC)/Scripts
+APP_RNTM=$(APP_RSRC)/Runtime
+APP_RNTM_RSRC=$(APP_RNTM)/Resources
+APP_RNTM_SCPT=$(APP_RNTM_RSRC)/Scripts
+APP_RNTM_CNFG=$(APP_RNTM_RSRC)/Config
+APP_RNTM_MCOS=$(APP_RNTM)/MacOS
 
 INSTALL_PATH="/Applications/Make Chrome SSB.app"
 
-.PHONY: all install clean
+.PHONY: all install clean clean-all
 
-all: $(APP_SCPT)/main.scpt $(APP)/Info.plist $(APP_RSRC)/applet.icns $(APP_SCPT)/chrome-ssb.sh $(APP_SCPT)/lastpath.sh
+.PRECIOUS: icons/app_default.icns icons/doc_default.icns
+
+all: $(APP_SCPT)/main.scpt $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns $(APP_SCPT)/version.sh $(APP_SCPT)/make-chrome-ssb.sh $(APP_SCPT)/update.sh $(APP_SCPT)/ssb-path-info.sh $(APP_SCPT)/makeicon.sh $(APP_RNTM_MCOS)/chromessb $(APP_RNTM_SCPT)/runtime.sh $(APP_RNTM_CNFG)/config.sh $(APP_RNTM_RSRC)/app_default.icns $(APP_RNTM_RSRC)/doc_default.icns
 
 clean:
-	rm -rf chromessb.app
+	rm -rf makechromessb.app
 
 clean-all: clean
-	find . -name '*~' -o -name '.DS_Store' -exec rm {} \;
+	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
+	rm icons/*.icns
 
 install: all
 	rm -rf $(INSTALL_PATH)
-	cp -aR chromessb.app $(INSTALL_PATH)
+	cp -a $(APP) $(INSTALL_PATH)
 
 $(APP_SCPT)/main.scpt: src/main.applescript
-	osacompile -x -o "chromessb.app" src/main.applescript
-	@rm $(APP)/Info.plist $(APP_RSRC)/applet.icns
-	mkdir -p $(APP_RSRC)/Paths
+	@rm -rf $(APP)
+	osacompile -x -o $(APP) src/main.applescript
+	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
+	mkdir -p $(APP_RNTM_SCPT)
+	mkdir -p $(APP_RNTM_MCOS)
+	mkdir -p $(APP_RNTM_CNFG)
 
-$(APP)/Info.plist: src/Info.plist
-	cp -a src/Info.plist $(APP)/
+$(APP_CTNT)/Info.plist: src/Info.plist
+	sed "s/SSBVERSION/${VERSION}/" $< > $@
 
-$(APP_RSRC)/applet.icns: icon/applet.icns
-	cp -a icon/applet.icns $(APP_RSRC)/
+$(APP_RSRC)/applet.icns: icons/makechromessb.icns
+	cp -p icons/makechromessb.icns $(APP_RSRC)/applet.icns
 
-$(APP_SCPT)/chrome-ssb.sh: src/chrome-ssb.sh
-	cp -a src/chrome-ssb.sh $(APP_SCPT)/
+$(APP_SCPT)/%.sh: src/%.sh
+	cp -p $< $(APP_SCPT)/
 
-$(APP_SCPT)/lastpath.sh: src/lastpath.sh
-	cp -a src/lastpath.sh $(APP_SCPT)/
+$(APP_RNTM_MCOS)/chromessb: src/chromessb
+	cp -p src/chromessb $(APP_RNTM_MCOS)/
+
+$(APP_RNTM_SCPT)/%.sh: src/%.sh
+	cp -p $< $(APP_RNTM_SCPT)/
+
+$(APP_RNTM_CNFG)/%.sh: src/%.sh
+	cp -p $< $(APP_RNTM_CNFG)/
+
+$(APP_RNTM_RSRC)/%.icns: icons/%.icns
+	cp -p $< $(APP_RNTM_RSRC)/
+
+%.icns: %.png
+	src/makeicon.sh -f $< $@

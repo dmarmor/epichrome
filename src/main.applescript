@@ -21,134 +21,488 @@
  *
  * Based on the chrome-ssb.sh engine at https://github.com/lhl/chrome-ssb-osx
  *
- * Tested on Mac OS X 10.10.1
+ * Tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
  *
  *
  *)
 
+
+-- PLACEHOLDER FOR LATER UPDATE FUNCTIONALITY
+-- on open these_items
+--   display dialog "Update functionality goes here. " & these_items
+-- end open
+
+-- MISC CONSTANTS
+set ssbPrompt to "Select name and location for the SSB."
+set ssbDefaultURL to "https://www.google.com/mail/"
+set iconPrompt to "Select an image to use as an icon."
+set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
+
+
+-- GET MY ICON FOR DIALOG BOXES
 set myIcon to path to resource "applet.icns"
 
--- FIND chrome-ssb.sh IN THE SSB
-set chromeSSBScript to quoted form of (POSIX path of (path to resource "chrome-ssb.sh" in directory "Scripts"))
-set lastPathScript to quoted form of (POSIX path of (path to resource "lastpath.sh" in directory "Scripts"))
+-- GET PATHS TO USEFUL RESOURCES IN THIS APP
+set chromeSSBScript to quoted form of (POSIX path of (path to resource "make-chrome-ssb.sh" in directory "Scripts"))
+set pathInfoScript to quoted form of (POSIX path of (path to resource "ssb-path-info.sh" in directory "Scripts"))
+--set lastPathScript to quoted form of (POSIX path of (path to resource "lastpath.sh" in directory "Scripts"))
 
-set lastIconPath to do shell script lastPathScript & " get icon"
-set lastSSBPath to do shell script lastPathScript & " get ssb"
+-- LAST-USED ICON AND SSB PATH
+property lastIconPath : ""
+property lastSSBPath : ""
+--set lastIconPath to do shell script lastPathScript & " get icon"
+--set lastSSBPath to do shell script lastPathScript & " get ssb"
 
--- CHOOSE THE URL
-set ssbURL to the text returned of (display dialog "" with title "Choose URL" default answer "https://www.google.com/mail/" buttons {"Quit", "OK"} default button "OK" cancel button "Quit" with icon myIcon)
+-- NUMBER OF STEPS IN THE PROCESS
+property numSteps : 7
+global curStep
+set curStep to 1
+on step()
+	return "Step " & curStep & " of " & numSteps
+end step
 
--- CHOOSE THE APP ICON
-try
-	set iconPrompt to "Select an image to use as an icon, or Cancel for none."
-	set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
-	try
-		set lastIconPath to (lastIconPath as alias)
-		set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPath without invisibles
-	on error
-		set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
-	end try
-	
-on error number -128
-	set ssbIconSrc to ""
-end try
+-- BUILD REPRESENTATION OF BROWSER TABS
+on tablist(tabs, tabnum)
+	local ttext
+	if (count of tabs) is 0 then
+		return "No tabs specified.
 
--- if an icon was selected, update the last path info
-if ssbIconSrc is not "" then
-	set ssbIconSrc to (the POSIX path of ssbIconSrc)
-	set lastIconPath to do shell script "dirname " & quoted form of ssbIconSrc
-	set lastIconPath to quoted form of (((POSIX file lastIconPath) as alias) as text)
-	do shell script lastPathScript & " set icon " & lastIconPath
-end if
-
-
--- CHOOSE WHERE TO SAVE THE SSB
-
-set ssbDefaultName to "Chrome SSB"
-set ssbPrompt to "Select an image to use as an icon, or Cancel for none."
-
-set tryAgain to true
-repeat while tryAgain
-	set tryAgain to false -- assume we'll succeed
-	
-	-- show file selection dialog
-	try
-		set lastSSBPath to (lastSSBPath as alias)
-		set ssbPath to (choose file name with prompt ssbPrompt default name ssbDefaultName default location lastSSBPath) as text
-	on error
-		set ssbPath to (choose file name with prompt ssbPrompt default name ssbDefaultName) as text
-	end try
-	
-	
-	set ssbPathPosix to POSIX path of ssbPath
-	set ssbDir to do shell script "dirname " & quoted form of ssbPathPosix
-	set ssbName to do shell script "basename " & quoted form of ssbPathPosix
-	
-	-- update the last path info
-	set lastSSBPath to quoted form of (((POSIX file ssbDir) as alias) as text)
-	do shell script lastPathScript & " set ssb " & lastSSBPath
-	
-	-- if no ".app" extension given, check if they accidentally chose an existing app without confirming
-	if ssbPath does not end with ".app" and ssbPath does not end with ".app:" then
-		set ssbPath to ssbPath & ".app"
-		set ssbName to ssbName & ".app"
-		
-		-- see if an app with the given base name exists
-		tell application "Finder"
-			set appExists to false
-			if exists ssbPath then set appExists to true
-		end tell
-		if appExists then
-			try
-				display dialog "A file or folder named Ò" & ssbName & "Ó already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
-			on error number -128
-				set tryAgain to true
-				set ssbDefaultName to ssbName
-			end try
+Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the SSB will determine which tabs to open on startup using its preferences, just as Chrome would."
+	else
+		local t
+		set ttext to (count of tabs) as text
+		if ttext is "1" then
+			set ttext to ttext & " tab"
+		else
+			set ttext to ttext & " tabs"
 		end if
+		set ttext to ttext & " specified:
+"
+		
+		-- add tabs themselves to the text
+		local ti
+		set ti to 1
+		repeat with t in tabs
+			if ti is tabnum then
+				set ttext to ttext & "
+  *  [the tab you are editing]"
+			else
+				set ttext to ttext & "
+  -  " & t
+			end if
+			set ti to ti + 1
+		end repeat
+		if ti is tabnum then
+			set ttext to ttext & "
+  *  [new tab will be added here]"
+		end if
+		return ttext
 	end if
+end tablist
+
+-- INITIALIZE IMPORTANT VARIABLES
+set ssbBase to "Chrome SSB"
+set ssbURLs to 0
+
+repeat
+	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION
+	repeat
+		try
+			display dialog "Click OK to select a name and location for the SSB." with title step() with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
+			exit repeat
+		on error number -128
+			try
+				display dialog "SSB has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
+				return
+			on error number -128
+			end try
+		end try
+	end repeat
 	
-	-- get the SSB basename for the script
-	set ssbBase to do shell script "x=" & quoted form of ssbName & " ; echo ${x%.app}"
 	
-	if length of ssbBase > 12 then
-		display dialog "The name Ò" & ssbBase & "Ó is too long. The application name canÕt be more than 12 characters long." with icon stop buttons {"OK"} default button "OK" with title "Name Too Long"
+	-- APPLICATION FILE SAVE DIALOGUE
+	repeat
+		-- CHOOSE WHERE TO SAVE THE SSB
+		
+		set ssbPath to false
 		set tryAgain to true
-		set ssbDefaultName to ((characters 1 thru 12 of ssbBase) as string)
-	end if
+		
+		repeat while tryAgain
+			set tryAgain to false -- assume we'll succeed
+			
+			-- show file selection dialog
+			try
+				set lastSSBPath to (lastSSBPath as alias)
+			on error
+				set lastSSBPath to false
+			end try
+			try
+				if lastSSBPath is not false then
+					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase default location lastSSBPath) as text
+				else
+					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase) as text
+				end if
+			on error number -128
+				exit repeat
+			end try
+			
+			-- break down the path & canonicalize app name
+			try
+				set ssbInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of ssbPath)
+			on error errStr number errNum
+				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+				return
+			end try
+			
+			set ssbDir to (paragraph 1 of ssbInfo)
+			set ssbBase to (paragraph 2 of ssbInfo)
+			set ssbShortName to (paragraph 3 of ssbInfo)
+			set ssbName to (paragraph 4 of ssbInfo)
+			set ssbPath to (paragraph 5 of ssbInfo)
+			set ssbExtAdded to (paragraph 6 of ssbInfo)
+			
+			-- update the last path info
+			set lastSSBPath to (((POSIX file ssbDir) as alias) as text)
+			
+			-- if no ".app" extension was given, check if they accidentally chose an existing app without confirming
+			if ssbExtAdded is "TRUE" then
+				-- see if an app with the given base name exists
+				tell application "Finder"
+					set appExists to false
+					try
+						if exists ((POSIX file ssbPath) as alias) then set appExists to true
+					end try
+				end tell
+				if appExists then
+					try
+						display dialog "A file or folder named Ò" & ssbName & "Ó already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
+					on error number -128
+						set tryAgain to true
+					end try
+				end if
+			end if
+		end repeat
+		
+		if ssbPath is false then
+			exit repeat
+		end if
+		
+		set curStep to curStep + 1
+		
+		repeat
+			
+			-- NEXT STEP: SHORT APP NAME
+			
+			set ssbShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
+			
+			set tryAgain to true
+			
+			repeat while tryAgain
+				set tryAgain to false
+				set ssbShortNameCanceled to false
+				set ssbShortNamePrev to ssbShortName
+				try
+					set ssbShortName to text returned of (display dialog ssbShortNamePrompt with title step() with icon myIcon default answer ssbShortName buttons {"OK", "Back"} default button "OK" cancel button "Back")
+				on error number -128 -- Back button
+					set ssbShortNameCanceled to true
+					set curStep to curStep - 1
+					exit repeat
+				end try
+				
+				if (count of ssbShortName) > 16 then
+					set tryAgain to true
+					set ssbShortNamePrompt to "That name is too long. Please limit the name to 16 characters or less."
+					set ssbShortName to ((characters 1 thru 16 of ssbShortName) as text)
+				else if (count of ssbShortName) < 1 then
+					set tryAgain to true
+					set ssbShortNamePrompt to "No name entered. Please try again."
+					set ssbShortName to ssbShortNamePrev
+				end if
+			end repeat
+			
+			if ssbShortNameCanceled then
+				exit repeat
+			end if
+			
+			-- NEXT STEP: CHOOSE SSB STYLE
+			set curStep to curStep + 1
+			
+			repeat
+				try
+					set ssbStyle to button returned of (display dialog "Choose SSB Style:
+
+APP WINDOW - The SSB will display an app-style window with the given URL. (This creates a classic SSB and is ordinarily what you'll want.)
+
+BROWSER TABS - The SSB will display a full browser window with the given tabs." with title step() with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
+					
+				on error number -128 -- Back button
+					set curStep to curStep - 1
+					exit repeat
+				end try
+				
+				-- NEXT STEP: CHOOSE URLS
+				set curStep to curStep + 1
+				
+				-- initialize URL list
+				if ssbURLs is 0 then
+					if ssbStyle is "App Window" then
+						set ssbURLs to {ssbDefaultURL}
+					else
+						set ssbURLs to {}
+					end if
+				end if
+				
+				repeat
+					if ssbStyle is "App Window" then
+						-- APP WINDOW STYLE
+						try
+							set (item 1 of ssbURLs) to text returned of (display dialog "Choose URL:" with title step() with icon myIcon default answer (item 1 of ssbURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
+						on error number -128 -- Back button
+							set curStep to curStep - 1
+							exit repeat
+						end try
+					else
+						-- BROWSER TABS
+						set curTab to 1
+						repeat
+							if curTab > (count of ssbURLs) then
+								try
+									set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer ssbDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
+								on error number -128 -- Back button
+									set dlgResult to "Back"
+								end try
+								
+								if dlgResult is "Back" then
+									if curTab is 1 then
+										set curTab to 0
+										exit repeat
+									else
+										set curTab to curTab - 1
+									end if
+								else if (button returned of dlgResult) is "Add" then
+									-- add the current text to the end of the list of URLs
+									set (end of ssbURLs) to text returned of dlgResult
+									set curTab to curTab + 1
+								else -- "Done (Don't Add)"
+									-- we're done, don't add the current text to the list
+									exit repeat
+								end if
+							else
+								set backButton to 0
+								if curTab is 1 then
+									try
+										set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer (item curTab of ssbURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
+									on error number -128
+										set backButton to 1
+									end try
+								else
+									set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer (item curTab of ssbURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
+								end if
+								
+								if (backButton is 1) or ((button returned of dlgResult) is "Previous") then
+									if backButton is 1 then
+										set curTab to 0
+										exit repeat
+									else
+										set (item curTab of ssbURLs) to text returned of dlgResult
+										set curTab to curTab - 1
+									end if
+								else if (button returned of dlgResult) is "Next" then
+									set (item curTab of ssbURLs) to text returned of dlgResult
+									set curTab to curTab + 1
+								else -- "Remove"
+									if curTab is 1 then
+										set ssbURLs to rest of ssbURLs
+									else if curTab is (count of ssbURLs) then
+										set ssbURLs to (items 1 thru -2 of ssbURLs)
+										set curTab to curTab - 1
+									else
+										set ssbURLs to ((items 1 thru (curTab - 1) of ssbURLs)) & ((items (curTab + 1) thru -1 of ssbURLs))
+									end if
+								end if
+							end if
+						end repeat
+						
+						if curTab is 0 then
+							-- we hit the back button
+							set curStep to curStep - 1
+							exit repeat
+						end if
+					end if
+					
+					-- NEXT STEP: REGISTER AS BROWSER?
+					set curStep to curStep + 1
+					
+					repeat
+						try
+							set doRegisterBrowser to button returned of (display dialog "Register SSB as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button "No" cancel button "Back")
+						on error number -128 -- Back button
+							set curStep to curStep - 1
+							exit repeat
+						end try
+						
+						-- NEXT STEP: SELECT ICON FILE
+						set curStep to curStep + 1
+						
+						repeat
+							try
+								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button "Yes" cancel button "Back")
+							on error number -128 -- Back button
+								set curStep to curStep - 1
+								exit repeat
+							end try
+							
+							repeat
+								if doCustomIcon is "Yes" then
+									
+									-- CHOOSE AN APP ICON
+									
+									-- show file selection dialog
+									try
+										set lastIconPath to (lastIconPath as alias)
+									on error
+										set lastIconPath to false
+									end try
+									try
+										if lastIconPath is not false then
+											
+											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPath without invisibles
+										else
+											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
+										end if
+										
+									on error number -128
+										exit repeat
+									end try
+									
+									-- get icon path info
+									set ssbIconSrc to (POSIX path of ssbIconSrc)
+									-- break down the path & canonicalize icon name
+									try
+										set ssbInfo to do shell script pathInfoScript & " icon " & quoted form of ssbIconSrc
+									on error errStr number errNum
+										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+										return
+									end try
+									
+									set lastIconPath to (((POSIX file (paragraph 1 of ssbInfo)) as alias) as text)
+									set ssbIconName to (paragraph 2 of ssbInfo)
+									
+								else
+									set ssbIconSrc to ""
+								end if
+								
+								-- NEXT STEP: CREATE APPLICATION
+								set curStep to curStep + 1
+								
+								-- create summary of the app
+								set ssbSummary to "Ready to create!
+
+App: " & ssbName & "
+
+Menubar Name: " & ssbShortName & "
+
+"
+								if (count of ssbURLs) is 1 then
+									set ssbSummary to ssbSummary & "URL: " & (item 1 of ssbURLs)
+								else
+									set ssbSummary to ssbSummary & "Tabs: "
+									if (count of ssbURLs) is 0 then
+										set ssbSummary to ssbSummary & "<none>"
+									else
+										repeat with t in ssbURLs
+											set ssbSummary to ssbSummary & "
+  -  " & t
+										end repeat
+									end if
+								end if
+								set ssbSummary to ssbSummary & "
+								
+Register as Browser: " & doRegisterBrowser & "
+
+Icon: "
+								if ssbIconSrc is "" then
+									set ssbSummary to ssbSummary & "<default>"
+								else
+									set ssbSummary to ssbSummary & ssbIconName
+								end if
+								
+								repeat
+									try
+										display dialog ssbSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
+									on error number -128 -- Back button
+										set curStep to curStep - 1
+										exit repeat
+									end try
+									
+									
+									-- CREATE THE SSB
+									
+									-- set up Chrome command line
+									set ssbCmdLine to ""
+									if (count of ssbURLs) is 1 then
+										set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
+									else if (count of ssbURLs) > 1 then
+										repeat with t in ssbURLs
+											set ssbCmdLine to ssbCmdLine & " " & quoted form of t
+										end repeat
+									end if
+									
+									-- create the SSB!
+									
+									try
+										do shell script chromeSSBScript & " " & Â
+											(quoted form of ssbPath) & " " & Â
+											(quoted form of ssbBase) & " " & Â
+											(quoted form of ssbShortName) & " " & Â
+											(quoted form of ssbIconSrc) & " " & Â
+											(quoted form of doRegisterBrowser) & " " & Â
+											ssbCmdLine
+									on error errStr number errNum
+										display dialog "Creation failed: " & errStr with icon stop buttons {"OK"} default button "OK" with title "Application Not Created"
+										return
+									end try
+									
+									-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
+									try
+										set dlgResult to button returned of (display dialog "Created Chrome SSB \"" & ssbBase & "\"" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
+									on error number -128
+										return -- "Quit" button
+									end try
+									
+									-- launch or reveal
+									if dlgResult is "Launch Now" then
+										delay 1
+										try
+											tell application ssbName to activate
+										on error
+											return
+										end try
+									else
+										--if (button returned of dlgResult) is "Reveal in Finder" then
+										tell application "Finder" to reveal ssbPath
+										tell application "Finder" to activate
+									end if
+									
+									return -- We're done!
+									
+								end repeat
+								
+								exit repeat -- We always kick back to the question of whether to use a custom icon
+							end repeat
+							
+						end repeat
+						
+					end repeat
+					
+				end repeat
+				
+			end repeat
+			
+		end repeat
+		
+		exit repeat -- always kick back to the first dialogue (instead of the file save dialog)
+		
+	end repeat
+	
 end repeat
-try
-	-- try to trash old application
-	tell application "Finder" to move ssbPath to trash
-end try
-
--- CREATE THE SSB
-set myResult to do shell script Â
-	"cd " & quoted form of ssbDir & " ; " & Â
-	"( " & Â
-	"echo " & quoted form of ssbBase & " ; " & Â
-	"echo " & quoted form of ssbURL & " ; " & Â
-	"echo " & quoted form of ssbIconSrc & Â
-	" ) | " & Â
-	chromeSSBScript & " > /dev/null ; " & Â
-	"echo $?"
-if myResult is equal to "0" then
-	set dlgResult to display dialog "Created Chrome SSB \"" & ssbBase & "\"" with title "Success!" buttons {"Reveal in Finder", "OK", "Launch Now"} default button "Launch Now" cancel button "OK" with icon myIcon
-else
-	display dialog "Creation failed with the error: " & myResult with icon stop buttons {"OK"} default button "OK" with title "Application Not Created"
-	return
-end if
-
--- if we got here, the user wants to launch the new SSB
-if (button returned of dlgResult) is "Launch Now" then
-	delay 1
-	try
-		tell application ssbName to activate
-	on error
-		return
-	end try
-else
-	--if (button returned of dlgResult) is "Reveal in Finder" then
-	tell application "Finder" to reveal ssbPath
-	tell application "Finder" to activate
-end if

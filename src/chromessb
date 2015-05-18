@@ -1,0 +1,140 @@
+#!/bin/sh
+#
+#  chromessb: Run a Chrome SSB
+#
+#  Copyright (C) 2015 David Marmor
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Based on the chrome-ssb.sh engine at https://github.com/lhl/chrome-ssb-osx
+#
+# Tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
+# 
+
+
+# ALERT -- display an alert dialogue
+function alert {  #  TITLE MESSAGE ICON (stop, caution, note)
+    msg="$1" ; shift
+    title="$1" ; shift ; [ "$title" ] && title="with title \"$title\""
+    icon="$1" ; shift ; [ "$icon" ] && icon="with icon $icon"
+    
+    cmdtext=$(osascript -e "display dialog \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title" 2>&1)
+}
+
+
+# ABORT -- display an error dialogue and abort
+function abort {
+    alert "$1" "Unable to Run" stop
+    exit $2
+}
+
+
+# BOOTSTRAP RUNTIME SCRIPT
+
+# determine location of runtime script
+myContents=$(cd "$(dirname "$0")/.."; pwd)
+[ $? != 0 ] && abort "Unable to determine app path." 1
+[[ "$myContents" =~ /Contents$ ]] || abort "Unexpected app path." 1
+myRuntimeScript="${myContents}/Resources/Scripts/runtime.sh"
+
+# load main runtime functions
+source "$myRuntimeScript" > /dev/null 2>&1
+[ $? != 0 ] && abort "Error loading runtime script." 1
+
+
+# GET BASIC APP INFORMATION
+
+# get application bundle paths
+apppaths
+[ $? != 0 ] && abort "$cmdtext" 1
+
+# load config.sh file
+source "$appConfigScript" > /dev/null 2>&1
+[ $? != 0 ] && abort "Unable to load config file." 1
+
+# get Google Chrome info
+chromeinfo
+[ $? != 0 ] && abort "$cmdtext" 1
+
+
+# CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
+
+mcssbinfo
+if [ \( $? = 0 \) -a \( "$SSBVersion" != "$mcssbVersion" \) ] ; then
+    alert "New version of MakeChromeSSB runtime found ($mcssbVersion). Updating SSB..." "SSB Update" caution
+    
+    customIconTmp= # $$$$ copy icon to temp location
+    
+    "${mcssbUpdateScript}"
+fi
+
+
+# CHECK AND UPDATE CHROME LINKS
+
+updateconfig=
+
+# update config variable
+if [ "$SSBChromePath" != "$chromePath" ] ; then
+    SSBChromePath="$chromePath"
+    updateconfig=1
+fi
+
+# check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
+if [ \( ! -h "$appChromeLink" \) -o \
+	\( ! -x "$appChromeLink" \) -o \
+	\( "$chromeExec" != "$(readlink "$appChromeLink" 2> /dev/null)" \) ] ; then
+    
+    # display a relink alert
+    alert "Google Chrome appears to have moved. Attempting to relink..." "Relinking Chrome" caution
+    
+    # relink to Google Chrome
+    linkchrome
+    [ $? != 0 ] && abort "$cmdtext" 1
+fi
+
+# check for new version of Chrome and update
+if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
+    
+    # display a Chrome update alert
+    alert "New version of Google Chrome found. Updating SSB..." "New Chrome Version" caution
+    
+    # set new version number for config file
+    SSBChromeVersion="$chromeVersion"
+    updateconfig=1
+    
+    # write out new plist file
+    writeplist
+    [ $? != 0 ] && abort "$cmdtext" 1
+    
+    # $$$$ COPY CHROME RESOURCES DIRECTORY & MODIFY LOCALIZED STRINGS
+    
+    # $$$$ THIS SHOULD COME STRAIGHT FROM ABOVE
+    # copy scripting.sdef    
+    copyscriptingsdef
+    [ $? != 0 ] && abort "$cmdtext" 1
+fi
+
+# update config file
+if [ "$updateconfig" ] ; then
+    writeconfig
+    [ $? != 0 ] && abort "$cmdtext" 1
+fi
+
+
+# SET PROFILE PATH AND LAUNCH THE SSB
+
+myProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+
+exec "$appChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"
