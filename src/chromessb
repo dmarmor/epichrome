@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  chromessb: Run a Chrome SSB
+#  ChromeSSB: Run a Chrome SSB
 #
 #  Copyright (C) 2015 David Marmor
 #
@@ -24,6 +24,30 @@
 # 
 
 
+# SAFESOURCE -- safely source a script (version 1.0)
+function safesource {
+    if [ "$2" ] ; then
+	fileinfo="$2"
+    else
+	fileinfo="$1"
+	[[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
+    fi
+    
+    if [ -e "$1" ] ; then
+	source "$1" > /dev/null 2>&1
+	if [ $? != 0 ] ; then
+	    cmdtext="Unable to load $fileinfo."
+	    return 1
+	fi
+    else
+	cmdtext="Unable to find $fileinfo."
+	return 1
+    fi
+
+    return 0
+}
+
+
 # ALERT -- display an alert dialogue
 function alert {  #  TITLE MESSAGE ICON (stop, caution, note)
     msg="$1" ; shift
@@ -41,49 +65,131 @@ function abort {
 }
 
 
+# NEWVERSION -- check if the second passed version is greater than the first
+function newversion {
+    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)'
+    if [[ "$1" =~ $re ]] ; then
+	old=("${BASH_REMATCH[@]:1}")
+    else
+	old=( 0 0 0 )
+    fi
+    if [[ "$2" =~ $re ]] ; then
+	new=("${BASH_REMATCH[@]:1}")
+    else
+	new=( 0 0 0 )
+    fi
+
+    local i= ; local idx=( 0 1 2 )
+    for i in "${idx[@]}" ; do
+	if [ "${old[$i]}" -lt "${new[$i]}" ] ; then
+	    echo "1"
+	    return 1
+	fi
+	[ "${old[$i]}" -gt "${new[$i]}" ] && return 0
+    done
+    
+    return 0
+}
+
+
+# RELAUNCH -- relaunch this app after a delay
+function relaunch {
+    [ "$1" ] && sleep "$1"
+    open "$myPath"
+}
+
+
 # BOOTSTRAP RUNTIME SCRIPT
 
 # determine location of runtime script
-myContents=$(cd "$(dirname "$0")/.."; pwd)
-[ $? != 0 ] && abort "Unable to determine app path." 1
-[[ "$myContents" =~ /Contents$ ]] || abort "Unexpected app path." 1
-myRuntimeScript="${myContents}/Resources/Scripts/runtime.sh"
+myPath=$(cd "$(dirname "$0")/../.."; pwd)
+myContents="$myPath/Contents"
+[ $? != 0 ] && abort "Unable to determine MakeChromeSSB path." 1
+[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected MakeChromeSSB path." 1
 
 # load main runtime functions
-source "$myRuntimeScript" > /dev/null 2>&1
-[ $? != 0 ] && abort "Error loading runtime script." 1
+safesource "${myPath}/Contents/Resources/Scripts/runtime.sh" "runtime script"
+[ $? != 0 ] && abort "$cmdtext" 1
 
 
 # GET BASIC APP INFORMATION
 
-# get application bundle paths
-apppaths
-[ $? != 0 ] && abort "$cmdtext" 1
-
 # load config.sh file
-source "$appConfigScript" > /dev/null 2>&1
-[ $? != 0 ] && abort "Unable to load config file." 1
+safesource "$myPath/Contents/$appConfigScript" "config file"
+[ $? != 0 ] && abort "$cmdtext" 1
 
 # get Google Chrome info
 chromeinfo
 [ $? != 0 ] && abort "$cmdtext" 1
 
+# by default we don't need to update the config file
+updateconfig=
+
 
 # CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
 
 mcssbinfo
-if [ \( $? = 0 \) -a \( "$SSBVersion" != "$mcssbVersion" \) ] ; then
-    alert "New version of MakeChromeSSB runtime found ($mcssbVersion). Updating SSB..." "SSB Update" caution
+if [ \( $? = 0 \) -a $(newversion "$SSBVersion" "$mcssbVersion") ] ; then
+
+    updateErr=
+
+    # Ask about updating
+    doUpdate=$(osascript -e '
+try
+    set myIcon to (POSIX file "'"$myPath/Contents/Resources/$CFBundleIconFile"'")
+on error
+    set myIcon to caution
+end try
+try
+    button returned of (display dialog "A new version of the MakeChromeSSB runtime was found ('"$mcssbVersion"'). Would you like to update now?" with title "Update" with icon myIcon buttons { "Update", "Later", "Don'"'"'t Ask Again For This Version" } default button "Update" cancel button "Later")
+on error number -128
+    "Later"
+end try')
     
-    customIconTmp= # $$$$ copy icon to temp location
-    
-    "${mcssbUpdateScript}"
+    if [ $? != 0 ] ; then
+	cmdtext="AppleScript error."
+	updateErr=1
+    fi
+
+    if [ \( ! "$updateErr" \) ] ; then
+	case "$doUpdate" in
+	    Update)
+		# read in the new runtime
+		safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
+		if [ $? != 0 ] ; then
+		    updateErr=1
+		else
+		    # use new runtime to update the SSB
+		    updatessb "$myPath"
+		    [ $? != 0 ] && updateErr=1
+
+		    # relaunch!
+		    relaunch 1 &
+		    disown -ar
+		    exit 0
+		fi
+		;;
+	    Later)
+		# don't update
+		doUpdate=
+		;;
+	    *)
+		# pretend we're already at the current version
+		SSBVersion="$mcssbVersion"
+		updateconfig=1
+		;;
+	esac
+    fi
+
+    # alert the user to any error, but leave the SSB functional
+    if [ "$updateErr" ] ; then
+	# Please try update again later.
+	alert "$cmdtext Please try update again later."
+    fi        
 fi
 
 
 # CHECK AND UPDATE CHROME LINKS
-
-updateconfig=
 
 # update config variable
 if [ "$SSBChromePath" != "$chromePath" ] ; then
@@ -92,15 +198,16 @@ if [ "$SSBChromePath" != "$chromePath" ] ; then
 fi
 
 # check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
-if [ \( ! -h "$appChromeLink" \) -o \
-	\( ! -x "$appChromeLink" \) -o \
-	\( "$chromeExec" != "$(readlink "$appChromeLink" 2> /dev/null)" \) ] ; then
+myChromeLink="$myContents/$appChromeLink"
+if [ \( ! -h "$myChromeLink" \) -o \
+	\( ! -x "$myChromeLink" \) -o \
+	\( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" \) ] ; then
     
     # display a relink alert
     alert "Google Chrome appears to have moved. Attempting to relink..." "Relinking Chrome" caution
     
     # relink to Google Chrome
-    linkchrome
+    linkchrome "$myContents"
     [ $? != 0 ] && abort "$cmdtext" 1
 fi
 
@@ -112,23 +219,20 @@ if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     
     # set new version number for config file
     SSBChromeVersion="$chromeVersion"
-    updateconfig=1
     
-    # write out new plist file
-    writeplist
+    # use new runtime to update the SSB
+    updatessb "$myPath" '' ChromeOnly
     [ $? != 0 ] && abort "$cmdtext" 1
     
-    # $$$$ COPY CHROME RESOURCES DIRECTORY & MODIFY LOCALIZED STRINGS
-    
-    # $$$$ THIS SHOULD COME STRAIGHT FROM ABOVE
-    # copy scripting.sdef    
-    copyscriptingsdef
-    [ $? != 0 ] && abort "$cmdtext" 1
+    # relaunch!
+    relaunch 1 &
+    disown -ar
+    exit 0
 fi
 
 # update config file
 if [ "$updateconfig" ] ; then
-    writeconfig
+    writeconfig "$myContents"
     [ $? != 0 ] && abort "$cmdtext" 1
 fi
 
@@ -137,4 +241,4 @@ fi
 
 myProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
 
-exec "$appChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"
+exec "$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"

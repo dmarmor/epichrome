@@ -1,2 +1,2 @@
 # MakeChromeSSB version
-mcssbVersion=1.1.0
+mcssbVersion=2.0.0

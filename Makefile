@@ -26,7 +26,6 @@ APP_SCPT=$(APP_RSRC)/Scripts
 APP_RNTM=$(APP_RSRC)/Runtime
 APP_RNTM_RSRC=$(APP_RNTM)/Resources
 APP_RNTM_SCPT=$(APP_RNTM_RSRC)/Scripts
-APP_RNTM_CNFG=$(APP_RNTM_RSRC)/Config
 APP_RNTM_MCOS=$(APP_RNTM)/MacOS
 
 INSTALL_PATH="/Applications/Make Chrome SSB.app"
@@ -35,7 +34,7 @@ INSTALL_PATH="/Applications/Make Chrome SSB.app"
 
 .PRECIOUS: icons/app_default.icns icons/doc_default.icns
 
-all: $(APP_SCPT)/main.scpt $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns $(APP_SCPT)/version.sh $(APP_SCPT)/make-chrome-ssb.sh $(APP_SCPT)/update.sh $(APP_SCPT)/ssb-path-info.sh $(APP_SCPT)/makeicon.sh $(APP_RNTM_MCOS)/chromessb $(APP_RNTM_SCPT)/runtime.sh $(APP_RNTM_CNFG)/config.sh $(APP_RNTM_RSRC)/app_default.icns $(APP_RNTM_RSRC)/doc_default.icns
+all: $(APP_SCPT)/main.scpt $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns $(APP_SCPT)/version.sh $(APP_SCPT)/make-chrome-ssb.sh $(APP_SCPT)/ssb-path-info.sh $(APP_SCPT)/makeicon.sh $(APP_RNTM_MCOS)/ChromeSSB $(APP_RNTM_SCPT)/runtime.sh $(APP_RNTM_SCPT)/strings.py $(APP_RNTM_RSRC)/app.icns $(APP_RNTM_RSRC)/doc.icns
 
 clean:
 	rm -rf makechromessb.app
@@ -45,7 +44,7 @@ clean-all: clean
 	rm icons/*.icns
 
 install: all
-	rm -rf $(INSTALL_PATH)
+	if [ -e $(INSTALL_PATH) ] ; then osascript -e 'tell application "Finder" to move ((POSIX file $(INSTALL_PATH)) as alias) to trash' ; fi
 	cp -a $(APP) $(INSTALL_PATH)
 
 $(APP_SCPT)/main.scpt: src/main.applescript
@@ -54,25 +53,21 @@ $(APP_SCPT)/main.scpt: src/main.applescript
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
 	mkdir -p $(APP_RNTM_SCPT)
 	mkdir -p $(APP_RNTM_MCOS)
-	mkdir -p $(APP_RNTM_CNFG)
 
-$(APP_CTNT)/Info.plist: src/Info.plist
+$(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	sed "s/SSBVERSION/${VERSION}/" $< > $@
 
 $(APP_RSRC)/applet.icns: icons/makechromessb.icns
 	cp -p icons/makechromessb.icns $(APP_RSRC)/applet.icns
 
-$(APP_SCPT)/%.sh: src/%.sh
+$(APP_SCPT)/%: src/%
 	cp -p $< $(APP_SCPT)/
 
-$(APP_RNTM_MCOS)/chromessb: src/chromessb
-	cp -p src/chromessb $(APP_RNTM_MCOS)/
+$(APP_RNTM_MCOS)/ChromeSSB: src/chromessb
+	cp -p src/chromessb $(APP_RNTM_MCOS)/ChromeSSB
 
-$(APP_RNTM_SCPT)/%.sh: src/%.sh
+$(APP_RNTM_SCPT)/%: src/%
 	cp -p $< $(APP_RNTM_SCPT)/
-
-$(APP_RNTM_CNFG)/%.sh: src/%.sh
-	cp -p $< $(APP_RNTM_CNFG)/
 
 $(APP_RNTM_RSRC)/%.icns: icons/%.icns
 	cp -p $< $(APP_RNTM_RSRC)/

@@ -16,25 +16,48 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#
-# Based on the chrome-ssb.sh engine at https://github.com/lhl/chrome-ssb-osx
-#
-# Tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
 # 
 
-# initialize appTmp
-appTmp=
+
+# SAFESOURCE -- safely source a script (version 1.0)
+function safesource {
+    if [ "$2" ] ; then
+	fileinfo="$2"
+    else
+	fileinfo="$1"
+	[[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
+    fi
+    
+    if [ -e "$1" ] ; then
+	source "$1" > /dev/null 2>&1
+	if [ $? != 0 ] ; then
+	    cmdtext="Unable to load $fileinfo."
+	    return 1
+	fi
+    else
+	cmdtext="Unable to find $fileinfo."
+	return 1
+    fi
+
+    return 0
+}
 
 
-# ABORT: exit cleanly on error
+# ABORT -- exit cleanly on error
 
 function abort {
     [ -d "$appTmp" ] && rm -rf "$appTmp" 2>&1 > /dev/null
     
     [ "$1" ] && echo "$1" 1>&2
-    exit "$2"
+    
+    local result="$2" ; [ "$result" ] || result=1
+    exit "$result"
 }
+
+
+# HANDLE KILL SIGNALS
+
+trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 
 # BOOTSTRAP RUNTIME SCRIPT
@@ -42,12 +65,11 @@ function abort {
 # determine location of runtime script
 myPath=$(cd "$(dirname "$0")/../../.."; pwd)
 [ $? != 0 ] && abort "Unable to determine MakeChromeSSB path." 1
-[[ "$myPath" =~ \.[aA][aP][aP]$ ]] || abort "Unexpected MakeChromeSSB path." 1
-myRuntimeScript="${myPath}/Contents/Runtime/Resources/Scripts/runtime.sh"
+[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected MakeChromeSSB path: $myPath." 1
 
 # load main runtime functions
-source "$myRuntimeScript" > /dev/null 2>&1
-[ $? != 0 ] && abort "Error loading runtime script." 1
+safesource "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "runtime script"
+[ $? != 0 ] && abort "$cmdtext" 1
 
 # get important MCSSB info
 mcssbinfo "$myPath"
@@ -71,6 +93,11 @@ shift
 # icon file
 iconSource="$1"
 shift
+if [ "$iconSource" ] ; then
+    SSBCustomIcon="Yes"
+else
+    SSBCustomIcon="No"
+fi
 
 # register as browser ("Yes" or "No")
 SSBRegisterBrowser="$1"
@@ -88,11 +115,8 @@ appTmp=$(tempname "$appPath")
 cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
 [ $? != 0 ] && abort "Unable to create app bundle." 1
 
-# GET INFO NECESSARY TO RUN THE UPDATE
 
-# get application bundle paths
-apppaths "$appTmp"
-[ $? != 0 ] && abort "$cmdtext" 1
+# GET INFO NECESSARY TO RUN THE UPDATE
 
 # get info about Google Chrome
 chromeinfo
@@ -104,12 +128,18 @@ chromeinfo
 customIconTmp=
 
 if [ "$iconSource" ] ; then    
-    [ -e "$mcssbMakeIconScript" ] || abort "Unable to locate makeicon.sh." 1
-    
+    # find makeicon.sh
+    makeIconScript="${mcssbPath}/Contents/Resources/Scripts/makeicon.sh"
+    [ -e "$makeIconScript" ] || abort "Unable to locate makeicon.sh." 1
+
+    # get temporary name for icon file
     customIconTmp=$(tempname "${appTmp}/${customIconName}" ".icns")
-    
-    cmdtext=$("$mcssbMakeIconScript" -f "$iconSource" "$customIconTmp" 2>&1)
+
+    # convert image into an ICNS
+    cmdtext=$("$makeIconScript" -f "$iconSource" "$customIconTmp" 2>&1)
     result="$?"
+
+    # handle results
     if [ "$result" = 3 ] ; then
 	# file was already an ICNS, so copy it in
 	cmdtext=$(/bin/cp -p "$iconSource" "$customIconTmp" 2>&1)
@@ -123,17 +153,17 @@ if [ "$iconSource" ] ; then
 fi
 
 
-# CALL UPDATE FUNCTION TO POPULATE THE APP BUNDLE
+# POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
-"${mcssbUpdateScript}"
+# populate the Contents directory
+updatessb "$appTmp" "$customIconTmp"
+[ $? != 0 ] && abort "$cmdtext" 1
+
+# delete any temporary custom icon (fail silently, as it's no big deal if the temp file remains)
+[ -e "$customIconTmp" ] && /bin/rm "$customIconTmp" > /dev/null 2>&1
 
 
-
-
-
-
-# MOVE NEW APP TO PERMANENT LOCATION (OVERWRITING ANY OLD APP)
-
+# move new app to permanent location (overwriting any old app)
 permanent "$appTmp" "$appPath" "app bundle"
 [ $? != 0 ] && abort "$cmdtext" 1
 

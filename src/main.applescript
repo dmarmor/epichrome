@@ -18,12 +18,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *
- * Based on the chrome-ssb.sh engine at https://github.com/lhl/chrome-ssb-osx
- *
- * Tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
- *
- *
  *)
 
 
@@ -50,6 +44,8 @@ set pathInfoScript to quoted form of (POSIX path of (path to resource "ssb-path-
 -- LAST-USED ICON AND SSB PATH
 property lastIconPath : ""
 property lastSSBPath : ""
+property doRegisterBrowser : "No"
+property doCustomIcon : "Yes"
 --set lastIconPath to do shell script lastPathScript & " get icon"
 --set lastSSBPath to do shell script lastPathScript & " get ssb"
 
@@ -335,7 +331,7 @@ BROWSER TABS - The SSB will display a full browser window with the given tabs." 
 					
 					repeat
 						try
-							set doRegisterBrowser to button returned of (display dialog "Register SSB as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button "No" cancel button "Back")
+							set doRegisterBrowser to button returned of (display dialog "Register SSB as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -346,7 +342,7 @@ BROWSER TABS - The SSB will display a full browser window with the given tabs." 
 						
 						repeat
 							try
-								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button "Yes" cancel button "Back")
+								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button doCustomIcon cancel button "Back")
 							on error number -128 -- Back button
 								set curStep to curStep - 1
 								exit repeat
@@ -427,6 +423,16 @@ Icon: "
 									set ssbSummary to ssbSummary & ssbIconName
 								end if
 								
+								-- set up Chrome command line
+								set ssbCmdLine to ""
+								if (count of ssbURLs) is 1 then
+									set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
+								else if (count of ssbURLs) > 1 then
+									repeat with t in ssbURLs
+										set ssbCmdLine to ssbCmdLine & " " & quoted form of t
+									end repeat
+								end if
+								
 								repeat
 									try
 										display dialog ssbSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
@@ -438,18 +444,6 @@ Icon: "
 									
 									-- CREATE THE SSB
 									
-									-- set up Chrome command line
-									set ssbCmdLine to ""
-									if (count of ssbURLs) is 1 then
-										set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
-									else if (count of ssbURLs) > 1 then
-										repeat with t in ssbURLs
-											set ssbCmdLine to ssbCmdLine & " " & quoted form of t
-										end repeat
-									end if
-									
-									-- create the SSB!
-									
 									try
 										do shell script chromeSSBScript & " " & Â
 											(quoted form of ssbPath) & " " & Â
@@ -458,33 +452,40 @@ Icon: "
 											(quoted form of ssbIconSrc) & " " & Â
 											(quoted form of doRegisterBrowser) & " " & Â
 											ssbCmdLine
+										set creationSuccess to true
 									on error errStr number errNum
-										display dialog "Creation failed: " & errStr with icon stop buttons {"OK"} default button "OK" with title "Application Not Created"
-										return
-									end try
-									
-									-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
-									try
-										set dlgResult to button returned of (display dialog "Created Chrome SSB \"" & ssbBase & "\"" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
-									on error number -128
-										return -- "Quit" button
-									end try
-									
-									-- launch or reveal
-									if dlgResult is "Launch Now" then
-										delay 1
 										try
-											tell application ssbName to activate
-										on error
-											return
+											display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
+											return -- Quit button
+										on error number -128 -- Back button
+											set creationSuccess to false
 										end try
-									else
-										--if (button returned of dlgResult) is "Reveal in Finder" then
-										tell application "Finder" to reveal ssbPath
-										tell application "Finder" to activate
-									end if
+									end try
 									
-									return -- We're done!
+									if creationSuccess then
+										-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
+										try
+											set dlgResult to button returned of (display dialog "Created Chrome SSB \"" & ssbBase & "\"" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
+										on error number -128
+											return -- "Quit" button
+										end try
+										
+										-- launch or reveal
+										if dlgResult is "Launch Now" then
+											delay 1
+											try
+												tell application ssbName to activate
+											on error
+												return
+											end try
+										else
+											--if (button returned of dlgResult) is "Reveal in Finder" then
+											tell application "Finder" to reveal ssbPath
+											tell application "Finder" to activate
+										end if
+										
+										return -- We're done!
+									end if
 									
 								end repeat
 								
