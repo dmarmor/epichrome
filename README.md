@@ -4,6 +4,8 @@ MakeChromeSSB is an AppleScript-based Mac application (Make Chrome SSB.app) whic
 
 Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui/releases "Download").
 
+Also, a request: I'm not super thrilled with the name "MakeChromeSSB" so if you have any good ideas for a nice punchy name for the project, please open an [issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "Issues") and let me know!
+
 
 ## New in version 2.0.0
 
@@ -26,7 +28,7 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
+Built and tested on Mac OS X 10.10.3 with Chrome version 43.0.2357.81 (64-bit)
 
 The Chrome profile for an SSB lives in: ${HOME}/Library/Application Support/Chrome SSB/<SSB Name>
 
@@ -35,7 +37,7 @@ It's not currently possible to "edit" an SSB. You'd need to create a new SSB wit
 
 ## Issues
 
-None known at this time, but this is a major rewrite of the entire engine and interface and it's gotten much more complicated than version 1, so things will certainly crop up. Please open an [issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "Issues") for any bugs you find, or features you'd like to request and I'll get to them as soon as I can.
+None known at this time, but this is a major rewrite of the entire engine and interface and it's gotten *much* more complicated than version 1, so things will almost certainly crop up. Please open an [issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "Issues") for any bugs you find, or features you'd like to request and I'll get to them as soon as I can.
 
 Once the kinks are worked out, this engine should be much more robust than the previous one in that SSBs will always use the latest version of Chrome and can self-update their own runtime engine when a new release of MakeChromeSSB is installed.
 

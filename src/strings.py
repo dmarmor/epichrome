@@ -17,9 +17,6 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#
-# Tested on Mac OS X 10.10.2 with Chrome version 41.0.2272.89 (64-bit)
-#
 
 import os
 import sys
