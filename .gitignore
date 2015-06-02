@@ -1,4 +1,5 @@
 /makechromessb.app/**
+/dmg/**
 /examples/**
 /icons/source/**
 *.icns
