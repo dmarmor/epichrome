@@ -1,7 +1,6 @@
 (*
  * 
- * main.applescript: A simple AppleScript GUI for creating Chrome SSBs in
- *                   Mac OSX.
+ * main.applescript: An AppleScript GUI for creating Chrome SSBs in Mac OSX.
  *
  *  Copyright (C) 2015  David Marmor
  *
@@ -97,7 +96,7 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the SSB will 
 end tablist
 
 -- INITIALIZE IMPORTANT VARIABLES
-set ssbBase to "Chrome SSB"
+set ssbBase to "My Chrome SSB"
 set ssbURLs to 0
 
 repeat
