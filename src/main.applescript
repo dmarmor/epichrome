@@ -480,7 +480,7 @@ Icon: "
 											end try
 										else
 											--if (button returned of dlgResult) is "Reveal in Finder" then
-											tell application "Finder" to reveal ssbPath
+											tell application "Finder" to reveal ((POSIX file ssbPath) as alias)
 											tell application "Finder" to activate
 										end if
 										
