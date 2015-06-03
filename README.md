@@ -9,9 +9,12 @@ Also, a request: I'm not super thrilled with the name "MakeChromeSSB" so if you 
 
 ## New in version 2.0.0
 
-- SSBs will automatically find Chrome if it's moved or renamed, and will update themselves when Chrome is updated to a new version.
+Lot's of big and small changes in this version!
 
 - SSBs will offer to optionally update themselves if they detect that a new version of MakeChromeSSB has been installed.
+  - *Note for users of version 1.0.0: Please note that the auto-update feature is new in 2.0.0. To get any of the new functionality, you'll need to re-create any of your existing SSBs using MakeChromeSSB 2.0.0. Make sure to give the new app the exact same name as the old one to ensure that your profile information doesn't get lost (the simplest way to do that is just to navigate to the existing SSB in the first file selection dialog and overwrite it). Once you've recreated your SSBs, they will be able to auto-update themselves whenever you download future versions of MakeChromeSSB.*
+
+- SSBs will automatically find Chrome if it's moved or renamed, and will update themselves when Chrome is updated to a new version.
 
 - SSBs can now have a distinct "short name" (which appears in the menubar when the SSB is running) separate from the long app name (which appears in the Dock).
 
@@ -28,7 +31,7 @@ Also, a request: I'm not super thrilled with the name "MakeChromeSSB" so if you 
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.10.3 with Chrome version 43.0.2357.81 (64-bit)
+Built and tested on Mac OS X 10.10.3 with Chrome version 43.0.2357.81 (64-bit).
 
 The Chrome profile for an SSB lives in: ${HOME}/Library/Application Support/Chrome SSB/<SSB Name>
 
