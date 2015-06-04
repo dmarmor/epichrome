@@ -12,7 +12,7 @@ Also, a request: I'm not super thrilled with the name "MakeChromeSSB" so if you 
 Lot's of big and small changes in this version!
 
 - SSBs will offer to optionally update themselves if they detect that a new version of MakeChromeSSB has been installed.
-  - *Note for users of version 1.0.0: Please note that the auto-update feature is new in 2.0.0. To get any of the new functionality, you'll need to re-create any of your existing SSBs using MakeChromeSSB 2.0.0. Make sure to give the new app the exact same name as the old one to ensure that your profile information doesn't get lost (the simplest way to do that is just to navigate to the existing SSB in the first file selection dialog and overwrite it). Once you've recreated your SSBs, they will be able to auto-update themselves whenever you download future versions of MakeChromeSSB.*
+  - *Note for users of version 1.0.0: To get the new auto-update functionality, you'll need to use MakeChromeSSB 2.0.0 to re-create all your existing SSBs. Make sure to give the new app the exact same name as the old one to ensure that your profile information doesn't get lost (the simplest way to do that is just to navigate to the existing SSB in the first file selection dialog and overwrite it). Once you've recreated your SSBs, they will be able to auto-update themselves whenever you download future versions of MakeChromeSSB.*
 
 - SSBs will automatically find Chrome if it's moved or renamed, and will update themselves when Chrome is updated to a new version.
 
@@ -24,7 +24,7 @@ Lot's of big and small changes in this version!
 
 - Multi-tab mode: SSBs can now either be the default "app-style" with no address bar, or the user can specify multiple tabs which will always be opened at startup. Alternately, SSBs can be tab-style with *no* tabs specified, in which case the SSB will simply act as an instance of Chrome, with its initial tabs determined by its preferences.  (Thanks to [mrmartineau](https://github.com/mrmartineau "mrmartineau") for suggesting this!)
 
-- Register as browser: SSBs can now optionally register themselves with OSX as browser, allowing links to be directed to them from other applications. (Thanks to [jschuster](https://github.com/jschuster "jschuster") for suggesting this!)
+- Register as browser: SSBs can now optionally register themselves with OSX as browsers, allowing links to be directed to them from other applications. (Thanks to [jschuster](https://github.com/jschuster "jschuster") for suggesting this!)
 
 - Much more extensive AppleScript interface to handle all these new features (sorry for the long chain of modal dialog boxes--see Future Development for my plan to deal with this)
 
