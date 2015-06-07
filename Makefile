@@ -34,7 +34,19 @@ INSTALL_PATH:=/Applications/Make Chrome SSB.app
 
 .PRECIOUS: icons/app_default.icns icons/doc_default.icns
 
-${APP}: ${APP_SCPT}/main.scpt ${APP_CTNT}/Info.plist ${APP_RSRC}/applet.icns ${APP_SCPT}/version.sh ${APP_SCPT}/make-chrome-ssb.sh ${APP_SCPT}/ssb-path-info.sh ${APP_SCPT}/makeicon.sh ${APP_RNTM_MCOS}/ChromeSSB ${APP_RNTM_SCPT}/runtime.sh ${APP_RNTM_SCPT}/strings.py ${APP_RNTM_RSRC}/app.icns ${APP_RNTM_RSRC}/doc.icns
+${APP}: ${APP_SCPT}/main.scpt \
+	${APP_CTNT}/Info.plist \
+	${APP_RSRC}/applet.icns \
+	${APP_SCPT}/version.sh \
+	${APP_SCPT}/make-chrome-ssb.sh \
+	${APP_SCPT}/ssb-path-info.sh \
+	${APP_SCPT}/makeicon.sh \
+	${APP_RNTM_MCOS}/ChromeSSB \
+	${APP_RNTM_SCPT}/runtime.sh \
+	${APP_RNTM_SCPT}/infoplist.py \
+	${APP_RNTM_SCPT}/strings.py \
+	${APP_RNTM_RSRC}/app.icns \
+	${APP_RNTM_RSRC}/doc.icns
 
 clean:
 	rm -rf makechromessb.app

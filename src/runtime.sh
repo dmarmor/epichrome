@@ -40,37 +40,6 @@ appScriptingSdef="Resources/scripting.sdef"
 appChromeLink="MacOS/Chrome"
 
 
-# VARNAME: make a string into a legal variable name
-function varname {
-    local result="$1"
-
-    # variable can't start with a number
-    local re='^[0-9]'
-    [[ "$result" =~ $re ]] && result="_$result"
-
-    # replace all undesirable characters with _
-    result="${result//[^a-zA-Z0-9_]/_}"
-
-    echo "$result"
-}
-
-
-# URLNAME: make a string into a legal URL name
-function urlname {
-    local result="$1"
-
-    # remove all undesirable characters
-    result="${result//[^-a-zA-Z0-9_]/}"
-    
-    # if too long, truncate to 12 characters
-    [ "${#result}" -ge 12 ] && result="${result::12}"
-
-    [ ! "$result" ] && result="SSB"
-    
-    echo "$result"
-}
-
-
 # TEMPNAME: internal version of mktemp
 function tempname {
     # approximately equivalent to result=$(/usr/bin/mktemp "${appPath}.XXXXX" 2>&1)
@@ -231,6 +200,33 @@ function dirlist {
 }
 
 
+# NEWVERSION (V1 V2) -- check if the V1 < V2
+function newversion {
+    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)'
+    if [[ "$1" =~ $re ]] ; then
+	old=("${BASH_REMATCH[@]:1}")
+    else
+	old=( 0 0 0 )
+    fi
+    if [[ "$2" =~ $re ]] ; then
+	new=("${BASH_REMATCH[@]:1}")
+    else
+	new=( 0 0 0 )
+    fi
+
+    local i= ; local idx=( 0 1 2 )
+    for i in "${idx[@]}" ; do
+	if [ "${old[$i]}" -lt "${new[$i]}" ] ; then
+	    echo "1"
+	    return 1
+	fi
+	[ "${old[$i]}" -gt "${new[$i]}" ] && return 0
+    done
+    
+    return 0
+}
+
+
 # MCSSBINFO: get absolute path and version info for MakeChromeSSB
 function mcssbinfo {
     # default value
@@ -357,19 +353,6 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 }
 
 
-# WRITEPLIST_MAKEKEYRE: assemble key value array into a regular expression
-function writeplist_makekeyre {
-    local result=
-    local k=
-    for k in "${@}" ; do
-	[ "$result" ] && result="${result}|"
-	result="${result}${k}"
-    done
-    result="^(${result})$"
-    echo "$result"
-}
-
-
 # WRITEPLIST: write out new Info.plist file
 function writeplist {  # $1 = destination app bundle Contents directory
 
@@ -379,148 +362,57 @@ function writeplist {  # $1 = destination app bundle Contents directory
 	return 1
     fi
     
-    # set up added necessary Info.plist variables
-    local CFBundleIdentifier="com.google.Chrome.$(urlname "${CFBundleName}")"
-    local CFBundleVersion="$mcssbVersion"            # MakeChromeSSB version
-    local CFBundleShortVersionString="$mcssbVersion" # MakeChromeSSB version
-
     # full path to Info.plist file
     local fullInfoPlist="$1/$appInfoPlist"
     
     # create name for temp Info.plist file
     local tmpInfoPlist=$(tempname "$fullInfoPlist")
-    
-    local IFS=''
-    local re_key="<key>(.*)</key>"
-    local re_string="(^.*<string>)(.*)(</string>.*$)"
-    local state=
-    local printline=
-
-    
-    # SET UP ALL KEYS WE'LL BE CHANGING OR DELETING
-    
-    # keys to change in the Info.plist file
-    local re_states=$(writeplist_makekeyre CFBundleDisplayName \
-					   CFBundleExecutable \
-					   CFBundleIconFile \
-					   CFBundleIdentifier \
-					   CFBundleName \
-					   CFBundleShortVersionString \
-					   CFBundleVersion \
-					   CFBundleTypeIconFile )
-    
-    # keys to delete from the Info.plist file
-    local re_delete=( CFBundleSignature \
-			  SCMRevision \
-			  DTSDKBuild \
-			  DTSDKName \
-			  DTXcode \
-			  DTXcodeBuild \
-			  KSChannelID-32bit \
-			  KSChannelID-32bit-full \
-			  KSChannelID-full \
-			  KSProductID \
-			  KSUpdateURL \
-			  KSVersion )
+        
+    # create list of keys to filter
+    filterkeys=(CFBundleDisplayName "$CFBundleDisplayName" \
+				    CFBundleExecutable "$CFBundleExecutable" \
+				    CFBundleIconFile "$CFBundleIconFile" \
+				    CFBundleIdentifier "$CFBundleIdentifier" \
+				    CFBundleName "$CFBundleName" \
+				    CFBundleShortVersionString "$mcssbVersion" \
+				    CFBundleVersion "$mcssbVersion" \
+				    CFBundleTypeIconFile "$CFBundleTypeIconFile" \
+				    CFBundleSignature '' \
+				    SCMRevision '' \
+				    DTSDKBuild '' \
+				    DTSDKName '' \
+				    DTXcode '' \
+				    DTXcodeBuild '' \
+				    KSChannelID-32bit '' \
+				    KSChannelID-32bit-full '' \
+				    KSChannelID-full '' \
+				    KSProductID '' \
+				    KSUpdateURL '' \
+				    KSVersion '' )
     
     # if we're not registering as a browser, delete these keys too
     if [ "$SSBRegisterBrowser" != "Yes" ] ; then
-	re_delete+=( CFBundleURLTypes NSPrincipalClass NSUserActivityTypes )
-	eval "$(varname CFBundleURLTypes)=27"    # delete 27 lines
-	eval "$(varname NSUserActivityTypes)=3"  # delete 3 lines
+	filterkeys+=( CFBundleURLTypes '' \
+				       NSPrincipalClass '' \
+				       NSUserActivityTypes '' )
     fi
     
-    # make the regular expression
-    re_delete=$(writeplist_makekeyre "${re_delete[@]}")
-
-    
-    # READ AND FILTER CHROME'S INFO.PLIST FILE INTO OUR TEMP FILE
-
-    local result=0
-    cmdtext=
-    
-    while read -r line ; do
-	if [ $? != 0 ] ; then
-	    cmdtext="Error reading Google Chrome Info.plist file."
-	    break
-	fi
-	
-	if [ ! "$state" ] ; then
-	    if [[ "$line" =~ $re_key ]] ; then
-		key="${BASH_REMATCH[1]}"
-		if [[ "$key" =~ $re_states ]] ; then
-		    state="${BASH_REMATCH[1]}"
-		    printline="$line"
-		elif [[ "$key" =~ $re_delete ]] ; then
-		    state="__DELETE"
-		    
-		    # set number of further lines to delete (default 1)
-		    eval numlines="\$$(varname $key)"
-		    [ ! "$numlines" ] && numlines=1
-		    
-		    # don't print this line
-		    printline=
-		else
-		    printline="$line"
-		fi
-	    else
-		printline="$line"
-	    fi
-	else
-	    if [ "$state" = "__DELETE" ] ; then
-		printline=
-		
-		# decrement line deletion count
-		numlines=$(($numlines - 1))
-		[ $numlines -lt 1 ] && state=  # we're done
-	    else
-		if [[ "$line" =~ $re_string ]] ; then
-		    # special case: store Chrome's version number
-		    if [ "$state" = "CFBundleShortVersionString" ] ; then
-			if [ "$chromeVersion" -a \( "$chromeVersion" != "${BASH_REMATCH[2]}" \) ] ; then
-			    cmdtext="Chrome version in Info.plist (${BASH_REMATCH[2]}) doesn't match Versions directory ($chromeVersion)."
-			    break
-			else
-			    chromeVersion="${BASH_REMATCH[2]}"
-			fi
-		    fi
-
-		    # replace string with our value
-		    eval replace="\$$state"
-		    if [ ! "$replace" ] ; then
-			cmdtext="Internal error (unknown state \"$state\")"
-			break
-		    fi
-		    printline="${BASH_REMATCH[1]}${replace}${BASH_REMATCH[3]}"
-		else
-		    cmdtext="Unable to parse Chrome Info.plist (expecting XML <string> tag)."
-		    break
-		fi
-		state=
-	    fi
-	fi
-	
-	if [ "$printline" ] ; then
-	    printf "%s\n" "$printline" >> ${tmpInfoPlist}
-	    if [ $? != 0 ] ; then
-		cmdtext="Error writing Info.plist."
-		break
-	    fi
-	fi
-    done < "$chromeInfoPlist"
-
-    [ "$cmdtext" ] && result=1
-
-    # move temp file to permanent location
-    if [ $result = 0 ] ; then
-	permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
-	[ $? != 0 ] && result=1
-    else
+    # run python script to filter Info.plist
+    cmdtext=$(/usr/bin/python "$1/Resources/Scripts/infoplist.py" \
+			      "$chromeInfoPlist" \
+			      "$tmpInfoPlist" \
+			      "${filterkeys[@]}" 2>&1)
+    if [ $? != 0 ] ; then
 	# if we failed earlier, delete the temp file
 	rmtemp "$tmpInfoPlist" "Info.plist"
+	return 1
+    else
+	# move temp file to permanent location
+	permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
+	[ $? != 0 ] && return 1
     fi
     
-    return $result
+    return 0
 }
 
 
@@ -615,6 +507,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 
     local configvars=( CFBundleDisplayName \
 			   CFBundleName \
+			   CFBundleIdentifier \
 			   SSBVersion \
 			   SSBChromePath \
 			   SSBChromeVersion \
@@ -726,11 +619,52 @@ function updatessb {
 	    linkchrome "$contentsTmp"
 	    [ $? != 0 ] && result=1
 	fi
+
+	# create a bundle identifier if necessary
+	if [ $result = 0 ] ; then
+	    if [ ! "$CFBundleIdentifier" ] ; then
+		local maxfound=0
+		# if we're updating from pre 2.0.1, it's OK if we find one instance on the system
+		if [ "$SSBVersion" -a $(newversion "$SSBVersion" "2.0.1") ] ; then
+		    maxfound=1
+		fi
+		
+		# create a bundle identifier
+		bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
+		bid="${bid::12}"               # truncate to 12 characters
+		[ ! "$bid" ] && bid="SSB"      # if trimmed away to nothing, use a default name
+		local bidbase="${bid::9}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
+		
+		# if this identifier already exists on the system, create a unique one
+		local idfound=0
+		local notunique=1
+		local randext="000"
+		while [ "$notunique" ] ; do
+		    CFBundleIdentifier="com.google.Chrome.$bid"
+		    idfound=$(mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" | wc -l)
+		    if [ $? != 0 ] ; then
+			cmdtext="Unable to search system for bundle identifier."
+			notunique=
+			result=1
+		    fi
+
+		    if [ "$idfound" -le "$maxfound" ] ; then
+			notunique=
+		    else
+			# try to create a unique identifier
+			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
+			bid="${bid::$bidbase}${randext:1:3}"
+		    fi
+		done
+
+		# if we got out of that loop, we have a unique ID (or we got an error)
+	    fi
+	fi	
     fi
     
     
     # OPERATIONS FOR UPDATING CHROME
-    
+
     # write out Info.plist
     if [ $result = 0 ] ; then
 	writeplist "$contentsTmp"

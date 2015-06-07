@@ -86,7 +86,7 @@ shift
 CFBundleDisplayName="$1"
 shift
 
-# short app name (for the menu bar)
+# short app name for the menu bar (and app identifier)
 CFBundleName="$1"
 shift
 

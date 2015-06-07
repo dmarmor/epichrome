@@ -60,33 +60,6 @@ function abort {
 }
 
 
-# NEWVERSION -- check if the second passed version is greater than the first
-function newversion {
-    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)'
-    if [[ "$1" =~ $re ]] ; then
-	old=("${BASH_REMATCH[@]:1}")
-    else
-	old=( 0 0 0 )
-    fi
-    if [[ "$2" =~ $re ]] ; then
-	new=("${BASH_REMATCH[@]:1}")
-    else
-	new=( 0 0 0 )
-    fi
-
-    local i= ; local idx=( 0 1 2 )
-    for i in "${idx[@]}" ; do
-	if [ "${old[$i]}" -lt "${new[$i]}" ] ; then
-	    echo "1"
-	    return 1
-	fi
-	[ "${old[$i]}" -gt "${new[$i]}" ] && return 0
-    done
-    
-    return 0
-}
-
-
 # RELAUNCH -- relaunch this app after a delay
 function relaunch {
     [ "$1" ] && sleep "$1"
