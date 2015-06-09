@@ -54,11 +54,11 @@ function usage {
 
 # UTILITY FUNCTIONS
 
-# CLEANEXIT: exit cleanly
+# ABORT: exit cleanly
 iset_exists=
 converted_exists=
 output_exists=
-function cleanexit {
+function abort {
     [ "$iset_exists" ] && rm -rf "$iset"
     [ "$converted_exists" ] && rm -f "$converted"
     [ "$output_exists" ] && rm -rf "$output"
@@ -68,6 +68,11 @@ function cleanexit {
     
     exit "$2"
 }
+
+
+# HANDLE EARLY TERMINATION
+
+trap "abort 'Error: unexpected termination.' 5" SIGHUP SIGINT SIGTERM
 
 
 # CONFIRM: confirm action (unless -f flag is in effect)
@@ -89,13 +94,13 @@ function confirmdelete {  # FILE DON'T-CONFIRM? DON'T-DELETE?
 	# prompt unless we're not supposed to
 	if [ ! "$2" ] ; then
 	    confirm "Overwrite $1"
-	    [ $? != 1 ] && cleanexit "" 0
+	    [ $? != 1 ] && abort "" 0
 	fi
 
 	# remove unless we're not supposed to
 	if [ ! "$3" ] ; then
 	    cmdtext=$(rm -rf "$1" 2>&1)
-	    [ $? != 0 ] && cleanexit "Error: unable to overwrite $1." 1
+	    [ $? != 0 ] && abort "Error: unable to overwrite $1." 1
 	fi
     fi
 }
@@ -160,32 +165,32 @@ confirmdelete "$output" "" 1
 iset="${output%.icns}.iconset"
 
 # make sure input file exists
-[ -e "$input" ] || cleanexit "Error: image file does not exist." 2
+[ -e "$input" ] || abort "Error: image file does not exist." 2
 
 # get file format from sips
 format=$(sips -g format "$input" 2>&1)
-[ "$?" != "0" ] && cleanexit "Error: unable to determine image format." 2
+[ "$?" != "0" ] && abort "Error: unable to determine image format." 2
 
 # abort on unrecognized file format
-[[ "$format" =~ Error ]] && cleanexit "Error: not a recognized image format." 2
+[[ "$format" =~ Error ]] && abort "Error: not a recognized image format." 2
 format=${format#*format: }
 
 # possibly exit if already an ICNS
 if [ "$format" = "icns" ] ; then
-    [ ! "$convertIcns" ] && cleanexit "Error: input file is already ICNS." 3
+    [ ! "$convertIcns" ] && abort "Error: input file is already ICNS." 3
 fi
 
 # get image dimensions
 w=$(sips -g pixelWidth "$input" 2>&1)
-[ "$?" != "0" ] && cleanexit "Error: unable to get image width." 2
+[ "$?" != "0" ] && abort "Error: unable to get image width." 2
 w=${w#*pixelWidth: }
 
 h=$(sips -g pixelHeight "$input" 2>&1)
-[ "$?" != "0" ] && cleanexit "Error: unable to get image height." 2
+[ "$?" != "0" ] && abort "Error: unable to get image height." 2
 h=${h#*pixelHeight: }
 
 # problems with the image dimensions
-[ \( "$h" -lt "16" \) -o \( "$w" -lt "16" \) ] && cleanexit "Error: image is less than 16x16." 2
+[ \( "$h" -lt "16" \) -o \( "$w" -lt "16" \) ] && abort "Error: image is less than 16x16." 2
 
 
 # if not a square PNG, convert to a square PNG
@@ -201,7 +206,7 @@ if [ "${#convert_args[@]}" -gt 0 ] ; then
     converted=$(tempname "${output}" ".png")
     
     sipstxt=$(sips "${convert_args[@]}" "$input" --out "$converted" 2>&1)
-    [ "$?" != "0" ] && cleanexit "Error: unable to convert image to a square PNG." 2
+    [ "$?" != "0" ] && abort "Error: unable to convert image to a square PNG." 2
     converted_exists=1
     
     input="$converted"
@@ -213,7 +218,7 @@ fi
 confirmdelete "$iset"
 
 cmdtext=$(mkdir "$iset" 2>&1)
-[ "$?" != "0" ] && cleanexit "Error: unable to create temporary iconset directory." 1
+[ "$?" != "0" ] && abort "Error: unable to create temporary iconset directory." 1
 iset_exists=1
 
 # create sized images
@@ -230,20 +235,20 @@ for cursize in ${sizes[@]} ; do
 	cp "$input" "$dblnm"
     elif [ "$h" -gt "$dbl" ] ; then
 	sipstxt=$(sips -z $dbl $dbl "$input" --out "$dblnm" 2>&1)
-	[ "$?" != "0" ] && cleanexit "Error: unable to create image size ${dbl}x${dbl}." 2
+	[ "$?" != "0" ] && abort "Error: unable to create image size ${dbl}x${dbl}." 2
     fi
 
     if [ "$h" -eq "$cursize" ] ; then
 	cp "$input" "$nm"
     elif [ "$h" -gt "$cursize" ] ; then
 	sipstxt=$(sips -z $cursize $cursize "$input" --out "$nm" 2>&1)
-	[ "$?" != "0" ] && cleanexit "Error: unable to create image size ${cursize}x${cursize}." 2
+	[ "$?" != "0" ] && abort "Error: unable to create image size ${cursize}x${cursize}." 2
     fi
 done
 
 confirmdelete "$output" 1  # delete without prompting
 
 cmdtext=$(iconutil -c icns -o "$output" "$iset" 2>&1)
-[ "$?" != "0" ] && cleanexit "Error: unable to convert iconset to ICNS file." 4
+[ "$?" != "0" ] && abort "Error: unable to convert iconset to ICNS file." 4
 
-cleanexit "" 0
+abort "" 0
