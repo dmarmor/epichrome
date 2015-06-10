@@ -1,6 +1,6 @@
 # MakeChromeSSB 2.0.1
 
-**Please update to 2.0.1 if you've been using 2.0.0! There's a bug that will cause your SSBs to not realize when a new version of Chrome has been installed (as happened today, 6/9/2015).**
+**Please update to 2.0.1 if you've been using any previous version! There's a bug in 2.0.0 that will cause your SSBs to not realize when a new version of Chrome has been installed (as happened today, 6/9/2015).**
 
 MakeChromeSSB is an AppleScript-based Mac application (Make Chrome SSB.app) which allows users to create Chrome-based site-specific browsers (SSBs) for Mac OSX. These SSBs are full Mac apps, and each maintains its own separate Chrome profile. The SSBs require Chrome to be installed in order to run.
 
