@@ -183,7 +183,7 @@ fi
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     
     # display a Chrome update alert
-    alert "New version of Google Chrome found. Updating SSB..." "New Chrome Version" caution
+    alert "New version of Google Chrome found ($chromeVersion). Updating SSB..." "New Chrome Version" caution
     
     # set new version number for config file
     SSBChromeVersion="$chromeVersion"
