@@ -315,10 +315,29 @@ function chromeinfo {
     fi
 
     # Chrome version
-    local vls=
-    dirlist "${chromePath}/Contents/Versions" vls "Chrome version"
-    [ $? != 0 ] && return 1
-    chromeVersion="${vls[$((${#vls[@]}-1))]}"
+    local re='^kMDItemVersion = "(.*)"$'
+    chromeVersion=$(/usr/bin/mdls -name kMDItemVersion "$chromePath")
+    if [[ "$chromeVersion" =~ $re ]] ; then
+	chromeVersion="${BASH_REMATCH[1]}"
+    else
+	cmdtext="Unable to retrieve Chrome version."
+	return 1
+    fi
+    
+    # (alternate version not using mdls)
+    #     local re='<key>CFBundleShortVersionString</key>[ 	
+    # ]*<string>([^<]*)</string>'
+    #     local infoplist=$(/bin/cat "$chromeInfoPlist" 2> /dev/null)
+    #     if [ $? != 0 ] ; then
+    # 	cmdtext="Unable to read Chrome Info.plist."
+    # 	return 1
+    #     fi
+    #     if [[ "$infoplist" =~ $re ]] ; then
+    # 	chromeVersion="${BASH_REMATCH[1]}"
+    #     else
+    # 	cmdtext="Unable to retrieve Chrome version."
+    #   return 1
+    #     fi
     
     cmdtext=
     return 0
