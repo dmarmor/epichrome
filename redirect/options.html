@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SSB Redirect Options</title>
+<link rel="stylesheet" type="text/css" href="options.css" />
+</head>
+
+<body id="body">
+  <div id="container">
+    
+    <div id="overlay">
+      <div id="shutdown_box" class="box">
+	<h3>The extension has shut down</h3>
+	<h4 id="shutdown_message"></h4>
+	<p id="shutdown_help">
+	Try disabling and re-enabling the SSB, or check for updates/fixes at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
+	</p>
+      </div>
+      
+      <div id="dialog_box" class="box">
+	<h3 id="dialog_title"></h3>
+	<p id="dialog_message"></p>
+	<button id="dialog_button1">Button 1</button>
+	<button id="dialog_button2">Button 2</button>
+	<button id="dialog_button3">Button 3</button>
+      </div>
+
+    </div>
+  
+    <div id="options_form">
+      <a download="SSB Redirect Settings.txt" id="export_options">export options</a>
+      <input type="file" id="import_options" name="filename" style="display: none" />
+  
+      <button id="export_click">Export</button>
+      <button id="import_click">Import</button>
+
+      <p>
+        <label>
+          <input type="checkbox" id="ignoreAllInternalSameDomain" />
+          Never redirect domain-relative links that would open in the same tab
+        </label>  
+      </p>
+
+      <p id="rules_old"></p>
+
+      <button id="add_click">Add</button>
+      
+    <div id="rules_header">
+	    <span class="drag-handle"></span>
+      <span class="pattern">pattern fooo bar bletch fldk sdld fsdf sld faqd fasd fasd fsa fddjdj</span>
+	    <span class="target">target</span>
+	    <span class="redirect">redirect</span>
+      
+      </div>
+	<ul id="rules">
+	  <li>
+	    <span class="drag-handle">&#9776;</span>
+	    <input type="text" class="pattern" value="*" />
+	    <select class="target">
+	      <option value="both">Any</option>
+	      <option value="internal">Same Tab</option>
+	      <option value="external">New Tab</option>
+	    </select>
+	    <select class="redirect">
+	      <option value="true">Redirect</option>
+	      <option value="false">Don't Redirect</option>
+	    </select>
+	    <span class="delete-button">X</span>
+	  </li>
+	</ul>
+
+      <label>
+        If a link doesn't match any rule:
+        <select id="redirectByDefault">
+          <option value="true">Redirect</option>
+          <option value="false">Don't Redirect</option>
+        </select>
+      </label>
+	
+      <button id="save_click">Save</button>
+      <button id="reset_click">Reset to Default</button>
+    </div><!-- options_form -->
+  </div><!-- container -->
+  <script src="jquery-2.1.4.min.js"></script>
+  <script src="jquery-ui-1.11.4.min.js"></script>
+  <script src="shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

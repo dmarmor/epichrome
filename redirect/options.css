@@ -1,0 +1,124 @@
+body: {
+    padding: 10px;
+}
+
+#container {
+    width: 500px;
+    height: 500px;
+    position: relative;
+}
+
+#overlay {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.75);
+    z-index: 2;
+}
+
+#overlay h3 {
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #d3d3d3;
+}
+
+#overlay p, #overlay h4 {
+    margin-bottom: 0;
+    line-height: 125%;
+}
+
+#overlay .box {
+    display: none;
+    position: relative;
+    top: 15%;
+    left: 15%;
+    width: 70%;
+    padding: 15px;
+    
+    /* copied from Chrome overlay.css */
+    -webkit-border-radius: 3px;
+    -webkit-box-orient: vertical;
+    -webkit-transition: 200ms -webkit-transform;
+    background: white;
+    box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15);
+    color: #333;
+    display: -webkit-box;
+}
+
+#overlay #shutdown_box {
+    display: none;
+}
+
+#options_form {
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    top: 0;
+}
+
+#export_options {
+    display: none;
+}
+
+
+
+#rules {
+    width: 100%;
+    height: 100px;
+    background-color: yellow;
+    overflow-y: scroll;
+}
+
+ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.drag-handle,.pattern,.target,.redirect {
+    display: inline-block;
+}
+
+.drag-handle {
+    margin-right: 10px;
+    width: 20px;
+}
+
+.pattern {
+    width: 160px;
+}
+
+.target {
+    width: 100px;
+}
+
+#rules .drag-handle {
+    font: bold 20px Sans-Serif;
+    cursor: move;
+    cursor: -webkit-grabbing;  /* overrides 'move' */
+}
+
+
+#rules li {
+    position: relative;
+}
+
+#rules .delete-button {
+    -webkit-transition: opacity .2s;
+    transition: opacity .2s;
+    opacity: 0;
+    display: inline-block;
+    cursor: pointer;
+    color: #c00;
+    position: relative;
+    font-style: normal;
+}
+
+#rules li:hover .delete-button {
+    opacity: 1;
+}
+
+button {
+    cursor: pointer;    
+}
