@@ -44,12 +44,65 @@ function safesource {
 
 
 # ALERT -- display an alert dialogue
-function alert {  #  TITLE MESSAGE ICON (stop, caution, note)
-    msg="$1" ; shift
-    title="$1" ; shift ; [ "$title" ] && title="with title \"$title\""
-    icon="$1" ; shift ; [ "$icon" ] && icon="with icon $icon"
+function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
+    local msg="$1" ; shift
+    local title="$1" ; shift ; [ "$title" ] && title="with title \"$title\""
+    local icon="$1" ; shift ; [ "$icon" ] && icon="with icon $icon"
     
     cmdtext=$(osascript -e "display dialog \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title" 2>&1)
+}
+
+
+# DIALOG -- display a dialog and return the button pressed
+function dialog {  # MESSAGE TITLE ICON (if starts with | try app icon first) DEFAULT CANCEL BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
+    local msg="$1" ; shift
+    local title_code="$1" ; shift ; [ "$title_code" ] && title_code="with title \"$title_code\""
+
+    # build icon setting code
+    local icon="$1" ; shift
+    if [ "${icon::1}" = "|" ] ; then
+	icon="${icon:1}"
+	icon_code="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
+tell application \"Finder\"
+    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
+        set myIcon to $icon
+    end if
+end tell"
+    else
+	icon_code="set myIcon to $icon"
+    fi
+    
+    # build button list
+    local buttonlist=
+    local button=
+    local button_default=
+    local button_cancel=
+    local try_start=
+    local try_end=
+    for button in "${@:1:3}" ; do
+	# identify default and cancel buttons
+	if [ "${button::1}" = "+" ] ; then
+	    button="${button:1}"
+	    button_default="default button \"$button\""
+	elif [ \( "${button::1}" = "-" \) -o \( "$button" = "Cancel" \) ] ; then
+	    button="${button#-}"
+	    button_cancel="cancel button \"$button\""
+	    try_start="try"
+	    try_end="on error number -128
+    \"$button\"
+end try"
+	fi
+	
+	# add to button list
+	buttonlist="$buttonlist, \"$button\""
+    done
+    buttonlist="{ ${buttonlist:2} }"
+    
+    # run the dialog
+    osascript -e "$icon_code
+$try_start
+    button returned of (display dialog \"$msg\" $title_code with icon myIcon buttons $buttonlist $button_default $button_cancel)
+$try_end"
 }
 
 
@@ -76,14 +129,14 @@ myContents="$myPath/Contents"
 [[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected MakeChromeSSB path." 1
 
 # load main runtime functions
-safesource "${myPath}/Contents/Resources/Scripts/runtime.sh" "runtime script"
+safesource "${myContents}/Resources/Scripts/runtime.sh" "runtime script"
 [ $? != 0 ] && abort "$cmdtext" 1
 
 
 # GET BASIC APP INFORMATION
 
 # load config.sh file
-safesource "$myPath/Contents/$appConfigScript" "config file"
+safesource "$myContents/$appConfigScript" "config file"
 [ $? != 0 ] && abort "$cmdtext" 1
 
 # get Google Chrome info
@@ -97,22 +150,17 @@ updateconfig=
 # CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
 
 mcssbinfo
-if [ \( $? = 0 \) -a $(newversion "$SSBVersion" "$mcssbVersion") ] ; then
+if [ \( $? = 0 \) -a "$(newversion "$SSBVersion" "$mcssbVersion")" ] ; then
 
     updateErr=
 
     # Ask about updating
-    doUpdate=$(osascript -e '
-try
-    set myIcon to (POSIX file "'"$myPath/Contents/Resources/$CFBundleIconFile"'")
-on error
-    set myIcon to caution
-end try
-try
-    button returned of (display dialog "A new version of the MakeChromeSSB runtime was found ('"$mcssbVersion"'). Would you like to update now?" with title "Update" with icon myIcon buttons { "Update", "Later", "Don'"'"'t Ask Again For This Version" } default button "Update" cancel button "Later")
-on error number -128
-    "Later"
-end try')
+    doUpdate=$(dialog "A new version of the MakeChromeSSB runtime was found ($mcssbVersion). Would you like to update now?" \
+		      "Update" \
+		      "|caution" \
+		      "+Update" \
+		      "-Later" \
+		      "Don't Ask Again For This Version" )
     
     if [ $? != 0 ] ; then
 	cmdtext="AppleScript error."
@@ -172,7 +220,8 @@ if [ \( ! -h "$myChromeLink" \) -o \
 	\( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" \) ] ; then
     
     # display a relink alert
-    alert "Google Chrome appears to have moved. Attempting to relink..." "Relinking Chrome" caution
+
+    dialog "Google Chrome appears to have moved. Attempting to relink..." "Relinking Chrome" "|caution" "+OK" > /dev/null
     
     # relink to Google Chrome
     linkchrome "$myContents"
@@ -183,7 +232,7 @@ fi
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     
     # display a Chrome update alert
-    alert "New version of Google Chrome found ($chromeVersion). Updating SSB..." "New Chrome Version" caution
+    dialog "New version of Google Chrome found ($chromeVersion). Updating SSB..." "New Chrome Version" "|caution" "+OK"
     
     # set new version number for config file
     SSBChromeVersion="$chromeVersion"
@@ -205,8 +254,83 @@ if [ "$updateconfig" ] ; then
 fi
 
 
-# SET PROFILE PATH AND LAUNCH THE SSB
+# MAKE SURE NATIVE HOST IS INSTALLED
 
-myProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+# set up host file paths
+hostId="SSBHOSTID"
+hostManifest="${hostId}.json"
+hostScript="${hostId}-host.py"
+hostDir="NativeMessagingHosts"
+hostInstallPath="$SSBProfilePath/$hostDir"
+hostScriptInstalled="$hostInstallPath/$hostScript"
+hostManifestInstalled="$hostInstallPath/$hostManifest"
 
-exec "$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"
+# check if we need to install native messaging host
+doHostInstall=
+if [[ ! -x "$hostScriptInstalled" ]] ; then
+    doHostInstall=1
+else
+    hostVersion=$("$hostScriptInstalled" -v 2>&1)
+    [[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
+fi
+[[ ! -e "$hostManifestInstalled" ]] && doHostInstall=1
+
+# do the installation if necessary
+if [[ "$doHostInstall" ]] ; then
+    hostError=
+    hostSourcePath="$myContents/Resources/$hostDir"
+    
+    # create the install directory
+    mkdir -p "$hostInstallPath" 2>&1 /dev/null
+    if [ $? = 0 ] ; then
+	hostError=1
+	cmdtext="Unable to create messaging host installation folder."
+    fi
+    
+    # stream-edit the manifest file
+    hostManifestTmp=$(tempname "$hostManifestInstalled")
+    sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" > "$hostManifestTmp" 2> /dev/null
+    if [ $? != 0 ] ; then
+	hostError=1
+	cmdtext="Unable to copy messaging host manifest."
+    fi
+    
+    # stream-edit the host script
+    if [[ ! "$hostError" ]] ; then
+	hostScriptTmp=$(tempname "$hostScriptInstalled")
+	sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" > "$hostScriptTmp" 2> /dev/null
+	if [ $? != 0 ] ; then
+	    hostError=1
+	    cmdtext="Unable to copy messaging host."
+	fi	
+    fi
+
+    # fix host script permissions
+    if [[ ! "$hostError" ]] ; then
+	/bin/chmod 755 "$hostScriptTmp" > /dev/null 2>&1
+	if [ $? != 0 ] ; then
+	    hostError=1
+	    cmdtext="Unable to make messaging host executable."
+	fi
+    fi
+    
+    # move both files to permanent homes
+    if [[ ! "$hostError" ]] ; then
+	permanent "$hostManifestTmp" "$hostManifestInstalled" "messaging host manifest"
+	[ $? != 0 ] && hostError=1
+    fi
+    if [[ ! "$hostError" ]] ; then
+	permanent "$hostScriptTmp" "$hostScriptInstalled" "messaging host"
+	[ $? != 0 ] && hostError=1
+    fi
+
+    # report error, but don't abort
+    if [[ "$hostError" ]] ; then
+	alert "$cmdtext The SSB will still work, but the companion SSB Redirect extension won't." "Messaging Host Error" caution
+    fi
+fi
+
+
+# LAUNCH THE SSB
+
+exec "$myChromeLink" --user-data-dir="$SSBProfilePath" "${SSBCommandLine[@]}"

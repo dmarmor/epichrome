@@ -388,14 +388,14 @@ function writeplist {  # $1 = destination app bundle Contents directory
     local tmpInfoPlist=$(tempname "$fullInfoPlist")
         
     # create list of keys to filter
-    filterkeys=(CFBundleDisplayName "$CFBundleDisplayName" \
-				    CFBundleExecutable "$CFBundleExecutable" \
-				    CFBundleIconFile "$CFBundleIconFile" \
-				    CFBundleIdentifier "$CFBundleIdentifier" \
-				    CFBundleName "$CFBundleName" \
-				    CFBundleShortVersionString "$mcssbVersion" \
-				    CFBundleVersion "$mcssbVersion" \
-				    CFBundleTypeIconFile "$CFBundleTypeIconFile" \
+    filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
+				    CFBundleExecutable string "$CFBundleExecutable" \
+				    CFBundleIconFile string "$CFBundleIconFile" \
+				    CFBundleIdentifier string "$CFBundleIdentifier" \
+				    CFBundleName string "$CFBundleName" \
+				    CFBundleShortVersionString string "$mcssbVersion" \
+				    CFBundleVersion string "$mcssbVersion" \
+				    CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
 				    CFBundleSignature '' \
 				    SCMRevision '' \
 				    DTSDKBuild '' \
@@ -407,7 +407,8 @@ function writeplist {  # $1 = destination app bundle Contents directory
 				    KSChannelID-full '' \
 				    KSProductID '' \
 				    KSUpdateURL '' \
-				    KSVersion '' )
+				    KSVersion '' \
+				    NSHighResolutionCapable true )
     
     # if we're not registering as a browser, delete these keys too
     if [ "$SSBRegisterBrowser" != "Yes" ] ; then
@@ -422,7 +423,9 @@ function writeplist {  # $1 = destination app bundle Contents directory
 			      "$tmpInfoPlist" \
 			      "${filterkeys[@]}" 2>&1)
     if [ $? != 0 ] ; then
-	# if we failed earlier, delete the temp file
+	cmdtext="Error filtering Info.plist file: $cmdtext."
+	
+	# delete the temp file
 	rmtemp "$tmpInfoPlist" "Info.plist"
 	return 1
     else
@@ -528,6 +531,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 			   CFBundleName \
 			   CFBundleIdentifier \
 			   SSBVersion \
+			   SSBProfilePath \
 			   SSBChromePath \
 			   SSBChromeVersion \
 			   SSBRegisterBrowser \
@@ -641,33 +645,36 @@ function updatessb {
 
 	# create a bundle identifier if necessary
 	if [ $result = 0 ] ; then
-	    if [ ! "$CFBundleIdentifier" ] ; then
-		local maxfound=0
-		# if we're updating from pre 2.0.1, it's OK if we find one instance on the system
-		if [ "$SSBVersion" -a $(newversion "$SSBVersion" "2.0.1") ] ; then
-		    maxfound=1
-		fi
+	    local idbase="com.google.SSB."
+	    local idre="^${idbase//./\\.}"
+
+	    # make a new identifier if: either we're making a new SSB, or
+	    # updating an old enough version that there's either no
+	    # CFBundleIdentifier or an old format one
+	    
+	    if [[ ! "$CFBundleIdentifier" || ! ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
 		
 		# create a bundle identifier
-		bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
-		bid="${bid::12}"               # truncate to 12 characters
-		[ ! "$bid" ] && bid="SSB"      # if trimmed away to nothing, use a default name
-		local bidbase="${bid::9}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
+		local maxbidlength=$((30 - ${#idbase}))       # identifier must be 30 characters or less
+		local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
+		[ ! "$bid" ] && bid="generic"                 # if trimmed away to nothing, use a default name
+		bid="${bid::$maxbidlength}"
+		local bidbase="${bid::$(($maxbidlength - 3))}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
 		
 		# if this identifier already exists on the system, create a unique one
 		local idfound=0
 		local notunique=1
 		local randext="000"
 		while [ "$notunique" ] ; do
-		    CFBundleIdentifier="com.google.Chrome.$bid"
+		    CFBundleIdentifier="${idbase}$bid"
 		    idfound=$(mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" | wc -l)
 		    if [ $? != 0 ] ; then
 			cmdtext="Unable to search system for bundle identifier."
 			notunique=
 			result=1
 		    fi
-
-		    if [ "$idfound" -le "$maxfound" ] ; then
+		    
+		    if [ "$idfound" -le 0 ] ; then
 			notunique=
 		    else
 			# try to create a unique identifier
@@ -675,10 +682,14 @@ function updatessb {
 			bid="${bid::$bidbase}${randext:1:3}"
 		    fi
 		done
-
+		
 		# if we got out of that loop, we have a unique ID (or we got an error)
 	    fi
-	fi	
+	fi
+	
+	if [ $result = 0 ] ; then
+	    [ "$SSBProfilePath" ] || SSBProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+	fi
     fi
     
     

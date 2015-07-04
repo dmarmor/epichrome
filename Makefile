@@ -20,12 +20,14 @@
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=makechromessb.app
+HOSTID:=com.dmarmor.ssb.redirect
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources
 APP_SCPT:=${APP_RSRC}/Scripts
 APP_RNTM:=${APP_RSRC}/Runtime
 APP_RNTM_RSRC:=${APP_RNTM}/Resources
 APP_RNTM_SCPT:=${APP_RNTM_RSRC}/Scripts
+APP_RNTM_NMHT:=${APP_RNTM_RSRC}/NativeMessagingHosts
 APP_RNTM_MCOS:=${APP_RNTM}/MacOS
 
 INSTALL_PATH:=/Applications/Make Chrome SSB.app
@@ -45,6 +47,8 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_SCPT}/runtime.sh \
 	${APP_RNTM_SCPT}/infoplist.py \
 	${APP_RNTM_SCPT}/strings.py \
+	${APP_RNTM_NMHT}/${HOSTID}.json \
+	${APP_RNTM_NMHT}/${HOSTID}-host.py \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/doc.icns
 
@@ -65,6 +69,7 @@ ${APP_SCPT}/main.scpt: src/main.applescript
 	@rm -f ${APP_CTNT}/Info.plist ${APP_RSRC}/applet.icns
 	mkdir -p ${APP_RNTM_SCPT}
 	mkdir -p ${APP_RNTM_MCOS}
+	mkdir -p ${APP_RNTM_NMHT}
 	touch ${APP}
 
 ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
@@ -72,7 +77,7 @@ ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
 	@touch ${APP} ${APP_CTNT}
 
 ${APP_RSRC}/applet.icns: icons/makechromessb.icns
-	cp -p icons/makechromessb.icns ${APP_RSRC}/applet.icns
+	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 
 ${APP_SCPT}/%: src/%
@@ -80,12 +85,22 @@ ${APP_SCPT}/%: src/%
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_SCPT}
 
 ${APP_RNTM_MCOS}/ChromeSSB: src/chromessb
-	cp -p src/chromessb ${APP_RNTM_MCOS}/ChromeSSB
+	sed "s/SSBHOSTID/${HOSTID}/" $< > $@
+	chmod 755 $@
 	@touch ${APP} ${APP_CTNT} ${APP_MCOS}
 
 ${APP_RNTM_SCPT}/%: src/%
 	cp -p $< ${APP_RNTM_SCPT}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_SCPT}
+
+${APP_RNTM_NMHT}/${HOSTID}.json: src/host-manifest.json src/version.sh
+	sed "s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/" $< > $@
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM_NMHT}
+
+${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh
+	sed "s/SSBVERSION/${VERSION}/" $< > $@
+
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM_NMHT}
 
 ${APP_RNTM_RSRC}/%.icns: icons/%.icns
 	cp -p $< ${APP_RNTM_RSRC}/

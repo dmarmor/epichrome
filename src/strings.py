@@ -29,8 +29,8 @@ if len(sys.argv) < 3:
     exit(1)
 
 # get dock and menubar names
-dockname = sys.argv[1]
-menuname = sys.argv[2]
+dockname = sys.argv[1].decode('utf-8')
+menuname = sys.argv[2].decode('utf-8')
 
 # compile the regular expression
 re_strings = re.compile(ur'((?:(CFBundleDisplayName)|(CFBundleName))\s*=\s*")[^"]*("\s*;)', flags=re.UNICODE)

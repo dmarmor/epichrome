@@ -24,8 +24,8 @@ import xml.etree.ElementTree as et
 from itertools import izip_longest
 
 # make sure we have the right number of arguments
-if len(sys.argv) < 2:
-    print "Not enough arguments"
+if len(sys.argv) < 3:
+    print "not enough arguments"
     exit(1)
 
 # get Chrome Info.plist and temporary output Info.plist paths
@@ -34,7 +34,30 @@ outfilename = sys.argv[2]
 
 # zip the rest of the arguments into a dictionary: {<Info.plist-key>: <new-value>}
 # where if <new-value> is False or '', it means delete the corresponding key
-filterkeys = dict(izip_longest(*[iter(sys.argv[3:])] * 2, fillvalue=False))
+filterkeys = dict();
+i = 3;
+while i < len(sys.argv):
+    key = sys.argv[i]
+    i += 1
+    if i < len(sys.argv): val = sys.argv[i]
+    if val == 'string':
+        i += 1
+        if i < len(sys.argv):
+            val = [ val, sys.argv[i] ]
+        else:
+            print "string key requires a value"
+            exit(1)
+    elif not val:
+        val = []
+    else:
+        # a boolean key
+        val = [ val ]
+    i += 1
+
+    # add the dictionary entry
+    filterkeys[key] = val
+
+#filterkeys = dict(izip_longest(*[iter(sys.argv[3:])] * 2, fillvalue=False))
 
 
 # read in the Info.plist file
@@ -68,29 +91,51 @@ else:
 infoplist = et.fromstring(infoplist)
 
 
-# OUTPUT -- function that filters and outputs the Info.plist XML tree
-def output(root):
-    global state
-    
-    # we're one of the nodes after a key that we're filtering somehow
-    if state:
-        if root.tag == 'key':
-            # we hit another key, so we're done
-            state = False
-        elif filterkeys[state]:
-            # we're changing text (this should be a string node)
-            if root.tag == 'string': root.text = filterkeys[state]
-            # otherwise, it's an error, but we'll just silently fail for now
-            state = False
-        else:
-            # we're delete everything in this key
-            state = False
-            return ''
+# FILTER -- filter the Info.plist XML tree
+def plist_filter(root):
 
-    # determine if we're a key that should be filtered
-    if (root.tag == 'key') and (root.text in filterkeys):
-        state = root.text
-        if not filterkeys[root.text]: return ''
+    i = 0
+    while i < len(root):
+                
+        if (root[i].tag == 'key') and (root[i].text in filterkeys):
+            curkey = root[i].text
+            curval = filterkeys[curkey]
+            
+            # we're deleting this key
+            if len(curval) == 0:
+                root.remove(root[i])
+                if (i < len(root)) and (root[i].tag != 'key'):
+                    root.remove(root[i])
+
+            # we're replacing this key's value
+            else:
+                
+                # remove the next node (unless it's another key)
+                i += 1
+                if (i < len(root)) and (root[i].tag != 'key'):
+                    oldtail = root[i].tail
+                    root.remove(root[i])
+                else:
+                    oldtail = root[i-1].tail
+                
+                # add in a new node
+                newval = et.Element(curval[0])
+                if len(curval) > 1: newval.text = curval[1]
+                newval.tail = oldtail
+                root.insert(i, newval)
+                i += 1
+                
+            # we're done with this filterkey
+            del filterkeys[curkey]
+
+        else:
+            # not a key we're filtering, so recurse on it
+            if len(root[i]) > 0: plist_filter(root[i])
+            i += 1
+
+
+# OUTPUT -- output the Info.plist XML tree
+def output(root):
     
     # print out this element
     result = '<' + root.tag
@@ -103,12 +148,58 @@ def output(root):
         for child in root: result += output(child)
         result += '</' + root.tag + '>'
     if root.tail: result += root.tail
-
+    
     return result
 
 
-# run the output!
-state = False
+# filter the plist
+plist_filter(infoplist)
+
+# add in any remaining filterkeys
+if len(filterkeys) > 0:
+    # make sure we go to the right node
+    if infoplist.tag != 'plist':
+        print 'root tag is not plist'
+        exit(3)
+    if (len(infoplist) < 1) or (infoplist[0].tag != 'dict'):
+        print 'unexpected child tag'
+        exit(3)
+
+    # get the dict node to put the keys in
+    ipdict = infoplist[0]
+
+    # get tail text for formatting
+    if len(ipdict) > 0:
+        maintail = ipdict.text
+        lasttail = ipdict[-1].tail
+    else:
+        maintail = '\n\t'
+        lasttail = '\n'
+    
+    # create a list of new elements
+    newelements = []
+    for (key,val) in filterkeys.iteritems():
+        if len(val) > 0:
+            # add the key
+            e = et.Element('key')
+            e.text = key
+            e.tail = maintail
+            newelements.append(e)
+            
+            # add the value
+            e = et.Element(val[0])
+            if len(val) > 1: e.text = val[1]
+            e.tail = maintail
+            newelements.append(e)
+
+    # add new elements to the tree
+    if len(newelements) > 0:
+        if len(ipdict) > 0: ipdict[-1].tail = maintail
+        newelements[-1].tail = lasttail
+        for e in newelements:
+            ipdict.append(e)
+    
+# write out the plist file
 try:
     outfile.write(prologue + output(infoplist) + '\n')
     outfile.close()

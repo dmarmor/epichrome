@@ -104,6 +104,10 @@ SSBRegisterBrowser="$1"
 [ "$SSBRegisterBrowser" != "Yes" ] && SSBRegisterBrowser="No"
 shift
 
+# profile path (this may eventually come as a command-line argument)
+#SSBProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+
+
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
 
