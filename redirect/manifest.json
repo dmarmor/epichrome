@@ -3,8 +3,8 @@
     
     "name": "Mac SSB Helper",
     "description": "Handles link redirection for Mac apps created with MakeChromeSSB.",
-    "version": "1.0.0.0",
-
+    "version": "0.9.0",
+    
     "background": {
     	"scripts": ["shared.js", "background.js"]
     },
@@ -14,7 +14,7 @@
     	    "matches": ["*://*/*"],
     	    "match_about_blank": true,
     	    "all_frames": true,
-    	    "js": ["shared.js", "jquery-2.1.4.min.js", "content.js"]
+    	    "js": ["shared.js", "content.js"]
     	}
     ],
     

@@ -56,25 +56,45 @@ ssbContent.startup = function() {
 		}
 		
 		// set up click and mousedown handlers for all links
-		$( 'a' ).on('click.ssbContent mousedown.ssbContent',
-			    ssbContent.handleClick);
+		var links = document.querySelectorAll('a');
+		for (var i = 0; i < links.length; i++) {
+		    links[i].addEventListener('click', ssbContent.handleClick);
+		    links[i].addEventListener('mousedown', ssbContent.handleClick);
+		}
 		
 		// watch DOM mutations to attach handler on newly-created links
 		ssbContent.mutationObserver =
 		    new MutationObserver(function(mutations) {
-			mutations.forEach(function(mutation) {
-			    if (mutation.addedNodes) {
-				for (var i = 0; i < mutation.addedNodes.length; ++i) {
-				    var $links = $('a',
-						   mutation.addedNodes[i]);
-				    $links.off();
-				    $links.on('click.ssbContent mousedown.ssbContent',
-					      ssbContent.handleClick);
+
+			// go through all mutations
+			for (var i = 0; i < mutations.length; i ++) {
+			    
+			    var curMut = mutation[i];
+			    if (curMut.addedNodes) {
+
+				// go through each added node
+				for (var j = 0;
+				     j < curMut.addedNodes.length;
+				     ++j) {
+
+				    // go through each node that's an element
+				    var curNode = curMut.addedNodes[j];
+				    if (curNode instanceof HTMLElement) {
+
+					// find all links, clear and reinstall handlers
+					var links = (curNode.querySelectorAll('a'));
+					for (var k = 0; k < links.length; k++) {
+					    links[j].removeEventListener('click', ssbContent.handleClick);
+					    links[j].removeEventListener('mousedown', ssbContent.handleClick);
+					    links[j].addEventListener('click', ssbContent.handleClick);
+					    links[j].addEventListener('mousedown', ssbContent.handleClick);
+					}
+				    }
 				}
 			    }
-			});
+			}
 		    });
-
+		
 		// attach mutation observer to body node
 		var bodyNode = document.querySelector('body');
 		if (bodyNode)
@@ -109,12 +129,12 @@ ssbContent.shutdown = function(message) {
     chrome.runtime.onMessage.removeListener(ssbContent.handleMessage);
     
     // remove old handlers
-    $('a').off();
-    
-    // unload jQuery
-    delete window.jQuery;
-    delete window.$;
-    
+    var links = document.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+	links[i].removeEventListener('click', ssbContent.handleClick);
+	links[i].removeEventListener('mousedown', ssbContent.handleClick);
+    }
+        
     // shut down shared.js
     ssb.shutdown();
 
@@ -129,25 +149,14 @@ ssbContent.shutdown = function(message) {
 ssbContent.handleClick = function(evt) {
     
     // get fully-qualified URL to compare with our rules
-    var originalHref = $(this).attr('href');
-    if (originalHref) {
-	var absoluteHref;
-	var sameDomain;
-	var isAbsolute = ssbContent.regexpAbsoluteHref.test(originalHref);
+    var href = evt.target.href;
 
-	// determine if link is absolute, & if it goes to the
-	// same domain as the main page
-	if (isAbsolute) {
-	    absoluteHref = originalHref;
-	    sameDomain = (absoluteHref.match(ssbContent.regexpDomain)[1] ==
-			  window.top.document.domain);
-	} else {
-	    absoluteHref = document.createElement('a');
-	    absoluteHref.href = originalHref;
-	    absoluteHref = absoluteHref.href;
-	    sameDomain = true;
-	}
-    }
+    // no href, so ignore this link
+    if (!href) return true;
+        
+    // determine if link goes to the same domain as the main page
+    var sameDomain = (href.match(ssbContent.regexpDomain)[1] ==
+		      window.top.document.domain);
     
     // $$$ future development: capture modifier keys
     // ssb.log('shift =', evt.shiftKey, 'alt =', evt.altKey,
@@ -170,7 +179,7 @@ ssbContent.handleClick = function(evt) {
     } else { // it's a click, so we'll handle it fully
 	
 	// get target for this link
-	var target = $(this).attr('target');
+	var target = evt.target.target;
 	if (target) {
 	    target = target.toLowerCase();
 	} else {
@@ -192,10 +201,13 @@ ssbContent.handleClick = function(evt) {
 	    target = 'external';
 	    break;
 	default:
-	    target = $('frame[name="' + target + '"]',
-		       window.top.document).length ?
-		false :
-		'external';
+	    // if the target names a frame on this page, it's non-top-level
+	    var frameSelector='[name="' + target + '"]';
+	    target =
+		(window.top.document.querySelector('iframe'+frameSelector+
+						   ',frame'+frameSelector) ?
+		 false :
+		 'external');
 	}
 	
 	if (!target) {
@@ -225,20 +237,23 @@ ssbContent.handleClick = function(evt) {
 
 	// if we still haven't decide if we're redirecting, use rules
 	if (doRedirect == undefined) {
-	    doRedirect = ssb.shouldRedirect(absoluteHref, target);
+	    doRedirect = ssb.shouldRedirect(href, target);
 	}
     }
     
     ssb.debug('click', 'posting message -- doRedirect =',doRedirect,
-	      ' url:',absoluteHref,'['+target+']');
+	      ' url:',href,'['+target+']');
     
     // tell the background page about this click
     message.redirect = doRedirect;
-    message.url = absoluteHref;
+    message.url = href;
     ssbContent.port.postMessage(message);
     
-    // if not redirecting, propagate the event
-    return (! doRedirect);
+    // if redirecting, stop propagation on the event
+    if (doRedirect) {
+	evt.preventDefault();
+	// evt.stopPropagation();  // this might be necessary for some sites??
+    }
 }
 
 
