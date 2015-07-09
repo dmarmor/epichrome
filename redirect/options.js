@@ -1,470 +1,849 @@
+//
+//  options.js: options page code for Mac SSB Helper extension
+//
+//  Copyright (C) 2015 David Marmor
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+
+
+// SSBOPTIONS -- object that holds all data & methods
+// --------------------------------------------------
+
 var ssbOptions = {};
 
-// options page elements
+// DOC -- options page document elements
 ssbOptions.doc = {};
+
+// FORM -- form elements
 ssbOptions.doc.form = {};
-ssbOptions.doc.form.ignoreAllInternalSameDomain = document.getElementById('ignoreAllInternalSameDomain');
-ssbOptions.doc.form.redirectByDefault = document.getElementById('redirectByDefault');
+ssbOptions.doc.form.all = document.getElementById('options_form');
 ssbOptions.doc.form.rules = document.getElementById('rules');
-ssbOptions.doc.form.add_click = document.getElementById('add_click');
-ssbOptions.doc.form.save_click = document.getElementById('save_click');
-ssbOptions.doc.form.reset_click = document.getElementById('reset_click');
-ssbOptions.doc.form.import_click = document.getElementById('import_click');
+ssbOptions.doc.form.add_rule_list = document.getElementById('add_rule_list');
+ssbOptions.doc.form.add_button = document.getElementById('add_button');
+ssbOptions.doc.form.save_button = document.getElementById('save_button');
+ssbOptions.doc.form.reset_button = document.getElementById('reset_button');
+ssbOptions.doc.form.import_button = document.getElementById('import_button');
 ssbOptions.doc.form.import_options = document.getElementById('import_options');
-ssbOptions.doc.form.export_click = document.getElementById('export_options');
+ssbOptions.doc.form.export_button = document.getElementById('export_button');
+ssbOptions.doc.form.export_options = document.getElementById('export_options');
+ssbOptions.doc.form.working = document.getElementById('working');
+ssbOptions.doc.form.working_message = document.getElementById('working_message');
 
-ssbOptions.doc.overlay = document.getElementById('overlay');
-
-ssbOptions.doc.shutdown = {};
-ssbOptions.doc.shutdown.box = document.getElementById('shutdown_box');
-ssbOptions.doc.shutdown.message = document.getElementById('shutdown_message');
-
+// DIALOG -- dialog box elements
 ssbOptions.doc.dialog = {};
+ssbOptions.doc.dialog.overlay = document.getElementById('overlay');
 ssbOptions.doc.dialog.box = document.getElementById('dialog_box');
 ssbOptions.doc.dialog.title = document.getElementById('dialog_title');
-ssbOptions.doc.dialog.message = document.getElementById('dialog_message');
+ssbOptions.doc.dialog.content = document.getElementById('dialog_content');
 ssbOptions.doc.dialog.button1 = document.getElementById('dialog_button1');
 ssbOptions.doc.dialog.button2 = document.getElementById('dialog_button2');
 ssbOptions.doc.dialog.button3 = document.getElementById('dialog_button3');
+ssbOptions.doc.dialog.text_content = document.getElementById('text_content');
+ssbOptions.doc.dialog.install_content = document.getElementById('install_content');
+ssbOptions.doc.dialog.shutdown_content = document.getElementById('shutdown_content');
 
-ssbOptions.state = {};
-ssbOptions.state.current = {};
-ssbOptions.state.changes = {};
 
+// STARTUP -- start up and populate the options window
+// ---------------------------------------------------
 
-// populate options form
-ssbOptions.populate = function(items) {
+ssbOptions.startup = function() {
 
-    // update the form
-    for (key in items) {
-	if (items.hasOwnProperty(key) && ssbOptions.doc.form[key]) {
-	    ssbOptions.updateOption(ssbOptions.doc.form[key], items[key]);
+    // start up shared code
+    ssb.startup('options', function(success, message) {
+	
+	if (success) {
+	    
+	    // get prototype rule entry & remove from DOM
+	    ssbOptions.rulePrototype = ssbOptions.doc.form.rules.children[0];
+	    ssbOptions.rulePrototype.parentNode.removeChild(
+		ssbOptions.rulePrototype);
+	    
+	    // remove all dialog content sections from DOM
+	    ssbOptions.doc.dialog.text_content.parentNode.removeChild(
+		ssbOptions.doc.dialog.text_content);
+	    ssbOptions.doc.dialog.install_content.parentNode.removeChild(
+		ssbOptions.doc.dialog.install_content);
+	    ssbOptions.doc.dialog.shutdown_content.parentNode.removeChild(
+		ssbOptions.doc.dialog.shutdown_content);
+	    
+	    // set up jquery for options form
+	    ssbOptions.jqForm = $( "#options_form" );
+	    
+	    // make rules list sortable by drag-and-drop
+	    ssbOptions.jqRules = $( "#rules" );
+	    ssbOptions.jqRules.sortable({
+		axis: 'y',
+		handle: '.drag-handle',
+		tolerance: 'pointer'
+	    });
+	    
+	    // handle clicks on per-row add-after and delete buttons
+	    ssbOptions.jqRules.on('click', '.delete-button',
+				  ssbOptions.deleteRule);
+	    ssbOptions.jqRules.on('click', '.add-after-button',
+				  ssbOptions.addRule);
+	    
+	    // handle clicks on empty-rules add button
+	    ssbOptions.doc.form.add_button.addEventListener(
+		'click', ssbOptions.addRule);
+	    
+	    // keyboard handlers for rules fields
+	    ssbOptions.jqRules.on('keydown', '.keydown',
+				  ssbOptions.handleRuleKeydown);
+	    
+	    // initialize save button to be disabled
+	    ssbOptions.setSaveButtonState(false);
+	    
+	    // save and reset buttons
+	    ssbOptions.doc.form.save_button.addEventListener(
+		'click', ssbOptions.doSave);
+	    ssbOptions.doc.form.reset_button.addEventListener(
+		'click', ssbOptions.doResetToDefault);
+
+	    // import button
+	    ssbOptions.doc.form.import_options.addEventListener(
+		'change', ssbOptions.doImport);
+	    ssbOptions.doc.form.import_button.addEventListener(
+		'click',
+		function() { ssbOptions.doc.form.import_options.click(); });
+	    
+	    // export button
+	    ssbOptions.doc.form.export_button.addEventListener(
+		'click', ssbOptions.doExport);
+	    
+	    // listen for changes to extension status
+	    window.addEventListener('storage',
+				    ssbOptions.checkExtensionStatus);
+	    
+	    // get extension status now
+	    ssbOptions.checkExtensionStatus();
+	    
+	    // populate the page from saved options
+	    ssbOptions.populate(ssb.options);
+	    
+	    // focus on the first rule, if any
+	    ssbOptions.focusOnPattern(0);
+	    
+	} else {
+	    // display error dialog
+	    ssbOptions.dialog.run(message, 'Error');
 	}
-    }
+    });
 }
 
 
-ssbOptions.checkStatus = function() {
-    
-    var curStatus = localStorage.getItem('status');
+// FORM/OPTIONS INTERFACE -- moving data between the form & saved options
+// ----------------------------------------------------------------------
 
-    if (curStatus == null) {
-	curStatus = { active: false, message: "Extension hasn't started up." };
-	localStorage.setItem('status', curStatus);
-    } else {
-	try {
-	    curStatus = JSON.parse(curStatus);
-	} catch(err) {
-	    console.log('error parsing status: ' + err.message);
-	    curStatus = { active: false, message: "Badly formed status." };
-	    localStorage.setItem('status', curStatus);
+// POPULATE -- populate options form from a given set of options
+ssbOptions.populate = function(items) {    
+    ssbOptions.formItem(ssbOptions.doc.form.all, items);
+}
+
+
+// SETOPTIONS -- set extension options from a given set of new options
+ssbOptions.setOptions = function(workingMessage, failPrefix, newOptions) {
+
+    if (!newOptions)
+	newOptions = ssbOptions.formItem(ssbOptions.doc.form.all);
+    
+    // turn on working spinner
+    ssbOptions.setWorkingMessage(workingMessage);
+    
+    // save current state of the form to storage
+    ssb.setOptions(
+	newOptions,
+	function(success, message) {
+	    
+	    // on completion, turn off working spinner
+	    ssbOptions.setWorkingMessage();
+	    
+	    if (success) {
+		// save succeeded, so disable the save button
+		ssbOptions.setSaveButtonState(false);
+	    } else {
+		// failed
+		ssbOptions.dialog.run(failPrefix + ' ' + message, 'Warning');
+	    }
+	});
+}
+
+
+// FORMITEM - get and set option fields to and from the form
+ssbOptions.formItem = function(item, newValue, append) {
+    
+    var result = undefined;
+    var optionName = item.classList.item(0);
+    
+    // determine if we're getting or setting
+    var doSet = (newValue !== undefined);
+
+    // match the current item's option name
+    switch(optionName) {
+	
+    case 'optionsVersion':
+	// this is not settable in the form, so do nothing on set
+	if (!doSet) result = ssb.manifest.version;
+	break;
+
+    case 'ignoreAllInternalSameDomain':
+    case 'sendIncomingToMainTab':
+	// handle checkbox elements
+	if (doSet)
+	    item.checked = newValue;
+	else
+	    result = item.checked;
+	break;
+	
+    case 'redirectByDefault':
+    case 'redirect':
+	// handle true-false drop-down menu elements
+	if (doSet)
+	    item.value = ((newValue == true) ? 'true' : 'false');
+	else
+	    result = (item.value == 'true');
+	break;
+
+    case 'pattern':
+    case 'target':
+	// handle miscellaneous straight translations
+	if (doSet)
+	    item.value = newValue;
+	else
+	    result = item.value;
+	break;
+
+    case 'rule':
+    case 'options_form':
+	// handle a set of options recursively
+	
+	if (doSet) {
+	    // recursively set all subkeys in this object
+	    var curProp;
+	    for (key in newValue) {
+		if (newValue.hasOwnProperty(key)) {
+		    curProp = item.getElementsByClassName(key);
+		    if (curProp && curProp.length)
+			ssbOptions.formItem(curProp[0], newValue[key]);
+		}
+	    }
+	} else {
+	    result = {};
+	    
+	    var curItem, curValue;
+
+	    // get all suboptions of this item
+	    var subItems = item.getElementsByClassName('sub.'+optionName);
+
+	    // recursively build object from subkeys
+	    for (var i = 0; i < subItems.length; i++) {
+		curItem = subItems[i];
+		curValue = ssbOptions.formItem(subItems[i]);
+		if (curValue !== undefined)
+		    result[curItem.classList.item(0)] = curValue;
+	    }
+	}
+	break;
+	
+    case 'rules':
+	// array of rules
+	
+	if (doSet) {
+	    
+	    var oldNumRules;
+	    if (!append) {
+		// we're overwriting rules
+		oldNumRules = item.children.length;
+	    } else {
+		// we're appending rules: abuse oldNumRules so we immediately
+		// start adding new rules entries (and the deleting loop will
+		// never run)
+		oldNumRules = 0;
+	    }
+	    
+	    // loop through all new rules
+	    for (var i = 0; i < newValue.length; i++) {
+		if (i >= oldNumRules) {
+		    // new rules list is longer than the old one, so add an entry
+		    item.appendChild(ssbOptions.rulePrototype.cloneNode(true));
+		}
+		
+		// fill in the current entry recursively
+		ssbOptions.formItem(item.children[i], newValue[i]);
+	    }
+	    
+	    // if new rules list is shorter than old, delete extra entries
+	    var curRule;
+	    for (var j = oldNumRules - 1; j >= i; j--) {
+		curRule = item.children[j];
+		curRule.parentNode.removeChild(curRule);
+	    }
+
+	    // show or hide add button
+	    ssbOptions.setAddButtonState();
+	    
+	} else {
+	    
+	    // recurse to build array of rules
+	    result = [];
+	    for (var i = 0; i < item.children.length; i++)
+		result.push(ssbOptions.formItem(item.children[i]));
+	}
+	break;
+	
+    default:
+	// unknown ID -- abort
+	ssb.warn('formItem got unknown option', optionName);
+	result = undefined;
+    }
+    
+    return result;
+}
+
+
+// RULES -- add and delete rule rows, and handle moving between rules
+// ------------------------------------------------------------------
+
+// ADDRULE -- add a rule to the list
+ssbOptions.addRule = function(evt) {
+    
+    var thisRule, nextRule;
+    
+    if (evt && evt.currentTarget.classList.contains('add-after-button')) {
+	
+	// we were called by a rule-row add-after button, so find which rule
+	thisRule = evt.currentTarget;
+	while (thisRule && ! thisRule.classList.contains('rule'))
+	    thisRule = thisRule.parentNode;
+	
+	// somehow we got called somewhere other than in a rule
+	if (!thisRule) {
+	    ssb.warn('bad call to addRule');
+	    return;
 	}
 	
-	if (curStatus.active == true)
-	    chrome.runtime.sendMessage('ping', function(response) {
-		if (! response) {
-		    curStatus = { active: false, message: 'Disconnected from extension: ' + chrome.runtime.lastError };
-		    localStorage.setItem('status', curStatus);
-		}
-	    });
+	// find the rule after this one (or none if we're last)
+	nextRule = thisRule.nextSibling;
+	
+    } else {
+	
+	// we were called by the button that appears when no rules exist,
+	// so insert new rule at the end
+	nextRule = null;
     }
     
-    if (curStatus.active == true) {
-	ssbOptions.doc.overlay.style.display = 'none';
-	ssbOptions.doc.shutdown.box.style.display = 'none';
-	ssbOptions.doc.dialog.box.style.display = 'none';
-    } else {
-	console.log('curStatus is:', curStatus);
-	ssbOptions.doc.dialog.box.style.display = 'none';
-	ssbOptions.doc.shutdown.message.textContent = (curStatus.message ? curStatus.message : '');
-	ssbOptions.doc.shutdown.box.style.display = 'block';
-	ssbOptions.doc.overlay.style.display = 'block';
+    // add a new copy of the prototype rule
+    var newRule = ssbOptions.rulePrototype.cloneNode(true);
+    ssbOptions.doc.form.rules.insertBefore(newRule, nextRule);
+    
+    // give focus to the pattern & select all text
+    ssbOptions.focusOnPattern(newRule);
+
+    // update button states
+    ssbOptions.setAddButtonState();
+    ssbOptions.setSaveButtonState(true);
+}
+
+
+// DELETERULE -- delete a rule from the list
+ssbOptions.deleteRule = function(evt) {
+    
+    // find the rule we were called from
+    var thisRule = evt.target;
+    while (thisRule && ! thisRule.classList.contains('rule'))
+	thisRule = thisRule.parentNode;
+
+    if (thisRule) {
+	
+	// remove this row from the rules list
+	thisRule.parentNode.removeChild(thisRule);
+	
+	// update button states
+	ssbOptions.setAddButtonState();
+	ssbOptions.setSaveButtonState(true);
     }
 }
 
-ssbOptions.dialog = {};
-ssbOptions.dialog.handleButton = null;
-ssbOptions.dialog.run = function(message, title, callback, buttons) {
 
-    // set up button value dict
-    if (! buttons || ! (buttons.length))
-	buttons = [ [ 'Yes', true ], [ 'No', false ] ];
-    var buttonValues = {};
+// HANDLERULEKEYDOWN -- move between rule rows or create a new rule at the end
+ssbOptions.handleRuleKeydown = function(evt) {
     
-    for (var i = 0; i < buttons.length; i++)
-	buttonValues[buttons[i][0]] = buttons[i][1];
+    // we're only interested in the Enter key
+    if (evt.which == 13) {
 
-    ssbOptions.dialog.handleButton = function(evt) {
-	ssbOptions.dialog.close();
-	callback(buttonValues ? buttonValues[evt.target.textContent] : undefined);
-    }
-    
-    // set up dialog box
-    ssbOptions.doc.shutdown.box.style.display = 'none';
-    ssbOptions.doc.dialog.message.textContent = message;
-    ssbOptions.doc.dialog.title.textContent = title;
-    var curButton;
-    for (i = 0; i < 3; i++) {
-	curButton = 'button' + (i+1);
-	console.log('working on: '+curButton);
-	if (buttons[i]) {
-	    ssbOptions.doc.dialog[curButton].textContent = buttons[i][0];
-	    ssbOptions.doc.dialog[curButton].style.display = 'block';
-	    ssbOptions.doc.dialog[curButton].addEventListener('click', ssbOptions.dialog.handleButton);
+	// find the rule we were called from
+	var thisRule = evt.target;
+	while (thisRule && ! thisRule.classList.contains('rule'))
+	    thisRule = thisRule.parentNode;
+	
+	// get the index of this rule
+	var myIndex = $('li').index(thisRule);
+	
+	if (e.shiftKey) {
+	    // move up a row
+	    if (myIndex > 0) {
+		ssbOptions.focusOnPattern(myIndex - 1);
+	    }
 	} else {
-	    ssbOptions.doc.dialog[curButton].style.display = 'none';
+	    // move down a row
+	    if (myIndex < (ssbOptions.doc.form.rules.children.length - 1)) {
+		// there's another row after this one
+		ssbOptions.focusOnPattern(myIndex + 1);
+	    } else {
+		// we were on the last row, so add a new rule
+		ssbOptions.addRule();
+	    }
 	}
     }
-    ssbOptions.doc.dialog.box.style.display = 'block';
-    ssbOptions.doc.overlay.style.display = 'block';
 }
 
-ssbOptions.dialog.alert = function(message, title, callback, button_text) {
 
-    ssbOptions.dialog.handleButton = function() {
-	ssbOptions.dialog.close();
-	callback();
-    }
+// FOCUSPATTERN -- move between rule rows or create a new rule at the end
+ssbOptions.focusOnPattern = function(rule) {
     
-    ssbOptions.doc.shutdown.box.style.display = 'none';
-    ssbOptions.doc.dialog.message.textContent = message;
-    ssbOptions.doc.dialog.title.textContent = title;
-    ssbOptions.doc.dialog.button1.textContent = (button_text ? button_text : 'OK');
-    ssbOptions.doc.dialog.button1.addEventListener('click', ssbOptions.dialog.handleButton);
-    ssbOptions.doc.dialog.button1.style.display = 'block';
-    ssbOptions.doc.dialog.button2.style.display = 'none';
-    ssbOptions.doc.dialog.button3.style.display = 'none';
-    ssbOptions.doc.dialog.box.style.display = 'block';
-    ssbOptions.doc.overlay.style.display = 'block';
+    // if we were passed an index, turn it into a rule element
+    if ((typeof rule == 'number') && ssbOptions.doc.form.rules.children) {
+	rule = ssbOptions.doc.form.rules.children[rule];
+    }
+
+    if (typeof rule == 'object') {
+	// find the pattern field, focus on it and select the text
+	var pattern = rule.getElementsByClassName('pattern')[0];
+	pattern.focus();
+	pattern.select();
+    }
 }
 
-ssbOptions.dialog.close = function() {
-    ssbOptions.doc.overlay.style.display = 'none';
-    ssbOptions.doc.shutdown.box.style.display = 'none';
-    ssbOptions.doc.dialog.box.style.display = 'none';
 
-    ssbOptions.doc.dialog.button1.removeEventListener('click', ssbOptions.dialog.handleButton);
-    ssbOptions.doc.dialog.button2.removeEventListener('click', ssbOptions.dialog.handleButton);
-    ssbOptions.doc.dialog.button3.removeEventListener('click', ssbOptions.dialog.handleButton);
+// BUTTONS -- handle actions for the main button row
+// -------------------------------------------------
+
+// DOSAVE -- save options to chrome.storage.local
+ssbOptions.doSave = function() {
+    ssbOptions.setOptions('Saving...', 'Failed to save options.');
 }
 
+
+// DORESETTODEFAULT -- reset all options to default values
+ssbOptions.doResetToDefault = function() {
+
+    // open a dialog to confirm
+    ssbOptions.dialog.run(
+	'This will overwrite all your options and rules. Are you sure you want to continue?',
+	'Confirm',
+	function(success) {
+
+	    // only act if the user confirmed
+	    if (success) {
+
+		// populate the form with default options
+		ssbOptions.populate(ssb.defaultOptions);
+		
+		// save default options to storage
+		ssbOptions.setOptions('Resetting...', 'Reset failed.',
+				      ssb.defaultOptions);
+	    }
+	});
+}
+
+
+// DOIMPORT -- import settings from a file
 ssbOptions.doImport = function(evt) {
     
-    var file = evt.target.files[0]; // FileList object
+    // turn on working spinner
+    ssbOptions.setWorkingMessage('Importing...');
+
+    // set up a FileReader
+    var file = evt.target.files[0]; // this is a FileList object
     var reader = new FileReader();
+
+    // set up handlers and then load the file
     
-    // parse the info in the file
+    // handle successful file load
     reader.onload = function(loadevent) {
-	
+
+	// reset the import file field
 	ssbOptions.doc.form.import_options.value = '';
-	
-	var newOptions;
-	
+
+	// parse the options
 	try {
-	    newOptions = JSON.parse(loadevent.target.result);
+	    var newOptions = JSON.parse(loadevent.target.result);
 	} catch(err) {
-	    ssbOptions.dialog.alert(
+	    // parse failed
+	    
+	    // end working message
+	    ssbOptions.setWorkingMessage();
+
+	    // open an alert
+	    ssbOptions.dialog.run(
 		'Unable to parse "' + file.name + '": ' + err.message,
 		'Error');
 	    return;
 	}
 	
-	// here's where you'd need to handle updating from previous options version
-	delete newOptions.optionsVersion;
+	// end working message
+	ssbOptions.setWorkingMessage();
 	
+	// here's where we'd handle updating from previous options version
+	delete newOptions.optionsVersion;
+
+	// allow user to choose how to bring in the new options
 	ssbOptions.dialog.run(
-	    'You can use the settings and rules in the file to replace your current settings and rules, or only add the rules to your current ones.',
+	    ('You can use the settings and rules in the file to ' +
+	     'replace your current settings and rules, or only ' +
+	     'add the rules to your current ones.'),
 	    'Choose Action',
 	    function(action) {
 		
-		if (action == 1) {
-		    // replace
-		    ssbOptions.populate(newOptions);
-		} else if (action == 2) {
-		    // add
-		    var rulesOnly = {};
-		    rulesOnly.rules = ssbOptions.state.current.rules.concat(newOptions.rules);
-		    ssbOptions.populate(rulesOnly);
+		// cancel == 0
+		if (action) {		    
+		    if (action == 1) {
+			// replace all options
+			ssbOptions.populate(newOptions);
+		    } else {
+			// add rules to end of rules list
+			ssbOptions.formItem(ssbOptions.doc.form.rules,
+					    newOptions.rules, true);
+		    }
+		    
+		    // enable save button
+		    ssbOptions.setSaveButtonState(true);
 		}
-		// else cancel
 	    },
-	    [['Replace', 1], ['Add', 2], ['Cancel', 0]]
-	);
-    }
-
-    // handle errors/aborts
-    reader.onabort = function() {
-	ssbOptions.dialog.alert('Import of "' + file.name + '" was aborted.', 'Alert');
-    }
-    reader.onerror = function() {
-	ssbOptions.dialog.alert('Error importing "' + file.name + '".', 'Alert');
+	    [['Replace', 1], ['Add', 2], ['Cancel', 0]]);
     }
     
-    // Read in the image file as a data URL.
+    // handle abort on file load
+    reader.onabort = function() {
+	ssbOptions.setWorkingMessage();	
+	ssbOptions.dialog.run('Import of "' + file.name + '" was aborted.', 'Alert');
+    }
+
+    // handle error on file load
+    reader.onerror = function() {
+	ssbOptions.setWorkingMessage();	
+	ssbOptions.dialog.run('Error importing "' + file.name + '".', 'Alert');
+    }
+    
+    // handlers are set, so read in the file
     reader.readAsText(file);
 }
 
+
+// DOEXPORT -- export settings to a file
 ssbOptions.doExport = function() {
-    chrome.storage.local.get(null, function(items) {
-	var date = new Date();
-	ssbOptions.doc.form.export_options.download =
-	    'SSB Redirect Settings ' +
-	    date.getFullYear() + '-' +
-	    ('0' + date.getMonth()).slice(-2) + '-' +
-	    ('0' + date.getDate()).slice(-2) + '.txt';
-	ssbOptions.doc.form.export_options.href =
-	    URL.createObjectURL(new Blob([JSON.stringify(items)],
-					 {type: 'application/json'}));
-	ssbOptions.doc.form.export_options.click();
-    });
+
+    // make sure options have been saved before exporting
+    if (ssbOptions.doc.form.save_button.disabled) {
+	
+	// set working message
+	ssbOptions.setWorkingMessage('Exporting...');
+	
+	// get options from storage
+	chrome.storage.local.get(
+	    null,
+	    function(items) {
+		
+		// now that we have the options, create a JSON file
+
+		// create the default filename
+		var date = new Date();
+		ssbOptions.doc.form.export_options.download =
+		    'SSB Redirect Settings ' +
+		    date.getFullYear() + '-' +
+		    ('0' + date.getMonth()).slice(-2) + '-' +
+		    ('0' + date.getDate()).slice(-2) + '.json';
+
+		// create a live file
+		ssbOptions.doc.form.export_options.href =
+		    URL.createObjectURL(new Blob([JSON.stringify(items)],
+						 {type: 'application/json'}));
+
+		// simulate a click on the export object
+		ssbOptions.doc.form.export_options.click();
+		
+		// end working message
+		ssbOptions.setWorkingMessage();
+	    });
+    } else {
+	// options haven't been saved yet, so we can't export
+	ssbOptions.dialog.run('Please save options before exporting.',
+			      'Unable to Export');
+    }
 }
 
-// getter and setter for option fields in the form
-ssbOptions.updateOption = function(option, newValue) {
-    var oldValue = undefined;
-    
-    if (!option.id) {
-	
-	// this is a rule
-	var curRule = option.parentNode;
-	var rules = curRule.parentNode;
-	if (rules.id != 'rules') {
-	    console.log('unexpected parent node!');
-	    return;
+
+// FORM STATE -- set the state of various options form elements
+// ------------------------------------------------------------
+
+// CHECKEXTENSIONSTATUS -- activate or deactivate page based on extension status
+ssbOptions.checkExtensionStatus = function() {
+
+    // get current status
+    var curStatus = localStorage.getItem('status');
+
+    if (curStatus == null) {
+	// no status has been set, so set it
+	curStatus = { active: false, message: "Extension hasn't started up." };
+	localStorage.setItem('status', JSON.stringify(curStatus));
+    } else {
+	// parse the extension status
+	try {
+	    curStatus = JSON.parse(curStatus);
+	} catch(err) {
+	    // failed to parse status, so set it
+	    ssb.warn('error parsing status: ' + err.message);
+	    curStatus = { active: false, message: "Badly formed status." };
+	    localStorage.setItem('status', curStatus);
 	}
-	for (var i = 0; i < rules.children.length; i++) {
-	    if (rules.children[i] === curRule) break;
+	
+	if (curStatus.active == true)
+	    
+	    // ping the extension to make sure we're still connected
+	    chrome.runtime.sendMessage('ping', function(response) {
+		if (! response) {
+		    // not connected, so set status
+		    curStatus = { active: false,
+				  message: ('Disconnected from extension: ' +
+					    chrome.runtime.lastError)
+				};
+		    localStorage.setItem('status', curStatus);
+		}
+	    });
+    }
+
+    // now check final extension status
+    if (curStatus.active == true) {
+
+	// we are live, so activate options page
+	ssbOptions.doc.dialog.overlay.style.display = 'none';
+	
+	// check if we're installing
+	if (curStatus.showInstallMessage) {
+	    
+	    // show install dialog
+	    ssbOptions.dialog.run(
+		null,
+		'Welcome to your Chrome SSB!',
+		function () {
+		    // remove install message from status
+		    delete curStatus.showInstallMessage;
+		    localStorage.setItem('status', JSON.stringify(curStatus));
+		},
+		'Get Started',
+		ssbOptions.doc.dialog.install_content);
 	}
-	
-	// update current state of options
-	curRule = ssbOptions.state.current.rules[i];
-	if (option.className == 'redirect') {
-	    curRule.redirect = (option.value == 'true');
-	} else {
-	    curRule[option.className] = option.value;
-	}
-	
-	// set us up to compare with the saved options
-	oldValue = newValue = ssb.clone(ssbOptions.state.current['rules']);
-	option = rules;
-	
     } else {
 	
-	var doSet = (newValue !== undefined);
-	
-	// this is a top-level option
-	
-	switch(option.id) {
-	case 'ignoreAllInternalSameDomain':
-	    oldValue = option.checked;
-	    if (doSet) option.checked = newValue; else newValue = oldValue;
-	    break;
+	// extension isn't active, so show shutdown box
+	ssbOptions.dialog.run(
+	    (curStatus.message ? curStatus.message : ''),
+	    'The extension has shut down',
+	    undefined,
+	    0,
+	    ssbOptions.doc.dialog.shutdown_content);
+    }
+}
 
-	case 'redirectByDefault':
-	    oldValue = (option.value == 'true');
-	    if (doSet) option.value = newValue; else newValue = oldValue;
-	    break;
 
-	case 'rules':
-	    oldValue = [];
-	    var curRule;
-	    var oldNumRules = option.children.length;
-	    for (var i = 0; i < oldNumRules; i++) {
-		curRule = option.children[i];
-		oldValue.push({pattern: curRule.getElementsByClassName('pattern')[0].value,
-			       target: curRule.getElementsByClassName('target')[0].value,
-			       redirect: (curRule.getElementsByClassName('redirect')[0].value == 'true')});
-	    }
-	    
-	    if (doSet) {
-		for (var i = 0; i < newValue.length; i++) {
-		    if (i >= oldNumRules) {
-			// new rules list is longer than the old one, so add an entry
-			option.appendChild(ssbOptions.rulePrototype.cloneNode(true));
-		    }
-
-		    // fill in the current entry
-		    curRule = option.children[i];
-		    curRule.getElementsByClassName('pattern')[0].value = newValue[i].pattern;
-		    curRule.getElementsByClassName('target')[0].value = newValue[i].target;
-		    curRule.getElementsByClassName('redirect')[0].value = (newValue[i].redirect ? 'true' : 'false');
-		}
-		
-		// if new rules list is shorter than old, delete extra entries
-		for (var j = oldNumRules - 1; j >= i; j--) {
-		    curRule = option.children[j];
-		    curRule.parentNode.removeChild(curRule);
-		}
-
-		newValue = ssb.clone(newValue); // safe copy of newValue
-	    }
-	    else
-		newValue = oldValue;
-	    break;
-	    
-	case 'optionsVersion':
-	    // this is ignored
-	    return;
-	    
-	default:
-	    // unknown ID -- abort
-	    console.log('unknown ID ' + option.id);
-	    return;
-	}
-	
-	// update current state of options
-	ssbOptions.state.current[option.id] = newValue;
+// SETSAVEBUTTONSTATE -- enable or disable the save button
+ssbOptions.setSaveButtonState = function(enabled) {
+    
+    var disabled;
+    
+    // if called by event handler, we're always enabling
+    if (typeof enabled == 'object') {
+	var disabled = false;
+    } else {
+	disabled = ! enabled;
     }
     
-    // compare new value to saved value
-    if (! ssb.equal(newValue, ssb.options[option.id]))
-	ssbOptions.state.changes[option.id] = newValue;
-    else
-	delete ssbOptions.state.changes[option.id];
-    
-    // enable or disable save button
-    ssbOptions.buttonDisabled(ssbOptions.doc.form.save_click,
-			      (Object.getOwnPropertyNames(ssbOptions.state.changes).length == 0));
-    
-    return oldValue;
+    // only act if button state isn't already set
+    if (! ssbOptions.doc.form.save_button.disabled != (! disabled)) {
+	
+	// enable or disable the button
+	ssbOptions.doc.form.save_button.disabled = disabled;
+	ssbOptions.doc.form.save_button.style.cursor =
+	    (disabled ? 'auto' : 'pointer');
+	
+	if (disabled) {
+	    // we just disabled the save button -- add enabling handlers
+	    ssbOptions.jqRules.on('sortupdate.ssbSave',
+				  ssbOptions.setSaveButtonState);
+	    ssbOptions.jqForm.on('change.ssbSave', '.change',
+				 ssbOptions.setSaveButtonState);
+	    ssbOptions.jqForm.on('click.ssbSave', '.click',
+				 ssbOptions.setSaveButtonState);
+	    ssbOptions.jqForm.on('input.ssbSave', '.input',
+				 ssbOptions.setSaveButtonState);
+	} else {
+	    // we just enabled the save button -- remove enabling handlers
+	    ssbOptions.jqRules.unbind('.ssbSave');
+	    ssbOptions.jqForm.unbind('.ssbSave');
+	}
+    }
 }
 
-ssbOptions.buttonDisabled = function(button, disabled) {
-    button.style.cursor = (disabled ? 'auto' : 'pointer');
-    button.disabled = disabled;
-}
-    
-ssbOptions.doOptionChange = function(evt) {
 
-    console.log('detected option change for '+evt.target.id+':', evt.target);
-    
-    // update the state of the form
-    ssbOptions.updateOption(evt.target);
+// SETADDBUTTONSTATE -- show or hide the empty-list add-rule button
+ssbOptions.setAddButtonState = function() {
+    // if there are no rules, show the button; otherwise hide it
+    ssbOptions.doc.form.add_rule_list.style.display =
+	(ssbOptions.doc.form.rules.children.length > 0 ? 'none' : 'block');
 }
 
 
-ssbOptions.doResetToDefault = function() {
-    ssbOptions.dialog.run(
-	'This will overwrite all your options and rules. Are you sure you want to continue?',
-	'Confirm',
-	function(success) {
-	    if (success) {
-		
-		ssbOptions.populate(ssb.defaultOptions);
-		
-		ssbOptions.setOptions(ssb.defaultOptions, 'Reset failed.');
+// SETWORKINGMESSAGE -- show or hide a working message
+ssbOptions.setWorkingMessage = function(message) {
+    if (message) {
+	// set the message and show it
+	ssbOptions.doc.form.working_message.textContent = message;
+	ssbOptions.doc.form.working.style.display = 'inline-block';
+    } else {
+	// no message, so hide
+	ssbOptions.doc.form.working_message.textContent = '';
+	ssbOptions.doc.form.working.style.display = 'none';	
+    }
+}
+
+
+// DIALOG -- object to create and run various types of dialog box
+// --------------------------------------------------------------
+
+ssbOptions.dialog = {};
+
+
+// DIALOG.HANDLEBUTTON -- object to hold the custom handler for dialog buttons
+ssbOptions.dialog.handleButton = null;
+
+
+// DIALOG.RUN -- show a dialog, alert or buttonless modal window
+ssbOptions.dialog.run = function(message, title, callback,
+				 buttons, contentElement) {
+    
+    // set up default contentElement if necessary
+    if (! contentElement) contentElement = ssbOptions.doc.dialog.text_content;
+    
+    // set up default buttons if necessary
+    if ((typeof callback != 'function') && (buttons == undefined)) {
+	// default when called with no callback is an alert
+	buttons = 1;
+    } else if (buttons == undefined) {
+	// default when called with a callback is a yes/no dialog
+	buttons = 2;
+    }
+
+    // if a number was passed, set up default buttons
+    if (typeof buttons == 'number') {
+	switch (buttons) {
+	case 0:
+	    buttons = [ ];
+	    break;
+	case 1:
+	    // alert
+	    buttons = [ [ 'OK', true ] ];
+	    break;
+	case 2:
+	    // dialog
+	    buttons = [ [ 'Yes', true ], [ 'No', false ] ];
+	    break;
+	default:
+	    // 3-option dialog
+	    buttons = [ [ 'Yes', 1 ], [ 'No', 2 ], [ 'Cancel', 0 ] ];
+	}
+    } else if (typeof buttons == 'string') {
+	// one button with a custom name
+	buttons = [ [ buttons, true ] ];
+    }
+    
+    // set up object keyed on button values
+    var buttonValues = {};
+    for (var i = 0; i < buttons.length; i++)
+	buttonValues[buttons[i][0]] = buttons[i][1];
+    
+    // set up button handler for this dialog
+    ssbOptions.dialog.handleButton = function(evt) {
+	// hide the dialog box
+	ssbOptions.doc.dialog.overlay.style.display = 'none';
+	
+	// remove button listeners
+	ssbOptions.doc.dialog.button1.removeEventListener(
+	    'click', ssbOptions.dialog.handleButton);
+	ssbOptions.doc.dialog.button2.removeEventListener(
+	    'click', ssbOptions.dialog.handleButton);
+	ssbOptions.doc.dialog.button3.removeEventListener(
+	    'click', ssbOptions.dialog.handleButton);
+	
+	// if there's a callback, call it
+	if (typeof callback == 'function')
+	    callback(buttonValues ?
+		     buttonValues[evt.target.textContent] :
+		     undefined);
+    }
+    
+    // set dialog title
+    ssbOptions.doc.dialog.title.innerHTML = title;
+    
+    // clear out the dialog box content
+    var content = ssbOptions.doc.dialog.content;
+    while (content.firstChild) {
+	content.removeChild(content.firstChild);
+    }
+
+    // put content element into dialog box
+    ssbOptions.doc.dialog.content.appendChild(contentElement);
+    
+    // if message is a string, set up a default object
+    if (typeof message == 'string') message = { 'message': message }
+    
+    // go through the message object and fill in fields in the content element
+    for (key in message) {
+	if (message.hasOwnProperty(key)) {
+	    var curElement = contentElement.getElementsByClassName(key);
+	    if (curElement && curElement.length) {
+		curElement[0].innerHTML = message[key];
 	    }
-	});
-}
-
-ssbOptions.setOptions = function(newOptions, failPrefix) {
-    
-    ssb.setOptions(newOptions, function(success, message) {
-	if (success) {
-	    ssbOptions.state.changes = {};
-	    ssbOptions.doc.form.save_click.disabled = true;
-	    
-	    // update status of reset to defaults button
-	    ssbOptions.doc.form.reset_click.disabled =
-		ssb.equal(ssb.options, ssb.defaultOptions);
-	    
-	} else {
-	    // failed
-	    ssbOptions.dialog.alert(failPrefix + ' ' + message, 'Warning');
 	}
-    });
-}
-
-
-ssbOptions.doAddRule = function() {
-
-    // add a new copy of the prototype rule
-    var rules = ssbOptions.doc.form.rules;
-    rules.appendChild(ssbOptions.rulePrototype.cloneNode(true));
-
-    // give focus to the pattern & select all text
-    var pattern =
-	rules.children[rules.children.length - 1].getElementsByClassName('pattern')[0];    
-    pattern.focus();
-    pattern.select();
+    }
     
-    // update the current state
-    ssbOptions.updateOption(ssbOptions.doc.form.rules);
-}
+    // set up buttons
+    var curButton;
+    for (i = 0; i < 3; i++) {
+	// get ID of current button
+	curButton = 'button' + (i+1);
+	
+	if (buttons[i]) {
+	    // fill in this button and show it
+	    ssbOptions.doc.dialog[curButton].textContent = buttons[i][0];
+	    ssbOptions.doc.dialog[curButton].style.display = 'inline-block';
 
-// restore options window state from storage
-ssbOptions.startup = function() {
-
-    ssb.startup('options', function(success, message) {
-
-	if (success) {
-
-	    // get prototype rule entry
-	    ssbOptions.rulePrototype = ssbOptions.doc.form.rules.children[0].cloneNode(true);
-	    
-	    // set up listeners
-	    
-	    // handle changes to options
-	    
-	    ssbOptions.doc.form.ignoreAllInternalSameDomain.addEventListener('change', ssbOptions.doOptionChange);
-	    ssbOptions.doc.form.rules.addEventListener('change', ssbOptions.doOptionChange);
-	    ssbOptions.doc.form.redirectByDefault.addEventListener('change', ssbOptions.doOptionChange);
-	    
-	    ssbOptions.doc.form.save_click.disabled = true;
-	    ssbOptions.doc.form.save_click.addEventListener('click', ssbOptions.doSave);
-
-	    ssbOptions.doc.form.add_click.addEventListener('click', ssbOptions.doAddRule);
-	    
-	    window.addEventListener('storage', ssbOptions.checkStatus);
-
-	    // reset to default button
-	    ssbOptions.doc.form.reset_click.disabled =
-		ssb.equal(ssb.options, ssb.defaultOptions);
-
-	    ssbOptions.doc.form.reset_click.addEventListener('click', ssbOptions.doResetToDefault);
-	    
-	    // handle import button
-	    ssbOptions.doc.form.import_options.addEventListener('change', ssbOptions.doImport);
-	    
-	    ssbOptions.doc.form.import_click.addEventListener('click', function() {
-		ssbOptions.doc.form.import_options.click();
-	    });
-	    
-	    // handle export button
-	    ssbOptions.doc.form.export_click.addEventListener('click', ssbOptions.doExport);
-	    
-	    // get extension status
-	    ssbOptions.checkStatus();
-	    	    
-	    // use options in storage to populate the page
-	    ssbOptions.populate(ssb.options);
-
-	    $( "#rules" ).sortable({
-		axis: 'y',
-		handle: '.drag-handle',
-		tolerance: 'pointer',
-		update: ssbOptions.doOptionChange
-	    });
-
-	    ssbOptions.doc.form.rules.addEventListener('click', function(e) {
-		if (e.target.className == 'delete-button') {
-		    console.log('got delete click');
-		    var thisRule = e.target.parentNode;
-		    var parent = thisRule.parentNode;
-		    parent.removeChild(thisRule);
-		    ssbOptions.updateOption(parent);
-		}
-	    });
-	    
+	    // add click listener
+	    ssbOptions.doc.dialog[curButton].addEventListener(
+		'click', ssbOptions.dialog.handleButton);
 	} else {
-	    ssbOptions.dialog.alert(message, 'Error');
+	    // hide this button
+	    ssbOptions.doc.dialog[curButton].style.display = 'none';
 	}
-    });
+    }
+    
+    // display the dialog box
+    ssbOptions.doc.dialog.overlay.style.display = 'block';
 }
 
-// save options to chrome.storage.local
-ssbOptions.doSave = function() {
-    ssbOptions.setOptions(ssbOptions.state.current, 'Failed to save options.');
-}
+
+// BOOTSTRAP STARTUP -- set startup to run when content has loaded
+// ---------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', ssbOptions.startup);

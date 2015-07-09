@@ -1,39 +1,58 @@
+/*
+ options.css: options page style-sheet for Mac SSB Helper extension
+
+ Copyright (C) 2015 David Marmor
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see http://www.gnu.org/licenses/.
+*/
+
+/* OVERALL STYLES */
+
 body: {
     padding: 10px;
+    margin: 0;
 }
 
 #container {
     width: 500px;
-    height: 500px;
+    height: 450px;
     position: relative;
 }
 
-#overlay {
+.invisible {
     display: none;
+}
+
+
+/* DIALOG BOX */
+
+/* overlay */
+#overlay {
     width: 100%;
     height: 100%;
     position: relative;
     background-color: rgba(255, 255, 255, 0.75);
+    vertical-align: middle;
     z-index: 2;
 }
 
-#overlay h3 {
-    margin: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #d3d3d3;
-}
-
-#overlay p, #overlay h4 {
-    margin-bottom: 0;
-    line-height: 125%;
-}
-
-#overlay .box {
-    display: none;
+/* dialog box */
+#dialog_box {
     position: relative;
-    top: 15%;
     left: 15%;
     width: 70%;
+    vertical-align: middle;
     padding: 15px;
     
     /* copied from Chrome overlay.css */
@@ -45,10 +64,36 @@ body: {
     color: #333;
     display: -webkit-box;
 }
-
-#overlay #shutdown_box {
-    display: none;
+#dialog_box h3 {
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #d3d3d3;
 }
+#dialog_box .content {
+    padding: 10px;
+}
+#dialog_box .content p {
+    line-height: 150%;
+}
+
+/* installation message */
+#install_content {
+    font-size: 110%;
+    background-image: url("install_bg.png");
+    background-repeat: no-repeat;
+}
+#install_content .note {
+    font-style: italic;
+    font-size: 90%;
+}
+
+/* shutdown message */
+#shutdown_content .message {
+    margin: 0;
+}
+
+
+/* OPTIONS FORM */
 
 #options_form {
     position: absolute;
@@ -57,68 +102,171 @@ body: {
     top: 0;
 }
 
-#export_options {
-    display: none;
+/* overall form elements */
+.section-header {
+    margin-top: 0;
+    text-decoration: underline;
+}
+.subsection-header {
+    margin-top: 2em;
+    font-weight: bold;
+}
+.divider {
+    width:100%;
+    margin-top: 2em;
+    margin-bottom: 2em;
+    border-bottom: 1px solid #d3d3d3;
+}
+
+/* checkboxes */
+.checkbox {
+    display: block;
+}
+input[type="checkbox"] {
+    margin-right: .5em;
 }
 
 
+/* RULES */
 
-#rules {
-    width: 100%;
-    height: 100px;
-    background-color: yellow;
+/* header */
+#rules_header {
+    font-style: italic;
+}
+#rules_header .header {
+    vertical-align: bottom;
+}
+
+/* scroll box */
+#rules_scroll {
+    width: 500px;
+    height: 135px;
     overflow-y: scroll;
+    margin-bottom: 1em;
+    border: 1px solid #C1C1C1
 }
 
-ul {
+/* rules list */
+ul.rules-list {
     margin: 0;
     padding: 0;
     list-style: none;
 }
+.rule {
+    position: relative;
+    vertical-align: middle;
+    margin: 7px 0;
+}
 
-.drag-handle,.pattern,.target,.redirect {
+/* general rule field styles */
+.drag-handle,.pattern,.target,.redirect,.delete-button,.add-after-button {
+    margin: 0 5px;
+    vertical-align: middle;
     display: inline-block;
 }
 
+/* drag handle */
+.drag-handle-box {
+    width: 16px;
+    height: 12px;
+    margin-left: 5px;
+    display: inline-block;
+}
 .drag-handle {
-    margin-right: 10px;
-    width: 20px;
+    stroke: #C1C1C1;
+    fill:none;
+    stroke-width:2;
+    stroke-linecap:round;
+    cursor: move;
+    cursor: -webkit-grabbing;  /* overrides 'move' */
+}
+.drag-handle:hover {
+    stroke: #7D7D7D;
 }
 
+/* pattern text box */
 .pattern {
     width: 160px;
 }
 
+/* target drop-down */
 .target {
-    width: 100px;
+    width: 90px;
+    margin-right: 10px;
 }
 
-#rules .drag-handle {
-    font: bold 20px Sans-Serif;
-    cursor: move;
-    cursor: -webkit-grabbing;  /* overrides 'move' */
+/* per-row add and delete buttons */
+.add-delete {
+    display: inline-block;
+    width: 55px;
+    margin-left: 20px;
+    margin-right: 0;
 }
-
-
-#rules li {
-    position: relative;
-}
-
-#rules .delete-button {
+.delete-button, .add-after-button {
+    padding: 0;
+    fill: #C1C1C1;
     -webkit-transition: opacity .2s;
     transition: opacity .2s;
     opacity: 0;
-    display: inline-block;
     cursor: pointer;
-    color: #c00;
     position: relative;
-    font-style: normal;
 }
-
-#rules li:hover .delete-button {
+.rule:hover .delete-button, .rule:hover .add-after-button {
     opacity: 1;
 }
+.delete-button:hover {
+    fill: #BF0000;
+}
+.add-after-button:hover {
+    fill: #00BF00;
+}
+.add-after-button {
+    margin-right: 5px;
+}
 
+/* empty-list add button */
+#add_button {
+    color: #C1C1C1;
+    cursor: pointer;
+}
+#add_button:hover {
+    color: #7D7D7D;
+}
+
+
+/* OTHER OPTIONS */
+.redirectByDefault {
+    margin-left: .5em;
+}
+
+
+/* BUTTON ROW */
+
+#button_row,#working_holder,#spinner,#working_message {
+    vertical-align: middle;
+}
+
+/* general button styles */
 button {
-    cursor: pointer;    
+    cursor: pointer;
+}
+
+/* button spacing */
+#save_button {
+    margin-right: 10px;
+}
+#reset_button {
+    margin-right: 20px;
+}
+#import_button {
+    margin-right: 5px;
+}
+
+/* working message area */
+#spinner {
+    margin-right: 4px;
+}
+#working_holder {
+    display: inline-block;
+    margin-left: 10px;
 }

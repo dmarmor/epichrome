@@ -58,6 +58,9 @@ while 1:
     if not message:
         break
 
+    if 'version' in message:
+        send_message('{ "version": "%s" }' % version)
+    
     if 'url' in message:
         # open the url
         try:

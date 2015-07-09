@@ -1,89 +1,200 @@
 <!DOCTYPE html>
+<!--
+ options.html: options page HTML for Mac SSB Helper extension
+
+ Copyright (C) 2015 David Marmor
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see http://www.gnu.org/licenses/.
+-->
+
 <html>
-<head>
-<title>SSB Redirect Options</title>
-<link rel="stylesheet" type="text/css" href="options.css" />
-</head>
-
-<body id="body">
-  <div id="container">
-    
-    <div id="overlay">
-      <div id="shutdown_box" class="box">
-	<h3>The extension has shut down</h3>
-	<h4 id="shutdown_message"></h4>
-	<p id="shutdown_help">
-	Try disabling and re-enabling the SSB, or check for updates/fixes at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
-	</p>
-      </div>
-      
-      <div id="dialog_box" class="box">
-	<h3 id="dialog_title"></h3>
-	<p id="dialog_message"></p>
-	<button id="dialog_button1">Button 1</button>
-	<button id="dialog_button2">Button 2</button>
-	<button id="dialog_button3">Button 3</button>
-      </div>
-
-    </div>
+  <head>
+    <title>Mac SSB Helper - Options</title>
+    <link rel="stylesheet" type="text/css" href="options.css" />
+  </head>
   
-    <div id="options_form">
-      <a download="SSB Redirect Settings.txt" id="export_options">export options</a>
-      <input type="file" id="import_options" name="filename" style="display: none" />
-  
-      <button id="export_click">Export</button>
-      <button id="import_click">Import</button>
+  <body id="body">
+    <div id="container">
 
-      <p>
-        <label>
-          <input type="checkbox" id="ignoreAllInternalSameDomain" />
-          Never redirect domain-relative links that would open in the same tab
-        </label>  
-      </p>
+      <!-- overlay containing dialog box -->
+      <div id="overlay" class="invisible">
 
-      <p id="rules_old"></p>
+	<!-- dialog box -->
+	<div id="dialog_box" class="box">
 
-      <button id="add_click">Add</button>
-      
-    <div id="rules_header">
-	    <span class="drag-handle"></span>
-      <span class="pattern">pattern fooo bar bletch fldk sdld fsdf sld faqd fasd fasd fsa fddjdj</span>
-	    <span class="target">target</span>
-	    <span class="redirect">redirect</span>
-      
-      </div>
-	<ul id="rules">
-	  <li>
-	    <span class="drag-handle">&#9776;</span>
-	    <input type="text" class="pattern" value="*" />
-	    <select class="target">
-	      <option value="both">Any</option>
-	      <option value="internal">Same Tab</option>
-	      <option value="external">New Tab</option>
-	    </select>
-	    <select class="redirect">
-	      <option value="true">Redirect</option>
-	      <option value="false">Don't Redirect</option>
-	    </select>
-	    <span class="delete-button">X</span>
-	  </li>
-	</ul>
+	  <!-- dialog box elements -->
+	  <h3 id="dialog_title"></h3>
+	  <div id="dialog_content" class="content"></div>
+	  <button id="dialog_button1">Button 1</button>
+	  <button id="dialog_button2">Button 2</button>
+	  <button id="dialog_button3">Button 3</button>
+	  
+	  <!-- dialog box content for regular dialog -->
+	  <div id="text_content">
+	    <p class="message"></p>
+	  </div>
+	  
+	  <!-- dialog box content for install message -->
+	  <div id="install_content" class="content">
+	    <p>This extension will help it behave more like a true app. You can use rules to decide which links the SSB should handle itself and which should be sent to your default browser. You can also choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</p>
+	    <p>The options page allows you to set up your rules, as well as import and export rules for backup or migration.</p>
+	    <p class="note">Note: this extension is <i>only</i> intended for use with Mac OSX SSBs created with <a href="https://github.com/dmarmor/osx-chrome-ssb-gui/releases" title="MakeChromeSSB">MakeChromeSSB</a>. It will not do anything if you just install it in Chrome.</p>
+          </div>
+	  
+	  <!-- dialog box content for shutdown message -->
+	  <div id="shutdown_content" class="content">
+            <h4 class="message"></h4>
+	    <p class="shutdown_help">
+	      Try disabling and re-enabling the SSB, or check for updates/fixes at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
+	    </p>
+	  </div>
+	</div>
+      </div><!-- overlay -->
 
-      <label>
-        If a link doesn't match any rule:
-        <select id="redirectByDefault">
-          <option value="true">Redirect</option>
-          <option value="false">Don't Redirect</option>
-        </select>
-      </label>
+      <!-- options form -->
+      <div id="options_form" class="options_form">
+
+	<!-- fake option for version -->
+	<div class="optionsVersion sub.options_form invisible"></div>
 	
-      <button id="save_click">Save</button>
-      <button id="reset_click">Reset to Default</button>
-    </div><!-- options_form -->
-  </div><!-- container -->
-  <script src="jquery-2.1.4.min.js"></script>
-  <script src="jquery-ui-1.11.4.min.js"></script>
-  <script src="shared.js"></script>
-  <script src="options.js"></script>
-</body>
+	<h4 class="section-header">Rules for handling links in this app</h4>
+
+	<!-- ignoreAllInternalSamDomain checkbox -->
+	<label class="checkbox" title="If this is checked, then the SSB will handle any link that goes to the exact same domain as the page it's on and would open in the same tab (no matter what the custom rules say). For instance, this rule would apply to a link to http://sub.example.com/new.html if that link was on http://sub.example.com/index.html. It would NOT apply to http://example.com/anything.html.">
+          <input type="checkbox" class="ignoreAllInternalSameDomain sub.options_form change" />
+          Never redirect domain-relative links that would open in the same tab
+	</label>
+	
+	<div class="subsection-header">Custom Rules &ndash; <i>if a link...</i></div>
+
+	<!-- header row for rules table -->
+	<div id="rules_header">
+	  <span class="drag-handle-box header"></span>
+	  <span class="pattern header">Matches this pattern:</span>
+	  <span class="target header">And would<br/>open in:</span>
+	  <span class="redirect header">Then open it with:</span>
+	  <span class="add-delete header">(Del / add)</span>
+	</div>
+
+	<div id="rules_scroll">
+	  
+	  <!-- rules list -->
+	  <ul id="rules" class="rules sub.options_form rules-list">
+
+	    <!-- single rule (this is the prototype) -->
+	    <li class="rule">
+	      
+	      <!-- handle for sorting (based on char &#9776;) -->
+	      <svg class="drag-handle drag-handle-box" version="1.1" x="0px" y="0px">
+		<line x1="1" y1="1" x2="15" y2="1"/>
+		<line x1="1" y1="6" x2="15" y2="6"/>
+		<line x1="1" y1="11" x2="15" y2="11"/>
+	      </svg>
+
+	      <!-- pattern text box -->
+	      <input type="text" class="pattern sub.rule input change keydown" value="*" title="In these patterns, a * matches any characters, or no characters. Note that if you want a pattern to match any page in a certain range, your pattern must end with a *." />
+
+	      <!-- target drop-down menu -->
+	      <select class="target sub.rule change keydown">
+		<option value="internal">Same tab</option>
+		<option value="external">New tab</option>
+		<option value="both">Either</option>
+	      </select>
+
+	      <!-- redirect drop-down menu -->
+	      <select class="redirect sub.rule change keydown">
+		<option value="true">Default browser</option>
+		<option value="false">This SSB</option>
+	      </select>
+
+	      <!-- rule delete button -->
+	      <span title="Delete this rule">
+		<svg class="delete-button" version="1.1" x="0px" y="0px" width="16px" height="16px">
+		  <path d="M7.993,0C3.577,0,0,3.577,0,7.994C0,12.41,3.577,16,7.993,16C12.41,16,16,12.41,16,7.994
+			   C16,3.577,12.41,0,7.993,0z M2.763,6.625h10.475v2.75H2.763V6.625z"/>
+		</svg>
+	      </span>
+
+	      <!-- add rule button -->
+	      <span title="Add a rule after this one">
+		<svg class="add-after-button" version="1.1" x="0px" y="0px" width="16px" height="16px">
+		  <rect y="6" width="16" height="4"/>
+		  <rect x="6" width="4" height="16"/>
+		</svg>
+	      </span>
+	    </li><!-- rule -->
+	  </ul><!-- rules -->
+
+	  <!-- fake list to contain empty-list add-rule button -->
+	  <ul id="add_rule_list" class="rules-list">
+	    <li class="rule">
+	      <div class="drag-handle-box"></div>
+	      <input id="add_button" type="text" class="pattern" value="click to add a rule" />
+	    </li>
+	  </ul>
+	  
+	</div><!-- rules_scroll -->
+	
+	<!-- redirectByDefault checkbox -->
+	<label id="default_option">
+          If a link doesn't match any rule, open it with:
+          <select class="redirectByDefault sub.options_form change">
+            <option value="true">Default browser</option>
+            <option value="false">This SSB</option>
+          </select>
+	</label>
+	
+	<div class="divider"></div>
+	
+	<h4 class="section-header">Rules for handling incoming links from other apps</h4>
+
+	<!-- sendIncomingToMainTab checkbox -->
+	<label class="checkbox" title="If this is checked, links being sent to this SSB from an external app will open in the main window. Note that this probably only makes sense if this is an app-style SSB with only one main window and no tabs. Also, if you ever close the main window, this will stop functioning until you restart the SSB.">
+          <input type="checkbox" class="sendIncomingToMainTab sub.options_form change" />
+          Send incoming links to the main window instead of a new tab
+	</label>
+	
+	<div class="divider"></div>
+
+	<!-- save, reset, import & export buttons -->
+	<div id="button_row">
+	  <button id="save_button">Save</button>
+	  <button id="reset_button">Reset to Default</button>
+	  
+	  <button id="import_button">Import</button>      
+	  <button id="export_button">Export</button>
+
+	  <!-- invisible elements for import and export -->
+	  <a download="SSB Redirect Settings.txt" id="export_options" class="invisible">export options</a>
+	  <input type="file" id="import_options" name="filename" class="invisible" />
+
+	  <!-- working message -->
+	  <span id="working_holder">
+	    <span id="working" class="invisible">
+	      <img id="spinner" src="working.gif" width="16" height="16"/>
+	      <span id="working_message"></span>
+	    </span>
+	  </span>
+	</div><!-- button_row -->
+      </div><!-- options_form -->
+    </div><!-- container -->
+
+    <!-- scripts -->
+    <script src="jquery-2.1.4.min.js"></script>
+    <script src="jquery-ui-1.11.4.min.js"></script>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+    
+  </body>
 </html>

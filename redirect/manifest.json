@@ -1,21 +1,10 @@
 {
     "manifest_version": 2,
     
-    "name": "SSB Redirect",
-    "description": "This extension shows a Google Image search result for the current page",
-    "version": "1.0.0.20",
-    
-    // "browser_action": {
-    // 	"default_icon": "icon.png",
-    // 	"default_popup": "popup.html",
-    // 	"default_title": "Hello World"
-    // },
+    "name": "Mac SSB Helper",
+    "description": "Handles link redirection for Mac apps created with MakeChromeSSB.",
+    "version": "1.0.0.0",
 
-    "options_ui": {
-	"page": "options.html",
-	"chrome_style": true
-    },
-    
     "background": {
     	"scripts": ["shared.js", "background.js"]
     },
@@ -28,6 +17,15 @@
     	    "js": ["shared.js", "jquery-2.1.4.min.js", "content.js"]
     	}
     ],
+    
+    "icons": { "16": "icon16.png",
+               "48": "icon48.png",
+               "128": "icon128.png" },
+    
+    "options_ui": {
+	"page": "options.html",
+	"chrome_style": true
+    },
     
     "permissions": [
 	"nativeMessaging",

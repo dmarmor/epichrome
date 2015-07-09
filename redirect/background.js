@@ -1,73 +1,186 @@
+//
+//  background.js: background page for Mac SSB Helper extension
+//
+//  Copyright (C) 2015 David Marmor
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+
+
+// SSBBG -- object that holds all data & methods
+// ---------------------------------------------
+
 var ssbBG = {};
 
-ssbBG.host = {};
-ssbBG.host.sendUrl = function(url, sender) {
-    // log the redirect, so if it ends up back here, we won't accidentally kill it
-    var curRedirect = ssbBG.redirects[url] = { sent: true };
-    
-    // time out the redirect after a few seconds
-    curRedirect.timeout = setTimeout(function(url) {
-	var redirect = ssbBG.redirects[url];
-	if (redirect && (! redirect.response))
-	    ssbBG.shutdown('Redirect request timed out.');
-	
-	// remove this redirect
-	delete ssbBG.redirects[url];
-	
-    }, 4000, url);
-    
-    // send message
-    ssbBG.host.port.postMessage({"url": url});
-    console.log("sent url redirect: " + url);
-}
 
-ssbBG.host.receiveMessage = function(message) {
+// STARTUP/SHUTDOWN -- handle startup, shutdown & installation
+// -----------------------------------------------------------
 
-    console.log('got response back',message);
-    // we now know we have an operating port
-    ssbBG.host.isReconnect = false;
+// STARTUP -- main startup function for the extension
+ssbBG.startup = function() {    
+    // start up shared code
+    ssb.startup('background', function(success, message) {
+	if (success) {
+	    
+	    ssb.log(ssb.logPrefix + ' is starting up');
+	    
+	    // we are active!
+	    localStorage.setItem('status', JSON.stringify({ active: true }));
+	    
+	    // initialize pages.urls
+	    ssbBG.pages.urls = {};
+	    
+	    // status change listener (we don't need to do anything)
+	    //window.addEventListener('storage', function() { ssb.debug('storage', 'got a status change!'); });
+	    
+	    // set up listener for when pages connect to us
+	    chrome.runtime.onConnect.addListener(ssbBG.pages.handleConnect);
+	    
+	    // set up listener for handling pings
+	    chrome.runtime.onMessage.addListener(ssbBG.handlePing);
+	    
+	    // connect to host
+	    ssbBG.host.connect();
+	    
+	    // handle new tabs
+	    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
 
-    // parse response
-    if ('url' in message) {
-	ssbBG.redirects[message.url].response = true;
-	if (message.result != "success") {
-	    ssbBG.shutdown('Redirect request failed.');
-	}
-    } else {
-	// unknown response from host
-	ssbBG.shutdown('Redirect request returned unknown response.');
-    }
-}
-
-
-ssbBG.host.connect = function(isReconnect) {
-    // disconnect any existing connection
-    if (ssbBG.host.port) ssbBG.host.port.disconnect();
-    
-    console.log(ssb.logPrefix + 'connecting to redirect host');
-    
-    // connect to host
-    ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.redirect');
-    ssbBG.host.isReconnect = isReconnect;
-
-    // handle disconnect from the host
-    ssbBG.host.port.onDisconnect.addListener(function () {
-	var logmsg = ssb.logPrefix + 'disconnected from redirect host';
-
-	if (ssbBG.host.isReconnect) {
-	    // second connection attempt, so disconnect is an error
-	    ssbBG.shutdown('Disconnected from redirect host');
+	    // we don't yet know which is the main tab
+	    ssbBG.mainTabId = undefined;
+	    
+	    // in 200ms, initialize all tabs
+	    // (giving Chrome startup time to override)
+	    if (typeof ssbBG.doInitTabs != 'number') ssbBG.doInitTabs = 1;
+	    ssbBG.startupTimeout = setTimeout(ssbBG.initializeTabs, 200);
 	} else {
-	    // we had a good connection or this was our first try, so retry
-	    ssbBG.host.connect(true);
+	    ssbBG.shutdown(message);
 	}
     });
-    
-    // handle messages from the host
-    ssbBG.host.port.onMessage.addListener(ssbBG.host.receiveMessage);
 }
 
 
+// SHUTDOWN -- shuts the extension down
+ssbBG.shutdown = function(statusmessage) {
+    
+    // cancel outstanding timeouts
+    if (ssbBG.pages.urls)
+	Object.keys(ssbBG.pages.urls).forEach(
+	    function(key, index) {
+		ssb.debug('shutdown', 'clearing timeout for ' + key);
+		clearTimeout(ssbBG.pages.urls[key].timeout);
+	    });
+    
+    // tell all tabs to shut down
+    ssbBG.allTabs(function(tab) {
+	ssb.debug('shutdown', 'shutting down tab', tab.id);
+	chrome.tabs.sendMessage(tab.id, 'shutdown');
+    }, null, function() {
+	
+	// shut myself down
+	if (ssbBG.host.port) ssbBG.host.port.disconnect();
+	
+	// remove listeners
+	chrome.tabs.onCreated.removeListener(ssbBG.handleNewTab);
+	chrome.runtime.onConnect.removeListener(ssbBG.pages.handleConnect);
+	chrome.runtime.onMessage.removeListener(ssbBG.handlePing);
+	
+	// set status in local storage
+	localStorage.setItem('status',
+			     JSON.stringify({ active: false,
+					      message: statusmessage }));
+	
+	// open options page
+	chrome.runtime.openOptionsPage();
+	// shut down shared.js
+	ssb.shutdown();
+	
+	// kill myself
+	ssbBG = undefined;
+    });
+}
+
+
+// INITIALIZETABS -- reload content scripts for every open tab &
+//                   identify the "main" tab (by lowest ID)
+ssbBG.initializeTabs = function() {
+    
+    // find all existing tabs
+    ssbBG.allTabs(function(tab, scripts) {
+
+	// store the smallest tab ID for handling incoming tabs (this is a bit
+	// of a kludge--I have no documentation that tab ID always start small
+	// on startup, but they appear to pretty reliably; also, generally at
+	// this point in loading, in an app-style scenario there should only be
+	// one tab open, so it should be moot)
+	if ((ssbBG.mainTabId == undefined) ||
+	    (ssbBG.mainTabId > tab.id)) {
+	    ssbBG.mainTabId = tab.id;
+	    ssb.debug('initTabs', 'setting main tab to', ssbBG.mainTabId);
+	}
+	
+	// if we're not in Chrome startup, ping tab
+    	if (ssbBG.doInitTabs) {
+	    chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
+		
+		if (response != 'ping') {
+		    
+		    ssb.debug('initTabs', 'reloading tab', tab.id);
+		    
+		    // no response, so inject content scripts
+    		    for(var i = 0 ; i < scripts.length; i++ ) {
+    			chrome.tabs.executeScript(tab.id, { file: scripts[i], allFrames: true });
+    		    }
+    		}
+    	    });
+	}
+    }, ssb.manifest.content_scripts[0].js);
+}
+
+
+// HANDLECHROMESTARTUP -- prevent initializing tabs on Chrome startup
+ssbBG.handleChromeStartup = function() {
+    // Chrome is starting up, so don't initialize tabs
+    ssbBG.doInitTabs = 0;
+}
+
+
+// HANDLEINSTALL -- display a welcome message on installation
+ssbBG.handleInstall = function() {
+    
+    // get current status
+    var curStatus = localStorage.getItem('status');
+    if (typeof curStatus == 'string') {
+	try {
+	    curStatus = JSON.parse(curStatus);
+	} catch (err) {
+	    ssb.warn('got bad extension status--resetting');
+	    curStatus = null;
+	}
+    }
+    
+    // set new status with install indicator
+    localStorage.setItem('status',
+			 JSON.stringify({ active: curStatus.active,
+					  message: curStatus.message,
+					  showInstallMessage: true }));
+    
+    // open options page
+    chrome.runtime.openOptionsPage();
+}
+
+
+// ALLTABS -- utility function to run a function on every open tab
 ssbBG.allTabs = function(action, arg, finished) {
     chrome.windows.getAll(
 	{ populate: true },
@@ -92,148 +205,205 @@ ssbBG.allTabs = function(action, arg, finished) {
 }
 
 
+// HANDLERS -- event and message handlers
+// ----------------------------------------------------
+
+// HANDLENEWTAB -- process a newly-opened tab
+ssbBG.handleNewTab = function(tab) {
+    
+    ssb.debug('newTab', 'tab created ( id =',tab.id,'openerId =',tab.openerTabId,')');
+    
+    if (!tab.url || (tab.url == 'chrome://newtab/')) {
+
+	// blank tab
+	ssb.debug('newTab', 'tab is empty -- ignoring');
+	
+    } else if (!ssb.regexpChromeScheme.test(tab.url)) {
+	
+	// incoming or nav tab
+	ssb.debug('newTab', 'tab has url',tab.url);
+	
+	if (!tab.openerTabId && ssbBG.pages.urls[tab.url] &&
+	    ssbBG.pages.urls[tab.url].redirect) {
+
+	    // tab redirected from here apparently landed here again, so we
+	    // ignore it to avoid an endless redirection loop
+	    ssb.debug('newTab', 'tab was redirected from this SSB -- ignoring');
+	    
+	} else if (ssb.shouldRedirect(tab.url, 'external')) {
+
+	    // according to the rules, this URL should be redirected
+	    ssb.debug('newTab', 'using rules -- redirecting');
+	    
+	    // simulate a message from a page to send the redirect
+	    ssbBG.pages.handleMessage({redirect: true, url: tab.url});
+	    chrome.tabs.remove(tab.id);
+	    
+	} else {
+
+	    // according to the rules, this URL should be kept
+	    ssb.debug('newTab', 'using rules -- keeping');
+	    
+	    // if it's truly an incoming tab (we didn't create it through any
+	    // kind of click), we might send it to the main tab
+	    if (! ssbBG.pages.urls[tab.url] &&
+		ssb.options.sendIncomingToMainTab) {
+
+		// according to our options, it should be sent to main tab
+		ssb.debug('newTab', 'using options -- sending to main tab');
+		
+		var thisTabId = tab.id;
+		var thisUrl = tab.url;
+		try {
+		    chrome.tabs.get(
+			ssbBG.mainTabId,
+			function(mainTab) {
+			    chrome.tabs.remove(thisTabId);
+			    chrome.tabs.update(mainTab.id,
+					       {url: thisUrl, active: true});
+			    chrome.windows.update(mainTab.windowId,
+						  {focused: true});
+			});
+		} catch(err) {
+		    ssb.warn('unable to find main tab',ssbBG.mainTabId,' -- leaving new tab open');
+		}
+	    } else {
+		// either it's an actual redirect, or our options don't call
+		// for redirecting to the main tab
+		ssb.debug('newTab', 'leaving new tab open');
+	    }
+	}
+    }
+}
+
+
+// HANDLEPING -- handle incoming one-time pings from pages
 ssbBG.handlePing = function(message, sender, respond) {
     switch (message) {
     case 'ping':
 	respond('ping');
 	break;
     default:
-	console.log(ssb.logPrefix + 'received unknown message:', message, sender);
+	ssb.warn('ping handler received unknown message:', message,'from',sender);
     }
 }
 
 
-ssbBG.handleConnect = function(port) {
-    port.onMessage.addListener(ssbBG.host.sendUrl);
+// PAGES -- object for handling communication with web pages
+// ---------------------------------------------------------
+
+ssbBG.pages = {};
+
+
+// PAGES.HANDLECONNECT -- set up a connection with a page
+ssbBG.pages.handleConnect = function(port) {
+    port.onMessage.addListener(ssbBG.pages.handleMessage);
 }
 
 
-ssbBG.handleChromeStartup = function() {
-    // Chrome is starting up, so don't ping tabs yet
-    if (ssbBG.startupTimeout)
-	clearTimeout(ssbBG.startupTimeout);
-}
-
-
-ssbBG.pingTabs = function() {
+// PAGES.HANDLEMESSAGE -- handle an incoming message from a page
+ssbBG.pages.handleMessage = function(message) {
+    ssb.debug('pageMessage','got message:',message);
     
-    // ping all existing tabs & if dead, inject content scripts
-    ssbBG.allTabs(function(tab, scripts) {
-	
-	// ping tab
-    	chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
-	    
-	    if (response != 'ping') {
-		
-		console.log(ssb.logPrefix + 'updating tab ' + tab.id);
-
-		// no response, so inject content scripts
-    		for(var i = 0 ; i < scripts.length; i++ ) {
-    		    chrome.tabs.executeScript(tab.id, { file: scripts[i], allFrames: true });
-    		}
-    	    }
-    	});
-    }, ssb.manifest.content_scripts[0].js);
-}
-
-
-ssbBG.checkStatus = function() {
-    console.log('got a status change!', localStorage.getItem('status'));
-}
-
-
-ssbBG.startup = function() {
-    console.log(ssb.logPrefix + 'starting up');
+    // hold onto this URL for a few seconds so we don't try to
+    // close any new tab or send it to the main page
     
-    // start up shared code
-    ssb.startup('background', function(success, message) {
-	if (success) {
-	    // we are active!
-	    localStorage.setItem('status', JSON.stringify({ active: true }));
-	    
-	    // initialize redirects
-	    ssbBG.redirects = {};
-	    
-	    // status change listener
-	    window.addEventListener('storage', ssbBG.checkStatus);
-	    
-	    // set up listener for when pages connect to us
-	    chrome.runtime.onConnect.addListener(ssbBG.handleConnect);
-	    
-	    // set up listener for handling pings
-	    chrome.runtime.onMessage.addListener(ssbBG.handlePing);
-	    
-	    // connect to host
-	    ssbBG.host.connect();
-	    
-	    // handle new tabs
-	    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
-	    
-	    // handle Chrome startup
-	    chrome.runtime.onStartup.addListener(ssbBG.handleChromeStartup);
-	    
-	    // in 200ms, ping all tabs (unless canceled by Chrome startup)
-	    ssbBG.startupTimeout = setTimeout(ssbBG.pingTabs, 200);
+    // clear any old entry for this URL and start over
+    var curRedirect;
+    if (ssbBG.pages.urls[message.url]) {
+	curRedirect = ssbBG.pages.urls[message.url];
+    	if (curRedirect.timeout) {
+	    ssb.debug('pageMessage', 'clearing old timeout for',message.url);
+	    clearTimeout(curRedirect.timeout);
+	}
+    }
+    curRedirect = ssbBG.pages.urls[message.url] = { redirect: message.redirect };
+    
+    // figure out delay for the timeout based on what we're doing
+    var delay = (message.redirect ? 4000 : (message.isMousedown ? 10000 : 2000));
+    
+    ssb.debug('pageMessage', 'adding entry with delay',delay,'for',message.url);
+    
+    // set a timeout to get rid of this redirect
+    curRedirect.timeout = setTimeout(function(url) {
+	// remove this redirect
+	ssb.debug('pageMessage', 'timing out',url);
+	delete ssbBG.pages.urls[url];
+    }, delay, message.url);
+    
+    // if we're redirecting, send the message now
+    if (message.redirect) {
+	// send message
+	ssbBG.host.port.postMessage({"url": message.url});
+	ssb.debug('host', 'requesting redirect for url', message.url);
+    }
+}
+
+
+// HOST -- object for communicating with native messaging host
+// ---------------------------------------------------------
+
+ssbBG.host = {};
+
+
+// HOST.RECEIVEMESSAGE -- handler for messages from native host
+ssbBG.host.receiveMessage = function(message) {
+
+    ssb.debug('host','got message:',message);
+    
+    // we now know we have an operating port
+    ssbBG.host.isReconnect = false;
+
+    // parse response
+    if ('url' in message) {
+	ssbBG.pages.urls[message.url].response = true;
+	if (message.result != "success") {
+	    ssbBG.shutdown('Redirect request failed.');
+	}
+    } else {
+	// unknown response from host
+	ssbBG.shutdown('Redirect request returned unknown response.');
+    }
+}
+
+
+// HOST.CONNECT -- connect to native host
+ssbBG.host.connect = function(isReconnect) {
+    // disconnect any existing connection
+    if (ssbBG.host.port) ssbBG.host.port.disconnect();
+    
+    ssb.debug('host', 'connecting to redirect host...');
+    
+    // connect to host
+    ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.redirect');
+    ssbBG.host.isReconnect = isReconnect;
+
+    // handle disconnect from the host
+    ssbBG.host.port.onDisconnect.addListener(function () {
+	var logmsg = ssb.logPrefix + 'disconnected from redirect host';
+
+	if (ssbBG.host.isReconnect) {
+	    // second connection attempt, so disconnect is an error
+	    ssbBG.shutdown('Disconnected from redirect host');
 	} else {
-	    ssbBG.shutdown(message);
+	    // we had a good connection or this was our first try, so retry
+	    ssbBG.host.connect(true);
 	}
     });
-}
-
-
-ssbBG.shutdown = function(statusmessage) {
-
-    // cancel outstanding timeouts
-    if (ssbBG.redirects)
-	Object.keys(ssbBG.redirects).forEach(
-	    function(key, index) {
-		console.log('clearing timeout for ' +key);
-		clearTimeout(ssbBG.redirects[key].timeout);
-	    });
     
-    // tell all tabs to shut down
-    ssbBG.allTabs(function(tab) {
-	console.log(ssb.logPrefix + 'shutting down tab ' + tab.id);
-	chrome.tabs.sendMessage(tab.id, 'shutdown');
-    }, null, function() {
-	
-	// shut myself down
-	if (ssbBG.host.port) ssbBG.host.port.disconnect();
-	
-	// remove listeners
-	chrome.tabs.onCreated.removeListener(ssbBG.handleNewTab);
-	chrome.runtime.onConnect.removeListener(ssbBG.handleConnect);
-	chrome.runtime.onMessage.removeListener(ssbBG.handlePing);
-	
-	// set status in local storage
-	localStorage.setItem('status', JSON.stringify({ active: false, message: statusmessage }));
-	
-	// open options page
-	chrome.runtime.openOptionsPage();
-	// shut down shared.js
-	ssb.shutdown();
-	
-	// kill myself
-	ssbBG = undefined;
-    });
+    // handle messages from the host
+    ssbBG.host.port.onMessage.addListener(ssbBG.host.receiveMessage);
 }
 
 
-ssbBG.handleNewTab = function(tab) {
-    if (!tab.url || (tab.url == 'chrome://newtab/')) {
-	// blank tab
-	console.log("Empty tab created -- ignore: " + tab.id + " openerTabId = " + tab.openerTabId);
-    } else {
-	console.log("Nav/incoming tab created: " + tab.id + " openerTabId = " + tab.openerTabId + " url = '" + tab.url + "'");
-	
-	if (!tab.openerTabId && ssbBG.redirects[tab.url]) {
-	    console.log("  -- this tab came from me! let's get out of here");
-	} else if (ssb.shouldRedirect(tab.url, 'external')) {
-	    ssbHostSendUrl(tab.url);
-	    chrome.tabs.remove(tab.id);
-	} else
-	    console.log('  -- passed rules, keeping it');
-    }
-}
+// BOOTSTRAP STARTUP
+// -----------------
 
+// handle new installation
+chrome.runtime.onInstalled.addListener(ssbBG.handleInstall);
+
+// handle Chrome startup
+chrome.runtime.onStartup.addListener(ssbBG.handleChromeStartup);
+
+// start the extension
 ssbBG.startup();
