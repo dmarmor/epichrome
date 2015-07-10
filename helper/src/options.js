@@ -1,4 +1,7 @@
-/*! options.js | (c) 2015 David Marmor | https://github.com/dmarmor/osx-chrome-ssb-gui | http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
+/*! options.js
+(c) 2015 David Marmor
+https://github.com/dmarmor/osx-chrome-ssb-gui
+http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  *
  * options.js: options page code for Mac SSB Helper extension

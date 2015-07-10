@@ -18,7 +18,7 @@
 #
 
 ICON_SIZES:=16 48 128
-ICON_SOURCE:=../icons/app.psd
+ICON_SOURCE:=../app/icons/app.psd
 HELPERVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
 ZIP:=mac-ssb-helper-${HELPERVERSION}.zip
 
@@ -43,12 +43,12 @@ UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 #.PRECIOUS: ${ICONS}
 
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS) 
-release: build
+release: extension/.build-release build
 
-debug: build
+debug: extension/.build-debug build
 
 nocompress: NOCOMPRESS=1
-nocompress: build
+nocompress: extension/.build-nocompress build
 
 inplace: ${INPLACE_FILES}
 
@@ -60,7 +60,7 @@ ${ZIP}: all
 	rm -f ${ZIP}
 	zip --recurse-paths $@ extension --exclude '*/.*' '*~'
 
-clean:
+clean: clean-inplace
 	rm -f ${ZIP}
 	rm -rf extension
 
@@ -114,3 +114,7 @@ ${OUT_ICONS}: extension/icon%.png: ${ICON_SOURCE}
 
 ${INPLACE_FILES}: src/%: extension/%
 	cp -p $< $@
+
+extension/.build-%:
+	rm -f ${OUT_JS} extension/.build-*
+	touch $@
