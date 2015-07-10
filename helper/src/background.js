@@ -1,21 +1,21 @@
-//
-//  background.js: background page for Mac SSB Helper extension
-//
-//  Copyright (C) 2015 David Marmor
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-// 
+/*! background.js | (c) 2015 David Marmor | https://github.com/dmarmor/osx-chrome-ssb-gui | http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
+/* 
+ *
+ * background.js: background page for Mac SSB Helper extension
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 // SSBBG -- object that holds all data & methods
@@ -76,7 +76,7 @@ ssbBG.shutdown = function(statusmessage) {
     // cancel outstanding timeouts
     if (ssbBG.pages.urls)
 	Object.keys(ssbBG.pages.urls).forEach(
-	    function(key, index) {
+	    function(key) {
 		ssb.debug('shutdown', 'clearing timeout for ' + key);
 		clearTimeout(ssbBG.pages.urls[key].timeout);
 	    });
@@ -106,7 +106,7 @@ ssbBG.shutdown = function(statusmessage) {
 	ssb.shutdown();
 	
 	// kill myself
-	ssbBG = undefined;
+	delete window.ssbBG;
     });
 }
 
@@ -157,7 +157,7 @@ ssbBG.handleChromeStartup = function() {
 
 // HANDLEINSTALL -- display a welcome message on installation
 ssbBG.handleInstall = function() {
-    
+
     // get current status
     var curStatus = localStorage.getItem('status');
     if (typeof curStatus == 'string') {
@@ -380,7 +380,6 @@ ssbBG.host.connect = function(isReconnect) {
 
     // handle disconnect from the host
     ssbBG.host.port.onDisconnect.addListener(function () {
-	var logmsg = ssb.logPrefix + 'disconnected from redirect host';
 
 	if (ssbBG.host.isReconnect) {
 	    // second connection attempt, so disconnect is an error

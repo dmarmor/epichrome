@@ -3,5 +3,5 @@
     "description": "SSB Redirect Host SSBVERSION",  // filled in by Makefile
     "path": "SSBHOSTPATH",  // filled in by MakeChromeSSB
     "type": "stdio",
-    "allowed_origins": [ "chrome-extension://jjfpjongohnbdlhidblfhmacnobpmhnh/" ]
+    "allowed_origins": [ "chrome-extension://SSBHELPERID/" ]
 }

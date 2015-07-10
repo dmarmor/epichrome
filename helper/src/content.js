@@ -1,21 +1,24 @@
-//
-//  content.js: content script for Mac SSB Helper extension
-//
-//  Copyright (C) 2015 David Marmor
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-// 
+/*! content.js | (c) 2015 David Marmor | https://github.com/dmarmor/osx-chrome-ssb-gui | http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
+/*
+ * 
+ * content.js: content script for Mac SSB Helper extension
+ * https://github.com/dmarmor/osx-chrome-ssb-gui
+ * Copyright (C) 2015 David Marmor.
+ * Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 // SSBCONTENT -- object that holds all data & methods
@@ -57,7 +60,7 @@ ssbContent.startup = function() {
 		
 		// set up click and mousedown handlers for all links
 		var links = document.querySelectorAll('a');
-		for (var i = 0; i < links.length; i++) {
+		var i = links.length; while (i--) {
 		    links[i].addEventListener('click', ssbContent.handleClick);
 		    links[i].addEventListener('mousedown', ssbContent.handleClick);
 		}
@@ -67,27 +70,25 @@ ssbContent.startup = function() {
 		    new MutationObserver(function(mutations) {
 
 			// go through all mutations
-			for (var i = 0; i < mutations.length; i ++) {
+			var i = mutations.length; while (i--) {
 			    
-			    var curMut = mutation[i];
+			    var curMut = mutations[i];
 			    if (curMut.addedNodes) {
 
 				// go through each added node
-				for (var j = 0;
-				     j < curMut.addedNodes.length;
-				     ++j) {
-
+				var j = curMut.addedNodes.length; while (j--) {
+				    
 				    // go through each node that's an element
 				    var curNode = curMut.addedNodes[j];
 				    if (curNode instanceof HTMLElement) {
 
 					// find all links, clear and reinstall handlers
 					var links = (curNode.querySelectorAll('a'));
-					for (var k = 0; k < links.length; k++) {
-					    links[j].removeEventListener('click', ssbContent.handleClick);
-					    links[j].removeEventListener('mousedown', ssbContent.handleClick);
-					    links[j].addEventListener('click', ssbContent.handleClick);
-					    links[j].addEventListener('mousedown', ssbContent.handleClick);
+					var k = links.length; while (k--) {
+					    links[k].removeEventListener('click', ssbContent.handleClick);
+					    links[k].removeEventListener('mousedown', ssbContent.handleClick);
+					    links[k].addEventListener('click', ssbContent.handleClick);
+					    links[k].addEventListener('mousedown', ssbContent.handleClick);
 					}
 				    }
 				}
@@ -107,7 +108,7 @@ ssbContent.startup = function() {
 		ssbContent.shutdown('Failed to connect to background page');
 	    }
 	} else {
-	    ssbContent.shutdown('Extension failed to start up.');
+	    ssbContent.shutdown('extension failed to start up ('+message+')');
 	}
     });
 }
@@ -130,7 +131,7 @@ ssbContent.shutdown = function(message) {
     
     // remove old handlers
     var links = document.querySelectorAll('a');
-    for (var i = 0; i < links.length; i++) {
+    var i = links.length; while (i--) {
 	links[i].removeEventListener('click', ssbContent.handleClick);
 	links[i].removeEventListener('mousedown', ssbContent.handleClick);
     }
@@ -139,7 +140,7 @@ ssbContent.shutdown = function(message) {
     ssb.shutdown();
 
     // kill object
-    ssbContent = undefined;
+    delete window.ssbContent;
 }
 
 

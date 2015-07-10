@@ -1,21 +1,21 @@
-//
-//  options.js: options page code for Mac SSB Helper extension
-//
-//  Copyright (C) 2015 David Marmor
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-// 
+/*! options.js | (c) 2015 David Marmor | https://github.com/dmarmor/osx-chrome-ssb-gui | http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
+/*
+ *
+ * options.js: options page code for Mac SSB Helper extension
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 // SSBOPTIONS -- object that holds all data & methods
@@ -184,11 +184,14 @@ ssbOptions.setOptions = function(workingMessage, failPrefix, newOptions) {
 // FORMITEM - get and set option fields to and from the form
 ssbOptions.formItem = function(item, newValue, append) {
     
-    var result = undefined;
-    var optionName = item.classList.item(0);
-    
-    // determine if we're getting or setting
-    var doSet = (newValue !== undefined);
+    var result = undefined,
+	optionName = item.classList.item(0),
+	
+	// determine if we're getting or setting
+	doSet = (newValue !== undefined),
+
+	// counters
+	i, j;
 
     // match the current item's option name
     switch(optionName) {
@@ -211,7 +214,7 @@ ssbOptions.formItem = function(item, newValue, append) {
     case 'redirect':
 	// handle true-false drop-down menu elements
 	if (doSet)
-	    item.value = ((newValue == true) ? 'true' : 'false');
+	    item.value = ((newValue === true) ? 'true' : 'false');
 	else
 	    result = (item.value == 'true');
 	break;
@@ -231,7 +234,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	
 	if (doSet) {
 	    // recursively set all subkeys in this object
-	    var curProp;
+	    var curProp, key;
 	    for (key in newValue) {
 		if (newValue.hasOwnProperty(key)) {
 		    curProp = item.getElementsByClassName(key);
@@ -248,7 +251,8 @@ ssbOptions.formItem = function(item, newValue, append) {
 	    var subItems = item.getElementsByClassName('sub.'+optionName);
 
 	    // recursively build object from subkeys
-	    for (var i = 0; i < subItems.length; i++) {
+	    var subItemsLength = subItems.length;
+	    for (i = 0; i < subItemsLength; i++) {
 		curItem = subItems[i];
 		curValue = ssbOptions.formItem(subItems[i]);
 		if (curValue !== undefined)
@@ -274,7 +278,8 @@ ssbOptions.formItem = function(item, newValue, append) {
 	    }
 	    
 	    // loop through all new rules
-	    for (var i = 0; i < newValue.length; i++) {
+	    var newValueLength = newValue.length;
+	    for (i = 0; i < newValueLength; i++) {
 		if (i >= oldNumRules) {
 		    // new rules list is longer than the old one, so add an entry
 		    item.appendChild(ssbOptions.rulePrototype.cloneNode(true));
@@ -286,7 +291,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	    
 	    // if new rules list is shorter than old, delete extra entries
 	    var curRule;
-	    for (var j = oldNumRules - 1; j >= i; j--) {
+	    for (j = oldNumRules - 1; j >= i; j--) {
 		curRule = item.children[j];
 		curRule.parentNode.removeChild(curRule);
 	    }
@@ -298,8 +303,8 @@ ssbOptions.formItem = function(item, newValue, append) {
 	    
 	    // recurse to build array of rules
 	    result = [];
-	    for (var i = 0; i < item.children.length; i++)
-		result.push(ssbOptions.formItem(item.children[i]));
+	    i = item.children.length; while (i--)
+		result.unshift(ssbOptions.formItem(item.children[i]));
 	}
 	break;
 	
@@ -391,7 +396,7 @@ ssbOptions.handleRuleKeydown = function(evt) {
 	// get the index of this rule
 	var myIndex = $('li').index(thisRule);
 	
-	if (e.shiftKey) {
+	if (evt.shiftKey) {
 	    // move up a row
 	    if (myIndex > 0) {
 		ssbOptions.focusOnPattern(myIndex - 1);
@@ -609,7 +614,7 @@ ssbOptions.checkExtensionStatus = function() {
 	    localStorage.setItem('status', curStatus);
 	}
 	
-	if (curStatus.active == true)
+	if (curStatus.active === true)
 	    
 	    // ping the extension to make sure we're still connected
 	    chrome.runtime.sendMessage('ping', function(response) {
@@ -625,7 +630,7 @@ ssbOptions.checkExtensionStatus = function() {
     }
 
     // now check final extension status
-    if (curStatus.active == true) {
+    if (curStatus.active === true) {
 
 	// we are live, so activate options page
 	ssbOptions.doc.dialog.overlay.style.display = 'none';
@@ -769,8 +774,8 @@ ssbOptions.dialog.run = function(message, title, callback,
     }
     
     // set up object keyed on button values
-    var buttonValues = {};
-    for (var i = 0; i < buttons.length; i++)
+    var  buttonValues = {};
+    var i = buttons.length; while (i--)
 	buttonValues[buttons[i][0]] = buttons[i][1];
     
     // set up button handler for this dialog
@@ -809,7 +814,7 @@ ssbOptions.dialog.run = function(message, title, callback,
     if (typeof message == 'string') message = { 'message': message }
     
     // go through the message object and fill in fields in the content element
-    for (key in message) {
+    for (var key in message) {
 	if (message.hasOwnProperty(key)) {
 	    var curElement = contentElement.getElementsByClassName(key);
 	    if (curElement && curElement.length) {
@@ -820,7 +825,7 @@ ssbOptions.dialog.run = function(message, title, callback,
     
     // set up buttons
     var curButton;
-    for (i = 0; i < 3; i++) {
+    i = 3; while (i--) {
 	// get ID of current button
 	curButton = 'button' + (i+1);
 	

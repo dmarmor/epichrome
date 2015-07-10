@@ -1,21 +1,26 @@
 <!DOCTYPE html>
 <!--
+
  options.html: options page HTML for Mac SSB Helper extension
-
- Copyright (C) 2015 David Marmor
-
+ Copyright (C) 2015 David Marmor.
+ 
+ https://github.com/dmarmor/osx-chrome-ssb-gui
+ 
+ Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
+ 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
-
+ 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
+ 
  You should have received a copy of the GNU General Public License
- along with this program.  If not, see http://www.gnu.org/licenses/.
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 -->
 
 <html>
@@ -107,15 +112,15 @@
 
 	      <!-- target drop-down menu -->
 	      <select class="target sub.rule change keydown">
-		<option value="internal">Same tab</option>
+		<option value="internal" selected="selected">Same tab</option>
 		<option value="external">New tab</option>
 		<option value="both">Either</option>
 	      </select>
 
 	      <!-- redirect drop-down menu -->
 	      <select class="redirect sub.rule change keydown">
+		<option value="false" selected="selected">This SSB</option>
 		<option value="true">Default browser</option>
-		<option value="false">This SSB</option>
 	      </select>
 
 	      <!-- rule delete button -->

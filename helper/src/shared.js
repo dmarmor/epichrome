@@ -1,21 +1,21 @@
-//
-//  shared.js: shared code for Mac SSB Helper extension
-//
-//  Copyright (C) 2015 David Marmor
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-// 
+/*! shared.js | (c) 2015 David Marmor | https://github.com/dmarmor/osx-chrome-ssb-gui | http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
+/*
+ *
+ * shared.js: shared code for Mac SSB Helper extension
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 // SSB -- object that holds all data & methods
@@ -40,10 +40,10 @@ ssb.startup = function(pageType, callback) {
 	    optionsVersion: ssb.manifest.version,
 	    ignoreAllInternalSameDomain: true,
 	    rules: [
-		{pattern: '*',
-		 target: 'external',
-		 redirect: true	 
-		}
+		// {pattern: '*',
+		//  target: 'external',
+		//  redirect: true	 
+		// }
 	    ],
 	    redirectByDefault: false,
 	    sendIncomingToMainTab: true
@@ -76,9 +76,7 @@ ssb.startup = function(pageType, callback) {
 	    // if we're running in the background page and options are
 	    // not found, set up default options
 	    if (ssb.pageType == 'background') {
-		
-		var rewriteOptions = false;
-		
+				
 		if ((!items) || !items.optionsVersion) {
 		    
 		    // no recognizable options found -- we must be installing
@@ -132,7 +130,7 @@ ssb.shutdown = function() {
     chrome.storage.onChanged.removeListener(ssb.handleOptionsChange);
 
     // destroy self
-    ssb = undefined;
+    delete window.ssb;
 }
 
 
@@ -174,9 +172,9 @@ ssb.setOptions = function(newOptions, callback) {
 
 
 // HANDLEOPTIONSCHANGE -- when options change in storage, update local copy
-ssb.handleOptionsChange = function(changes, area) {
+ssb.handleOptionsChange = function(changes) {
     
-    for (key in changes) {
+    for (var key in changes) {
 	ssb.options[key] = ssb.clone(changes[key].newValue);
 	if (key == 'rules') ssb.parseRules(ssb.options.rules);
     }
@@ -194,8 +192,10 @@ ssb.shouldRedirect = function(url, target) {
     
     // iterate through rules until one matches
     var index = 0
-    if (ssb.options.rules)
-	for (rule of ssb.options.rules) {
+    if (ssb.options.rules) {
+	var rulesLength = ssb.options.rules.length;
+	for (var i = 0; i < rulesLength; i++) {
+	    var rule = ssb.options.rules[i];
 	    if (((rule.target == 'both') || (target == rule.target)) &&
 		rule.regexp.test(url)) {
 		ssb.debug('rules',
@@ -206,6 +206,7 @@ ssb.shouldRedirect = function(url, target) {
 	    }
 	    index++;
 	}
+    }
     
     // default action
     ssb.debug('rules',
@@ -220,9 +221,10 @@ ssb.parseRules = function(rules) {
 
     // if we're running in the options page, never parse
     if ((ssb.pageType != 'options') && rules)
-
-	for (rule of rules) {
-
+	
+	var i = rules.length; while (i--) {
+	    var rule = rules[i];
+	    
 	    // create new regexp
 	    rule.regexp = rule.pattern;
 	    if (! rule.regexp) rule.regexp = '*';
@@ -323,17 +325,21 @@ ssb.equal = function(obj1, obj2) {
 // ----------------------------------------
 
 // DEBUGGROUPS -- which groups should actually display debugging messages
-// ssb.debugGroups = ['shutdown', 'newTab'];
 
 // DEBUG -- display a debugging message if it's in displayed groups
-// ssb.debug = function() {}   // debug null function for production
-ssb.debug = function(group) {
-    if (!ssb.debugGroups || (ssb.debugGroups.indexOf(group) >= 0)) {
-	var args = Array.apply(null, arguments);
-	args[0] =
-	    ((ssb.pageType == 'content') ? ssb.logPrefix + ' ' : '') +
-	    '[' + group + ']:';
-	console.debug.apply(console, args);
+if (typeof RELEASE != 'undefined') {
+    ssb.debug = function() {}
+    delete window.RELEASE;
+} else {
+    // ssb.debugGroups = ['shutdown', 'newTab'];
+    ssb.debug = function(group) {
+	if (!ssb.debugGroups || (ssb.debugGroups.indexOf(group) >= 0)) {
+	    var args = Array.apply(null, arguments);
+	    args[0] =
+		((ssb.pageType == 'content') ? ssb.logPrefix + ' ' : '') +
+		'[' + group + ']:';
+	    console.debug.apply(console, args);
+	}
     }
 }
 

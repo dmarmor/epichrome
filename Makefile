@@ -21,7 +21,9 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=makechromessb.app
 HOSTID:=com.dmarmor.ssb.redirect
-EXTID:=xxxxx
+HELPERID:=dolajcekhnohkpncmhgledbmndjpblei
+#extension directory: jmpkbbcbedkidaopngjndaekagddcmfm
+#src directory: aojbdgfcchdbogifikogaimkhbeemmaa
 
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources
@@ -37,7 +39,7 @@ INSTALL_PATH:=/Applications/Make Chrome SSB.app
 
 .PHONY: install clean clean-all
 
-.PRECIOUS: icons/app_default.icns icons/doc_default.icns
+.PRECIOUS: icons/app.icns icons/doc.icns
 
 ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
@@ -52,7 +54,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_SCPT}/strings.py \
 	${APP_RNTM_NMHT}/${HOSTID}.json \
 	${APP_RNTM_NMHT}/${HOSTID}-host.py \
-	${APP_RNTM_NMEX}/${EXTID}.json \
+	${APP_RNTM_NMEX}/${HELPERID}.json \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/doc.icns
 
@@ -99,20 +101,20 @@ ${APP_RNTM_SCPT}/%: src/%
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_SCPT}
 
 ${APP_RNTM_NMHT}/${HOSTID}.json: src/host-manifest.json src/version.sh
-	sed "s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/" $< > $@
+	sed "s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; s/SSBHELPERID/${HELPERID}/" $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
 ${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh
 	sed "s/SSBVERSION/${VERSION}/" $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
-${APP_RNTM_NMEX}/${EXTID}.json: src/install-extension.json
-	cp -p $< ${APP_RNTM_NMEX}/${EXTID}.json
+${APP_RNTM_NMEX}/${HELPERID}.json: src/install-extension.json
+	cp -p $< ${APP_RNTM_NMEX}/${HELPERID}.json
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
 
 ${APP_RNTM_RSRC}/%.icns: icons/%.icns
 	cp -p $< ${APP_RNTM_RSRC}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC}
 
-%.icns: %.png
+%.icns: %.psd
 	src/makeicon.sh -f $< $@

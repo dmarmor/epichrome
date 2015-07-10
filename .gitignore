@@ -3,4 +3,8 @@
 /icons/source/**
 *.icns
 /dmg/**
-/redirect/boneyard/**
+**/boneyard/**
+/helper/*.zip
+/helper/extension/**
+/helper/src/*.png
+/helper/src/*.gif
