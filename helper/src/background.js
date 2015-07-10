@@ -375,7 +375,7 @@ ssbBG.host.connect = function(isReconnect) {
     ssb.debug('host', 'connecting to redirect host...');
     
     // connect to host
-    ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.redirect');
+    ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.helper');
     ssbBG.host.isReconnect = isReconnect;
 
     // handle disconnect from the host

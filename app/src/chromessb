@@ -45,7 +45,7 @@ function safesource {
 
 # ALERT -- display an alert dialogue
 function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
-    local msg="$1" ; shift
+    local msg="${1//\"/\\\"}" ; shift
     local title="$1" ; shift ; [ "$title" ] && title="with title \"$title\""
     local icon="$1" ; shift ; [ "$icon" ] && icon="with icon $icon"
     
@@ -54,7 +54,7 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 
 
 # DIALOG -- display a dialog and return the button pressed
-function dialog {  # MESSAGE TITLE ICON (if starts with | try app icon first) DEFAULT CANCEL BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
+function dialog {  # MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
     local msg="$1" ; shift
     local title_code="$1" ; shift ; [ "$title_code" ] && title_code="with title \"$title_code\""
 
@@ -247,87 +247,159 @@ if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     exit 0
 fi
 
-# update config file
-if [ "$updateconfig" ] ; then
-    writeconfig "$myContents"
-    [ $? != 0 ] && abort "$cmdtext" 1
-fi
 
+# MAKE SURE EXTENSION-INSTALLATION SCRIPT IS IN PLACE
 
-# MAKE SURE NATIVE HOST IS INSTALLED
-
-# set up host file paths
-hostId="SSBHOSTID"
-hostManifest="${hostId}.json"
-hostScript="${hostId}-host.py"
-hostDir="NativeMessagingHosts"
-hostInstallPath="$SSBProfilePath/$hostDir"
-hostScriptInstalled="$hostInstallPath/$hostScript"
-hostManifestInstalled="$hostInstallPath/$hostManifest"
-
-# check if we need to install native messaging host
-doHostInstall=
-if [[ ! -x "$hostScriptInstalled" ]] ; then
-    doHostInstall=1
-else
-    hostVersion=$("$hostScriptInstalled" -v 2>&1)
-    [[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
-fi
-[[ ! -e "$hostManifestInstalled" ]] && doHostInstall=1
-
-# do the installation if necessary
-if [[ "$doHostInstall" ]] ; then
-    hostError=
-    hostSourcePath="$myContents/Resources/$hostDir"
+if [[ ! "$SSBExtInstallError" ]]; then
     
-    # create the install directory
-    mkdir -p "$hostInstallPath" 2>&1 /dev/null
-    if [ $? = 0 ] ; then
-	hostError=1
-	cmdtext="Unable to create messaging host installation folder."
+    # set up useful variables
+    extDir="External Extensions"
+    extSourcePath="$myContents/Resources/$extDir"
+    extDestPath="$SSBProfilePath/$extDir"
+    
+    extError=
+    extDoCopy=
+    
+    # make sure the extension install source folder exists
+    if [[ ! -d "$extSourcePath" ]] ; then
+	extError=1
+	cmdtext="No source directory found."
     fi
     
-    # stream-edit the manifest file
-    hostManifestTmp=$(tempname "$hostManifestInstalled")
-    sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" > "$hostManifestTmp" 2> /dev/null
-    if [ $? != 0 ] ; then
-	hostError=1
-	cmdtext="Unable to copy messaging host manifest."
-    fi
-    
-    # stream-edit the host script
-    if [[ ! "$hostError" ]] ; then
-	hostScriptTmp=$(tempname "$hostScriptInstalled")
-	sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" > "$hostScriptTmp" 2> /dev/null
-	if [ $? != 0 ] ; then
-	    hostError=1
-	    cmdtext="Unable to copy messaging host."
-	fi	
+    # get a listing of the source directory
+    if [[ ! "$extError" ]] ; then
+	dirlist "$extSourcePath" extSourceList "source directory"
+	[[ $? != 0 ]] && extError=1
     fi
 
-    # fix host script permissions
-    if [[ ! "$hostError" ]] ; then
-	/bin/chmod 755 "$hostScriptTmp" > /dev/null 2>&1
-	if [ $? != 0 ] ; then
-	    hostError=1
-	    cmdtext="Unable to make messaging host executable."
+    # check if the source directory is empty
+    if [[ ( ! "$extError" ) && ( ! "${extSourceList[*]}" ) ]]; then
+	extError=1
+	cmdtext="The source directory is empty."
+    fi
+
+    # check if the destination directory exists
+    if [[ ( ! "$extError" ) && ( ! -d "$extDestPath" ) ]] ; then
+	# no destination directory
+	extDoCopy=1
+    elif [[ ! "$extError" ]]; then
+	# get a listing of the destination directory
+	dirlist "$extDestPath" extDestList "destination directory"
+	[[ $? != 0 ]] && extError=1
+	
+	# compare source and destination directories
+	if [[ ( ! "$extError" ) && ( "${extSourceList[*]}" != "${extDestList[*]}" ) ]] ; then
+	    extDoCopy=1
 	fi
     fi
-    
-    # move both files to permanent homes
-    if [[ ! "$hostError" ]] ; then
-	permanent "$hostManifestTmp" "$hostManifestInstalled" "messaging host manifest"
-	[ $? != 0 ] && hostError=1
-    fi
-    if [[ ! "$hostError" ]] ; then
-	permanent "$hostScriptTmp" "$hostScriptInstalled" "messaging host"
-	[ $? != 0 ] && hostError=1
+
+    # if for any reason we need to copy the install directory, do it now
+    if [[ ( ! "$extError" ) && "$extDoCopy" ]] ; then
+	safecopy "$extSourcePath" "$extDestPath" "installation directory"
+	[[ $? != 0 ]] && extError=1
     fi
 
     # report error, but don't abort
-    if [[ "$hostError" ]] ; then
-	alert "$cmdtext The SSB will still work, but the companion SSB Redirect extension won't." "Messaging Host Error" caution
+    if [[ "$extError" ]] ; then
+	# set error state
+	SSBExtInstallError=1
+	updateconfig=1
+	
+	# show warning alert
+	alert "Can't install \"Mac SSB Helper\" extension. ($cmdtext) The SSB will still work, but the extension will have to be installed manually." "Extension Install Error" caution
     fi
+fi
+
+	
+# MAKE SURE NATIVE HOST IS INSTALLED
+
+if [[ ! "$SSBHostInstallError" ]]; then
+
+    # set up host file paths
+    hostId="SSBHOSTID"
+    hostManifest="${hostId}.json"
+    hostScript="${hostId}-host.py"
+    hostDir="NativeMessagingHosts"
+    hostInstallPath="$SSBProfilePath/$hostDir"
+    hostScriptInstalled="$hostInstallPath/$hostScript"
+    hostManifestInstalled="$hostInstallPath/$hostManifest"
+
+    # check if we need to install native messaging host
+    doHostInstall=
+    if [[ ! -x "$hostScriptInstalled" ]] ; then
+	doHostInstall=1
+    else
+	hostVersion=$("$hostScriptInstalled" -v 2>&1)
+	[[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
+    fi
+    [[ ! -e "$hostManifestInstalled" ]] && doHostInstall=1
+
+    # do the installation if necessary
+    if [[ "$doHostInstall" ]] ; then
+	hostError=
+	hostSourcePath="$myContents/Resources/$hostDir"
+	
+	# create the install directory
+	mkdir -p "$hostInstallPath" 2>&1 /dev/null
+	if [ $? = 0 ] ; then
+	    hostError=1
+	    cmdtext="Unable to create installation folder."
+	fi
+	
+	# stream-edit the manifest file
+	hostManifestTmp=$(tempname "$hostManifestInstalled")
+	sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" > "$hostManifestTmp" 2> /dev/null
+	if [ $? != 0 ] ; then
+	    hostError=1
+	    cmdtext="Unable to copy manifest."
+	fi
+	
+	# stream-edit the host script
+	if [[ ! "$hostError" ]] ; then
+	    hostScriptTmp=$(tempname "$hostScriptInstalled")
+	    sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" > "$hostScriptTmp" 2> /dev/null
+	    if [ $? != 0 ] ; then
+		hostError=1
+		cmdtext="Unable to copy script."
+	    fi	
+	fi
+
+	# fix host script permissions
+	if [[ ! "$hostError" ]] ; then
+	    /bin/chmod 755 "$hostScriptTmp" > /dev/null 2>&1
+	    if [ $? != 0 ] ; then
+		hostError=1
+		cmdtext="Unable to make script executable."
+	    fi
+	fi
+	
+	# move both files to permanent homes
+	if [[ ! "$hostError" ]] ; then
+	    permanent "$hostManifestTmp" "$hostManifestInstalled" "manifest"
+	    [ $? != 0 ] && hostError=1
+	fi
+	if [[ ! "$hostError" ]] ; then
+	    permanent "$hostScriptTmp" "$hostScriptInstalled" "script"
+	    [ $? != 0 ] && hostError=1
+	fi
+
+	# report error, but don't abort
+	if [[ "$hostError" ]] ; then
+	    # set error state
+	    SSBHostInstallError=1
+	    updateconfig=1
+	    
+	    # show an alert
+	    alert "Unable to install native messaging host. ($cmdtext) The SSB will still work, but the companion \"Mac SSB Helper\" extension won't." "Messaging Host Install Error" caution
+	fi
+    fi
+fi
+
+# UPDATE CONFIG FILE IF NECESSARY
+
+if [ "$updateconfig" ] ; then
+    writeconfig "$myContents"
+    [ $? != 0 ] && abort "$cmdtext" 1
 fi
 
 

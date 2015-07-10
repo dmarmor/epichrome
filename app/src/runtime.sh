@@ -180,7 +180,7 @@ function dirlist {
     local filter="$4"
     
     local files=($(unset CLICOLOR ; /bin/ls "$dir" 2>&1))
-    if [ \( $? != 0 \) -o \( "${#files[@]}" -lt 1 \) ] ; then
+    if [ $? != 0 ] ; then
 	cmdtext="Unable to retrieve $fileinfo list."
 	return 1
     fi
@@ -536,6 +536,8 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 			   SSBChromeVersion \
 			   SSBRegisterBrowser \
 			   SSBCustomIcon \
+			   SSBExtInstallError \
+			   SSBHostInstallError \
 			   SSBCommandLine )
     
     local re='^declare -a'
@@ -721,6 +723,10 @@ function updatessb {
 	SSBVersion="$mcssbVersion"
 	SSBChromePath="$chromePath"    
 	SSBChromeVersion="$chromeVersion"
+
+	# clear error state for installing extension and messaging host
+	SSBExtInstallError=
+	SSBHostInstallError=
 	
 	# write the config file
 	writeconfig "$contentsTmp"
