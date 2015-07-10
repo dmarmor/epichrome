@@ -21,8 +21,7 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=makechromessb.app
 HOSTID:=com.dmarmor.ssb.helper
-HELPERID:=dolajcekhnohkpncmhgledbmndjpblei
-#extension directory: jmpkbbcbedkidaopngjndaekagddcmfm
+HELPERID:=jmpkbbcbedkidaopngjndaekagddcmfm
 #src directory: aojbdgfcchdbogifikogaimkhbeemmaa
 
 APP_CTNT:=${APP}/Contents
