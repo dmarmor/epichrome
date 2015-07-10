@@ -56,7 +56,7 @@ build: ${OUT_CP} ${OUT_JS} ${OUT_ICONS} ${OUT_IMAGES}
 
 zip: ${ZIP}
 
-${ZIP}: all
+${ZIP}: release
 	rm -f ${ZIP}
 	zip --recurse-paths $@ extension --exclude '*/.*' '*~'
 
@@ -117,4 +117,5 @@ ${INPLACE_FILES}: src/%: extension/%
 
 extension/.build-%:
 	rm -f ${OUT_JS} extension/.build-*
+	@mkdir -p extension
 	touch $@

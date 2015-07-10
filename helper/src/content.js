@@ -119,7 +119,7 @@ ssbContent.updateLinkHandlers = function(node, add) {
 
     // get a list of links
     var links;
-    if ((typeof node.tagName == 'string') && (node.tagName.toLowerCase() == 'a'))
+    if (ssbContent.isLink(node))
 	// this node is itself a link (which can't contain nested links)
 	links = [node];
     else
@@ -128,11 +128,10 @@ ssbContent.updateLinkHandlers = function(node, add) {
     
     // go through all links
     var i = links.length; while (i--) {
-	
-	// remove any vestigial handlers
+
 	links[i].removeEventListener('click', ssbContent.handleClick);
 	links[i].removeEventListener('mousedown', ssbContent.handleClick);
-
+	    
 	if (add) {
 	    // optionally add new handlers
 	    links[i].addEventListener('click', ssbContent.handleClick);
@@ -169,15 +168,27 @@ ssbContent.handleMutation = function(mutations) {
 // ----------------------------------------------------
 
 ssbContent.handleClick = function(evt) {
-
+    
     var topWindow = window.top;
+    var link = evt.currentTarget;
+    
+    ssb.debug('click', 'got '+evt.type+' event on:', link);
+
+    // make sure we're actually a link
+    if (! ssbContent.isLink(link)) {
+	ssb.warn('non-link received link event');
+	return true;
+    }
     
     // get fully-qualified URL to compare with our rules
-    var href = evt.target.href;
+    var href = link.href;
 
     // no href, so ignore this link
-    if (!href) return true;
-        
+    if (!href) {
+	ssb.debug('click', 'link has no href, so quitting');
+	return true;
+    }
+    
     // determine if link goes to the same domain as the main page
     var sameDomain = (href.match(ssbContent.regexpDomain)[1] ==
 		      topWindow.document.domain);
@@ -203,7 +214,7 @@ ssbContent.handleClick = function(evt) {
     } else { // it's a click, so we'll handle it fully
 	
 	// get target for this link
-	var target = evt.target.target;
+	var target = link.target;
 	if (target) {
 	    target = target.toLowerCase();
 	} else {
@@ -248,12 +259,6 @@ ssbContent.handleClick = function(evt) {
 		if (sameDomain) {
 		    // link to same domain as main page
 		    ssb.debug('click', 'link to same domain -- ignore');
-		    doRedirect = false;
-		}
-		
-		if ((doRedirect == undefined) && !isAbsolute) {
-		    // relative link (ergo to same domain)
-		    ssb.debug('click', 'relative link -- ignore');
 		    doRedirect = false;
 		}
 	    }
@@ -303,14 +308,21 @@ ssbContent.handleMessage = function(message, sender, respond) {
 }
 
 
-// REGULAR EXPRESSIONS -- for getting info on URLS
-// ------------------------------------------------
+// UTILITY -- for getting info on links
+// ------------------------------------
 
-// matches any absolute URL (with scheme & domain)
+// ISLINK -- determine if a node is a link
+ssbContent.isLink = function(node) {
+    return (node && node.tagName &&
+	    (typeof node.tagName == 'string') &&
+	    (node.tagName.toLowerCase() == 'a'));
+}
+
+// REGEXPABSOLUTEHREF -- regex to match any absolute URL (with scheme & domain)
 // { was: '^[a-zA-Z]([-a-zA-Z0-9$_@.&!*"\'():;, %]*):'); }
 ssbContent.regexpAbsoluteHref = new RegExp(':');
 
-// grabs the domain from a URL
+// REGEXPDOMAIN -- regex that grabs the domain from a URL
 ssbContent.regexpDomain = new RegExp('://([^/]+)(/|$)');
 
 

@@ -40,7 +40,7 @@ ssbBG.startup = function() {
 	    
 	    // we are active!
 	    localStorage.setItem('status', JSON.stringify({ active: true }));
-	    
+
 	    // initialize pages.urls
 	    ssbBG.pages.urls = {};
 	    
@@ -66,7 +66,15 @@ ssbBG.startup = function() {
 	    // in 200ms, initialize all tabs
 	    // (giving Chrome startup time to override)
 	    if (typeof ssbBG.doInitTabs != 'number') ssbBG.doInitTabs = 1;
-	    ssbBG.startupTimeout = setTimeout(ssbBG.initializeTabs, 200);
+	    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
+
+	    // wait a couple seconds, then show install message if necessary
+	    if (ssbBG.isInstall)
+		ssbBG.installTimeout = setTimeout(ssbBG.showInstallMessage, 2000);
+
+	    // we're done starting up
+	    ssbBG.startupComplete = true;
+
 	} else {
 	    ssbBG.shutdown(message);
 	}
@@ -77,7 +85,17 @@ ssbBG.startup = function() {
 // SHUTDOWN -- shuts the extension down
 ssbBG.shutdown = function(statusmessage) {
     
-    // cancel outstanding timeouts
+    // cancel startup timeouts
+    if (ssbBG.initTabsTimeout) {
+	clearTimeout(ssbBG.initTabsTimeout);
+	delete ssbBG.initTabsTimeout;
+    }
+    if (ssbBG.installTimeout) {
+	clearTimeout(ssbBG.installTimeout);
+	delete ssbBG.installTimeout;
+    }
+
+    // cancel page timeouts
     if (ssbBG.pages.urls)
 	Object.keys(ssbBG.pages.urls).forEach(
 	    function(key) {
@@ -121,6 +139,8 @@ ssbBG.shutdown = function(statusmessage) {
 //                   identify the "main" tab (by lowest ID)
 ssbBG.initializeTabs = function() {
     
+    delete ssbBG.initTabsTimeout;    
+    
     // find all existing tabs
     ssbBG.allTabs(function(tab, scripts) {
 
@@ -161,28 +181,51 @@ ssbBG.handleChromeStartup = function() {
 }
 
 
-// HANDLEINSTALL -- display a welcome message on installation
+// HANDLEINSTALL -- let the system know we're installing
 ssbBG.handleInstall = function() {
+    
+    ssb.debug('install', 'we are installing');
+    
+    if (ssbBG.startupComplete) {
+	ssbBG.showInstallMessage();
+    } else {
+	ssbBG.isInstall = true;
+    }
+}
 
+// SHOWINSTALLMESSAGE -- display a welcome message on installation
+ssbBG.showInstallMessage = function() {
+
+    ssb.debug('install', 'showing install message');
+
+    delete ssbBG.installTimeout;
+    
     // get current status
     var curStatus = localStorage.getItem('status');
     if (typeof curStatus == 'string') {
 	try {
 	    curStatus = JSON.parse(curStatus);
 	} catch (err) {
-	    ssb.warn('got bad extension status--resetting');
+	    ssb.warn('got bad extension status');
 	    curStatus = null;
 	}
+	
+	if (curStatus.active) {
+	    
+	    // tell options page to show install message
+	    curStatus.showInstallMessage = true;
+	    
+	    // set new status with install indicator
+	    localStorage.setItem('status', JSON.stringify(curStatus));
+	    
+	    // open options page
+	    chrome.runtime.openOptionsPage();
+	} else {
+	    ssb.debug('install', 'extension has shut down, so not showing install message');
+	}
+    } else {
+	ssb.debug('install', 'no status received, so not showing install message');
     }
-    
-    // set new status with install indicator
-    localStorage.setItem('status',
-			 JSON.stringify({ active: curStatus.active,
-					  message: curStatus.message,
-					  showInstallMessage: true }));
-    
-    // open options page
-    chrome.runtime.openOptionsPage();
 }
 
 
