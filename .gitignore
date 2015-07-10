@@ -1,9 +1,9 @@
-/makechromessb.app/**
-/examples/**
-/icons/source/**
-*.icns
-/dmg/**
 **/boneyard/**
+/examples/**
+/app/makechromessb.app/**
+/app/icons/source/**
+/app/icons/*.icns
+/dmg/**
 /helper/*.zip
 /helper/extension/**
 /helper/src/*.png
