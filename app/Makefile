@@ -20,7 +20,8 @@
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=makechromessb.app
-HOSTID:=com.dmarmor.ssb.helper
+HELPERBG:=../helper/src/background.js
+HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=jmpkbbcbedkidaopngjndaekagddcmfm
 #src directory: aojbdgfcchdbogifikogaimkhbeemmaa
 
@@ -90,7 +91,7 @@ ${APP_SCPT}/%: src/%
 	cp -p $< ${APP_SCPT}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_SCPT}
 
-${APP_RNTM_MCOS}/ChromeSSB: src/chromessb
+${APP_RNTM_MCOS}/ChromeSSB: src/chromessb ${HELPERBG}
 	sed "s/SSBHOSTID/${HOSTID}/" $< > $@
 	chmod 755 $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_MCOS}

@@ -53,7 +53,8 @@ ssbBG.startup = function() {
 	    // set up listener for handling pings
 	    chrome.runtime.onMessage.addListener(ssbBG.handlePing);
 	    
-	    // connect to host
+	    // connect to host for the first time
+	    ssbBG.host.canCommunicate = false;
 	    ssbBG.host.connect();
 	    
 	    // handle new tabs
@@ -101,7 +102,9 @@ ssbBG.shutdown = function(statusmessage) {
 	// set status in local storage
 	localStorage.setItem('status',
 			     JSON.stringify({ active: false,
-					      message: statusmessage }));
+					      message: statusmessage,
+					      nohost: (! ssbBG.canCommunicate)
+					    }));
 	
 	// open options page
 	chrome.runtime.openOptionsPage();
@@ -356,13 +359,20 @@ ssbBG.host.receiveMessage = function(message) {
     
     // we now know we have an operating port
     ssbBG.host.isReconnect = false;
-
+    
+    ssbBG.host.canCommunicate = true;
+    
     // parse response
+    
     if ('url' in message) {
+	// acknowledging a URL redirect
 	ssbBG.pages.urls[message.url].response = true;
 	if (message.result != "success") {
 	    ssbBG.shutdown('Redirect request failed.');
 	}
+    } else if ('version' in message) {
+	// acknowledging a version request
+	ssb.debug('host', 'host is version '+message.version);
     } else {
 	// unknown response from host
 	ssbBG.shutdown('Redirect request returned unknown response.');
@@ -375,7 +385,7 @@ ssbBG.host.connect = function(isReconnect) {
     // disconnect any existing connection
     if (ssbBG.host.port) ssbBG.host.port.disconnect();
     
-    ssb.debug('host', 'connecting to redirect host...');
+    ssb.debug('host', (isReconnect ? 're' : '') + 'connecting...');
     
     // connect to host
     ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.helper');
@@ -386,15 +396,24 @@ ssbBG.host.connect = function(isReconnect) {
 
 	if (ssbBG.host.isReconnect) {
 	    // second connection attempt, so disconnect is an error
-	    ssbBG.shutdown('Disconnected from redirect host');
+	    var message;
+	    if (ssbBG.canCommunicate)
+		message = 'Disconnected from redirect host';
+	    else
+		message = 'Unable to reach redirect host';
+	    ssbBG.shutdown(message);
 	} else {
 	    // we had a good connection or this was our first try, so retry
 	    ssbBG.host.connect(true);
 	}
     });
-    
+
     // handle messages from the host
     ssbBG.host.port.onMessage.addListener(ssbBG.host.receiveMessage);
+
+    // say hello by asking for the host's version (we'll just ignore the response for now)
+    ssbBG.host.port.postMessage({"version": true});
+    ssb.debug('host', 'requesting version');
 }
 
 

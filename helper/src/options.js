@@ -656,12 +656,20 @@ ssbOptions.checkExtensionStatus = function() {
     } else {
 	
 	// extension isn't active, so show shutdown box
+	var shutdownBox = ssbOptions.doc.dialog.shutdown_content;
+	
+	if (curStatus.nohost) {
+	    // we never connected to the host, so show extra information
+	    shutdownBox.querySelector('#nohost_message').style.display = 'block';
+	    shutdownBox.querySelector('#nohost_help').style.display = 'inline';
+	    shutdownBox.querySelector('#host_help').style.display = 'none';
+	}
 	ssbOptions.dialog.run(
 	    (curStatus.message ? curStatus.message : ''),
 	    'The extension has shut down',
 	    undefined,
 	    0,
-	    ssbOptions.doc.dialog.shutdown_content);
+	    shutdownBox);
     }
 }
 

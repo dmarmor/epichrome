@@ -95,7 +95,12 @@ body: {
 #shutdown_content .message {
     margin: 0;
 }
-
+#shutdown_content #nohost_message {
+    font-style: italic;
+}
+#shutdown_content #nohost_message em {
+    text-decoration: underline;
+}
 
 /* OPTIONS FORM */
 

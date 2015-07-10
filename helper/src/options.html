@@ -54,14 +54,16 @@
 	  <div id="install_content" class="content">
 	    <p>This extension will help it behave more like a true app. You can use rules to decide which links the SSB should handle itself and which should be sent to your default browser. You can also choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</p>
 	    <p>The options page allows you to set up your rules, as well as import and export rules for backup or migration.</p>
-	    <p class="note">Note: this extension is <i>only</i> intended for use with Mac OSX SSBs created with <a href="https://github.com/dmarmor/osx-chrome-ssb-gui/releases" title="MakeChromeSSB">MakeChromeSSB</a>. It will not do anything if you just install it in Chrome.</p>
           </div>
 	  
 	  <!-- dialog box content for shutdown message -->
 	  <div id="shutdown_content" class="content">
             <h4 class="message"></h4>
-	    <p class="shutdown_help">
-	      Try disabling and re-enabling the SSB, or check for updates/fixes at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
+	    <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/osx-chrome-ssb-gui/releases" title="MakeChromeSSB">MakeChromeSSB</a>. It will not do anything if you just install it in Chrome.</p>
+	    <p class="help">
+	      <span id="nohost_help" class="invisible">If you're seeing this message in a MakeChromeSSB app, try</span>
+	      <span id="host_help">Try</span>
+	      disabling and re-enabling the SSB. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
 	    </p>
 	  </div>
 	</div>

@@ -60,49 +60,17 @@ ssbContent.startup = function() {
 		    ssb.log('starting up content script');
 		    ssbContent.isTopLevel = true;
 		}
-		
-		// set up click and mousedown handlers for all links
-		var links = document.querySelectorAll('a');
-		var i = links.length; while (i--) {
-		    links[i].addEventListener('click', ssbContent.handleClick);
-		    links[i].addEventListener('mousedown', ssbContent.handleClick);
-		}
-		
+
+		// add click and mousedown handlers for all links
+		ssbContent.updateLinkHandlers(document, true);
+				
 		// watch DOM mutations to attach handler on newly-created links
 		ssbContent.mutationObserver =
-		    new MutationObserver(function(mutations) {
-
-			// go through all mutations
-			var i = mutations.length; while (i--) {
-			    
-			    var curMut = mutations[i];
-			    if (curMut.addedNodes) {
-
-				// go through each added node
-				var j = curMut.addedNodes.length; while (j--) {
-				    
-				    // go through each node that's an element
-				    var curNode = curMut.addedNodes[j];
-				    if (curNode instanceof HTMLElement) {
-
-					// find all links, clear and reinstall handlers
-					var links = (curNode.querySelectorAll('a'));
-					var k = links.length; while (k--) {
-					    links[k].removeEventListener('click', ssbContent.handleClick);
-					    links[k].removeEventListener('mousedown', ssbContent.handleClick);
-					    links[k].addEventListener('click', ssbContent.handleClick);
-					    links[k].addEventListener('mousedown', ssbContent.handleClick);
-					}
-				    }
-				}
-			    }
-			}
-		    });
+		    new MutationObserver(ssbContent.handleMutation);
 		
 		// attach mutation observer to body node
-		var bodyNode = document.querySelector('body');
-		if (bodyNode)
-		    ssbContent.mutationObserver.observe(bodyNode,
+		if (document.body)
+		    ssbContent.mutationObserver.observe(document.body,
 							{ childList: true,
 							  subtree: true
 							});
@@ -133,12 +101,8 @@ ssbContent.shutdown = function(message) {
     chrome.runtime.onMessage.removeListener(ssbContent.handleMessage);
     
     // remove old handlers
-    var links = document.querySelectorAll('a');
-    var i = links.length; while (i--) {
-	links[i].removeEventListener('click', ssbContent.handleClick);
-	links[i].removeEventListener('mousedown', ssbContent.handleClick);
-    }
-        
+    ssbContent.updateLinkHandlers(document, false);
+    
     // shut down shared.js
     ssb.shutdown();
 
@@ -147,10 +111,66 @@ ssbContent.shutdown = function(message) {
 }
 
 
+// ADD/REMOVE LINK HANDLERS -- keep link handlers up to date
+//----------------------------------------------------------
+
+// UPDATELINKHANDLERS -- add/remove click/mousedown handlers
+ssbContent.updateLinkHandlers = function(node, add) {
+
+    // get a list of links
+    var links;
+    if ((typeof node.tagName == 'string') && (node.tagName.toLowerCase() == 'a'))
+	// this node is itself a link (which can't contain nested links)
+	links = [node];
+    else
+	// get an array of all links under the node
+	links = node.querySelectorAll('a');
+    
+    // go through all links
+    var i = links.length; while (i--) {
+	
+	// remove any vestigial handlers
+	links[i].removeEventListener('click', ssbContent.handleClick);
+	links[i].removeEventListener('mousedown', ssbContent.handleClick);
+
+	if (add) {
+	    // optionally add new handlers
+	    links[i].addEventListener('click', ssbContent.handleClick);
+	    links[i].addEventListener('mousedown', ssbContent.handleClick);
+	}
+    }
+}
+
+
+// HANDLEMUTATION -- handle an observed set of mutations
+ssbContent.handleMutation = function(mutations) {
+    
+    // go through all mutations
+    var i = mutations.length; while (i--) {
+	
+	var curMut = mutations[i];
+	if (curMut.addedNodes) {
+	    
+	    // go through each added node
+	    var j = curMut.addedNodes.length; while (j--) {
+		
+		// update link handlers for each node that's an element
+		var curNode = curMut.addedNodes[j];
+		if (curNode instanceof HTMLElement) {
+		    ssbContent.updateLinkHandlers(curNode, true);
+		}
+	    }
+	}
+    }
+}
+
+
 // HANDLECLICK -- handle clicks and mousedowns on links
 // ----------------------------------------------------
 
 ssbContent.handleClick = function(evt) {
+
+    var topWindow = window.top;
     
     // get fully-qualified URL to compare with our rules
     var href = evt.target.href;
@@ -160,7 +180,7 @@ ssbContent.handleClick = function(evt) {
         
     // determine if link goes to the same domain as the main page
     var sameDomain = (href.match(ssbContent.regexpDomain)[1] ==
-		      window.top.document.domain);
+		      topWindow.document.domain);
     
     // $$$ future development: capture modifier keys
     // ssb.log('shift =', evt.shiftKey, 'alt =', evt.altKey,
@@ -199,7 +219,7 @@ ssbContent.handleClick = function(evt) {
 	    target = (ssbContent.isTopLevel ? 'internal' : false);
 	    break;
 	case '_parent':
-	    target = (window.parent == window.top) ? 'internal' : false;
+	    target = (window.parent == topWindow) ? 'internal' : false;
 	    break;
 	case '_blank':
 	    target = 'external';
@@ -208,8 +228,8 @@ ssbContent.handleClick = function(evt) {
 	    // if the target names a frame on this page, it's non-top-level
 	    var frameSelector='[name="' + target + '"]';
 	    target =
-		(window.top.document.querySelector('iframe'+frameSelector+
-						   ',frame'+frameSelector) ?
+		(topWindow.document.querySelector('iframe'+frameSelector+
+						  ',frame'+frameSelector) ?
 		 false :
 		 'external');
 	}
