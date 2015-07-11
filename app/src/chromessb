@@ -294,7 +294,7 @@ if [[ ! "$SSBExtInstallError" ]]; then
     fi
 
     # if for any reason we need to copy the install directory, do it now
-    if [[ ( ! "$extError" ) && "$extDoCopy" ]] ; then
+    if [[ ( ! "$extError" ) && "$extDoCopy" ]] ; then	
 	safecopy "$extSourcePath" "$extDestPath" "installation directory"
 	[[ $? != 0 ]] && extError=1
     fi

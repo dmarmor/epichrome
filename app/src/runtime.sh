@@ -124,11 +124,26 @@ function permanent {
 function safecopy {
 
     local result=0
+    cmdtext=
     
     # copy in custom icon
     local src="$1"
     local dst="$2"
     local filetype="$3"
+
+    # get dirname for destination
+    local dstDir="$(dirname "$dst")"
+    if [ $? != 0 ] ; then
+	cmdtext="Unable to get destination directory listing for $filetype."
+	return 1
+    fi
+
+    # make sure destination directory exists
+    /bin/mkdir -p "$dstDir" > /dev/null 2>&1
+    if [ $? != 0 ] ; then
+	cmdtext="Unable to create the destination directory for $filetype."
+	return 1
+    fi
     
     # copy to temporary location
     local dstTmp=$(tempname "$dst")
@@ -142,8 +157,7 @@ function safecopy {
 	cmdtext="Unable to copy $filetype."
 	result=1
     fi
-
-    cmdtext=
+    
     return $result
 }
 
