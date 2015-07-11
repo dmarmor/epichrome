@@ -4,7 +4,7 @@ https://github.com/dmarmor/osx-chrome-ssb-gui
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  *
- * shared.js: shared code for Mac SSB Helper extension
+ * shared.js: shared code for Epichrome Helper extension
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -22,8 +22,9 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 APP:=makechromessb.app
 HELPERBG:=../helper/src/background.js
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
-HELPERID:=jmpkbbcbedkidaopngjndaekagddcmfm
-#src directory: aojbdgfcchdbogifikogaimkhbeemmaa
+HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
+#extension directory: jmpkbbcbedkidaopngjndaekagddcmfm
+#src directory:       aojbdgfcchdbogifikogaimkhbeemmaa
 
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources

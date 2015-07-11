@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 
- options.html: options page HTML for Mac SSB Helper extension
+ options.html: options page HTML for Epichrome Helper extension
  Copyright (C) 2015 David Marmor.
  
  https://github.com/dmarmor/osx-chrome-ssb-gui
@@ -25,7 +25,7 @@
 
 <html>
   <head>
-    <title>Mac SSB Helper - Options</title>
+    <title>Epichrome Helper - Options</title>
     <link rel="stylesheet" type="text/css" href="options.css" />
   </head>
   
@@ -52,18 +52,18 @@
 	  
 	  <!-- dialog box content for install message -->
 	  <div id="install_content" class="content">
-	    <p>This extension will help it behave more like a true app. You can use rules to decide which links the SSB should handle itself and which should be sent to your default browser. You can also choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</p>
+	    <p>This extension will help it behave more like a true app. You can use rules to decide which links the app should handle itself and which should be sent to your default browser. You can also choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</p>
 	    <p>The options page allows you to set up your rules, as well as import and export rules for backup or migration.</p>
           </div>
 	  
 	  <!-- dialog box content for shutdown message -->
 	  <div id="shutdown_content" class="content">
             <h4 class="message"></h4>
-	    <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/osx-chrome-ssb-gui/releases" title="MakeChromeSSB">MakeChromeSSB</a>. It will not do anything if you just install it in Chrome.</p>
+	    <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/osx-chrome-ssb-gui/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
 	    <p class="help">
-	      <span id="nohost_help" class="invisible">If you're seeing this message in a MakeChromeSSB app, try</span>
+	      <span id="nohost_help" class="invisible">If you're seeing this message in an Epichrome app, try</span>
 	      <span id="host_help">Try</span>
-	      disabling and re-enabling the SSB. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
+	      disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/osx-chrome-ssb-gui" target="_blank">github page</a>.
 	    </p>
 	  </div>
 	</div>
@@ -78,7 +78,7 @@
 	<h4 class="section-header">Rules for handling links in this app</h4>
 
 	<!-- ignoreAllInternalSamDomain checkbox -->
-	<label class="checkbox" title="If this is checked, then the SSB will handle any link that goes to the exact same domain as the page it's on and would open in the same tab (no matter what the custom rules say). For instance, this rule would apply to a link to http://sub.example.com/new.html if that link was on http://sub.example.com/index.html. It would NOT apply to http://example.com/anything.html.">
+	<label class="checkbox" title="If this is checked, then the app will handle any link that goes to the exact same domain as the page it's on and would open in the same tab (no matter what the custom rules say). For instance, this rule would apply to a link to http://sub.example.com/new.html if that link was on http://sub.example.com/index.html. It would NOT apply to http://example.com/anything.html.">
           <input type="checkbox" class="ignoreAllInternalSameDomain sub.options_form change" />
           Never redirect domain-relative links that would open in the same tab
 	</label>
@@ -121,7 +121,7 @@
 
 	      <!-- redirect drop-down menu -->
 	      <select class="redirect sub.rule change keydown">
-		<option value="false" selected="selected">This SSB</option>
+		<option value="false" selected="selected">This app</option>
 		<option value="true">Default browser</option>
 	      </select>
 
@@ -158,7 +158,7 @@
           If a link doesn't match any rule, open it with:
           <select class="redirectByDefault sub.options_form change">
             <option value="true">Default browser</option>
-            <option value="false">This SSB</option>
+            <option value="false">This app</option>
           </select>
 	</label>
 	
@@ -167,7 +167,7 @@
 	<h4 class="section-header">Rules for handling incoming links from other apps</h4>
 
 	<!-- sendIncomingToMainTab checkbox -->
-	<label class="checkbox" title="If this is checked, links being sent to this SSB from an external app will open in the main window. Note that this probably only makes sense if this is an app-style SSB with only one main window and no tabs. Also, if you ever close the main window, this will stop functioning until you restart the SSB.">
+	<label class="checkbox" title="If this is checked, links being sent to this app from an external app will open in the main window. Note that this probably only makes sense if you're using one main app-style window and no tabs. Also, if you ever close the main window, this will stop functioning until you restart the app.">
           <input type="checkbox" class="sendIncomingToMainTab sub.options_form change" />
           Send incoming links to the main window instead of a new tab
 	</label>
@@ -183,7 +183,7 @@
 	  <button id="export_button">Export</button>
 
 	  <!-- invisible elements for import and export -->
-	  <a download="SSB Redirect Settings.txt" id="export_options" class="invisible">export options</a>
+	  <a download="Epichrome Helper Settings.txt" id="export_options" class="invisible">export options</a>
 	  <input type="file" id="import_options" name="filename" class="invisible" />
 
 	  <!-- working message -->

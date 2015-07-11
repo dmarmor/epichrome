@@ -1,5 +1,5 @@
 #
-#  Makefile: Build rules for the Chrome helper extension.
+#  Makefile: Build rules for the Epichrome Helper extension.
 #
 #  Copyright (C) 2015  David Marmor
 #
@@ -20,7 +20,7 @@
 ICON_SIZES:=16 48 128
 ICON_SOURCE:=../app/icons/app.psd
 HELPERVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
-ZIP:=mac-ssb-helper-${HELPERVERSION}.zip
+ZIP:=epichrome-helper-${HELPERVERSION}.zip
 
 SRC_CP:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 SRC_JS:=$(patsubst src/jquery%,,$(wildcard src/*.js))

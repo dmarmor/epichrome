@@ -4,7 +4,7 @@ https://github.com/dmarmor/osx-chrome-ssb-gui
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  *
- * options.js: options page code for Mac SSB Helper extension
+ * options.js: options page code for Epichrome Helper extension
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -569,7 +569,7 @@ ssbOptions.doExport = function() {
 		// create the default filename
 		var date = new Date();
 		ssbOptions.doc.form.export_options.download =
-		    'SSB Redirect Settings ' +
+		    'Epichrome Helper Settings ' +
 		    date.getFullYear() + '-' +
 		    ('0' + date.getMonth()).slice(-2) + '-' +
 		    ('0' + date.getDate()).slice(-2) + '.json';
@@ -644,7 +644,7 @@ ssbOptions.checkExtensionStatus = function() {
 	    // show install dialog
 	    ssbOptions.dialog.run(
 		null,
-		'Welcome to your Chrome SSB!',
+		'Welcome to your Epichrome app!',
 		function () {
 		    // remove install message from status
 		    delete curStatus.showInstallMessage;

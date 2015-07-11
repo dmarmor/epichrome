@@ -4,7 +4,7 @@ https://github.com/dmarmor/osx-chrome-ssb-gui
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  * 
- * content.js: content script for Mac SSB Helper extension
+ * content.js: content script for Epichrome Helper extension
  * https://github.com/dmarmor/osx-chrome-ssb-gui
  * Copyright (C) 2015 David Marmor.
  * Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)

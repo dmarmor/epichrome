@@ -4,7 +4,7 @@ https://github.com/dmarmor/osx-chrome-ssb-gui
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /* 
  *
- * background.js: background page for Mac SSB Helper extension
+ * background.js: background page for Epichrome Helper extension
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -277,7 +277,7 @@ ssbBG.handleNewTab = function(tab) {
 
 	    // tab redirected from here apparently landed here again, so we
 	    // ignore it to avoid an endless redirection loop
-	    ssb.debug('newTab', 'tab was redirected from this SSB -- ignoring');
+	    ssb.debug('newTab', 'tab was redirected from this app -- ignoring');
 	    
 	} else if (ssb.shouldRedirect(tab.url, 'external')) {
 
