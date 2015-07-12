@@ -19,7 +19,7 @@
 
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
-APP:=makechromessb.app
+APP:=epichrome.app
 HELPERBG:=../helper/src/background.js
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
@@ -36,7 +36,7 @@ APP_RNTM_NMHT:=${APP_RNTM_RSRC}/NativeMessagingHosts
 APP_RNTM_NMEX:=${APP_RNTM_RSRC}/External\ Extensions
 APP_RNTM_MCOS:=${APP_RNTM}/MacOS
 
-INSTALL_PATH:=/Applications/Make Chrome SSB.app
+INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: install clean clean-all
 
@@ -46,10 +46,10 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
 	${APP_RSRC}/applet.icns \
 	${APP_SCPT}/version.sh \
-	${APP_SCPT}/make-chrome-ssb.sh \
-	${APP_SCPT}/ssb-path-info.sh \
+	${APP_SCPT}/build.sh \
+	${APP_SCPT}/pathinfo.sh \
 	${APP_SCPT}/makeicon.sh \
-	${APP_RNTM_MCOS}/ChromeSSB \
+	${APP_RNTM_MCOS}/Epichrome \
 	${APP_RNTM_SCPT}/runtime.sh \
 	${APP_RNTM_SCPT}/infoplist.py \
 	${APP_RNTM_SCPT}/strings.py \
@@ -60,7 +60,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_RSRC}/doc.icns
 
 clean:
-	rm -rf makechromessb.app
+	rm -rf ${APP}
 
 clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
@@ -84,7 +84,7 @@ ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
 	sed "s/SSBVERSION/${VERSION}/" $< > $@
 	@touch ${APP} ${APP_CTNT}
 
-${APP_RSRC}/applet.icns: icons/makechromessb.icns
+${APP_RSRC}/applet.icns: icons/epichrome.icns
 	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 
@@ -92,7 +92,7 @@ ${APP_SCPT}/%: src/%
 	cp -p $< ${APP_SCPT}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_SCPT}
 
-${APP_RNTM_MCOS}/ChromeSSB: src/chromessb ${HELPERBG}
+${APP_RNTM_MCOS}/Epichrome: src/epichrome ${HELPERBG}
 	sed "s/SSBHOSTID/${HOSTID}/" $< > $@
 	chmod 755 $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_MCOS}

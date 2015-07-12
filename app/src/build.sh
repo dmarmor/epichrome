@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  make-chrome-ssb.sh: Create a Chrome SSB application
+#  build.sh: Create an Epichrome application
 #
 #  Copyright (C) 2015 David Marmor
 #

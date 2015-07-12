@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Make Chrome SSB</string>
+	<string>Epichrome</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.dmarmor.MakeChromeSSB</string>
 	<key>CFBundlePackageType</key>

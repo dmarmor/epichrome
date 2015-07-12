@@ -1,6 +1,6 @@
 (*
  * 
- * main.applescript: An AppleScript GUI for creating Chrome SSBs in Mac OSX.
+ * main.applescript: An AppleScript GUI for creating Epichrome apps.
  *
  *  Copyright (C) 2015  David Marmor
  *
@@ -26,7 +26,7 @@
 -- end open
 
 -- MISC CONSTANTS
-set ssbPrompt to "Select name and location for the SSB."
+set ssbPrompt to "Select name and location for the app."
 set ssbDefaultURL to "https://www.google.com/mail/"
 set iconPrompt to "Select an image to use as an icon."
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
@@ -36,8 +36,8 @@ set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 set myIcon to path to resource "applet.icns"
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
-set chromeSSBScript to quoted form of (POSIX path of (path to resource "make-chrome-ssb.sh" in directory "Scripts"))
-set pathInfoScript to quoted form of (POSIX path of (path to resource "ssb-path-info.sh" in directory "Scripts"))
+set chromeSSBScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
+set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
 --set lastPathScript to quoted form of (POSIX path of (path to resource "lastpath.sh" in directory "Scripts"))
 
 -- LAST-USED ICON AND SSB PATH
@@ -45,8 +45,6 @@ property lastIconPath : ""
 property lastSSBPath : ""
 property doRegisterBrowser : "No"
 property doCustomIcon : "Yes"
---set lastIconPath to do shell script lastPathScript & " get icon"
---set lastSSBPath to do shell script lastPathScript & " get ssb"
 
 -- NUMBER OF STEPS IN THE PROCESS
 property numSteps : 7
@@ -62,7 +60,7 @@ on tablist(tabs, tabnum)
 	if (count of tabs) is 0 then
 		return "No tabs specified.
 
-Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the SSB will determine which tabs to open on startup using its preferences, just as Chrome would."
+Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will determine which tabs to open on startup using its preferences, just as Chrome would."
 	else
 		local t
 		set ttext to (count of tabs) as text
@@ -96,18 +94,18 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the SSB will 
 end tablist
 
 -- INITIALIZE IMPORTANT VARIABLES
-set ssbBase to "My Chrome SSB"
+set ssbBase to "My Epichrome App"
 set ssbURLs to 0
 
 repeat
 	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION
 	repeat
 		try
-			display dialog "Click OK to select a name and location for the SSB." with title step() with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
+			display dialog "Click OK to select a name and location for the app." with title step() with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
 			exit repeat
 		on error number -128
 			try
-				display dialog "SSB has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
+				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
 				return
 			on error number -128
 			end try
@@ -224,11 +222,11 @@ repeat
 			
 			repeat
 				try
-					set ssbStyle to button returned of (display dialog "Choose SSB Style:
+					set ssbStyle to button returned of (display dialog "Choose App Style:
 
-APP WINDOW - The SSB will display an app-style window with the given URL. (This creates a classic SSB and is ordinarily what you'll want.)
+APP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)
 
-BROWSER TABS - The SSB will display a full browser window with the given tabs." with title step() with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
+BROWSER TABS - The app will display a full browser window with the given tabs." with title step() with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
 					
 				on error number -128 -- Back button
 					set curStep to curStep - 1
@@ -330,7 +328,7 @@ BROWSER TABS - The SSB will display a full browser window with the given tabs." 
 					
 					repeat
 						try
-							set doRegisterBrowser to button returned of (display dialog "Register SSB as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
+							set doRegisterBrowser to button returned of (display dialog "Register app as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -464,7 +462,7 @@ Icon: "
 									if creationSuccess then
 										-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 										try
-											set dlgResult to button returned of (display dialog "Created Chrome SSB \"" & ssbBase & "\"" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
+											set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\"" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
 											return -- "Quit" button
 										end try

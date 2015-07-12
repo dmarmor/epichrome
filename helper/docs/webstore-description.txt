@@ -1,0 +1,9 @@
+Epichrome Helper is a companion extension for apps created with Epichrome, an OSX application that allows you to create Chrome-based site-specific-browsers that function as full OSX apps.
+
+This extension adds extra functionality to those apps: you can use rules to decide which links the app should handle itself and which should be sent to your default browser. You can also choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.
+
+NOTE: This extension is *only* intended for use with OSX apps created with Epichrome. (It's installed automatically when Epichrome apps are launched for the first time.) If you've found it in the web store, you probably shouldn't download it, as it's useless on its own and won't do anything if installed in Chrome.
+
+If Epichrome apps sound useful to you, you can download it at the URL below, and finally experience the magic of Epichrome Helper:
+
+https://github.com/dmarmor/osx-chrome-ssb-gui/releases

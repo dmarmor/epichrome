@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  runtime.sh: runtime utility functions for Chrome SSBs
+#  runtime.sh: runtime utility functions for Epichrome creator & apps
 #
 #  Copyright (C) 2015 David Marmor
 #
@@ -26,7 +26,7 @@
 # CONSTANTS
 
 # app executable name
-CFBundleExecutable="ChromeSSB"
+CFBundleExecutable="Epichrome"
 
 # icon names
 CFBundleIconFile="app.icns"
@@ -241,12 +241,12 @@ function newversion {
 }
 
 
-# MCSSBINFO: get absolute path and version info for MakeChromeSSB
+# MCSSBINFO: get absolute path and version info for Epichrome
 function mcssbinfo {
     # default value
     mcssbVersion="$SSBVersion"
     
-    # default location for MakeChromeSSB
+    # default location for Epichrome
     if [ "$1" ] ; then
 	mcssbPath="$1"
     else
@@ -254,21 +254,25 @@ function mcssbinfo {
 	
 	# if it's not in the standard spot, try using spotlight.
 	if [ ! -d "$mcssbPath" ] ; then
-	    mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" | head -n 1)
+	    # try new app ID first
+	    mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.creator'" | head -n 1)
+	    if [[ ! "$mcssbPath" ]]; then
+		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" | head -n 1)
+	    fi
 	fi
     fi
     
     # not found
     if [ ! -d "$mcssbPath" ] ; then
 	mcssbPath=
-	cmdtext="Unable to find MakeChromeSSB app."
+	cmdtext="Unable to find Epichrome."
 	return 1
     fi
     
     # get current value for mcssbVersion
     source "${mcssbPath}/Contents/Resources/Scripts/version.sh"
     if [ $? != 0 ] ; then
-	cmdtext="Unable to load MakeChromeSSB version."
+	cmdtext="Unable to load Epichrome version."
 	return 2
     fi
         
@@ -704,7 +708,7 @@ function updatessb {
 	fi
 	
 	if [ $result = 0 ] ; then
-	    [ "$SSBProfilePath" ] || SSBProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+	    [ "$SSBProfilePath" ] || SSBProfilePath="${HOME}/Library/Application Support/Epichrome/Apps/${CFBundleDisplayName}"
 	fi
     fi
     

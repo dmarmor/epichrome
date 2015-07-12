@@ -431,7 +431,7 @@ ssbBG.host.connect = function(isReconnect) {
     ssb.debug('host', (isReconnect ? 're' : '') + 'connecting...');
     
     // connect to host
-    ssbBG.host.port = chrome.runtime.connectNative('com.dmarmor.ssb.helper');
+    ssbBG.host.port = chrome.runtime.connectNative('org.epichrome.helper');
     ssbBG.host.isReconnect = isReconnect;
 
     // handle disconnect from the host
