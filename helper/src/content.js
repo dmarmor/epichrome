@@ -172,8 +172,21 @@ ssbContent.handleClick = function(evt) {
     var topWindow = window.top;
     var link = evt.currentTarget;
     
-    ssb.debug('click', 'got '+evt.type+' event on:', link);
+    // make sure we haven't already handled this event
+    // this can happen when a clever page delegates a click event to a link
+    // nested inside it
+    if (evt.timeStamp == ssbContent.lastClick) {
+	ssb.debug('click', 'event timestamp',evt.timeStamp,'has already been handled');
+	return true;
+    }
 
+    // log this click
+    ssbContent.lastClick = evt.timeStamp;
+    
+    ssb.debug('click', 'got '+evt.type+' event on:', link);
+    if (evt.target != evt.currentTarget)
+	ssb.debug('click', 'delegated from:', evt.target);
+    
     // make sure we're actually a link
     if (! ssbContent.isLink(link)) {
 	ssb.warn('non-link received link event');
