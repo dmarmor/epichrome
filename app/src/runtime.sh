@@ -776,8 +776,8 @@ function updatessb {
 		# if we got out of the loop, we have a unique ID (or we got an error)
 	    fi
 	    
-	    # set up profile path
-	    [[ "$SSBProfilePath" ]] || SSBProfilePath="Library/Application Support/Epichrome/Apps/${CFBundleDisplayName}"
+	    # set up profile path based on bundle identifier (unlikely to change)
+	    [[ "$SSBProfilePath" ]] || SSBProfilePath="Library/Application Support/Epichrome/Apps/${CFBundleIdentifier##*.}"
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then

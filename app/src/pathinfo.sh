@@ -54,7 +54,7 @@ if [ "$mode" = "app" ] ; then
     ssbShortName="${ssbBase}"
     [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName//[^a-zA-Z0-9]/}" # too long - remove all non-alphanumerics
     [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName//[aeiou]/}" # still too long - remove all lowercase vowels
-    [ ! "${ssbShortName}" ] && ssbShortName="Chrome SSB" # we removed everything!
+    [ ! "${ssbShortName}" ] && ssbShortName="Epichrome App" # we removed everything!
     
     # truncate name if still too long
     [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName::16}"
