@@ -61,7 +61,7 @@ ${ZIP}: release
 	zip --recurse-paths $@ extension --exclude '*/.*' '*~'
 
 clean: clean-inplace
-	rm -f ${ZIP}
+	rm -f epichrome-helper-*.zip
 	rm -rf extension
 
 clean-inplace:

@@ -19,36 +19,12 @@
 # 
 
 
-# SAFESOURCE -- safely source a script (version 1.0)
-function safesource {
-    if [ "$2" ] ; then
-	fileinfo="$2"
-    else
-	fileinfo="$1"
-	[[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
-    fi
-    
-    if [ -e "$1" ] ; then
-	source "$1" > /dev/null 2>&1
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to load $fileinfo."
-	    return 1
-	fi
-    else
-	cmdtext="Unable to find $fileinfo."
-	return 1
-    fi
-
-    return 0
-}
-
-
 # ABORT -- exit cleanly on error
 
 function abort {
-    [ -d "$appTmp" ] && rm -rf "$appTmp" 2>&1 > /dev/null
+    [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
     
-    [ "$1" ] && echo "$1" 1>&2
+    [[ "$1" ]] && echo "$1" 1>&2
     
     local result="$2" ; [ "$result" ] || result=1
     exit "$result"
@@ -64,16 +40,15 @@ trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 # determine location of runtime script
 myPath=$(cd "$(dirname "$0")/../../.."; pwd)
-[ $? != 0 ] && abort "Unable to determine MakeChromeSSB path." 1
-[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected MakeChromeSSB path: $myPath." 1
+[ $? != 0 ] && abort 'Unable to determine Epichrome path.' 1
+[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected Epichrome path: $myPath." 1
 
 # load main runtime functions
-safesource "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "runtime script"
-[ $? != 0 ] && abort "$cmdtext" 1
+source "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh"
+[[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
 
 # get important MCSSB info
 mcssbinfo "$myPath"
-[ $? != 0 ] && abort "$cmdtext" 1
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED
@@ -104,9 +79,7 @@ SSBRegisterBrowser="$1"
 [ "$SSBRegisterBrowser" != "Yes" ] && SSBRegisterBrowser="No"
 shift
 
-# profile path (this may eventually come as a command-line argument)
-#SSBProfilePath="${HOME}/Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
-
+# profile path may eventually come here as a command-line argument
 
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
@@ -116,15 +89,13 @@ SSBCommandLine=("${@}")
 
 # create the app directory in a temporary location
 appTmp=$(tempname "$appPath")
-cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
-[ $? != 0 ] && abort "Unable to create app bundle." 1
+try /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
 
 
 # GET INFO NECESSARY TO RUN THE UPDATE
 
 # get info about Google Chrome
 chromeinfo
-[ $? != 0 ] && abort "$cmdtext" 1
 
 
 # PREPARE CUSTOM ICON IF WE'RE USING ONE
@@ -135,24 +106,26 @@ if [ "$iconSource" ] ; then
     # find makeicon.sh
     makeIconScript="${mcssbPath}/Contents/Resources/Scripts/makeicon.sh"
     [ -e "$makeIconScript" ] || abort "Unable to locate makeicon.sh." 1
-
+    
     # get temporary name for icon file
     customIconTmp=$(tempname "${appTmp}/${customIconName}" ".icns")
-
+    
     # convert image into an ICNS
-    cmdtext=$("$makeIconScript" -f "$iconSource" "$customIconTmp" 2>&1)
+    try 'makeiconerr=' "$makeIconScript" -f "$iconSource" "$customIconTmp" ''
     result="$?"
-
+    
     # handle results
-    if [ "$result" = 3 ] ; then
+    if [[ "$result" = 3 ]] ; then
+	# not really an error, so clear error state
+	ok=1
+	
 	# file was already an ICNS, so copy it in
-	cmdtext=$(/bin/cp -p "$iconSource" "$customIconTmp" 2>&1)
-	[ $? != 0 ] && abort "Unable to copy icon file into app." 1
-    elif [ "$result" != 0 ] ; then
-	# failed
-	cmdtext="${cmdtext#Error: }"
-	cmdtext="${cmdtext%.}"
-	abort "Unable to create icon (${cmdtext})." 1
+	try /bin/cp -p "$iconSource" "$customIconTmp" 'Unable to copy icon file into app.'
+    elif [[ "$result" != 0 ]] ; then
+	# really an error, set errmsg
+	errmsg="${makeiconerr#Error: }"
+	errmsg="${errmsg%.}"
+	abort "Unable to create icon (${errmsg})." 1
     fi
 fi
 
@@ -161,14 +134,15 @@ fi
 
 # populate the Contents directory
 updatessb "$appTmp" "$customIconTmp"
-[ $? != 0 ] && abort "$cmdtext" 1
 
-# delete any temporary custom icon (fail silently, as it's no big deal if the temp file remains)
-[ -e "$customIconTmp" ] && /bin/rm "$customIconTmp" > /dev/null 2>&1
+if [[ "$ok" ]] ; then
+    # delete any temporary custom icon (fail silently, as any error here is non-fatal)
+    [[ -e "$customIconTmp" ]] && /bin/rm -f "$customIconTmp" > /dev/null 2>&1
+    
+    # move new app to permanent location (overwriting any old app)
+    permanent "$appTmp" "$appPath" "app bundle"
+fi
 
-
-# move new app to permanent location (overwriting any old app)
-permanent "$appTmp" "$appPath" "app bundle"
-[ $? != 0 ] && abort "$cmdtext" 1
+[[ "$ok" ]] || abort "$errmsg" 1
 
 exit 0

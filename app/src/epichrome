@@ -19,94 +19,21 @@
 # 
 
 
-# SAFESOURCE -- safely source a script (version 1.0)
-function safesource {
-    if [ "$2" ] ; then
-	fileinfo="$2"
-    else
-	fileinfo="$1"
-	[[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
-    fi
-    
-    if [ -e "$1" ] ; then
-	source "$1" > /dev/null 2>&1
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to load $fileinfo."
-	    return 1
-	fi
-    else
-	cmdtext="Unable to find $fileinfo."
-	return 1
-    fi
-
-    return 0
-}
-
-
-# ALERT -- display an alert dialogue
+# ALERT -- display an alert dialog box
 function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
     local msg="${1//\"/\\\"}" ; shift
-    local title="$1" ; shift ; [ "$title" ] && title="with title \"$title\""
-    local icon="$1" ; shift ; [ "$icon" ] && icon="with icon $icon"
-    
-    cmdtext=$(osascript -e "display dialog \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title" 2>&1)
-}
-
-
-# DIALOG -- display a dialog and return the button pressed
-function dialog {  # MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
-    local msg="$1" ; shift
-    local title_code="$1" ; shift ; [ "$title_code" ] && title_code="with title \"$title_code\""
-
-    # build icon setting code
+    local title="$1" ; shift ; [[ "$title" ]] && title="with title \"$title\""
     local icon="$1" ; shift
-    if [ "${icon::1}" = "|" ] ; then
-	icon="${icon:1}"
-	icon_code="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
-tell application \"Finder\"
-    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
-        set myIcon to $icon
-    end if
-end tell"
-    else
-	icon_code="set myIcon to $icon"
-    fi
+    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=
+    [[ "$icon" ]] && icon="with icon $icon"
     
-    # build button list
-    local buttonlist=
-    local button=
-    local button_default=
-    local button_cancel=
-    local try_start=
-    local try_end=
-    for button in "${@:1:3}" ; do
-	# identify default and cancel buttons
-	if [ "${button::1}" = "+" ] ; then
-	    button="${button:1}"
-	    button_default="default button \"$button\""
-	elif [ \( "${button::1}" = "-" \) -o \( "$button" = "Cancel" \) ] ; then
-	    button="${button#-}"
-	    button_cancel="cancel button \"$button\""
-	    try_start="try"
-	    try_end="on error number -128
-    \"$button\"
-end try"
-	fi
-	
-	# add to button list
-	buttonlist="$buttonlist, \"$button\""
-    done
-    buttonlist="{ ${buttonlist:2} }"
+    osascript -e "display dialog \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title" > /dev/null 2>&1
     
-    # run the dialog
-    osascript -e "$icon_code
-$try_start
-    button returned of (display dialog \"$msg\" $title_code with icon myIcon buttons $buttonlist $button_default $button_cancel)
-$try_end"
+    return "$?"
 }
 
 
-# ABORT -- display an error dialogue and abort
+# ABORT -- display an error alert and abort
 function abort {
     alert "$1" "Unable to Run" stop
     exit $2
@@ -120,65 +47,146 @@ function relaunch {
 }
 
 
+# DIALOG -- display a dialog and return the button pressed
+function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
+    
+    if [[ "$ok" ]] ; then
+	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
+	local msg="$1" ; shift
+	local title="$1" ; shift
+	local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
+	
+	# build icon code
+	local icon="$1" ; shift
+	local icon_set=
+	local icon_code=
+	if [ "${icon::1}" = "|" ] ; then
+	    icon="${icon:1}"
+	    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
+	    icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
+tell application \"Finder\"
+    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
+        set myIcon to $icon
+    end if
+end tell"
+	else
+	    [[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
+	fi
+	[[ "$icon_set" ]] && icon_code='with icon myIcon'
+	
+	# build button list
+	local buttonlist=
+	local button=
+	local button_default=
+	local button_cancel=
+	local try_start=
+	local try_end=
+	local numbuttons=0
+	for button in "${@:1:3}" ; do
+	    # increment button count
+	    numbuttons=$((${numbuttons} + 1))
+	    
+	    # identify default and cancel buttons
+	    if [ "${button::1}" = "+" ] ; then
+		button="${button:1}"
+		button_default="default button \"$button\""
+	    elif [ \( "${button::1}" = "-" \) -o \( "$button" = "Cancel" \) ] ; then
+		button="${button#-}"
+		button_cancel="cancel button \"$button\""
+		try_start="try"
+		try_end="on error number -128
+    \"$button\"
+end try"
+	    fi
+	    
+	    # add to button list
+	    buttonlist="$buttonlist, \"$button\""
+	done
+	buttonlist="{ ${buttonlist:2} }"
+	
+	# run the dialog
+	
+	try "${var}=" osascript -e "$icon_set
+$try_start
+    button returned of (display dialog \"$msg\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
+$try_end" 'Unable to display dialog box!'
+
+	# dialog failure -- if this is an alert, fallback to basic alert
+	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
+	    # dialog failed, try an alert
+	    ok=1
+	    alert "$msg" "$title" "$icon"
+	    if [[ "$?" != 0 ]] ; then
+		# alert failed too!
+		echo 'Unable to display alert!' 1>&2
+	    fi
+	fi
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+}
+
+
 # BOOTSTRAP RUNTIME SCRIPT
 
 # determine location of runtime script
 myPath=$(cd "$(dirname "$0")/../.."; pwd)
 myContents="$myPath/Contents"
-[ $? != 0 ] && abort "Unable to determine MakeChromeSSB path." 1
-[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected MakeChromeSSB path." 1
+[[ $? != 0 ]] && abort 'Unable to determine app path.' 1
+[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort 'Unexpected app path.' 1
 
 # load main runtime functions
-safesource "${myContents}/Resources/Scripts/runtime.sh" "runtime script"
-[ $? != 0 ] && abort "$cmdtext" 1
+source "${myContents}/Resources/Scripts/runtime.sh"
+[[ $? != 0 ]] && abort 'Unable to load runtime script.' 1
 
 
 # GET BASIC APP INFORMATION
 
 # load config.sh file
 safesource "$myContents/$appConfigScript" "config file"
-[ $? != 0 ] && abort "$cmdtext" 1
 
 # get Google Chrome info
 chromeinfo
-[ $? != 0 ] && abort "$cmdtext" 1
+
+# get info on current Epichrome version
+mcssbinfo
+
+# get absolute profile path
+myProfilePath="${HOME}/$SSBProfilePath"
 
 # by default we don't need to update the config file
 updateconfig=
 
+# we've done a bunch of stuff--abort if any of it has gone wrong
+[[ "$ok" ]] || abort "$errmsg" 1
+
 
 # CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
 
-mcssbinfo
-if [ \( $? = 0 \) -a "$(newversion "$SSBVersion" "$mcssbVersion")" ] ; then
-
-    updateErr=
-
-    # Ask about updating
-    doUpdate=$(dialog "A new version of the MakeChromeSSB runtime was found ($mcssbVersion). Would you like to update now?" \
-		      "Update" \
-		      "|caution" \
-		      "+Update" \
-		      "-Later" \
-		      "Don't Ask Again For This Version" )
+if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
     
-    if [ $? != 0 ] ; then
-	cmdtext="AppleScript error."
-	updateErr=1
-    fi
-
-    if [ \( ! "$updateErr" \) ] ; then
+    # Ask about updating
+    dialog doUpdate \
+	   "A new version of the MakeChromeSSB runtime was found ($mcssbVersion). Would you like to update now?" \
+	   "Update" \
+	   "|caution" \
+	   "+Update" \
+	   "-Later" \
+	   "Don't Ask Again For This Version"
+    
+    if [[ "$ok" ]] ; then
+	
+	# act based on dialog
 	case "$doUpdate" in
 	    Update)
 		# read in the new runtime
 		safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
-		if [ $? != 0 ] ; then
-		    updateErr=1
-		else
-		    # use new runtime to update the SSB
-		    updatessb "$myPath"
-		    [ $? != 0 ] && updateErr=1
 
+		# use new runtime to update the SSB
+		updatessb "$myPath"
+		
+		if [[ "$ok" ]] ; then
 		    # relaunch!
 		    relaunch 1 &
 		    disown -ar
@@ -190,18 +198,18 @@ if [ \( $? = 0 \) -a "$(newversion "$SSBVersion" "$mcssbVersion")" ] ; then
 		doUpdate=
 		;;
 	    *)
-		# pretend we're already at the current version
+		# pretend we're already at the new version
 		SSBVersion="$mcssbVersion"
 		updateconfig=1
 		;;
 	esac
     fi
-
-    # alert the user to any error, but leave the SSB functional
-    if [ "$updateErr" ] ; then
-	# Please try update again later.
-	alert "$cmdtext Please try update again later."
-    fi        
+    
+    # alert the user to any error, but don't abort
+    if [[ ! "$ok" ]] ; then
+	alert "$errmsg Please try update again later."
+	ok=1
+    fi
 fi
 
 
@@ -215,31 +223,36 @@ fi
 
 # check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
 myChromeLink="$myContents/$appChromeLink"
-if [ \( ! -h "$myChromeLink" \) -o \
-	\( ! -x "$myChromeLink" \) -o \
-	\( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" \) ] ; then
+if [[ ( ! -h "$myChromeLink" ) || \
+	  ( ! -x "$myChromeLink" ) || \
+	  ( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" ) ]] ; then
+
+    # (note that readlink can fail silently--all it means is we'll do the update
     
     # display a relink alert
-
-    dialog "Google Chrome appears to have moved. Attempting to relink..." "Relinking Chrome" "|caution" "+OK" > /dev/null
+    dialog '' 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution' '+OK'
     
     # relink to Google Chrome
     linkchrome "$myContents"
-    [ $? != 0 ] && abort "$cmdtext" 1
+
+    # abort if we failed to relink Chrome
+    [[ "$ok" ]] || abort "$errmsg" 1
 fi
 
 # check for new version of Chrome and update
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     
     # display a Chrome update alert
-    dialog "New version of Google Chrome found ($chromeVersion). Updating SSB..." "New Chrome Version" "|caution" "+OK"
+    dialog '' "New version of Google Chrome found ($chromeVersion). Updating SSB..." 'New Chrome Version' '|caution' '+OK'
     
     # set new version number for config file
     SSBChromeVersion="$chromeVersion"
     
     # use new runtime to update the SSB
     updatessb "$myPath" '' ChromeOnly
-    [ $? != 0 ] && abort "$cmdtext" 1
+
+    # abort if we failed to update Chrome
+    [[ "$ok" ]] || abort "$errmsg" 1
     
     # relaunch!
     relaunch 1 &
@@ -248,79 +261,125 @@ if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
 fi
 
 
-# MAKE SURE EXTENSION-INSTALLATION SCRIPT IS IN PLACE
+# HANDLE FIRST-RUN SETUP
 
-if [[ ! "$SSBExtInstallError" ]]; then
+if [[ "$SSBFirstRunSinceVersion" ]]; then
+
+    # UPDATE PROFILE PATH
+    
+    # if we're coming from a version older than the profile path relocation, migrate profile
+    if [[ "$(newversion "$SSBFirstRunSinceVersion" "2.1.0")" ]] ; then
+	# old path
+	oldProfileBase="${HOME}/Library/Application Support/Chrome SSB"
+	oldProfilePath="${oldProfileBase}/${CFBundleDisplayName}"
+	
+	# if there's a profile in the old location, try to move it
+	if [[ -d "$oldProfilePath" ]] ; then
+	    if [[ -e "$myProfilePath" && ! -d "$myProfilePath" ]]; then
+		# found something other than a directory, get rid of it
+		try rm -f "$myProfilePath" 'Unable to clean up new profile location.'
+		[[ "$ok" ]] || abort "Can't create profile folder. $errmsg" 1
+	    fi
+	    
+	    if [[ ! -d "$myProfilePath" ]]; then
+		# old profile exists, new one doesn't
+		try 'profileBase=' dirname "$myProfilePath" 'unable to get path to profile folder.'
+		try mkdir -p "$profileBase" 'unable to create profile folder.'
+		try mv -f "$oldProfilePath" "$myProfilePath" 'unable to move profile folder from old location.'
+		if [[ ! "$ok" ]] ; then
+		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' 'caution'
+		    ok=1
+		fi
+	    else
+		# profile directories in both places! throw up hands
+		alert 'Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' 'caution'
+	    fi
+	fi
+	
+	# if for whatever reason we still don't have a new profile folder, create one
+	try mkdir -p "$myProfilePath" 'Unable to create profile folder.'
+	[[ "$ok" ]] || abort "$errmsg" 1
+	
+	# if we've emptied out the old profile base folder, get rid of it (and fail silently)
+	rmdir "$oldProfileBase" > /dev/null 2>&1
+    fi
+    
+    
+    # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
     
     # set up useful variables
     extDir="External Extensions"
     extSourcePath="$myContents/Resources/$extDir"
-    extDestPath="$SSBProfilePath/$extDir"
+    extDestPath="$myProfilePath/$extDir"
     
-    extError=
     extDoCopy=
     
     # make sure the extension install source folder exists
     if [[ ! -d "$extSourcePath" ]] ; then
-	extError=1
-	cmdtext="No source directory found."
+	ok=
+	errmsg='No source directory found.'
     fi
     
     # get a listing of the source directory
-    if [[ ! "$extError" ]] ; then
-	dirlist "$extSourcePath" extSourceList "source directory"
-	[[ $? != 0 ]] && extError=1
-    fi
-
+    dirlist "$extSourcePath" extSourceList 'source directory'
+    
     # check if the source directory is empty
-    if [[ ( ! "$extError" ) && ( ! "${extSourceList[*]}" ) ]]; then
-	extError=1
-	cmdtext="The source directory is empty."
+    if [[ "$ok" && ( ! "${extSourceList[*]}" ) ]]; then
+	ok=
+	errmsg='The source directory is empty.'
     fi
-
+    
     # check if the destination directory exists
-    if [[ ( ! "$extError" ) && ( ! -d "$extDestPath" ) ]] ; then
-	# no destination directory
-	extDoCopy=1
-    elif [[ ! "$extError" ]]; then
-	# get a listing of the destination directory
-	dirlist "$extDestPath" extDestList "destination directory"
-	[[ $? != 0 ]] && extError=1
+    if [[ "$ok" ]] ; then
+	if [[ -e "$extDestPath" && ! -d "$extDestPath" ]]; then
+	    # found something other than a directory, get rid of it
+	    try rm -f "$extDestPath" 'Unable to clean up destination directory.'
+	fi
 	
-	# compare source and destination directories
-	if [[ ( ! "$extError" ) && ( "${extSourceList[*]}" != "${extDestList[*]}" ) ]] ; then
+	if [[ "$ok" && ! -d "$extDestPath" ]] ; then
+	    # no destination directory
 	    extDoCopy=1
+	else
+	    # get a listing of the destination directory
+	    dirlist "$extDestPath" extDestList 'destination directory'
+	    
+	    # compare source and destination directories
+	    if [[ "$ok" && ( "${extSourceList[*]}" != "${extDestList[*]}" ) ]] ; then
+		extDoCopy=1
+	    fi
 	fi
     fi
-
+    
     # if for any reason we need to copy the install directory, do it now
-    if [[ ( ! "$extError" ) && "$extDoCopy" ]] ; then	
-	safecopy "$extSourcePath" "$extDestPath" "installation directory"
-	[[ $? != 0 ]] && extError=1
+    if [[ "$ok" && "$extDoCopy" ]] ; then
+	safecopy "$extSourcePath" "$extDestPath" 'installation directory'
+    fi
+    
+    # report error, but don't abort
+    if [[ ! "$ok" ]] ; then
+	# show warning alert
+	alert "Can't install \"Epichrome Helper\" extension. ($errmsg) Your app will still work, but if you want to use the extension, you'll have to install it manually." 'Extension Install Error' caution
+
+	# clear error state
+	ok=1 ; errmsg=
     fi
 
-    # report error, but don't abort
-    if [[ "$extError" ]] ; then
-	# set error state
-	SSBExtInstallError=1
-	updateconfig=1
-	
-	# show warning alert
-	alert "Can't install \"Mac SSB Helper\" extension. ($cmdtext) The SSB will still work, but the extension will have to be installed manually." "Extension Install Error" caution
-    fi
+    # update config file to signal no longer first run
+    SSBFirstRunSinceVersion=
+    updateconfig=1
 fi
 
 	
 # MAKE SURE NATIVE HOST IS INSTALLED
 
 if [[ ! "$SSBHostInstallError" ]]; then
-
+    
     # set up host file paths
     hostId="SSBHOSTID"
     hostManifest="${hostId}.json"
     hostScript="${hostId}-host.py"
     hostDir="NativeMessagingHosts"
-    hostInstallPath="$SSBProfilePath/$hostDir"
+    hostInstallPath="$myProfilePath/$hostDir"
     hostScriptInstalled="$hostInstallPath/$hostScript"
     hostManifestInstalled="$hostInstallPath/$hostManifest"
 
@@ -329,68 +388,70 @@ if [[ ! "$SSBHostInstallError" ]]; then
     if [[ ! -x "$hostScriptInstalled" ]] ; then
 	doHostInstall=1
     else
-	hostVersion=$("$hostScriptInstalled" -v 2>&1)
+	# get installed host version if possible
+	try 'hostVersion=' "$hostScriptInstalled" -v ''
+	if [[ ! "$ok" ]] ; then
+	    hostVersion=0.0.0
+	    ok=1 ; errmsg=
+	fi
+
+	# if installed host is old, we'll update it
 	[[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
     fi
-    [[ ! -e "$hostManifestInstalled" ]] && doHostInstall=1
 
+    # if there's no host manifest, we'll do an install
+    if [[ ! -e "$hostManifestInstalled" ]] ; then
+	doHostInstall=1
+    else
+	# make sure the manifest points to the current path of the script
+	try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hostManifestInstalled"
+
+	# on error, or if the paths don't match, reinstall
+	if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
+	    ok=1 ; errmsg=
+	    doHostInstall=1
+	fi
+    fi
+    
     # do the installation if necessary
     if [[ "$doHostInstall" ]] ; then
-	hostError=
+	
 	hostSourcePath="$myContents/Resources/$hostDir"
 	
 	# create the install directory
-	mkdir -p "$hostInstallPath" 2>&1 /dev/null
-	if [ $? = 0 ] ; then
-	    hostError=1
-	    cmdtext="Unable to create installation folder."
-	fi
+	try mkdir -p "$hostInstallPath" 'Unable to create installation folder.'
 	
 	# stream-edit the manifest file
 	hostManifestTmp=$(tempname "$hostManifestInstalled")
-	sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" > "$hostManifestTmp" 2> /dev/null
-	if [ $? != 0 ] ; then
-	    hostError=1
-	    cmdtext="Unable to copy manifest."
-	fi
+	try "${hostManifestTmp}<" sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" 'Unable to copy manifest.'
 	
 	# stream-edit the host script
-	if [[ ! "$hostError" ]] ; then
-	    hostScriptTmp=$(tempname "$hostScriptInstalled")
-	    sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" > "$hostScriptTmp" 2> /dev/null
-	    if [ $? != 0 ] ; then
-		hostError=1
-		cmdtext="Unable to copy script."
-	    fi	
-	fi
-
+	hostScriptTmp=$(tempname "$hostScriptInstalled")
+	try "${hostScriptTmp}<" sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" 'Unable to copy script.'
+	
 	# fix host script permissions
-	if [[ ! "$hostError" ]] ; then
-	    /bin/chmod 755 "$hostScriptTmp" > /dev/null 2>&1
-	    if [ $? != 0 ] ; then
-		hostError=1
-		cmdtext="Unable to make script executable."
-	    fi
-	fi
+	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
 	
 	# move both files to permanent homes
-	if [[ ! "$hostError" ]] ; then
-	    permanent "$hostManifestTmp" "$hostManifestInstalled" "manifest"
-	    [ $? != 0 ] && hostError=1
-	fi
-	if [[ ! "$hostError" ]] ; then
-	    permanent "$hostScriptTmp" "$hostScriptInstalled" "script"
-	    [ $? != 0 ] && hostError=1
-	fi
-
+	permanent "$hostManifestTmp" "$hostManifestInstalled" 'manifest'
+	permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
+	
 	# report error, but don't abort
-	if [[ "$hostError" ]] ; then
+	if [[ ! "$ok" ]] ; then
+	    # remove temporary files
+	    [[ -e "$hostManifestTmp" ]] && rmtemp "$hostManifestTmp" 'manifest'
+	    [[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
+	    
 	    # set error state
 	    SSBHostInstallError=1
 	    updateconfig=1
 	    
 	    # show an alert
-	    alert "Unable to install native messaging host. ($cmdtext) The SSB will still work, but the companion \"Mac SSB Helper\" extension won't." "Messaging Host Install Error" caution
+	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' caution
+	    
+	    # clear error state (non-fatal)
+	    ok=1
+	    errmsg=
 	fi
     fi
 fi
@@ -399,10 +460,10 @@ fi
 
 if [ "$updateconfig" ] ; then
     writeconfig "$myContents"
-    [ $? != 0 ] && abort "$cmdtext" 1
+    [[ "$ok" ]] || abort "$errmsg" 1
 fi
 
 
 # LAUNCH THE SSB
 
-exec "$myChromeLink" --user-data-dir="$SSBProfilePath" "${SSBCommandLine[@]}"
+exec "$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"

@@ -19,8 +19,9 @@
 #
 
 
-# NOTE: functions in this script put any error text into the variable cmdtext
-#       and return 1 on error, or 0 on success
+# NOTE: the "try" function and many other functions in this system clear
+#       the "ok" global variable on error, set a message in "errmsg",
+#       and return 0 on success, non-zero on error
 
 
 # CONSTANTS
@@ -40,10 +41,135 @@ appScriptingSdef="Resources/scripting.sdef"
 appChromeLink="MacOS/Chrome"
 
 
+# TRY: try to run a command, as long as no errors have already been thrown
+#
+#      usage:
+#        try 'varname=' cmd arg arg arg 'Error message.'
+#        try 'filename.txt<' cmd arg arg arg 'Error message.'
+#        try cmd arg arg arg 'Error message.'
+#
+# get first line of a variable: "${x%%$'\n'*}"
+#
+ok=1
+errmsg=
+function try {
+    # only run if no prior error
+    if [[ "$ok" ]]; then
+	
+	# see if we're storing output
+	local target="$1"
+	local type="${target:${#target}-1}"
+	if [[ "$type" = "=" ]]; then
+	    # storing in a variable
+	    target="${target%=}"
+	    type=var
+	    shift
+	elif [[ "$type" = "<" ]]; then
+	    # storing in a file
+	    target="${target%<}"
+	    type=
+	    shift
+	else
+	    # not storing
+	    target='/dev/null'
+	    type=
+	fi
+	
+	# get command-line args
+	local args=("$@")
+	
+	# last arg is error message
+	local last=$((${#args[@]} - 1))
+	local myerrmsg="${args[$last]}"
+	unset args[$last]
+	
+	# run the command
+	local result=
+	if [[ "$type" = var ]] ; then
+	    # store result in named variable
+	    local temp="$("${args[@]}" 2>&1)"
+	    result="$?"
+	    eval "${target}=$(printf '%q' "$temp")"
+	else
+	    # store result in a file or /dev/null
+	    "${args[@]}" > "$target" 2>&1
+	    result="$?"
+	fi
+
+	# check result
+	if [[ "$result" != 0 ]]; then
+	    [[ "$myerrmsg" ]] && errmsg="$errmsg"
+	    ok=
+	    return "$result"
+	fi
+    fi
+    
+    return 0
+}
+
+# ONERR
+function onerr {
+    
+    # try a command, but only if there's already been an error
+    
+    if [[ ! "$ok" ]] ; then
+	
+	# save old error message
+	local olderrmsg="$errmsg"
+
+	# run the command
+	ok=1
+	try "$@"
+	local result="$?"
+	ok=
+	
+	# add new error message
+	if [[ "$errmsg" ]] ; then
+	    errmsg="$olderrmsg $errmsg"
+	else
+	    errmsg="$olderrmsg"
+	fi
+	
+	return "$result"
+    fi
+
+    return 0
+}
+
+
+# SAFESOURCE -- safely source a script
+function safesource {
+    
+    # only run if no error
+    if [[ "$ok" ]]; then
+	
+	local fileinfo=
+	
+	# get file info string
+	if [ "$2" ] ; then
+	    fileinfo="$2"
+	else	
+	    [[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
+	fi
+
+	# try to source the file
+	if [ -e "$1" ] ; then
+	    try source "$1" "Unable to load $fileinfo."
+	else
+	    errmsg="Unable to find $fileinfo."
+	    ok=
+	fi
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+}
+
+
 # TEMPNAME: internal version of mktemp
 function tempname {
     # approximately equivalent to result=$(/usr/bin/mktemp "${appPath}.XXXXX" 2>&1)
-    result="${1}.${RANDOM}${2}"
+    local result="${1}.${RANDOM}${2}"
     while [ -e "$result" ] ; do
 	result="${result}.${RANDOM}${2}"
     done
@@ -55,162 +181,135 @@ function tempname {
 # PERMANENT: move temporary file or directory to permanent location safely
 function permanent {
 
-    local result=0
-    
-    local temp="$1"
-    local perm="$2"
-    local filetype="$3"
-    local saveTempOnError="$4"  # optional argument
-    
-    local permOld=
-    
-
-    # MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
-    
-    # move the permanent file to a holding location for later removal
-    if [ -e "$perm" ] ; then
-	permOld=$(tempname "$perm")
-	cmdtext=$(/bin/mv "$perm" "$permOld" 2>&1)
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to move old $filetype."
-	    permOld=
-	    result=1
+    if [[ "$ok" ]]; then
+	
+	local temp="$1"
+	local perm="$2"
+	local filetype="$3"
+	local saveTempOnError="$4"  # optional argument
+	
+	local permOld=
+	
+	# MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
+	
+	# move the permanent file to a holding location for later removal
+	if [ -e "$perm" ] ; then
+	    permOld=$(tempname "$perm")
+	    try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
+	    [[ "$ok" ]] || permOld=
 	fi
-    fi
-    
-    # move the temp file or directory to its permanent name
-    if [ $result = 0 ] ; then
-	cmdtext=$(/bin/mv -f "$temp" "$perm" 2>&1)
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to move new $filetype into place."
-	    result=1
-	fi
-    fi
-    
-    # remove the old permanent file or folder if there is one
-    if [ $result = 0 ] ; then
-	temp=
-	if [ -e "$permOld" ]; then
-	    cmdtext=$(/bin/rm -rf "$permOld" 2>&1)
-	    if [ $? != 0 ] ; then
-		cmdtext="Unable to remove old $filetype."
-		result=1
+	
+	# move the temp file or directory to its permanent name
+	try /bin/mv -f "$temp" "$perm" "Unable to move new $filetype into place."
+	
+	# remove the old permanent file or folder if there is one
+	if [[ "$ok" ]] ; then
+	    temp=
+	    if [ -e "$permOld" ]; then
+		try /bin/rm -rf "$permOld" "Unable to remove old $filetype."
 	    fi
 	fi
-    fi
-
-    
-    # IF WE FAILED, CLEAN UP
-
-    if [ $result != 0 ] ; then
 	
-	# move old permanent file back
-	if [ "$permOld" ] ; then
-	    /bin/mv "$permOld" "$perm" > /dev/null 2>&1
-	    [ $? != 0 ] && cmdtext="$cmdtext Also unable to restore old $filetype."
+	# IF WE FAILED, CLEAN UP
+	
+	if [[ ! "$ok" ]] ; then
+	    
+	    # move old permanent file back
+	    if [ "$permOld" ] ; then
+		onerr /bin/mv "$permOld" "$perm" "Also unable to restore old $filetype."
+	    fi
+	    
+	    # delete temp file
+	    [[ ( ! "$saveTempOnError" ) && ( -e "$temp" ) ]] && rmtemp "$temp" "$filetype"
 	fi
-	
-	# delete temp file
-	[ \( ! "$saveTempOnError" \) -a \( -e "$temp" \) ] && rmtemp "$temp" "$filetype"
-    else
-	cmdtext=
     fi
     
-    return $result
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
 # SAFECOPY: safely copy a file or directory to a new location
 function safecopy {
-
-    local result=0
-    cmdtext=
     
-    # copy in custom icon
-    local src="$1"
-    local dst="$2"
-    local filetype="$3"
-
-    # get dirname for destination
-    local dstDir="$(dirname "$dst")"
-    if [ $? != 0 ] ; then
-	cmdtext="Unable to get destination directory listing for $filetype."
-	return 1
-    fi
-
-    # make sure destination directory exists
-    /bin/mkdir -p "$dstDir" > /dev/null 2>&1
-    if [ $? != 0 ] ; then
-	cmdtext="Unable to create the destination directory for $filetype."
-	return 1
-    fi
-    
-    # copy to temporary location
-    local dstTmp=$(tempname "$dst")
-    /bin/cp -a "$src" "$dstTmp" > /dev/null 2>&1
-    if [ $? = 0 ] ; then
+    if [[ "$ok" ]]; then
+	
+	# copy in custom icon
+	local src="$1"
+	local dst="$2"
+	local filetype="$3"
+	
+	# get dirname for destination
+	local dstDir=
+	try 'dstDir=' dirname "$dst" "Unable to get destination directory listing for $filetype."
+	
+	# make sure destination directory exists
+	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."
+	
+	# copy to temporary location
+	local dstTmp=$(tempname "$dst")
+	try /bin/cp -a "$src" "$dstTmp" "Unable to copy $filetype."
+	
 	# move file to permanent home
 	permanent "$dstTmp" "$dst" "$filetype"
-	[ $? != 0 ] && result=1
-    else
-	# failure
-	cmdtext="Unable to copy $filetype."
-	result=1
     fi
     
-    return $result
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
-# RMTEMP: remove a temporary file or directory on failure
+# RMTEMP: remove a temporary file or directory (whether $ok or not)
 function rmtemp {
     local temp="$1"
     local filetype="$2"
-    local result=0
     
     # delete the temp file
     if [ -e "$temp" ] ; then
-	/bin/rm -f "$tmpInfoPlist" > /dev/null 2>&1
-    fi
-    if [ $? != 0 ] ; then
-	if [ "$cmdtext" ] ; then
-	    cmdtext="$cmdtext Also unable"
+	if [[ "$ok" ]] ; then
+	    try /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
 	else
-	    cmdtext="Unable"
+	    onerr /bin/rm -rf "$temp" "Also unable to remove temporary $filetype."
 	fi
-	cmdtext="$cmdtext to remove temporary $filetype."
-	result=1
     fi
     
-    return $result
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
 # DIRLIST: get (and possibly filter) a directory listing
 function dirlist {
-    local dir="$1"
-    local outname="$2"
-    local fileinfo="$3"
-    local filter="$4"
-    
-    local files=($(unset CLICOLOR ; /bin/ls "$dir" 2>&1))
-    if [ $? != 0 ] ; then
-	cmdtext="Unable to retrieve $fileinfo list."
-	return 1
-    fi
 
-    if [ "$filter" ] ; then
-	local filteredfiles=()
-	local f=
-	for f in "${files[@]}" ; do
-	    [[ "$f" =~ $filter ]] && filteredfiles=("${filteredfiles[@]}" "$f")
-	done
-	files=("${filteredfiles[@]}")
+    if [[ "$ok" ]]; then
+
+	local dir="$1"
+	local outname="$2"
+	local fileinfo="$3"
+	local filter="$4"
+	
+	local files=($(unset CLICOLOR ; /bin/ls "$dir" 2>&1))
+	if [ $? != 0 ] ; then
+	    errmsg="Unable to retrieve $fileinfo list."
+	    ok=
+	    return 1
+	fi
+	
+	if [ "$filter" ] ; then
+	    local filteredfiles=()
+	    local f=
+	    for f in "${files[@]}" ; do
+		[[ "$f" =~ $filter ]] && filteredfiles=("${filteredfiles[@]}" "$f")
+	    done
+	    files=("${filteredfiles[@]}")
+	fi
+	
+	eval "${outname}=(\"\${files[@]}\")"
+
     fi
     
-    eval "${outname}=(\"\${files[@]}\")"
-
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
@@ -243,343 +342,335 @@ function newversion {
 
 # MCSSBINFO: get absolute path and version info for Epichrome
 function mcssbinfo {
-    # default value
-    mcssbVersion="$SSBVersion"
     
-    # default location for Epichrome
-    if [ "$1" ] ; then
-	mcssbPath="$1"
-    else
-	mcssbPath="/Applications/Make Chrome SSB.app"    
+    if [[ "$ok" ]]; then
 	
-	# if it's not in the standard spot, try using spotlight.
-	if [ ! -d "$mcssbPath" ] ; then
-	    # try new app ID first
-	    mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.creator'" | head -n 1)
-	    if [[ ! "$mcssbPath" ]]; then
-		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" | head -n 1)
+	# default value
+	mcssbVersion="$SSBVersion"
+	
+	# find Epichrome
+	
+	if [ "$1" ] ; then
+	    # we've been told where it is
+	    mcssbPath="$1"
+	else
+	    # otherwise use spotlight to find it
+	    if [ ! -d "$mcssbPath" ] ; then
+		# try new app ID first
+		mcssbPath=
+		try 'mcssbPath=' mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.builder'" 'Unable to find Epichrome.'
+		if [[ ! "$mcssbPath" ]]; then
+		    try 'mcssbPath=' mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" 'Unable to find Epichrome.'
+		fi
+		# pull out the first instance
+		mcssbPath="${mcssbPath%%$'\n'*}"
 	    fi
 	fi
+	
+	# not found
+	if [[ ! -d "$mcssbPath" ]] ; then
+	    mcssbPath=
+	    errmsg="Unable to find Epichrome."
+	    ok=
+	    return 1
+	fi
+	
+	# get current value for mcssbVersion
+	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" 'Unable to load Epichrome version.'
     fi
     
-    # not found
-    if [ ! -d "$mcssbPath" ] ; then
-	mcssbPath=
-	cmdtext="Unable to find Epichrome."
-	return 1
-    fi
-    
-    # get current value for mcssbVersion
-    source "${mcssbPath}/Contents/Resources/Scripts/version.sh"
-    if [ $? != 0 ] ; then
-	cmdtext="Unable to load Epichrome version."
-	return 2
-    fi
-        
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
 # CHROMEINFO: find absolute paths to and info on relevant Google Chrome items
 function chromeinfo {
-    # default location for Chrome -- first try the config value
-    if [ "$SSBChromePath" ] ; then
-	chromePath="$SSBChromePath"
-    else
-	chromePath="/Applications/Google Chrome.app"
-    fi
     
-    
-    # if it's not in the standard spot, try using spotlight.
-    if [ ! -d "$chromePath" ] ; then
-	chromePath=$(mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'" | head -n 1)
-    fi
-
-    if [ ! -d "$chromePath" ] ; then
-
-	# last-ditch - ask the user to locate it
-	chromePath=$(osascript -e 'return POSIX path of (choose application with title "Locate Chrome" with prompt "Please locate Google Chrome" as alias)' 2> /dev/null)
-	chromePath="${chromePath%/}"
-
-	if [ ! -d "$chromePath" ] ; then
+    if [[ "$ok" ]]; then
+	
+	# default location for Chrome -- first try the config value
+	if [ "$SSBChromePath" ] ; then
+	    chromePath="$SSBChromePath"
+	else
 	    chromePath=
-	    cmdtext="Unable to find Google Chrome application."
+	fi
+
+	# if it's not where we left it, try using spotlight
+	if [ ! -d "$chromePath" ] ; then
+	    try 'chromePath=' mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'" ''
+	    
+	    # find first instance
+	    chromePath="${chromePath%%$'\n'*}"	    
+	fi
+	
+	if [[ ! "$ok" || ! -d "$chromePath" ]] ; then
+	    
+	    # last-ditch - ask the user to locate it
+	    try 'chromePath=' osascript -e 'return POSIX path of (choose application with title "Locate Chrome" with prompt "Please locate Google Chrome" as alias)'
+	    chromePath="${chromePath%/}"
+	    
+	    if [ ! -d "$chromePath" ] ; then
+		chromePath=
+		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
+		errmsg="Unable to find Google Chrome application.$errmsg"
+		ok=
+		return 1
+	    fi
+	fi
+
+	# if we hit an error, abort
+	[[ "$ok" ]] || return 1
+	
+	# Chrome executable
+	chromeExec="${chromePath}/Contents/MacOS/Google Chrome"
+	if [ ! -x "$chromeExec" ] ; then
+	    chromeExec=
+	    errmsg='Unable to find Google Chrome executable.'
+	    ok=
 	    return 1
 	fi
-    fi
-    
-    # Chrome executable
-    chromeExec="${chromePath}/Contents/MacOS/Google Chrome"
-    if [ ! -x "$chromeExec" ] ; then
-	chromeExec=
-	cmdtext="Unable to find Google Chrome executable."
-	return 1
-    fi
-    
-    # Chrome Info.plist
-    chromeInfoPlist="${chromePath}/Contents/Info.plist"
-    if [ ! -e "$chromeInfoPlist" ] ; then
-	chromeInfoPlist=
-	cmdtext="Unable to find Google Chrome Info.plist file."
-	return 1
-    fi
-    
-    # Chrome scripting.sdef
-    chromeScriptingSdef="${chromePath}/Contents/Resources/scripting.sdef"
-    if [ ! -e "$chromeScriptingSdef" ] ; then
-	chromeScriptingSdef=
-	cmdtext="Unable to find Google Chrome scripting.sdef file."
-	return 1
-    fi
+	
+	# Chrome Info.plist
+	chromeInfoPlist="${chromePath}/Contents/Info.plist"
+	if [ ! -e "$chromeInfoPlist" ] ; then
+	    chromeInfoPlist=
+	    errmsg='Unable to find Google Chrome Info.plist file.'
+	    ok=
+	    return 1
+	fi
+	
+	# Chrome scripting.sdef
+	chromeScriptingSdef="${chromePath}/Contents/Resources/scripting.sdef"
+	if [ ! -e "$chromeScriptingSdef" ] ; then
+	    chromeScriptingSdef=
+	    errmsg='Unable to find Google Chrome scripting.sdef file.'
+	    ok=
+	    return 1
+	fi
 
-    # Chrome version
-    local re='^kMDItemVersion = "(.*)"$'
-    chromeVersion=$(/usr/bin/mdls -name kMDItemVersion "$chromePath")
-    if [[ "$chromeVersion" =~ $re ]] ; then
-	chromeVersion="${BASH_REMATCH[1]}"
-    else
-	cmdtext="Unable to retrieve Chrome version."
-	return 1
+	# Chrome version
+	local re='^kMDItemVersion = "(.*)"$'
+	try 'chromeVersion=' mdls -name kMDItemVersion "$chromePath" 'Unable to retrieve Chrome version.'
+	[[ "$ok" ]] || return 1
+	if [[ "$chromeVersion" =~ $re ]] ; then
+	    chromeVersion="${BASH_REMATCH[1]}"
+	else
+	    chromeVersion=
+	    errmsg='Unable to retrieve Chrome version.'
+	    ok=
+	    return 1
+	fi
+    
+	# (alternate version not using mdls)
+	#     local re='<key>CFBundleShortVersionString</key>[ 	
+	# ]*<string>([^<]*)</string>'
+	#     local infoplist=$(/bin/cat "$chromeInfoPlist" 2> /dev/null)
+	#     if [ $? != 0 ] ; then
+	# 	cmdtext="Unable to read Chrome Info.plist."
+	# 	return 1
+	#     fi
+	#     if [[ "$infoplist" =~ $re ]] ; then
+	# 	chromeVersion="${BASH_REMATCH[1]}"
+	#     else
+	# 	cmdtext="Unable to retrieve Chrome version."
+	#   return 1
+	#     fi
     fi
     
-    # (alternate version not using mdls)
-    #     local re='<key>CFBundleShortVersionString</key>[ 	
-    # ]*<string>([^<]*)</string>'
-    #     local infoplist=$(/bin/cat "$chromeInfoPlist" 2> /dev/null)
-    #     if [ $? != 0 ] ; then
-    # 	cmdtext="Unable to read Chrome Info.plist."
-    # 	return 1
-    #     fi
-    #     if [[ "$infoplist" =~ $re ]] ; then
-    # 	chromeVersion="${BASH_REMATCH[1]}"
-    #     else
-    # 	cmdtext="Unable to retrieve Chrome version."
-    #   return 1
-    #     fi
-    
-    cmdtext=
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1    
 }
 
 
 # LINKCHROME: link to absolute path to Google Chrome executable inside its app bundle
 function linkchrome {  # $1 = destination app bundle Contents directory
 
-    # full path to Chrome link
-    local fullChromeLink="$1/$appChromeLink"
-    
-    # find Chrome paths if necessary
-    [ ! "$chromePath" ] && chromeinfo
-    
-    # make the new link in a temporary location
-    local tmpChromeLink=$(tempname "$fullChromeLink")
-    
-    # create temporary link
-    cmdtext=$(/bin/ln -s "$chromeExec" "$tmpChromeLink" 2>&1)
-    if [ "$?" != "0" ] ; then
-	cmdtext="Unable to create link to Chrome executable."
-	return 1
+    if [[ "$ok" ]]; then
+	# full path to Chrome link
+	local fullChromeLink="$1/$appChromeLink"
+	
+	# find Chrome paths if necessary
+	[[ ! "$chromePath" ]] && chromeinfo
+	
+	# make the new link in a temporary location
+	local tmpChromeLink=$(tempname "$fullChromeLink")
+	
+	# create temporary link
+	try /bin/ln -s "$chromeExec" "$tmpChromeLink" 'Unable to create link to Chrome executable.'
+	
+	# overwrite permanent link
+	permanent "$tmpChromeLink" "$fullChromeLink" "Chrome executable link"
     fi
     
-    # overwrite permanent link
-    permanent "$tmpChromeLink" "$fullChromeLink" "Chrome executable link"
-    [ $? != 0 ] && return 1
-    
-    cmdtext=
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1    
 }
 
 
 # WRITEPLIST: write out new Info.plist file
 function writeplist {  # $1 = destination app bundle Contents directory
-
-    # ensure Chrome's Info.plist file is where we think it is
-    if [ ! -f "$chromeInfoPlist" ] ; then
-	cmdtext="Unable to find Google Chrome Info.plist file."
-	return 1
-    fi
     
-    # full path to Info.plist file
-    local fullInfoPlist="$1/$appInfoPlist"
-    
-    # create name for temp Info.plist file
-    local tmpInfoPlist=$(tempname "$fullInfoPlist")
-        
-    # create list of keys to filter
-    filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
-				    CFBundleExecutable string "$CFBundleExecutable" \
-				    CFBundleIconFile string "$CFBundleIconFile" \
-				    CFBundleIdentifier string "$CFBundleIdentifier" \
-				    CFBundleName string "$CFBundleName" \
-				    CFBundleShortVersionString string "$mcssbVersion" \
-				    CFBundleVersion string "$mcssbVersion" \
-				    CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-				    CFBundleSignature '' \
-				    SCMRevision '' \
-				    DTSDKBuild '' \
-				    DTSDKName '' \
-				    DTXcode '' \
-				    DTXcodeBuild '' \
-				    KSChannelID-32bit '' \
-				    KSChannelID-32bit-full '' \
-				    KSChannelID-full '' \
-				    KSProductID '' \
-				    KSUpdateURL '' \
-				    KSVersion '' \
-				    NSHighResolutionCapable true )
-    
-    # if we're not registering as a browser, delete these keys too
-    if [ "$SSBRegisterBrowser" != "Yes" ] ; then
-	filterkeys+=( CFBundleURLTypes '' \
-				       NSPrincipalClass '' \
-				       NSUserActivityTypes '' )
-    fi
-    
-    # run python script to filter Info.plist
-    cmdtext=$(/usr/bin/python "$1/Resources/Scripts/infoplist.py" \
-			      "$chromeInfoPlist" \
-			      "$tmpInfoPlist" \
-			      "${filterkeys[@]}" 2>&1)
-    if [ $? != 0 ] ; then
-	cmdtext="Error filtering Info.plist file: $cmdtext."
+    if [[ "$ok" ]]; then
 	
-	# delete the temp file
-	rmtemp "$tmpInfoPlist" "Info.plist"
-	return 1
-    else
-	# move temp file to permanent location
-	permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
-	[ $? != 0 ] && return 1
+	# ensure Chrome's Info.plist file is where we think it is
+	if [ ! -f "$chromeInfoPlist" ] ; then
+	    errmsg="Unable to find Google Chrome Info.plist file."
+	    ok=
+	    return 1
+	fi
+	
+	# full path to Info.plist file
+	local fullInfoPlist="$1/$appInfoPlist"
+	
+	# create name for temp Info.plist file
+	local tmpInfoPlist=$(tempname "$fullInfoPlist")
+        
+	# create list of keys to filter
+	filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
+					CFBundleExecutable string "$CFBundleExecutable" \
+					CFBundleIconFile string "$CFBundleIconFile" \
+					CFBundleIdentifier string "$CFBundleIdentifier" \
+					CFBundleName string "$CFBundleName" \
+					CFBundleShortVersionString string "$mcssbVersion" \
+					CFBundleVersion string "$mcssbVersion" \
+					CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
+					CFBundleSignature '' \
+					SCMRevision '' \
+					DTSDKBuild '' \
+					DTSDKName '' \
+					DTXcode '' \
+					DTXcodeBuild '' \
+					KSChannelID-32bit '' \
+					KSChannelID-32bit-full '' \
+					KSChannelID-full '' \
+					KSProductID '' \
+					KSUpdateURL '' \
+					KSVersion '' \
+					NSHighResolutionCapable true )
+	
+	# if we're not registering as a browser, delete these keys too
+	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
+	    filterkeys+=( CFBundleURLTypes '' \
+					   NSPrincipalClass '' \
+					   NSUserActivityTypes '' )
+	fi
+	
+	# run python script to filter Info.plist
+	local pyerr=
+	try 'pyerr=' python "$1/Resources/Scripts/infoplist.py" \
+	    "$chromeInfoPlist" \
+	    "$tmpInfoPlist" \
+	    "${filterkeys[@]}" 'Error filtering Info.plist file.'
+	if [[ ! "$ok" ]] ; then
+	    errmsg="$errmsg ($pyerr)"
+	    
+	    # delete the temp file
+	    rmtemp "$tmpInfoPlist" "Info.plist"
+	    return 1
+	else
+	    # move temp file to permanent location
+	    permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
+	fi
     fi
     
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1    
 }
 
 
 # COPYCHROMELPROJ: copy Google Chrome .lproj directories and update localization strings
 function copychromelproj {  # $1 = destination app bundle Contents directory
 
-    # full path to Resources directory
-    local appResources="$1/Resources"
-
-    local chromeResources="${chromePath}/Contents/Resources"
+    if [[ "$ok" ]] ; then
+	
+	# full path to Resources directory
+	local appResources="$1/Resources"
+	
+	local chromeResources="${chromePath}/Contents/Resources"
         
-    local result=0
-    local oldlprojholder=$(tempname "$appResources/oldlproj")
-    local newlprojholder=$(tempname "$appResources/newlproj")
-    
-    # move any existing .lproj directories to holder
-    local oldlprojlist=
-    dirlist "$appResources" lprojlist "old localizations" '\.lproj$'
-    if [ "${#lprojlist[@]}" -gt 0 ] ; then
-	/bin/mkdir "$oldlprojholder" > /dev/null 2>&1
-	[ $? != 0 ] && result=1
-	if [ $result = 0 ] ; then
-	    /bin/mv "$appResources/"*.lproj "$oldlprojholder" > /dev/null 2>&1
-	    if [ $? != 0 ] ; then
-		/bin/rmdir "$oldlprojholder" > /dev/null 2>&1
-		result=1
-	    fi
-	fi
-	[ $result != 0 ] && cmdtext="Unable to relocate old localization directories."
-    fi
-    
-    # copy all .lproj directories from Chrome
-    if [ $result = 0 ] ; then
-	/bin/mkdir "$newlprojholder" > /dev/null 2>&1
-	[ $? != 0 ] && result=1
-	if [ $result = 0 ] ; then
-	    /bin/cp -a "$chromeResources/"*.lproj "$newlprojholder" > /dev/null 2>&1
-	    [ $? != 0 ] && result=1
-	fi
-	[ $result != 0 ] && cmdtext="Unable to copy localization directories."
-    fi
-    
-    # filter the InfoPlist.strings files for the .lproj directories
-    if [ $result = 0 ] ; then
-	# run python script to do unicode filtering
-	cmdtext=$(/usr/bin/python "$appResources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$newlprojholder/"*.lproj 2>&1)
-	[ $? != 0 ] && result=1
-    fi
+	local oldlprojholder=$(tempname "$appResources/oldlproj")
+	local newlprojholder=$(tempname "$appResources/newlproj")
 
-    # move new .lproj directories to permanent location
-    if [ $result = 0 ] ; then
-	/bin/mv "$newlprojholder/"*.lproj "$appResources" > /dev/null 2>&1
-	if [ $? = 0 ] ; then
-	    /bin/rmdir "$newlprojholder" > /dev/null 2>&1
-	    if [ $? != 0 ] ; then
-		cmdtext="Unable to remove temporary new localization container."
-		result=1
+	# get listing of all .lproj directories
+	local oldlprojlist=
+	dirlist "$appResources" lprojlist "old localizations" '\.lproj$'
+	[[ "$ok" ]] || return 1
+	
+	# move any existing .lproj directories to holder
+	if [ "${#lprojlist[@]}" -gt 0 ] ; then
+	    try /bin/mkdir "$oldlprojholder" 'Unable to create temporary folder for old localizations.'
+	    try /bin/mv "$appResources/"*.lproj "$oldlprojholder" 'Unable to move old localizations.'
+	fi
+	
+	# copy all .lproj directories from Chrome
+	try /bin/mkdir "$newlprojholder" 'Unable to create temporary folder for new localizations.'
+	try /bin/cp -a "$chromeResources/"*.lproj "$newlprojholder" 'Unable to copy new localizations.'
+	
+	# run python script to filter the InfoPlist.strings files for the .lproj directories
+	local pyerr=
+	try 'pyerr=' /usr/bin/python \
+	    "$appResources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$newlprojholder/"*.lproj \
+	    'Error filtering Info.plist.'
+	[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
+	
+	# move new .lproj directories to permanent location
+	try /bin/mv "$newlprojholder/"*.lproj "$appResources" 'Unable to move new localizations to permanent folder.'
+	try /bin/rmdir "$newlprojholder" 'Unable to remove temporary folder for new localizations.'
+	
+	# remove old .lproj directories
+	try /bin/rm -rf "$oldlprojholder" 'Unable to remove old localizations.'
+	
+	# on error, clean up as best we can
+	if [[ ! "$ok" ]] ; then
+	    if [ -d "$newlprojholder" ] ; then
+		onerr /bin/rm -rf "$newlprojholder" 'Also unable to clean up temporary new localization folder.'
 	    fi
-	else
-	    cmdtext="Unable to move new localization directories to permanent location."
-	    result=1
+	    if [ -d "$oldlprojholder" ] ; then
+		onerr /bin/mv "$oldlprojholder/"* "$appResources" 'Also unable to move old localizations back into place.'
+	    fi
 	fi
     fi
     
-    # remove old .lproj directories
-    if [ $result = 0 ] ; then
-	/bin/rm -rf "$oldlprojholder" > /dev/null 2>&1
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to remove old localization directories."
-	    result=1
-	fi
-    fi
-    
-    # on error, clean up as best we can
-    if [ $result != 0 ] ; then
-	if [ -d "$newlprojholder" ] ; then
-	    /bin/rm -rf "$newlprojholder" > /dev/null 2>&1
-	    [ $? != 0 ] && cmdtext="$cmdtext Also unable to clean up new localization directories."
-	fi
-	if [ -d "$oldlprojholder" ] ; then
-	    /bin/mv "$oldlprojholder/"* "$appResources"  > /dev/null 2>&1
-	    [ $? != 0 ] && cmdtext="$cmdtext Also unable to move old localization directories back into place."
-	fi
-    fi
-    
-    return $result
+    [[ "$ok" ]] && return 0
+    return 1    
 }
 
 
 # WRITECONFIG: write out config.sh file
 function writeconfig {  # $1 = destination app bundle Contents directory
 
-    local configvars=( CFBundleDisplayName \
-			   CFBundleName \
-			   CFBundleIdentifier \
-			   SSBVersion \
-			   SSBProfilePath \
-			   SSBChromePath \
-			   SSBChromeVersion \
-			   SSBRegisterBrowser \
-			   SSBCustomIcon \
-			   SSBExtInstallError \
-			   SSBHostInstallError \
-			   SSBCommandLine )
-    
-    local re='^declare -a'
-    local var=
-    local value=
-    local arr=()
-    local i
+    if [[ "$ok" ]] ; then
 
-    # full path to final config script
-    local fullConfigScript="$1/$appConfigScript"
-    
-    # make temporary config file
-    local tmpAppConfigScript=$(tempname "$fullConfigScript")
+	# these are the variables we write
+	local configvars=( CFBundleDisplayName \
+			       CFBundleName \
+			       CFBundleIdentifier \
+			       SSBVersion \
+			       SSBProfilePath \
+			       SSBChromePath \
+			       SSBChromeVersion \
+			       SSBRegisterBrowser \
+			       SSBCustomIcon \
+			       SSBFirstRunSinceVersion \
+			       SSBHostInstallError \
+			       SSBCommandLine )
+	
+	local re='^declare -a'
+	local var=
+	local value=
+	local arr=()
+	local i
+	
+	# full path to final config script
+	local fullConfigScript="$1/$appConfigScript"
+	
+	# temporary config file
+	local tmpAppConfigScript=$(tempname "$fullConfigScript")
 
-    local result=0
-    echo "# config.sh -- autogenerated $(/bin/date)" > "$tmpAppConfigScript" 2>&1
-    [ $? != 0 ] && result=1
-    
-    if [ $result = 0 ] ; then
-	echo "" >> "$tmpAppConfigScript"
-	[ $? != 0 ] && result=1
-    fi
-    
-    if [ $result = 0 ] ; then
+	# store config file in a variable
+	local configFile="# config.sh -- autogenerated $(/bin/date)\n"
+	
 	for var in "${configvars[@]}" ; do
 	    if [[ "$(declare -p "$var")" =~ $re ]]; then
 		value="("
@@ -589,60 +680,52 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 		done
 		value="${value} )"
 	    else
-		value=$(eval "printf '%q' \"\$$var\"")  #"echo \"\\\"\$$var\\\"\"")"
+		value=$(eval "printf '%q' \"\$$var\"")
 	    fi
 	    
-	    echo "${var}=${value}" >> "$tmpAppConfigScript"
-	    if [ $? != 0 ] ; then
-		result=1
-		break
-	    fi
+	    configFile="${configFile}\n${var}=${value}"
 	done
-    fi
-    
-    # move the temp file to its permanent place
-    if [ $result = 0 ] ; then
+	
+	# write out the temporary config file
+	try "${tmpAppConfigScript}<" echo -e "$configFile" 'Unable to write config file.'
+	
+	# move the temp file to its permanent place
 	permanent "$tmpAppConfigScript" "$fullConfigScript" "config file"
-	[ $? != 0 ] && result=1
-    else
-	# error earlier trying to write the temp config file
-	cmdtext="Unable to write config file."
-	rmtemp "$tmpAppConfigScript" "config file"
+	
+	# on error, remove temp config file
+	[[ "$ok" ]] || rmtemp "$tmpAppConfigScript" "config file"
     fi
     
-    return $result
+    [[ "$ok" ]] && return 0
+    return 1    
 }
 
 
 # UPDATESSB: function that actually populates an app bundle with the SSB
 function updatessb {
-    # command-line arguments
-    local appPath="$1"
-    local customIconFile="$2"
-    local chromeOnly="$3"  # if non-empty, we're ONLY updating Chrome stuff
     
-    local result=0
-
-    # initially set this to permanent Contents directory
-    local contentsTmp="$appPath/Contents"
-    
-    
-    # FULL UPDATE OPERATION
-    
-    if [ ! "$chromeOnly" ] ; then
+    if [[ "$ok" ]] ; then
 	
-	# we need an actual temporary Contents directory
-	local contentsTmp=$(tempname "$appPath/Contents")
+	# command-line arguments
+	local appPath="$1"
+	local customIconFile="$2"
+	local chromeOnly="$3"  # if non-empty, we're ONLY updating Chrome stuff
 	
-	# copy in the boilerplate for the app
-	/bin/cp -a "$mcssbPath/Contents/Resources/Runtime" "$contentsTmp" > /dev/null 2>&1
-	if [ $? != 0 ] ; then
-	    cmdtext="Unable to populate app bundle."
-	    result=1
-	fi
+	# initially set this to permanent Contents directory
+	local contentsTmp="$appPath/Contents"
 	
-	# place custom icon, if any
-	if [ $result = 0 ] ; then
+	
+	# FULL UPDATE OPERATION
+	
+	if [ ! "$chromeOnly" ] ; then
+	    
+	    # we need an actual temporary Contents directory
+	    local contentsTmp=$(tempname "$appPath/Contents")
+	    
+	    # copy in the boilerplate for the app
+	    try /bin/cp -a "$mcssbPath/Contents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
+	    
+	    # place custom icon, if any
 	    
 	    # check if we are copying from an old version of a custom icon
 	    if [ \( ! "$customIconFile" \) -a \( "$SSBCustomIcon" = "Yes" \) ] ; then
@@ -653,21 +736,15 @@ function updatessb {
 	    if [ -e "$customIconFile" ] ; then	    
 		# copy in custom icon
 		safecopy "$customIconFile" "${contentsTmp}/Resources/${CFBundleIconFile}" "custom icon"
-		[ $? != 0 ] && result=1
 	    fi
-	fi
-	
-	# link to Chrome
-	if [ $result = 0 ] ; then	
+	    
+	    # link to Chrome
 	    linkchrome "$contentsTmp"
-	    [ $? != 0 ] && result=1
-	fi
-
-	# create a bundle identifier if necessary
-	if [ $result = 0 ] ; then
-	    local idbase="com.google.SSB."
+	    
+	    # create a bundle identifier if necessary
+	    local idbase="org.epichrome.app."
 	    local idre="^${idbase//./\\.}"
-
+	    
 	    # make a new identifier if: either we're making a new SSB, or
 	    # updating an old enough version that there's either no
 	    # CFBundleIdentifier or an old format one
@@ -683,87 +760,71 @@ function updatessb {
 		
 		# if this identifier already exists on the system, create a unique one
 		local idfound=0
-		local notunique=1
 		local randext="000"
-		while [ "$notunique" ] ; do
+		while [[ 1 ]] ; do
 		    CFBundleIdentifier="${idbase}$bid"
-		    idfound=$(mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" | wc -l)
-		    if [ $? != 0 ] ; then
-			cmdtext="Unable to search system for bundle identifier."
-			notunique=
-			result=1
-		    fi
+		    try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 'Unable to search system for bundle identifier.'
+
+		    # exit loop on error, or on not finding this ID
+		    [[ "$ok" && "$idfound" ]] || break
 		    
-		    if [ "$idfound" -le 0 ] ; then
-			notunique=
-		    else
-			# try to create a unique identifier
-			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-			bid="${bid::$bidbase}${randext:1:3}"
-		    fi
+		    # try to create a new unique ID
+		    randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
+		    bid="${bid::$bidbase}${randext:1:3}"
 		done
 		
-		# if we got out of that loop, we have a unique ID (or we got an error)
+		# if we got out of the loop, we have a unique ID (or we got an error)
 	    fi
+	    
+	    # set up profile path
+	    [[ "$SSBProfilePath" ]] || SSBProfilePath="Library/Application Support/Epichrome/Apps/${CFBundleDisplayName}"
+	    
+	    # set up first-run notification
+	    if [[ "$SSBVersion" ]] ; then
+		SSBFirstRunSinceVersion="$SSBVersion"
+	    else
+		SSBFirstRunSinceVersion="0.0.0"
+	    fi
+
+	    # clear host install error state
+	    SSBHostInstallError=
 	fi
 	
-	if [ $result = 0 ] ; then
-	    [ "$SSBProfilePath" ] || SSBProfilePath="${HOME}/Library/Application Support/Epichrome/Apps/${CFBundleDisplayName}"
-	fi
-    fi
-    
-    
-    # OPERATIONS FOR UPDATING CHROME
+	
+	# OPERATIONS FOR UPDATING CHROME
 
-    # write out Info.plist
-    if [ $result = 0 ] ; then
+	# write out Info.plist
 	writeplist "$contentsTmp"
-	[ $? != 0 ] && result=1
-    fi
-    
-    # copy Chrome .lproj directories and modify InfoPlist.strings files    
-    if [ $result = 0 ] ; then
+	
+	# copy Chrome .lproj directories and modify InfoPlist.strings files    
 	copychromelproj "$contentsTmp"
-	[ $? != 0 ] && result=1
-    fi
-    
-    # copy scripting.sdef
-    if [ $result = 0 ] ; then
+	
+	# copy scripting.sdef
 	safecopy "$chromeScriptingSdef" "$contentsTmp/$appScriptingSdef" "Chrome scripting.sdef file"
-	[ $? != 0 ] && result=1
-    fi
-    
-    
-    # WRITE OUT CONFIG FILE
-    
-    if [ $result = 0 ] ; then
+	
+	
+	# WRITE OUT CONFIG FILE
+	
 	# set up output versions of config variables
 	SSBVersion="$mcssbVersion"
 	SSBChromePath="$chromePath"    
 	SSBChromeVersion="$chromeVersion"
-
-	# clear error state for installing extension and messaging host
-	SSBExtInstallError=
-	SSBHostInstallError=
 	
 	# write the config file
 	writeconfig "$contentsTmp"
-	[ $? != 0 ] && result=1
-    fi    
-
-    
-    # MOVE CONTENTS TO PERMANENT HOME
-    
-    if [ ! "$chromeOnly" ] ; then
-	# only need to do this if we were doing a full update
-	if [ $result = 0 ] ; then
+	
+	
+	# MOVE CONTENTS TO PERMANENT HOME
+	
+	if [ ! "$chromeOnly" ] ; then
+	    # only need to do this if we were doing a full update
 	    permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
-	    [ $? != 0 ] && result=1
 	else
-	    # error -- delete temporary Contents directory
-	    rmtemp "$contentsTmp"
+	    # remove temp contents on error
+	    [[ "$ok" ]] || rmtemp "$contentsTmp" 'Contents folder'
 	fi
     fi
-
-    return $result
+    
+    [[ "$ok" ]] && return 0
+    return 1    
 }
