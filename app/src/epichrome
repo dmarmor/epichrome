@@ -421,7 +421,8 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	doHostInstall=1
     else
 	# make sure the manifest points to the current path of the script
-	try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hostManifestInstalled"
+	try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hostManifestInstalled" \
+	    'Unable to get current host script path'
 
 	# on error, or if the paths don't match, reinstall
 	if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
