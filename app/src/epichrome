@@ -153,6 +153,11 @@ chromeinfo
 mcssbinfo
 
 # get absolute profile path
+if [[ "$(isarray SSBProfilePath)" ]] ; then
+    myProfilePath="${SSBProfilePath[0]}"
+else
+    myProfilePath="$SSBProfilePath"
+fi
 myProfilePath="${HOME}/$SSBProfilePath"
 
 # by default we don't need to update the config file
@@ -266,13 +271,19 @@ fi
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
     # UPDATE PROFILE PATH
-    
-    # if we're coming from a version older than the profile path relocation, migrate profile
-    if [[ "$(newversion "$SSBFirstRunSinceVersion" "2.1.0")" ]] ; then
-	# old path
-	oldProfileBase="${HOME}/Library/Application Support/Chrome SSB"
-	oldProfilePath="${oldProfileBase}/${CFBundleDisplayName}"
+
+    # check if we're migrating profile paths
+    if [[ "$(isarray SSBProfilePath)" ]] ; then
 	
+	# get old path info
+	oldProfilePath="${SSBProfilePath[1]}"
+
+	# get absolute path if necessary
+	[[ "${oldProfilePath:0:1}" = "/" ]] || oldProfilePath="${HOME}/$oldProfilePath"
+
+	# get the base directory
+	oldProfileBase="${oldProfileDir%/*}"
+
 	# if there's a profile in the old location, try to move it
 	if [[ -d "$oldProfilePath" ]] ; then
 	    if [[ -e "$myProfilePath" && ! -d "$myProfilePath" ]]; then
@@ -302,6 +313,12 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	
 	# if we've emptied out the old profile base folder, get rid of it (and fail silently)
 	rmdir "$oldProfileBase" > /dev/null 2>&1
+
+	# update profile path to be a single entry now that we're done migrating
+	tempProfilePath="${SSBProfilePath[0]}"
+	unset SSBProfilePath
+	SSBProfilePath="$tempProfilePath"
+	updateconfig=1
     fi
     
     
