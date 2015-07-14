@@ -276,8 +276,9 @@ ssb.regexpStar = new RegExp(/\[\*\]/g);
 
 // UTILITY REGEXPS -- useful regexps for other parts of the extension
 
-// match any URL that has a scheme starting with "chrome"
+// match various Chrome-reserved URLs
 ssb.regexpChromeScheme = new RegExp('^chrome([-a-zA-Z0-9.+]*):', 'i');
+ssb.regexpChromeStore = new RegExp('^http(s?)://chrome\\.google\\.com/webstore', 'i');
 
 
 // UTILITY -- useful utility functions

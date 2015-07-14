@@ -31,7 +31,14 @@ var ssbBG = {};
 // -----------------------------------------------------------
 
 // STARTUP -- main startup function for the extension
-ssbBG.startup = function() {    
+ssbBG.startup = function() {
+
+
+    chrome.runtime.onUpdateAvailable.addListener(function(details) {
+	console.log('update is available!',details.version);
+	chrome.runtime.reload();
+    });
+    
     // start up shared code
     ssb.startup('background', function(success, message) {
 	if (success) {
@@ -84,6 +91,8 @@ ssbBG.startup = function() {
 
 // SHUTDOWN -- shuts the extension down
 ssbBG.shutdown = function(statusmessage) {
+    
+    ssb.log(ssb.logPrefix + ' is shutting down:', statusmessage);
     
     // cancel startup timeouts
     if (ssbBG.initTabsTimeout) {
@@ -241,7 +250,8 @@ ssbBG.allTabs = function(action, arg, finished) {
 		for(var j = 0 ; j < curWindow.tabs.length; j++ ) {
 		    // Skip chrome://
 		    var curTab = curWindow.tabs[j];
-		    if( ! ssb.regexpChromeScheme.test(curTab.url)) {			
+		    if ( ! (ssb.regexpChromeScheme.test(curTab.url) ||
+			    ssb.regexpChromeStore.test(curTab.url))) {
 			// perform action
 			action(curTab, arg);
 		    }
