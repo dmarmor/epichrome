@@ -86,9 +86,9 @@ body: {
     background-image: url("install-bg.png");
     background-repeat: no-repeat;
 }
-#install_content .note {
+#install_content li {
     font-style: italic;
-    font-size: 90%;
+    margin-bottom: 1em;
 }
 
 /* shutdown message */
