@@ -23,8 +23,15 @@ APP:=epichrome.app
 HELPERBG:=../helper/src/background.js
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
-#extension directory: jmpkbbcbedkidaopngjndaekagddcmfm
-#src directory:       aojbdgfcchdbogifikogaimkhbeemmaa
+HELPERID_DEBUG1:=kgjjaagidkkjmochgjapgepeecdgdple
+HELPERID_DEBUG2:=pdofehfblahphhhpffpbihdkffkgnbnp
+
+HOSTMANIFEST_SED_COMMON:=s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; 
+HOSTMANIFEST_SED_RELEASE:=s/SSBHELPERID/${HELPERID}/
+HOSTMANIFEST_SED_DEBUG:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG1}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG2}\/"/
+
+HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_RELEASE}'
+
 
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources
@@ -38,9 +45,10 @@ APP_RNTM_MCOS:=${APP_RNTM}/MacOS
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: install clean clean-all
+.PHONY: install clean clean-all debug
 
 .PRECIOUS: icons/app.icns icons/doc.icns
+
 
 ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
@@ -58,6 +66,9 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_NMEX}/${HELPERID}.json \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/doc.icns
+
+debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
+debug: ${APP}
 
 clean:
 	rm -rf ${APP}
@@ -102,7 +113,7 @@ ${APP_RNTM_SCPT}/%: src/%
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_SCPT}
 
 ${APP_RNTM_NMHT}/${HOSTID}.json: src/host-manifest.json src/version.sh
-	sed "s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; s/SSBHELPERID/${HELPERID}/" $< > $@
+	nl=\\$$'\n' ; sed -E $(HOSTMANIFEST_SED) $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
 ${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh

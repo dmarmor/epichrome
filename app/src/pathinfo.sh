@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  ssb-path-info.sh: Return information about a given SSB path
+#  pathinfo.sh: Return information about a given Epichrome app path
 #
 #  Copyright (C) 2015 David Marmor
 #
