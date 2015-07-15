@@ -84,6 +84,7 @@ body: {
 #install_content {
     font-size: 110%;
     background-image: url("install-bg.png");
+    background-position: center;
     background-repeat: no-repeat;
 }
 #install_content li {
