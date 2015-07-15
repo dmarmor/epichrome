@@ -7,5 +7,6 @@
 /dmg/**
 /helper/*.zip
 /helper/extension/**
+/helper/store/**
 /helper/src/*.png
 /helper/src/*.gif

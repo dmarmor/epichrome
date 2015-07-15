@@ -32,8 +32,9 @@ OUT_ICONS:=$(patsubst %,extension/icon%.png,${ICON_SIZES})
 OUT_IMAGES:=extension/install-bg.png extension/working.gif
 INPLACE_FILES:=$(subst extension/,src/,${OUT_ICONS}) $(subst extension/,src/,${OUT_IMAGES})
 
+STORE_FILES:=store/icon.png
 
-.PHONY: build release debug nocompress inplace install clean clean-inplace clean-all
+.PHONY: release debug nocompress inplace build zip store store-dir clean clean-inplace clean-store clean-all
 
 UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
 UGLIFY_RELEASE_FLAGS=--define RELEASE=true
@@ -60,15 +61,26 @@ ${ZIP}: release
 	rm -f ${ZIP}
 	zip --recurse-paths $@ extension --exclude '*/.*' '*~'
 
-clean: clean-inplace
+store: store-dir ${STORE_FILES}
+
+clean: clean-inplace clean-store
 	rm -f epichrome-helper-*.zip
 	rm -rf extension
 
 clean-inplace:
 	rm -f ${INPLACE_FILES}
 
-clean-all: clean clean-inplace
+clean-store:
+	rm -rf store
+
+clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
+
+store-dir:
+	@mkdir -p store
+
+${STORE_FILES}: ${ICON_SOURCE}
+	sips -s format png -z 122 122 -p 128 128 $< --out $@
 
 extension/%.html: src/%.html
 	@mkdir -p extension
