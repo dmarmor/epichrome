@@ -33,9 +33,11 @@ var ssbBG = {};
 // STARTUP -- main startup function for the extension
 ssbBG.startup = function() {
 
-
+    // set a persistent listener that will update the extension as soon as
+    // an update is available (to overcome the fact that auto-updating
+    // through Google doesn't seem to work outside the real Chrome app
     chrome.runtime.onUpdateAvailable.addListener(function(details) {
-	console.log('update is available!',details.version);
+	console.log('version',details.version,'is available -- updating extension');
 	chrome.runtime.reload();
     });
     
@@ -68,7 +70,7 @@ ssbBG.startup = function() {
 	    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
 
 	    // we don't yet know which is the main tab
-	    ssbBG.mainTabId = undefined;
+	    ssbBG.mainTab = undefined;
 	    
 	    // in 200ms, initialize all tabs
 	    // (giving Chrome startup time to override)
@@ -151,35 +153,55 @@ ssbBG.initializeTabs = function() {
     delete ssbBG.initTabsTimeout;    
     
     // find all existing tabs
-    ssbBG.allTabs(function(tab, scripts) {
-
-	// store the smallest tab ID for handling incoming tabs (this is a bit
-	// of a kludge--I have no documentation that tab ID always start small
-	// on startup, but they appear to pretty reliably; also, generally at
-	// this point in loading, in an app-style scenario there should only be
-	// one tab open, so it should be moot)
-	if ((ssbBG.mainTabId == undefined) ||
-	    (ssbBG.mainTabId > tab.id)) {
-	    ssbBG.mainTabId = tab.id;
-	    ssb.debug('initTabs', 'setting main tab to', ssbBG.mainTabId);
-	}
-	
-	// if we're not in Chrome startup, ping tab
-    	if (ssbBG.doInitTabs) {
-	    chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
-		
-		if (response != 'ping') {
+    ssbBG.allTabs(
+	function(tab, win, scripts) {
+	    
+	    // try to find the "main" tab (for optionally directing incoming tabs there)
+	    
+	    // It's a bit of a kludge--I have no documentation that the first tab
+	    // loaded on startup will always have the lowest ID, but it appears to be true.
+	    // I look for the lowest tab ID that's the only tab in an app or popup window
+	    // type (for some reason, Chrome currently gives the window type as 'popup' for
+	    // app windows). Usually this all should only match one tab anyway.
+	    if (((ssbBG.mainTab == undefined) || (ssbBG.mainTab.id > tab.id)) &&
+		((win.type == 'popup') || (win.type == 'app')) &&
+		(win.tabs.length == 1)) {
+		ssbBG.mainTab = tab;
+	    }
+	    
+	    // if we're not in Chrome startup, ping tab
+    	    if (ssbBG.doInitTabs) {
+		chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
 		    
-		    ssb.debug('initTabs', 'reloading tab', tab.id);
-		    
-		    // no response, so inject content scripts
-    		    for(var i = 0 ; i < scripts.length; i++ ) {
-    			chrome.tabs.executeScript(tab.id, { file: scripts[i], allFrames: true });
+		    if (response != 'ping') {
+			
+			ssb.debug('initTabs', 'reloading tab', tab.id);
+			
+			// no response, so inject content scripts
+    			for(var i = 0 ; i < scripts.length; i++ ) {
+    			    chrome.tabs.executeScript(
+				tab.id,
+				{ file: scripts[i], allFrames: true },
+				function () {
+				    if (chrome.runtime.lastError) {
+					ssb.warn('unable to load tab '+tab.id+': '+
+						 chrome.runtime.lastError.message);
+				    }
+				});
+    			}
     		    }
-    		}
-    	    });
-	}
-    }, ssb.manifest.content_scripts[0].js);
+    		});
+	    }
+	},
+	ssb.manifest.content_scripts[0].js,
+
+	// we finished initializing all tabs
+	function() {
+	    if (ssbBG.mainTab != undefined)
+		ssb.debug('initTabs', 'main tab set to', ssbBG.mainTab,'--',ssbBG.mainTab.url);
+	    else
+		ssb.debug('initTabs', 'no main tab found');
+	});
 }
 
 
@@ -191,15 +213,24 @@ ssbBG.handleChromeStartup = function() {
 
 
 // HANDLEINSTALL -- let the system know we're installing
-ssbBG.handleInstall = function() {
-    
-    ssb.debug('install', 'we are installing');
-    
-    if (ssbBG.startupComplete) {
-	ssbBG.showInstallMessage();
-    } else {
-	ssbBG.isInstall = true;
+ssbBG.handleInstall = function(details) {
+
+    // check why we got this event
+    if (details.reason == 'install') {
+
+	// we're actually installing
+	ssb.debug('install', 'we are installing');
+	
+	if (ssbBG.startupComplete) {
+	    ssbBG.showInstallMessage();
+	} else {
+	    ssbBG.isInstall = true;
+	}
     }
+    // here is where we could take action based on an update or a Chrome update
+    // details.reason can be: "install", "update", "chrome_update", or "shared_module_update"
+    // if (details.reason == 'update') details.previousVersion will be set
+
 }
 
 // SHOWINSTALLMESSAGE -- display a welcome message on installation
@@ -253,11 +284,11 @@ ssbBG.allTabs = function(action, arg, finished) {
 		    if ( ! (ssb.regexpChromeScheme.test(curTab.url) ||
 			    ssb.regexpChromeStore.test(curTab.url))) {
 			// perform action
-			action(curTab, arg);
+			action(curTab, curWindow, arg);
 		    }
 		}
 	    }
-
+	    
 	    // callback to let us know we've exited
 	    if (finished) finished();
 	});
@@ -306,26 +337,37 @@ ssbBG.handleNewTab = function(tab) {
 	    // if it's truly an incoming tab (we didn't create it through any
 	    // kind of click), we might send it to the main tab
 	    if (! ssbBG.pages.urls[tab.url] &&
-		ssb.options.sendIncomingToMainTab) {
+		ssb.options.sendIncomingToMainTab &&
+		(ssbBG.mainTab != undefined)) {
 
 		// according to our options, it should be sent to main tab
 		ssb.debug('newTab', 'using options -- sending to main tab');
 		
-		var thisTabId = tab.id;
+		var oldTabId = tab.id;
 		var thisUrl = tab.url;
-		try {
-		    chrome.tabs.get(
-			ssbBG.mainTabId,
-			function(mainTab) {
-			    chrome.tabs.remove(thisTabId);
-			    chrome.tabs.update(mainTab.id,
-					       {url: thisUrl, active: true});
-			    chrome.windows.update(mainTab.windowId,
-						  {focused: true});
-			});
-		} catch(err) {
-		    ssb.warn('unable to find main tab',ssbBG.mainTabId,' -- leaving new tab open');
-		}
+		chrome.tabs.update(
+		    ssbBG.mainTab.id,
+		    {url: thisUrl, active: true},
+		    function (myTab) {
+			if (chrome.runtime.lastError) {
+			    // unable to update the main tab
+			    ssb.warn('unable to find main tab',ssbBG.mainTab.id,
+				     '('+chrome.runtime.lastError.message+') -- leaving new tab open');
+			} else {
+			    // we updated the tab, so get rid of the old one & focus
+			    chrome.tabs.remove(oldTabId);
+			    chrome.windows.update(
+				myTab.windowId,
+				{focused: true},
+				function () {
+				    // log it if we failed to focus on the window
+				    if (chrome.runtime.lastError) {
+					ssb.warn('unable to focus on main window',myTab.windowId,
+						 '('+chrome.runtime.lastError.message+')');
+				    }
+				});
+			}
+		    });
 	    } else {
 		// either it's an actual redirect, or our options don't call
 		// for redirecting to the main tab
