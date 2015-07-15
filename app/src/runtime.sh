@@ -371,6 +371,7 @@ function mcssbinfo {
 	
 	# default value
 	mcssbVersion="$SSBVersion"
+	mcssbPath=
 	
 	# find Epichrome
 	
@@ -544,7 +545,7 @@ function writeplist {  # $1 = destination app bundle Contents directory
 					CFBundleShortVersionString string "$mcssbVersion" \
 					CFBundleVersion string "$mcssbVersion" \
 					CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-					CFBundleSignature '' \
+					CFBundleSignature string '????' \
 					SCMRevision '' \
 					DTSDKBuild '' \
 					DTSDKName '' \

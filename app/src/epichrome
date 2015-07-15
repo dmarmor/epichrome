@@ -151,6 +151,10 @@ chromeinfo
 
 # get info on current Epichrome version
 mcssbinfo
+if [[ ! "$ok" ]] ; then
+    # fail silently, and we just won't check for updates
+    ok=1 ; errmsg=
+fi
 
 # get absolute profile path
 if [[ "$(isarray SSBProfilePath)" ]] ; then
