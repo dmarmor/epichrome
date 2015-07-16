@@ -5,7 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 ### Fixed
-- Fixed bug in Epichrome.app where if an app was supposed to have browser tabs but only had a single tab, it would instead be created in App Window style. Also made the text more clearly reflect the app style in the summary window before the app is created. Thanks to [cbeams](https://github.com/cbeams "cbeams") for catching this.
+- Fixed bug that caused Browser Tab-style apps with only one tab to be created as App Window-style apps instead. Added text to pre-creation summary dialog to clarify which style is being created. Thanks to [cbeams](https://github.com/cbeams "cbeams") for catching this.
 
 ## [2.1.0] - 2015-07-16
 ### Changed

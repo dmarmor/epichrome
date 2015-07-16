@@ -174,6 +174,54 @@ updateconfig=
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
+# CHECK AND UPDATE CHROME LINKS
+
+# update config variable
+if [ "$SSBChromePath" != "$chromePath" ] ; then
+    SSBChromePath="$chromePath"
+    updateconfig=1
+fi
+
+# check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
+myChromeLink="$myContents/$appChromeLink"
+if [[ ( ! -h "$myChromeLink" ) || \
+	  ( ! -x "$myChromeLink" ) || \
+	  ( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" ) ]] ; then
+
+    # (note that readlink can fail silently--all it means is we'll do the update
+    
+    # display a relink alert
+    dialog '' 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution' '+OK'
+    
+    # relink to Google Chrome
+    linkchrome "$myContents"
+
+    # abort if we failed to relink Chrome
+    [[ "$ok" ]] || abort "$errmsg" 1
+fi
+
+# check for new version of Chrome and update
+if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
+    
+    # display a Chrome update alert
+    dialog '' "New version of Google Chrome found ($chromeVersion). Updating app..." 'New Chrome Version' '|caution' '+OK'
+    
+    # set new version number for config file
+    SSBChromeVersion="$chromeVersion"
+    
+    # use new runtime to update the SSB
+    updatessb "$myPath" '' ChromeOnly
+
+    # abort if we failed to update Chrome
+    [[ "$ok" ]] || abort "$errmsg" 1
+    
+    # relaunch!
+    relaunch 1 &
+    disown -ar
+    exit 0
+fi
+
+
 # CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
 
 if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
@@ -225,54 +273,6 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 fi
 
 
-# CHECK AND UPDATE CHROME LINKS
-
-# update config variable
-if [ "$SSBChromePath" != "$chromePath" ] ; then
-    SSBChromePath="$chromePath"
-    updateconfig=1
-fi
-
-# check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
-myChromeLink="$myContents/$appChromeLink"
-if [[ ( ! -h "$myChromeLink" ) || \
-	  ( ! -x "$myChromeLink" ) || \
-	  ( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" ) ]] ; then
-
-    # (note that readlink can fail silently--all it means is we'll do the update
-    
-    # display a relink alert
-    dialog '' 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution' '+OK'
-    
-    # relink to Google Chrome
-    linkchrome "$myContents"
-
-    # abort if we failed to relink Chrome
-    [[ "$ok" ]] || abort "$errmsg" 1
-fi
-
-# check for new version of Chrome and update
-if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
-    
-    # display a Chrome update alert
-    dialog '' "New version of Google Chrome found ($chromeVersion). Updating SSB..." 'New Chrome Version' '|caution' '+OK'
-    
-    # set new version number for config file
-    SSBChromeVersion="$chromeVersion"
-    
-    # use new runtime to update the SSB
-    updatessb "$myPath" '' ChromeOnly
-
-    # abort if we failed to update Chrome
-    [[ "$ok" ]] || abort "$errmsg" 1
-    
-    # relaunch!
-    relaunch 1 &
-    disown -ar
-    exit 0
-fi
-
-
 # HANDLE FIRST-RUN SETUP
 
 if [[ "$SSBFirstRunSinceVersion" ]]; then
@@ -284,7 +284,7 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	
 	# get old path info
 	oldProfilePath="${SSBProfilePath[1]}"
-
+	
 	# get absolute path if necessary
 	[[ "${oldProfilePath:0:1}" = "/" ]] || oldProfilePath="${HOME}/$oldProfilePath"
 
@@ -300,17 +300,18 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	    fi
 	    
 	    if [[ ! -d "$myProfilePath" ]]; then
+		
 		# old profile exists, new one doesn't
-		try 'profileBase=' dirname "$myProfilePath" 'unable to get path to profile folder.'
-		try mkdir -p "$profileBase" 'unable to create profile folder.'
-		try mv -f "$oldProfilePath" "$myProfilePath" 'unable to move profile folder from old location.'
+		try 'profileBase=' dirname "$myProfilePath" 'Unable to get path to profile folder.'
+		try mkdir -p "$profileBase" 'Unable to create profile folder.'
+		try mv -f "$oldProfilePath" "$myProfilePath" 'Unable to move profile folder from old location.'
 		if [[ ! "$ok" ]] ; then
 		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' 'caution'
 		    ok=1
 		fi
 	    else
 		# profile directories in both places! throw up hands
-		alert 'Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' 'caution'
+		alert 'Warning: Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' 'caution'
 	    fi
 	fi
 	

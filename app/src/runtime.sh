@@ -113,7 +113,7 @@ function try {
 
 	# check result
 	if [[ "$result" != 0 ]]; then
-	    [[ "$myerrmsg" ]] && errmsg="$errmsg"
+	    [[ "$myerrmsg" ]] && errmsg="$myerrmsg"
 	    ok=
 	    return "$result"
 	fi
@@ -545,8 +545,8 @@ function writeplist {  # $1 = destination app bundle Contents directory
 					CFBundleIconFile string "$CFBundleIconFile" \
 					CFBundleIdentifier string "$CFBundleIdentifier" \
 					CFBundleName string "$CFBundleName" \
-					CFBundleShortVersionString string "$mcssbVersion" \
-					CFBundleVersion string "$mcssbVersion" \
+					CFBundleShortVersionString string "$SSBVersion" \
+					CFBundleVersion string "$SSBVersion" \
 					CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
 					CFBundleSignature string '????' \
 					SCMRevision '' \
@@ -773,7 +773,7 @@ function updatessb {
 	    fi
 	    
 	    # if there's a custom icon, copy it in
-	    if [ -e "$customIconFile" ] ; then	    
+	    if [ -e "$customIconFile" ] ; then
 		# copy in custom icon
 		safecopy "$customIconFile" "${contentsTmp}/Resources/${CFBundleIconFile}" "custom icon"
 	    fi
@@ -816,18 +816,27 @@ function updatessb {
 		# if we got out of the loop, we have a unique ID (or we got an error)
 	    fi
 
-	    # if we're coming from an old profile path, save it
-	    oldProfilePath=
-	    if [[ ! "$SSBProfilePath" =~ ^${appProfileBase}/ ]] ; then
-		oldProfilePath="$SSBProfilePath"
-		SSBProfilePath=
+	    # set profile path
+	    appProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
+	    
+	    # get the old profile path, if any
+	    if [[ "$SSBProfilePath" ]] ; then
+		if [[ "$(isarray SSBProfilePath)" ]] ; then
+		    oldProfilePath="${SSBProfilePath[0]}"
+		else
+		    oldProfilePath="$SSBProfilePath"
+		fi
+	    else
+		# this is the old-style profile path, from before it got saved
+		oldProfilePath="Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
 	    fi
 	    
-	    # set up profile path based on bundle identifier (unlikely to change)
-	    [[ "$SSBProfilePath" ]] || SSBProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
-
-	    # if we saved an old profile path, add it to the list of paths for handling on first run
-	    [[ "$oldProfilePath" ]] && SSBProfilePath=("$SSBProfilePath" "$oldProfilePath")
+	    # if old path is different, save it in an array for migration on first run
+	    if [[ "$oldProfilePath" != "$appProfilePath" ]] ; then
+		SSBProfilePath=("$appProfilePath" "$oldProfilePath")
+	    else
+		SSBProfilePath="$appProfilePath"
+	    fi
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then
@@ -836,13 +845,20 @@ function updatessb {
 		SSBFirstRunSinceVersion="0.0.0"
 	    fi
 
+	    # update SSBVersion
+	    SSBVersion="$mcssbVersion"
+
 	    # clear host install error state
 	    SSBHostInstallError=
+	elif [[ ! "$SSBVersion" ]] ; then
+
+	    # this should never be reached, but just in case, we set SSBVersion
+	    SSBVersion="$mcssbVersion"
 	fi
 	
 	
 	# OPERATIONS FOR UPDATING CHROME
-
+	
 	# write out Info.plist
 	writeplist "$contentsTmp"
 	
@@ -855,8 +871,7 @@ function updatessb {
 	
 	# WRITE OUT CONFIG FILE
 	
-	# set up output versions of config variables
-	SSBVersion="$mcssbVersion"
+	# set up output versions of Chrome variables
 	SSBChromePath="$chromePath"    
 	SSBChromeVersion="$chromeVersion"
 	
