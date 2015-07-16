@@ -21,6 +21,7 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=epichrome.app
 HELPERBG:=../helper/src/background.js
+DEBUG_UPDATE_FREQ:=30
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 HELPERID_DEBUG1:=kgjjaagidkkjmochgjapgepeecdgdple
@@ -32,6 +33,9 @@ HOSTMANIFEST_SED_DEBUG:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'     
 
 HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_RELEASE}'
 
+EXEC_SED_COMMON:=s/SSBHOSTID/${HOSTID}/
+EXEC_SED_DEBUG:=; s/--user-data-dir/--extensions-update-frequency=${DEBUG_UPDATE_FREQ}\ --user-data-dir/
+EXEC_SED='${EXEC_SED_COMMON}'
 
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources
@@ -68,6 +72,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_RSRC}/doc.icns
 
 debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
+debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
 debug: ${APP}
 
 clean:
@@ -104,7 +109,7 @@ ${APP_SCPT}/%: src/%
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_SCPT}
 
 ${APP_RNTM_MCOS}/Epichrome: src/epichrome ${HELPERBG}
-	sed "s/SSBHOSTID/${HOSTID}/" $< > $@
+	sed -E $(EXEC_SED) $< > $@
 	chmod 755 $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_MCOS}
 
