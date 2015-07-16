@@ -4,7 +4,7 @@
     "name": "Epichrome Helper",
     "short_name": "EpichromHelp",
     "description": "Handles link redirection for Mac apps created with Epichrome.",
-    "version": "0.9.7",
+    "version": "1.0.0",
     
     "background": {
     	"scripts": ["shared.js", "background.js"]
