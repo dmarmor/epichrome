@@ -1,7 +1,13 @@
 # Epichrome Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.1.0] - 2015-07-
+## [2.1.1] - 2015-
+### Changed
+
+### Fixed
+- Fixed bug in Epichrome.app where if an app was supposed to have browser tabs but only had a single tab, it would instead be created in App Window style. Also made the text more clearly reflect the app style in the summary window before the app is created. Thanks to [cbeams](https://github.com/cbeams "cbeams") for catching this.
+
+## [2.1.0] - 2015-07-16
 ### Changed
 - Renamed the project Epichrome, mostly because I found MakeChromeSSB very annoying to say and write.
 - Apps now automatically install *Epichrome Helper*, a companion Chrome extension that handles link redirection so each app can have rules for which links it handles itself and which should be sent to the default browser. (Thanks to [treyharris](https://github.com/treyharris "treyharris") for first bringing up the idea, and to [phillip-r](https://github.com/phillip-r "phillip-r") and [cbeams](https://github.com/cbeams "cbeams") for more thoughts on how it might work.)

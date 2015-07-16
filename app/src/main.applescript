@@ -395,10 +395,14 @@ App: " & ssbName & "
 Menubar Name: " & ssbShortName & "
 
 "
-								if (count of ssbURLs) is 1 then
-									set ssbSummary to ssbSummary & "URL: " & (item 1 of ssbURLs)
+								if ssbStyle is "App Window" then
+									set ssbSummary to ssbSummary & "Style: App Window
+
+URL: " & (item 1 of ssbURLs)
 								else
-									set ssbSummary to ssbSummary & "Tabs: "
+									set ssbSummary to ssbSummary & "Style: Browser Tabs
+
+Tabs: "
 									if (count of ssbURLs) is 0 then
 										set ssbSummary to ssbSummary & "<none>"
 									else
@@ -421,9 +425,9 @@ Icon: "
 								
 								-- set up Chrome command line
 								set ssbCmdLine to ""
-								if (count of ssbURLs) is 1 then
+								if ssbStyle is "App Window" then
 									set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
-								else if (count of ssbURLs) > 1 then
+								else if (count of ssbURLs) > 0 then
 									repeat with t in ssbURLs
 										set ssbCmdLine to ssbCmdLine & " " & quoted form of t
 									end repeat

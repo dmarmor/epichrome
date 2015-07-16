@@ -1,5 +1,6 @@
 *.dmg
 **/boneyard/**
+/*.xlsx
 /examples/**
 /app/epichrome.app/**
 /app/icons/source/**
