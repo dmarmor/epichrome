@@ -33,13 +33,11 @@ var ssbBG = {};
 // STARTUP -- main startup function for the extension
 ssbBG.startup = function() {
 
-    // set a persistent listener that will update the extension as soon as
-    // an update is available (to overcome the fact that auto-updating
-    // through Google doesn't seem to work outside the real Chrome app
-    chrome.runtime.onUpdateAvailable.addListener(function(details) {
-	console.log('version',details.version,'is available -- updating extension');
-	chrome.runtime.reload();
-    });
+    // a persistent listener to immediately install available updates (currently unused)
+    // chrome.runtime.onUpdateAvailable.addListener(function(details) {
+    // 	console.log('version',details.version,'is available -- updating extension');
+    // 	chrome.runtime.reload();
+    // });
     
     // start up shared code
     ssb.startup('background', function(success, message) {
