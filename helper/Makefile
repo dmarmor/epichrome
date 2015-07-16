@@ -1,7 +1,10 @@
 #
 #  Makefile: Build rules for the Epichrome Helper extension.
-#
 #  Copyright (C) 2015  David Marmor
+#
+#  https://github.com/dmarmor/epichrome
+#
+#  Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by

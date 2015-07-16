@@ -1,8 +1,11 @@
 #!/usr/bin/python
 #
 #  org.epichrome.helper-host.py: native messaging host for Epichrome Helper
+#  Copyright (C) 2015  David Marmor
 #
-#  Copyright (C) 2015 David Marmor
+#  https://github.com/dmarmor/epichrome
+#
+#  Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +30,7 @@ import os
 
 # info specific to this host (filled in on install)
 version = 'SSBVERSION'  # filled in by Makefile
-ssbid   = 'SSBID'  # filled in by MakeChromeSSB
+ssbid   = 'SSBID'  # filled in by Epichrome
 
 
 # special mode for communicating version to parent SSB

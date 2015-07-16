@@ -6,4 +6,4 @@ NOTE: This extension is *only* intended for use with OSX apps created with Epich
 
 If Epichrome apps sound useful to you, you can download it at the URL below, and finally experience the magic of Epichrome Helper:
 
-https://github.com/dmarmor/osx-chrome-ssb-gui/releases
+https://github.com/dmarmor/epichrome/releases
