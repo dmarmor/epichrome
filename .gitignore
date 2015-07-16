@@ -1,3 +1,4 @@
+*.dmg
 **/boneyard/**
 /examples/**
 /app/epichrome.app/**
