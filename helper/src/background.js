@@ -74,14 +74,7 @@ ssbBG.startup = function() {
 	    // (giving Chrome startup time to override)
 	    if (typeof ssbBG.doInitTabs != 'number') ssbBG.doInitTabs = 1;
 	    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
-
-	    // wait a couple seconds, then show install message if necessary
-	    if (ssbBG.isInstall)
-		ssbBG.installTimeout = setTimeout(ssbBG.showInstallMessage, 2000);
-
-	    // we're done starting up
-	    ssbBG.startupComplete = true;
-
+	    
 	} else {
 	    ssbBG.shutdown(message);
 	}
@@ -99,11 +92,7 @@ ssbBG.shutdown = function(statusmessage) {
 	clearTimeout(ssbBG.initTabsTimeout);
 	delete ssbBG.initTabsTimeout;
     }
-    if (ssbBG.installTimeout) {
-	clearTimeout(ssbBG.installTimeout);
-	delete ssbBG.installTimeout;
-    }
-
+    
     // cancel page timeouts
     if (ssbBG.pages.urls)
 	Object.keys(ssbBG.pages.urls).forEach(
@@ -215,7 +204,7 @@ ssbBG.handleInstall = function(details) {
 
     // check why we got this event
     if (details.reason == 'install') {
-
+	
 	// we're actually installing
 	ssb.debug('install', 'we are installing');
 	
@@ -236,8 +225,6 @@ ssbBG.showInstallMessage = function() {
 
     ssb.debug('install', 'showing install message');
 
-    delete ssbBG.installTimeout;
-    
     // get current status
     var curStatus = localStorage.getItem('status');
     if (typeof curStatus == 'string') {
@@ -466,6 +453,15 @@ ssbBG.host.receiveMessage = function(message) {
     } else if ('version' in message) {
 	// acknowledging a version request
 	ssb.debug('host', 'host is version '+message.version);
+
+	// this is also how we know our connection to the host is live
+	// we're done starting up
+	ssbBG.startupComplete = true;
+	
+	// if we're installing, now we know we can show the welcome message
+	if (ssbBG.isInstall)
+	    ssbBG.showInstallMessage;
+	
     } else {
 	// unknown response from host
 	ssbBG.shutdown('Redirect request returned unknown response.');

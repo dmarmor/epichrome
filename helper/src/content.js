@@ -290,8 +290,9 @@ ssbContent.handleClick = function(evt) {
     
     // if redirecting, stop propagation on the event
     if (doRedirect) {
+	ssb.debug('click', 'preventing default action');
 	evt.preventDefault();
-	// evt.stopPropagation();  // this might be necessary for some sites??
+	evt.stopPropagation();  // this might be necessary for some sites??
     }
 }
 
