@@ -275,6 +275,7 @@ fi
 
 # HANDLE FIRST-RUN SETUP
 
+newprofile=
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
     # UPDATE PROFILE PATH
@@ -301,7 +302,8 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	    
 	    if [[ ! -d "$myProfilePath" ]]; then
 		
-		# old profile exists, new one doesn't
+		# old profile exists, new one doesn't, so create it
+		newprofile=1
 		try 'profileBase=' dirname "$myProfilePath" 'Unable to get path to profile folder.'
 		try mkdir -p "$profileBase" 'Unable to create profile folder.'
 		try mv -f "$oldProfilePath" "$myProfilePath" 'Unable to move profile folder from old location.'
@@ -315,22 +317,35 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	    fi
 	fi
 	
-	# if for whatever reason we still don't have a new profile folder, create one
-	try mkdir -p "$myProfilePath" 'Unable to create profile folder.'
-	[[ "$ok" ]] || abort "$errmsg" 1
-	
 	# if we've emptied out the old profile base folder, get rid of it (and fail silently)
 	rmdir "$oldProfileBase" > /dev/null 2>&1
-
+	
 	# update profile path to be a single entry now that we're done migrating
 	tempProfilePath="${SSBProfilePath[0]}"
 	unset SSBProfilePath
 	SSBProfilePath="$tempProfilePath"
 	updateconfig=1
     fi
+fi
+
+
+# CREATE PROFILE FOLDER IF IT DOESN'T ALREADY EXIST
+
+# create profile folder
+if [[ ! -d "$myProfilePath" ]]; then
+    newprofile=1
+    try mkdir -p "$myProfilePath" 'Unable to create profile folder.'
+    [[ "$ok" ]] || abort "$errmsg" 1
+fi
+
+# set First Run file so Chrome doesn't think it's new (fail silently)
+firstrunfile="${myProfilePath}/First Run"
+[[ -e "$firstrunfile" ]] || touch "$firstrunfile" > /dev/null 2>&1
+
+
+# MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
     
-    
-    # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
+if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     
     # set up useful variables
     extDir="External Extensions"
