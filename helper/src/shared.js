@@ -49,7 +49,7 @@ ssb.startup = function(pageType, callback) {
 		// }
 	    ],
 	    redirectByDefault: false,
-	    sendIncomingToMainTab: true
+	    sendIncomingToMainTab: false
 	};
     
     // what type of page are we running in?
