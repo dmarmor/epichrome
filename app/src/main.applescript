@@ -98,7 +98,7 @@ end tablist
 
 -- INITIALIZE IMPORTANT VARIABLES
 set ssbBase to "My Epichrome App"
-set ssbURLs to 0
+set ssbURLs to {}
 
 repeat
 	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION
@@ -240,12 +240,8 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 				set curStep to curStep + 1
 				
 				-- initialize URL list
-				if ssbURLs is 0 then
-					if ssbStyle is "App Window" then
-						set ssbURLs to {ssbDefaultURL}
-					else
-						set ssbURLs to {}
-					end if
+				if (ssbURLs is {}) and (ssbStyle is "App Window") then
+					set ssbURLs to {ssbDefaultURL}
 				end if
 				
 				repeat
