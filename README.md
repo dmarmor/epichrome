@@ -1,4 +1,4 @@
-# Epichrome 2.1.0
+# Epichrome 2.1.1
 
 **Epichrome** (formerly MakeChromeSSB) is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 

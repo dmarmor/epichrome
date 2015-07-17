@@ -1,13 +1,17 @@
 # Epichrome Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.1.1] - 2015-
+## [2.1.1] - 2015-07-16
 ### Changed
+- Changed the way profile folders are created so that Chrome will no longer pop up that dialog box asking if you want it to be the default browser the first time an app runs.
 
 ### Fixed
-- Fixed bug that caused Browser Tab-style apps with only one tab to be created as App Window-style apps instead. Added text to pre-creation summary dialog to clarify which style is being created. Thanks to [cbeams](https://github.com/cbeams "cbeams") for catching this.
+- Browser Tab-style apps with only one tab are no longer mistakenly created as App Window-style apps instead. Added text to pre-creation summary dialog to clarify which style is being created. Thanks to [cbeams](https://github.com/cbeams "cbeams") for catching this.
+- The profile folder should now be properly migrated to the new profile location when an app is updated.
+- The app version number should no longer be mistakenly updated to the latest Epichrome version in the rare occasion that a new version of Epichrome is installed, and a new version of Chrome is installed, *and* the user decided not to update the app, but do it later.
+- The Helper extension should now stay properly auto-installed even if a user deletes their profile folder.
 
-## [2.1.0] - 2015-07-16
+## [2.1.0] - 2015-07-15
 ### Changed
 - Renamed the project Epichrome, mostly because I found MakeChromeSSB very annoying to say and write.
 - Apps now automatically install *Epichrome Helper*, a companion Chrome extension that handles link redirection so each app can have rules for which links it handles itself and which should be sent to the default browser. (Thanks to [treyharris](https://github.com/treyharris "treyharris") for first bringing up the idea, and to [phillip-r](https://github.com/phillip-r "phillip-r") and [cbeams](https://github.com/cbeams "cbeams") for more thoughts on how it might work.)
