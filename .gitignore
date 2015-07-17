@@ -12,3 +12,4 @@
 /helper/store/**
 /helper/src/*.png
 /helper/src/*.gif
+/tests/**

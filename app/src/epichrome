@@ -290,7 +290,7 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	[[ "${oldProfilePath:0:1}" = "/" ]] || oldProfilePath="${HOME}/$oldProfilePath"
 
 	# get the base directory
-	oldProfileBase="${oldProfileDir%/*}"
+	oldProfileBase="${oldProfilePath%/*}"
 
 	# if there's a profile in the old location, try to move it
 	if [[ -d "$oldProfilePath" ]] ; then
@@ -317,8 +317,9 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	    fi
 	fi
 	
-	# if we've emptied out the old profile base folder, get rid of it (and fail silently)
-	rmdir "$oldProfileBase" > /dev/null 2>&1
+	# if we've emptied out the old profile base folder, get rid of it (not important, so fail silently)
+	rm -f "${oldProfileBase}/.DS_Store" > /dev/null 2>&1
+	foob="$(rmdir "$oldProfileBase"  2>&1)"
 	
 	# update profile path to be a single entry now that we're done migrating
 	tempProfilePath="${SSBProfilePath[0]}"
