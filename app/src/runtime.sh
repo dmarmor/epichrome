@@ -98,9 +98,13 @@ function try {
 	local result=
 	if [[ "$type" = var ]] ; then
 	    # store result in named variable
-	    local temp="$("${args[@]}" 2>&1)"
+	    local temp=
+	    temp="$("${args[@]}" 2>&1)"
 	    result="$?"
+	    
+	    # escape special characters
 	    eval "${target}=$(printf '%q' "$temp")"
+	    
 	elif [[ "$type" = append ]] ; then
 	    # append result to a file or /dev/null
 	    "${args[@]}" >> "$target" 2>&1
@@ -274,7 +278,7 @@ function safecopy {
 	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."
 	
 	# copy to temporary location
-	local dstTmp=$(tempname "$dst")
+	local dstTmp="$(tempname "$dst")"
 	try /bin/cp -a "$src" "$dstTmp" "Unable to copy $filetype."
 	
 	# move file to permanent home
@@ -311,28 +315,32 @@ function dirlist {
     if [[ "$ok" ]]; then
 
 	local dir="$1"
-	local outname="$2"
+	local outvar="$2"
 	local fileinfo="$3"
 	local filter="$4"
 	
-	local files=($(unset CLICOLOR ; /bin/ls "$dir" 2>&1))
-	if [ $? != 0 ] ; then
+	local files=
+	files="$(unset CLICOLOR ; /bin/ls "$dir" 2>&1)"
+	if [[ "$?" != 0 ]] ; then
 	    errmsg="Unable to retrieve $fileinfo list."
 	    ok=
 	    return 1
 	fi
 	
-	if [ "$filter" ] ; then
-	    local filteredfiles=()
-	    local f=
-	    for f in "${files[@]}" ; do
-		[[ "$f" =~ $filter ]] && filteredfiles=("${filteredfiles[@]}" "$f")
-	    done
-	    files=("${filteredfiles[@]}")
-	fi
-	
-	eval "${outname}=(\"\${files[@]}\")"
+	local filteredfiles=()
+	local f=
+	while read f ; do
+	    if [[ ! "$filter" || ( "$f" =~ $filter ) ]] ; then
+		# escape \ to \\
+		
+		# escape " to \" and <space> to \<space> and add to array
+		filteredfiles=("${filteredfiles[@]}" "$(printf '%q' "$f")")
+	    fi
+	done <<< "$files"
 
+	# copy array to output variable
+	echo "${outvar}=(${filteredfiles[@]})"
+	eval "${outvar}=(${filteredfiles[@]})"
     fi
     
     [[ "$ok" ]] && return 0
@@ -504,7 +512,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	local fullChromeLink="$1/$appChromeLink"
 	
 	# find Chrome paths if necessary
-	[[ ! "$chromePath" ]] && chromeinfo
+	[[ "$chromePath" ]] || chromeinfo
 	
 	# make the new link in a temporary location
 	local tmpChromeLink=$(tempname "$fullChromeLink")
@@ -537,7 +545,7 @@ function writeplist {  # $1 = destination app bundle Contents directory
 	local fullInfoPlist="$1/$appInfoPlist"
 	
 	# create name for temp Info.plist file
-	local tmpInfoPlist=$(tempname "$fullInfoPlist")
+	local tmpInfoPlist="$(tempname "$fullInfoPlist")"
         
 	# create list of keys to filter
 	filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
@@ -602,11 +610,11 @@ function copychromelproj {  # $1 = destination app bundle Contents directory
 	
 	local chromeResources="${chromePath}/Contents/Resources"
         
-	local oldlprojholder=$(tempname "$appResources/oldlproj")
-	local newlprojholder=$(tempname "$appResources/newlproj")
+	local oldlprojholder="$(tempname "$appResources/oldlproj")"
+	local newlprojholder="$(tempname "$appResources/newlproj")"
 
 	# get listing of all .lproj directories
-	local oldlprojlist=
+	local lprojlist=
 	dirlist "$appResources" lprojlist "old localizations" '\.lproj$'
 	[[ "$ok" ]] || return 1
 	
@@ -678,7 +686,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 	local fullConfigScript="$1/$appConfigScript"
 	
 	# temporary config file
-	local tmpAppConfigScript=$(tempname "$fullConfigScript")
+	local tmpAppConfigScript="$(tempname "$fullConfigScript")"
 
 	# start temp config file
 	local myDate=
@@ -701,13 +709,14 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 		    eval "arr=(\"\${$var[@]}\")"
 		    
 		    # go through each value and build the array
-		    for i in "${arr[@]}" ; do
+		    for elem in "${arr[@]}" ; do
 			
 			# escape \ to \\
-			i="${i//\\/\\\\}"
+			elem="${elem//\\/\\\\}"
 			
-			# add array value, escaping spaces and quotes
-			value="${value} $(printf "%q" "$i")"
+			# add array value, escaping specials
+			value="${value} $(printf "%q" "$elem")"
+
 		    done
 		    
 		    # close the array
@@ -722,6 +731,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 		    
 		    # escape spaces and quotes
 		    value=$(printf '%q' "$value")
+
 		fi
 		
 		try "${tmpAppConfigScript}<<" echo "${var}=${value}" 'Unable to write to config file.'
@@ -760,7 +770,7 @@ function updatessb {
 	if [ ! "$chromeOnly" ] ; then
 	    
 	    # we need an actual temporary Contents directory
-	    local contentsTmp=$(tempname "$appPath/Contents")
+	    local contentsTmp="$(tempname "$appPath/Contents")"
 	    
 	    # copy in the boilerplate for the app
 	    try /bin/cp -a "$mcssbPath/Contents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'

@@ -120,8 +120,8 @@ if [ "$iconSource" ] ; then
     # handle results
     if [[ "$result" = 3 ]] ; then
 	# not really an error, so clear error state
-	ok=1
-	
+	ok=1 ; errmsg=
+
 	# file was already an ICNS, so copy it in
 	try /bin/cp -p "$iconSource" "$customIconTmp" 'Unable to copy icon file into app.'
     elif [[ "$result" != 0 ]] ; then
