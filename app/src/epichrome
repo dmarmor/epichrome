@@ -22,23 +22,9 @@
 # 
 
 
-# ALERT -- display an alert dialog box
-function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
-    local msg="${1//\"/\\\"}" ; shift
-    local title="$1" ; shift ; [[ "$title" ]] && title="with title \"$title\""
-    local icon="$1" ; shift
-    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=
-    [[ "$icon" ]] && icon="with icon $icon"
-    
-    osascript -e "display dialog \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title" > /dev/null 2>&1
-    
-    return "$?"
-}
-
-
 # ABORT -- display an error alert and abort
 function abort {
-    alert "$1" "Unable to Run" stop
+    alert "$1" "Unable to Run" '|stop'
     exit $2
 }
 
@@ -52,11 +38,12 @@ function relaunch {
 
 # DIALOG -- display a dialog and return the button pressed
 function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
-    
+
     if [[ "$ok" ]] ; then
+
 	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
-	local msg="$1" ; shift
-	local title="$1" ; shift
+	local msg="${1//\"/\\\"}" ; shift
+	local title="${1//\"/\\\"}" ; shift
 	local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
 	
 	# build icon code
@@ -90,10 +77,10 @@ end tell"
 	    numbuttons=$((${numbuttons} + 1))
 	    
 	    # identify default and cancel buttons
-	    if [ "${button::1}" = "+" ] ; then
+	    if [[ "${button::1}" = "+" ]] ; then
 		button="${button:1}"
 		button_default="default button \"$button\""
-	    elif [ \( "${button::1}" = "-" \) -o \( "$button" = "Cancel" \) ] ; then
+	    elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
 		button="${button#-}"
 		button_cancel="cancel button \"$button\""
 		try_start="try"
@@ -105,6 +92,16 @@ end try"
 	    # add to button list
 	    buttonlist="$buttonlist, \"$button\""
 	done
+
+	# if no buttons specified, make one default OK button
+	if [[ "$numbuttons" -eq 0 ]]; then
+	    numbuttons=1
+	    button='OK'
+	    button_default="default button \"$button\""
+	    buttonlist=", \"$button\""
+	fi
+	
+	# close button list
 	buttonlist="{ ${buttonlist:2} }"
 	
 	# run the dialog
@@ -118,7 +115,11 @@ $try_end" 'Unable to display dialog box!'
 	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
 	    # dialog failed, try an alert
 	    ok=1
-	    alert "$msg" "$title" "$icon"
+
+	    # display simple alert with fallback icon
+	    [[ "$icon" ]] && icon="with icon $icon"
+	    osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
+	    
 	    if [[ "$?" != 0 ]] ; then
 		# alert failed too!
 		echo 'Unable to display alert!' 1>&2
@@ -128,6 +129,14 @@ $try_end" 'Unable to display dialog box!'
     
     [[ "$ok" ]] && return 0
     return 1
+}
+
+
+# ALERT -- display a simple alert dialog box
+function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
+    dialog '' "$1" "$2" "$3"
+    
+    return "$?"
 }
 
 
@@ -191,7 +200,7 @@ if [[ ( ! -h "$myChromeLink" ) || \
     # (note that readlink can fail silently--all it means is we'll do the update
     
     # display a relink alert
-    dialog '' 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution' '+OK'
+    alert 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution'
     
     # relink to Google Chrome
     linkchrome "$myContents"
@@ -204,7 +213,7 @@ fi
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
     
     # display a Chrome update alert
-    dialog '' "New version of Google Chrome found ($chromeVersion). Updating app..." 'New Chrome Version' '|caution' '+OK'
+    alert "New version of Google Chrome found ($chromeVersion). Updating app..." 'New Chrome Version' '|caution'
     
     # set new version number for config file
     SSBChromeVersion="$chromeVersion"
@@ -267,7 +276,7 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
     
     # alert the user to any error, but don't abort
     if [[ ! "$ok" ]] ; then
-	alert "$errmsg Please try update again later."
+	alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
 	ok=1
     fi
 fi
@@ -308,12 +317,12 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 		try mkdir -p "$profileBase" 'Unable to create profile folder.'
 		try mv -f "$oldProfilePath" "$myProfilePath" 'Unable to move profile folder from old location.'
 		if [[ ! "$ok" ]] ; then
-		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' 'caution'
+		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' '|caution'
 		    ok=1
 		fi
 	    else
 		# profile directories in both places! throw up hands
-		alert 'Warning: Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' 'caution'
+		alert 'Warning: Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' '|caution'
 	    fi
 	fi
 	
@@ -399,7 +408,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     # report error, but don't abort
     if [[ ! "$ok" ]] ; then
 	# show warning alert
-	alert "Can't install \"Epichrome Helper\" extension. ($errmsg) Your app will still work, but if you want to use the extension, you'll have to install it manually." 'Extension Install Error' caution
+	alert "Can't install \"Epichrome Helper\" extension. ($errmsg) Your app will still work, but if you want to use the extension, you'll have to install it manually." 'Extension Install Error' '|caution'
 
 	# clear error state
 	ok=1 ; errmsg=
@@ -489,7 +498,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    updateconfig=1
 	    
 	    # show an alert
-	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' caution
+	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' '|caution'
 	    
 	    # clear error state (non-fatal)
 	    ok=1
