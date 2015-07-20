@@ -1,6 +1,10 @@
 # Epichrome Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.2] - 2015-07-20
+### Fixed
+- Apps created with a custom icon in ICNS format no longer ignore the custom icon. Thanks for [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") and [pattulus](https://github.com/pattulus "pattulus") for catching this.
+
 ## [2.1.1] - 2015-07-16
 ### Changed
 - Changed the way profile folders are created so that Chrome will no longer pop up that dialog box asking if you want it to be the default browser the first time an app runs.
