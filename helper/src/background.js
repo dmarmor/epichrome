@@ -375,6 +375,9 @@ ssbBG.handlePing = function(message, sender, respond) {
 }
 
 
+// HANDLEWINDOWSWITCH -- $$$$
+
+
 // PAGES -- object for handling communication with web pages
 // ---------------------------------------------------------
 
@@ -460,7 +463,7 @@ ssbBG.host.receiveMessage = function(message) {
 	
 	// if we're installing, now we know we can show the welcome message
 	if (ssbBG.isInstall)
-	    ssbBG.showInstallMessage;
+	    ssbBG.showInstallMessage();
 	
     } else {
 	// unknown response from host
