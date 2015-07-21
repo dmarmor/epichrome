@@ -46,7 +46,7 @@ ssbBG.startup = function() {
 	    ssb.log(ssb.logPrefix + ' is starting up');
 	    
 	    // we are active!
-	    localStorage.setItem('status', JSON.stringify({ active: true }));
+	    localStorage.setItem('status', JSON.stringify({ active: false, startingUp: true, message: 'Please wait...' }));
 
 	    // initialize pages.urls
 	    ssbBG.pages.urls = {};
@@ -437,8 +437,6 @@ ssbBG.host = {};
 
 // HOST.RECEIVEMESSAGE -- handler for messages from native host
 ssbBG.host.receiveMessage = function(message) {
-
-    ssb.debug('host','got message:',message);
     
     // we now know we have an operating port
     ssbBG.host.isReconnect = false;
@@ -448,16 +446,28 @@ ssbBG.host.receiveMessage = function(message) {
     // parse response
     
     if ('url' in message) {
-	// acknowledging a URL redirect
+	ssb.debug('host','got redirect response:',message);
+	
+	// acknowledging a URL redirect	
 	ssbBG.pages.urls[message.url].response = true;
 	if (message.result != "success") {
 	    ssbBG.shutdown('Redirect request failed.');
 	}
     } else if ('version' in message) {
-	// acknowledging a version request
-	ssb.debug('host', 'host is version '+message.version);
-
+	// version is always part of a handshake request
+	ssb.debug('host', 'got handshake:',message);
+	
+	// start building our status object
+	var status = { active: true };
+	
+	// other info that may be part of the handshake
+	if ('ssbID' in message) { status.ssbID = message.ssbID }
+	if ('ssbName' in message) { status.ssbName = message.ssbName }
+	if ('ssbShortName' in message) { status.ssbShortName = message.ssbShortName }
+	
 	// this is also how we know our connection to the host is live
+	localStorage.setItem('status', JSON.stringify(status));
+	
 	// we're done starting up
 	ssbBG.startupComplete = true;
 	
@@ -503,9 +513,9 @@ ssbBG.host.connect = function(isReconnect) {
     // handle messages from the host
     ssbBG.host.port.onMessage.addListener(ssbBG.host.receiveMessage);
 
-    // say hello by asking for the host's version (we'll just ignore the response for now)
-    ssbBG.host.port.postMessage({"version": true});
-    ssb.debug('host', 'requesting version');
+    // say hello by asking for the host's version
+    ssbBG.host.port.postMessage({'version': true});
+    ssb.debug('host', 'requesting handshake');
 }
 
 

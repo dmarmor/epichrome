@@ -31,7 +31,8 @@ import os
 # info specific to this host (filled in on install)
 version = 'SSBVERSION'  # filled in by Makefile
 ssbid   = 'SSBID'  # filled in by Epichrome
-
+ssbname = 'SSBNAME'  # filled in by Epichrome
+ssbshortname = 'SSBSHORTNAME'  # filled in by Epichrome
 
 # special mode for communicating version to parent SSB
 if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
@@ -80,7 +81,10 @@ while 1:
         break
 
     if 'version' in message:
-        send_message('{ "version": "%s" }' % version)
+        send_message(('{ "version": "%s", '+
+                     '"ssbID": "%s", '+
+                     '"ssbName": "%s", '+
+                     '"ssbShortName": "%s" }') % (version, ssbid, ssbname, ssbshortname))
     
     if 'url' in message:
         # open the url

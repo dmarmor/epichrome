@@ -288,11 +288,16 @@ ssbContent.handleClick = function(evt) {
     message.url = href;
     ssbContent.port.postMessage(message);
     
-    // if redirecting, stop propagation on the event
+    // if redirecting, prevent the default click action
     if (doRedirect) {
 	ssb.debug('click', 'preventing default action');
 	evt.preventDefault();
-	evt.stopPropagation();  // this might be necessary for some sites??
+
+	// if options say so, also stop propagation on the click event
+	if (ssb.options.stopPropagation) {
+	    ssb.debug('click', 'stopping event propagation');
+	    evt.stopPropagation();
+	}
     }
 }
 

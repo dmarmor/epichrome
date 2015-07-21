@@ -49,6 +49,7 @@ ssb.startup = function(pageType, callback) {
 		// }
 	    ],
 	    redirectByDefault: false,
+	    stopPropagation: false,
 	    sendIncomingToMainTab: false
 	};
     
@@ -79,8 +80,8 @@ ssb.startup = function(pageType, callback) {
 	    // if we're running in the background page and options are
 	    // not found, set up default options
 	    if (ssb.pageType == 'background') {
-				
-		if ((!items) || !items.optionsVersion) {
+		
+		if ((!ssb.options) || !ssb.options.optionsVersion) {
 		    
 		    // no recognizable options found -- we must be installing
 		    ssb.log(ssb.logPrefix,'is installing');
@@ -88,30 +89,11 @@ ssb.startup = function(pageType, callback) {
 		    // set default options
 		    ssb.setOptions(ssb.defaultOptions, myCallback);
 		    
-		} else if (items.optionsVersion != ssb.manifest.version) {
+		} else if (ssb.updateOptions(ssb.options)) {
 		    
-		    // options are for an older version -- we must be updating
-		    ssb.log('updating options from version',
-			    items.optionsVersion,
-			    'to version',
-			    ssb.manifest.version);
+		    // we had to update the options, so save them
+		    ssb.setOptions(ssb.options, myCallback);
 		    
-		    ssb.options.optionsVersion = ssb.manifest.version;
-		    
-		    // here's where we'd fix up old options for a new version
-		    // of the extension--for now, just set the current version
-		    chrome.storage.local.set(
-			{ optionsVersion: ssb.manifest.version },
-			function() {
-			    if (! chrome.runtime.lastError) {
-				// success
-				myCallback(true);
-			    } else {
-				myCallback(false,
-					   'Unable to update options: ' +
-					   chrome.runtime.lastError);
-			    }
-			});
 		} else {
 		    
 		    // nothing to do -- options loaded successfully
@@ -162,12 +144,16 @@ ssb.setOptions = function(newOptions, callback) {
 		    ssb.options = ssb.clone(newOptions);
 		    ssb.parseRules(ssb.options.rules);
 		    
-		    callback(true);
+		    if (typeof callback == 'function') {
+			callback(true);
+		    }
 		} else {
 		    // failed to set default options
-		    callback(false,
-			     'Unable to set options: ' +
-			     chrome.runtime.lastError.message);
+		    if (typeof callback == 'function') {
+			callback(false,
+				 'Unable to set options: ' +
+				 chrome.runtime.lastError.message);
+		    }
 		}
 	    });
     });
@@ -181,6 +167,33 @@ ssb.handleOptionsChange = function(changes) {
 	ssb.options[key] = ssb.clone(changes[key].newValue);
 	if (key == 'rules') ssb.parseRules(ssb.options.rules);
     }
+}
+
+
+// UPDATEOPTIONS -- if necessary, update options to current version
+ssb.updateOptions = function(options) {
+    var result = false;
+    
+    if (options.optionsVersion != ssb.manifest.version) {
+	
+	// options are for an older version
+	ssb.debug('options', 'updating options from version',
+		  options.optionsVersion,
+		  'to version',
+		  ssb.manifest.version);
+
+	// pre-1.1.0 options: add stopPropagation
+	if (ssb.compareVersions(options.optionsVersion, '1.1.0') < 0) {
+	    options.stopPropagation = ssb.defaultOptions.stopPropagation;
+	}
+
+	// update optionsVersion
+	options.optionsVersion = ssb.manifest.version;
+	
+	result = true;
+    }
+
+    return result;
 }
 
 
@@ -322,6 +335,37 @@ ssb.equal = function(obj1, obj2) {
 	    return false;
     
     return true;
+}
+
+
+// COMPAREVERSIONS -- compare two version numbers, return -1 if v1 < v2;
+//                    0 if v1 == v2, 1 if v1 > v2
+ssb.compareVersions = function(v1, v2) {
+    // break up version numbers
+    v1 = v1.split('.'); v2 = v2.split('.');
+    var len = ((v1.length > v2.length) ? v1.length : v2.length);
+    var result = 0;
+    
+    // loop through all elements
+    for (var i = 0; i < len; i++) {
+	
+	// get and validate the current number
+	curV1 = ((i < v1.length) ? parseInt(v1[i]) : 0);
+	curV2 = ((i < v2.length) ? parseInt(v2[i]) : 0);
+	if (! (curV1 >= 0)) curV1 = 0;
+	if (! (curV2 >= 0)) curV2 = 0;
+
+	// compare
+	if (curV1 < curV2) {
+	    result = -1;
+	    break;
+	} else if (curV1 > curV2) {
+	    result = 1;
+	    break;
+	}
+    }
+
+    return result;
 }
 
 

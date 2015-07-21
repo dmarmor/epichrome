@@ -35,42 +35,42 @@
       <!-- overlay containing dialog box -->
       <div id="overlay" class="invisible">
 
-	<!-- dialog box -->
-	<div id="dialog_box" class="box">
-
-	  <!-- dialog box elements -->
-	  <h3 id="dialog_title"></h3>
-	  <div id="dialog_content" class="content"></div>
-	  <button id="dialog_button1">Button 1</button>
-	  <button id="dialog_button2">Button 2</button>
-	  <button id="dialog_button3">Button 3</button>
-	  
-	  <!-- dialog box content for regular dialog -->
-	  <div id="text_content">
-	    <p class="message"></p>
-	  </div>
-	  
-	  <!-- dialog box content for install message -->
-	  <div id="install_content" class="content">
-	    <h4>This extension helps it work more like a true app:</h4>
-	    <ul>
-	      <li>Use rules to decide which links the app should handle and which should be sent to your default browser.</li>
-	      <li>Choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</li>
-	    </ul>
-	    <p>This options page is where you set up your rules, as well as import and export rules for backup or migration.</p>
-          </div>
-	  
-	  <!-- dialog box content for shutdown message -->
-	  <div id="shutdown_content" class="content">
-            <h4 class="message"></h4>
-	    <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/epichrome/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
-	    <p class="help">
-	      <span id="nohost_help" class="invisible">If you're seeing this message in an Epichrome app, try</span>
-	      <span id="host_help">Try</span>
-	      disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/epichrome" target="_blank">github page</a>.
-	    </p>
-	  </div>
-	</div>
+	  <!-- dialog box -->
+	  <div id="dialog_box" class="box">
+	    
+	    <!-- dialog box elements -->
+	    <h3 id="dialog_title"></h3>
+	    <div id="dialog_content" class="content"></div>
+	    <button id="dialog_button1">Button 1</button>
+	    <button id="dialog_button2">Button 2</button>
+	    <button id="dialog_button3">Button 3</button>
+	    
+	    <!-- dialog box content for regular dialog -->
+	    <div id="text_content">
+	      <p class="message"></p>
+	    </div>
+	    
+	    <!-- dialog box content for install message -->
+	    <div id="install_content" class="content">
+	      <h4>This extension helps it work more like a true app:</h4>
+	      <ul>
+		<li>Use rules to decide which links the app should handle and which should be sent to your default browser.</li>
+		<li>Choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</li>
+	      </ul>
+	      <p>This options page is where you set up your rules, as well as import and export rules for backup or migration.</p>
+            </div><!-- install_content -->
+	    
+	    <!-- dialog box content for shutdown message -->
+	    <div id="shutdown_content" class="content">
+              <h4 class="message"></h4>
+	      <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/epichrome/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
+	      <p id="shutdown_help">
+		<span id="nohost_help" class="invisible">If you're seeing this message in an Epichrome app, try</span>
+		<span id="host_help">Try</span>
+		disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/epichrome" target="_blank">github page</a>.
+	      </p>
+	    </div><!-- shutdown_content -->
+	  </div><!-- dialog_box -->
       </div><!-- overlay -->
 
       <!-- options form -->
@@ -84,7 +84,9 @@
 	<!-- ignoreAllInternalSamDomain checkbox -->
 	<label class="checkbox" title="If this is checked, then the app will handle any link that goes to the exact same domain as the page it's on and would open in the same tab (no matter what the custom rules say). For instance, this rule would apply to a link to http://sub.example.com/new.html if that link was on http://sub.example.com/index.html. It would NOT apply to http://example.com/anything.html.">
           <input type="checkbox" class="ignoreAllInternalSameDomain sub.options_form change" />
-          Never redirect domain-relative links that would open in the same tab
+          <span class="checkbox-text">
+	    Never redirect domain-relative links that would open in the same tab
+	  </span>
 	</label>
 	
 	<div class="subsection-header">Custom Rules &ndash; <i>if a link...</i></div>
@@ -128,7 +130,7 @@
 		<option value="false" selected="selected">This app</option>
 		<option value="true">Default browser</option>
 	      </select>
-
+	      	      
 	      <!-- rule delete button -->
 	      <span title="Delete this rule">
 		<svg class="delete-button" version="1.1" x="0px" y="0px" width="16px" height="16px">
@@ -157,13 +159,21 @@
 	  
 	</div><!-- rules_scroll -->
 	
-	<!-- redirectByDefault checkbox -->
+	<!-- redirectByDefault drop-down menu -->
 	<label id="default_option">
           If a link doesn't match any rule, open it with:
           <select class="redirectByDefault sub.options_form change">
             <option value="true">Default browser</option>
             <option value="false">This app</option>
           </select>
+	</label>
+	
+	<!-- stopPropagation checkbox -->
+	<label class="checkbox" title="For the technical: if this is checked, when a link is sent to the default browser, the click event will not be propagated to any other event handlers.">
+          <input type="checkbox" class="stopPropagation sub.options_form change" />
+          <span class="checkbox-text">
+	    Stop further handling for links sent to default browser (check this if links sent to default browser are erroneously also opening in this app)
+	  </span>
 	</label>
 	
 	<div class="divider"></div>
@@ -173,7 +183,9 @@
 	<!-- sendIncomingToMainTab checkbox -->
 	<label class="checkbox" title="If this is checked, links sent to this app from another app will open in the main window instead of a new tab. Note: this checkbox does *nothing* unless your app uses a single app-style window (no tabs). Also, if you ever close the main window, this will stop functioning until you restart the app.">
           <input type="checkbox" class="sendIncomingToMainTab sub.options_form change" />
-          Send incoming links to the main window instead of a new tab
+          <span class="checkbox-text">
+	    Send incoming links to the main window instead of a new tab
+	  </span>
 	</label>
 	
 	<div class="divider"></div>
@@ -190,13 +202,13 @@
 	  <a download="Epichrome Helper Settings.txt" id="export_options" class="invisible">export options</a>
 	  <input type="file" id="import_options" name="filename" class="invisible" />
 
-	  <!-- working message -->
-	  <span id="working_holder">
-	    <span id="working" class="invisible">
-	      <img id="spinner" src="working.gif" width="16" height="16"/>
-	      <span id="working_message"></span>
-	    </span>
-	  </span>
+	  <!-- message -->
+	  <span id="message_holder">
+	    <span id="message_box" class="invisible">
+	      <img id="message_spinner" src="working.gif" width="16" height="16"/>
+	      <span id="message_text"></span>
+	    </span><!-- message_box -->
+	  </span><!-- message_holder -->
 	</div><!-- button_row -->
       </div><!-- options_form -->
     </div><!-- container -->

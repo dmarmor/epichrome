@@ -39,6 +39,12 @@ function relaunch {
 # DIALOG -- display a dialog and return the button pressed
 function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
 
+    local oldok="$ok"
+    local olderrmsg="$errmsg"
+
+    ok=1
+    errmsg=
+    
     if [[ "$ok" ]] ; then
 
 	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
@@ -115,18 +121,28 @@ $try_end" 'Unable to display dialog box!'
 	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
 	    # dialog failed, try an alert
 	    ok=1
-
+	    
 	    # display simple alert with fallback icon
 	    [[ "$icon" ]] && icon="with icon $icon"
 	    osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
 	    
 	    if [[ "$?" != 0 ]] ; then
 		# alert failed too!
-		echo 'Unable to display alert!' 1>&2
+		echo "Unable to display alert with message: $msg" 1>&2
 	    fi
 	fi
     fi
-    
+
+    # add new error message or restore old one
+    if [[ "$olderrmsg" && "$errmsg" ]] ; then
+	errmsg="$olderrmsg Also: ${errmsg}."
+    elif [[ "$olderrmsg" ]] ; then
+	errmsg="$olderrmsg"
+    fi
+
+    # if ok was off or we turned it off, turn it off
+    [[ "$oldok" ]] || ok="$oldok"
+
     [[ "$ok" ]] && return 0
     return 1
 }
@@ -158,8 +174,16 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 # load config.sh file
 safesource "$myContents/$appConfigScript" "config file"
 
+if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+    ok=
+    errmsg='Config file is corrupt.'
+fi
+
 # get Google Chrome info
 chromeinfo
+
+# abort on error, since next command is non-fatal
+[[ "$ok" ]] || abort "$errmsg" 1
 
 # get info on current Epichrome version
 mcssbinfo
@@ -477,7 +501,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	
 	# stream-edit the host script
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
-	try "${hostScriptTmp}<" sed "s/SSBID/$CFBundleIdentifier/" "$hostSourcePath/$hostScript" 'Unable to copy script.'
+	try "${hostScriptTmp}<" sed "s/SSBID/$CFBundleIdentifier/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" "$hostSourcePath/$hostScript" 'Unable to copy script.'
 	
 	# fix host script permissions
 	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'

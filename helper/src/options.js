@@ -29,6 +29,9 @@ var ssbOptions = {};
 // DOC -- options page document elements
 ssbOptions.doc = {};
 
+// CONTAINER -- container div for all other elements
+ssbOptions.doc.container = document.getElementById('container');
+
 // FORM -- form elements
 ssbOptions.doc.form = {};
 ssbOptions.doc.form.all = document.getElementById('options_form');
@@ -41,8 +44,10 @@ ssbOptions.doc.form.import_button = document.getElementById('import_button');
 ssbOptions.doc.form.import_options = document.getElementById('import_options');
 ssbOptions.doc.form.export_button = document.getElementById('export_button');
 ssbOptions.doc.form.export_options = document.getElementById('export_options');
-ssbOptions.doc.form.working = document.getElementById('working');
-ssbOptions.doc.form.working_message = document.getElementById('working_message');
+ssbOptions.doc.form.message = {};
+ssbOptions.doc.form.message.box = document.getElementById('message_box');
+ssbOptions.doc.form.message.spinner = document.getElementById('message_spinner');
+ssbOptions.doc.form.message.text = document.getElementById('message_text');
 
 // DIALOG -- dialog box elements
 ssbOptions.doc.dialog = {};
@@ -206,6 +211,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 
     case 'ignoreAllInternalSameDomain':
     case 'sendIncomingToMainTab':
+    case 'stopPropagation':
 	// handle checkbox elements
 	if (doSet)
 	    item.checked = newValue;
@@ -505,7 +511,8 @@ ssbOptions.doImport = function(evt) {
 	ssbOptions.setWorkingMessage();
 	
 	// here's where we'd handle updating from previous options version
-	delete newOptions.optionsVersion;
+	ssb.updateOptions(newOptions);
+	//delete newOptions.optionsVersion;
 
 	// allow user to choose how to bring in the new options
 	ssbOptions.dialog.run(
@@ -568,8 +575,9 @@ ssbOptions.doExport = function() {
 
 		// create the default filename
 		var date = new Date();
+		var filename = (ssbOptions.status.ssbName ? ssbOptions.status.ssbName : 'Epichrome Helper');
 		ssbOptions.doc.form.export_options.download =
-		    'Epichrome Helper Settings ' +
+		    filename + ' Settings ' +
 		    date.getFullYear() + '-' +
 		    ('0' + date.getMonth()).slice(-2) + '-' +
 		    ('0' + date.getDate()).slice(-2) + '.json';
@@ -603,9 +611,10 @@ ssbOptions.checkExtensionStatus = function() {
     var curStatus = localStorage.getItem('status');
 
     if (curStatus == null) {
-	// no status has been set, so set it
-	curStatus = { active: false, message: "Extension hasn't started up." };
-	localStorage.setItem('status', JSON.stringify(curStatus));
+	// no status has been set, so set a fake one
+	curStatus = { active: false, startingUp: true, message: 'Please wait...' };
+	
+	//localStorage.setItem('status', JSON.stringify(curStatus));
     } else {
 	// parse the extension status
 	try {
@@ -631,7 +640,10 @@ ssbOptions.checkExtensionStatus = function() {
 		}
 	    });
     }
-
+    
+    // save this status
+    ssbOptions.status = curStatus;
+    
     // now check final extension status
     if (curStatus.active === true) {
 
@@ -652,21 +664,35 @@ ssbOptions.checkExtensionStatus = function() {
 		},
 		'Get Started',
 		ssbOptions.doc.dialog.install_content);
-	}
+	}	
     } else {
 	
 	// extension isn't active, so show shutdown box
 	var shutdownBox = ssbOptions.doc.dialog.shutdown_content;
+	var shutdownTitle;
 	
-	if (curStatus.nohost) {
-	    // we never connected to the host, so show extra information
-	    shutdownBox.querySelector('#nohost_message').style.display = 'block';
-	    shutdownBox.querySelector('#nohost_help').style.display = 'inline';
-	    shutdownBox.querySelector('#host_help').style.display = 'none';
+	if (curStatus.startingUp) {
+	    // we're starting up, so don't show error or help messages
+	    shutdownBox.querySelector('#shutdown_help').style.display = 'none';
+	    shutdownBox.querySelector('#nohost_message').style.display = 'none';
+	    shutdownTitle = 'The extension is starting up';
+	} else {
+	    // real shutdown, so show the shutdown help
+	    shutdownBox.querySelector('#shutdown_help').style.display = 'none';
+	    shutdownTitle = 'The extension has shut down';
+	    
+	    // if we never connected to the host, show extra information
+	    if (curStatus.nohost) {
+		shutdownBox.querySelector('#nohost_message').style.display = 'block';
+		shutdownBox.querySelector('#nohost_help').style.display = 'inline';
+		shutdownBox.querySelector('#host_help').style.display = 'none';
+	    }
 	}
+	
+	// show the dialog
 	ssbOptions.dialog.run(
 	    (curStatus.message ? curStatus.message : ''),
-	    'The extension has shut down',
+	    shutdownTitle,
 	    undefined,
 	    0,
 	    shutdownBox);
@@ -695,6 +721,7 @@ ssbOptions.setSaveButtonState = function(enabled) {
 	    (disabled ? 'auto' : 'pointer');
 	
 	if (disabled) {
+	    
 	    // we just disabled the save button -- add enabling handlers
 	    ssbOptions.jqRules.on('sortupdate.ssbSave',
 				  ssbOptions.setSaveButtonState);
@@ -704,10 +731,18 @@ ssbOptions.setSaveButtonState = function(enabled) {
 				 ssbOptions.setSaveButtonState);
 	    ssbOptions.jqForm.on('input.ssbSave', '.input',
 				 ssbOptions.setSaveButtonState);
+	    
+	    // remove any warning message (in practice, it's already been cleared by setWorkingMessage()
+	    ssbOptions.setWarningMessage();
+	    
 	} else {
+	    
 	    // we just enabled the save button -- remove enabling handlers
 	    ssbOptions.jqRules.unbind('.ssbSave');
 	    ssbOptions.jqForm.unbind('.ssbSave');
+
+	    // add an unsaved elements warning message
+	    ssbOptions.setWarningMessage('Changes not yet saved');
 	}
     }
 }
@@ -721,16 +756,32 @@ ssbOptions.setAddButtonState = function() {
 }
 
 
-// SETWORKINGMESSAGE -- show or hide a working message
+// SETWORKINGMESSAGE -- show or hide a working message with spinner
 ssbOptions.setWorkingMessage = function(message) {
     if (message) {
 	// set the message and show it
-	ssbOptions.doc.form.working_message.textContent = message;
-	ssbOptions.doc.form.working.style.display = 'inline-block';
+	ssbOptions.doc.form.message.text.innerHTML = message;
+	ssbOptions.doc.form.message.box.classList.remove('warning');
+	ssbOptions.doc.form.message.box.style.display = 'inline-block';
     } else {
 	// no message, so hide
-	ssbOptions.doc.form.working_message.textContent = '';
-	ssbOptions.doc.form.working.style.display = 'none';	
+	ssbOptions.doc.form.message.text.innerHTML = '';
+	ssbOptions.doc.form.message.box.style.display = 'none';	
+    }
+}
+
+
+// SETWARNINGMESSAGE -- show or hide a warning message
+ssbOptions.setWarningMessage = function(message) {
+    if (message) {
+	// set the message and show it
+	ssbOptions.doc.form.message.text.innerHTML = message;
+	ssbOptions.doc.form.message.box.classList.add('warning');
+	ssbOptions.doc.form.message.box.style.display = 'inline-block';
+    } else {
+	// no message, so hide
+	ssbOptions.doc.form.message.text.innerHTML = '';
+	ssbOptions.doc.form.message.box.style.display = 'none';	
     }
 }
 
@@ -854,8 +905,24 @@ ssbOptions.dialog.run = function(message, title, callback,
 	}
     }
     
-    // display the dialog box
+    // set the overlay dimensions
+    var formrect = ssbOptions.doc.form.all.getBoundingClientRect();
+    ssbOptions.doc.dialog.overlay.style.width = formrect.width+'px';
+    ssbOptions.doc.dialog.overlay.style.height = formrect.height+'px';
+
+    // display the dialog
     ssbOptions.doc.dialog.overlay.style.display = 'block';
+
+    // center the dialog (vertical center looked shitty, so doing vertical position in CSS)
+    // var boxrect = ssbOptions.doc.dialog.box.getBoundingClientRect();
+    // console.log('top was:',ssbOptions.doc.dialog.box.style.top);
+    // var top = ((formrect.height-boxrect.height)/2);
+    // if (top < 0) top = 0;
+    // var left = ((formrect.width-boxrect.width)/2);
+    // if (left < 0) left = 0;
+    // ssbOptions.doc.dialog.box.style.top = top+'px';
+    // ssbOptions.doc.dialog.box.style.left = left+'px';
+    // console.log('top is:',ssbOptions.doc.dialog.box.style.top);
 }
 
 
