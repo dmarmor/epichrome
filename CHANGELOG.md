@@ -1,6 +1,10 @@
 # Epichrome Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.3] - 2015-07-21
+### Fixed
+- Caught bug that would prevent alerts from being displayed on error. This is potentially bad, since if something goes wrong on startup, there won't be any way to know what.
+
 ## [2.1.2] - 2015-07-20
 ### Fixed
 - Apps created with a custom icon in ICNS format no longer ignore the custom icon. Thanks for [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") and [pattulus](https://github.com/pattulus "pattulus") for catching this.
