@@ -412,11 +412,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
 
 	# clear error state
 	ok=1 ; errmsg=
-    fi
-
-    # update config file to signal no longer first run
-    SSBFirstRunSinceVersion=
-    updateconfig=1
+    fi    
 fi
 
 	
@@ -435,7 +431,11 @@ if [[ ! "$SSBHostInstallError" ]]; then
 
     # check if we need to install native messaging host
     doHostInstall=
-    if [[ ! -x "$hostScriptInstalled" ]] ; then
+        
+    # do it if we just updated, or the host script or manifest don't exist
+    if [[ "$SSBFirstRunSinceVersion" || \
+		( ! -x "$hostScriptInstalled" ) || \
+		( ! -e "$hostManifestInstalled" ) ]] ; then
 	doHostInstall=1
     else
 	# get installed host version if possible
@@ -444,19 +444,18 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    hostVersion=0.0.0
 	    ok=1 ; errmsg=
 	fi
-
+	
 	# if installed host is old, we'll update it
 	[[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
     fi
-
-    # if there's no host manifest, we'll do an install
-    if [[ ! -e "$hostManifestInstalled" ]] ; then
-	doHostInstall=1
-    else
-	# make sure the manifest points to the current path of the script
+    
+    # make sure the manifest points to the current path of the script
+    if [[ ! "$doHostInstall" ]] ; then
+	
+	# get path to script in the manifest
 	try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hostManifestInstalled" \
 	    'Unable to get current host script path'
-
+	
 	# on error, or if the paths don't match, reinstall
 	if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
 	    ok=1 ; errmsg=
@@ -507,7 +506,14 @@ if [[ ! "$SSBHostInstallError" ]]; then
     fi
 fi
 
+
 # UPDATE CONFIG FILE IF NECESSARY
+
+if [[ "$SSBFirstRunSinceVersion" ]] ; then
+    # update config file to signal no longer first run
+    SSBFirstRunSinceVersion=
+    updateconfig=1
+fi
 
 if [ "$updateconfig" ] ; then
     writeconfig "$myContents"
