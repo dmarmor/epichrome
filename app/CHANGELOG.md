@@ -1,4 +1,4 @@
-# Epichrome Change Log
+# Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.1.4] - 2015-07-22
