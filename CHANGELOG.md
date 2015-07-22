@@ -1,6 +1,10 @@
 # Epichrome Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.4] - 2015-07-22
+### Fixed
+- Another small fix to the alert/dialog bug. Hopefully really fixed now.
+
 ## [2.1.3] - 2015-07-21
 ### Fixed
 - Caught bug that would prevent alerts from being displayed on error. This is potentially bad, since if something goes wrong on startup, there won't be any way to know what.

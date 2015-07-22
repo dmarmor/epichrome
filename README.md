@@ -1,6 +1,6 @@
-# Epichrome 2.1.3
+# Epichrome 2.1.4
 
-**Note: If you're using 2.1.2, please update to 2.1.3 as soon as possible. There's a bug that will cause the app to fail silently on startup errors.**
+**Note: If you're using 2.1.2, please update to 2.1.4 as soon as possible. There's a bug that will cause the app to fail silently on startup errors.**
 
 **Epichrome** (formerly MakeChromeSSB) is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
