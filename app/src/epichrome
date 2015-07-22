@@ -38,12 +38,6 @@ function relaunch {
 
 # DIALOG -- display a dialog and return the button pressed
 function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
-
-    local oldok="$ok"
-    local olderrmsg="$errmsg"
-
-    ok=1
-    errmsg=
     
     if [[ "$ok" ]] ; then
 
@@ -129,30 +123,41 @@ $try_end" 'Unable to display dialog box!'
 	    if [[ "$?" != 0 ]] ; then
 		# alert failed too!
 		echo "Unable to display alert with message: $msg" 1>&2
+		ok=
 	    fi
 	fi
     fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+}
 
+
+# ALERT -- display a simple alert dialog box (whether ok or not)
+function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
+    local result=
+    
+    # save ok state
+    local oldok="$ok"
+    local olderrmsg="$errmsg"
+    ok=1
+    errmsg=
+
+    # show the alert
+    dialog '' "$1" "$2" "$3"
+    result="$?"
+    
     # add new error message or restore old one
     if [[ "$olderrmsg" && "$errmsg" ]] ; then
 	errmsg="$olderrmsg Also: ${errmsg}."
     elif [[ "$olderrmsg" ]] ; then
 	errmsg="$olderrmsg"
     fi
-
+    
     # if ok was off or we turned it off, turn it off
     [[ "$oldok" ]] || ok="$oldok"
-
-    [[ "$ok" ]] && return 0
-    return 1
-}
-
-
-# ALERT -- display a simple alert dialog box
-function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
-    dialog '' "$1" "$2" "$3"
     
-    return "$?"
+    return "$result"
 }
 
 
