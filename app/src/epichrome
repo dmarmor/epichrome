@@ -184,9 +184,6 @@ if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$SSBVersion" && "$SSBProfilePath" )
     errmsg='Config file is corrupt.'
 fi
 
-# get Google Chrome info
-chromeinfo
-
 # abort on error, since next command is non-fatal
 [[ "$ok" ]] || abort "$errmsg" 1
 
@@ -213,6 +210,9 @@ updateconfig=
 
 
 # CHECK AND UPDATE CHROME LINKS
+
+# get Google Chrome info
+chromeinfo
 
 # update config variable
 if [ "$SSBChromePath" != "$chromePath" ] ; then
