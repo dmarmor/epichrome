@@ -375,7 +375,42 @@ ssbBG.handlePing = function(message, sender, respond) {
 }
 
 
-// HANDLEWINDOWSWITCH -- $$$$
+// HANDLEWINDOWSWITCH -- switch a main app window between app-style and tabs style
+ssbBG.handleWindowSwitch = function() {
+
+    if (ssbBG.mainTab) {
+	chrome.tabs.get(ssbBG.mainTab.id,
+			function(tab) {
+			    if (chrome.runtime.lastError) {
+				ssb.warn('unable to find main tab',
+					 ssbBG.mainTab.id,
+					 '('+chrome.runtime.lastError.message+')');
+			    } else {
+				chrome.windows.get(tab.windowId, function(win) {
+				    if (chrome.runtime.lastError) {
+					ssb.warn('unable to find main window',
+						 win.id,
+						 '('+chrome.runtime.lastError.message+')');
+				    } else {
+					chrome.windows.create({
+					    tabId: ssbBG.mainTab.id,
+					    type: (win.type == 'popup') ? 'normal' : 'popup',
+					    left: win.left,
+					    top: win.top,
+					    width: win.width,
+					    height: win.height
+					});
+				    }
+				});
+			    }
+			});
+    }
+}
+// chrome.windows.create({tabId:2, type:"popup"}); // that'll get it back
+// update mainTab as it changes
+// set up hotkey in options? (cmd-L to get to tabs, but what to get out?)
+// triple-click
+// context menu -- var id = chrome.contextMenus.create({title: 'Show Address Bar', contexts:'all' ???});
 
 
 // PAGES -- object for handling communication with web pages

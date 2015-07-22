@@ -398,6 +398,7 @@ ssb.error = function() { ssb.logInternal('error', arguments); }
 
 // LOGINTERNAL -- handle all log/warn/error requests
 ssb.logInternal = function(logtype, args) {
+    
     // convert arguments to a proper array
     args = Array.apply(null, args);
 

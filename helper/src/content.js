@@ -56,6 +56,11 @@ ssbContent.startup = function() {
 		} else {
 		    ssb.log('starting up content script');
 		    ssbContent.isTopLevel = true;
+
+		    // add global keydown handler for hotkeys
+		    document.addEventListener('keydown', ssbContent.handleHotKey);
+
+		    //$$$ REMOVE THIS ON SHUTDOWN!!!
 		}
 
 		// add click and mousedown handlers for all links
@@ -86,13 +91,17 @@ ssbContent.shutdown = function(message) {
     
     if (ssbContent.isTopLevel)
 	ssb.log('shutting down content script' +
-		((typeof message == 'string') ? ': ' + message : '.'));
+		((typeof message == 'string') ? (': ' + message) : '.'));
     
     // turn off observer
     if (ssbContent.mutationObserver) ssbContent.mutationObserver.disconnect();
     
     // disconnect from background script
     if (ssbContent.port) ssbContent.port.disconnect();
+
+    // stop listening for global hotkeys
+    if (ssbContent.isTopLevel)
+	document.removeEventListener('keydown', ssbContent.handleHotKey);
     
     // stop listening for messages from background script
     chrome.runtime.onMessage.removeListener(ssbContent.handleMessage);
@@ -321,6 +330,26 @@ ssbContent.handleMessage = function(message, sender, respond) {
 	    ssbContent.shutdown();
 	    break;
 	}
+}
+
+
+// HANDLEHOTKEY -- handle global hot-keys
+ssbContent.handleHotKey = function(evt) {
+    if ((evt.keyCode == 76) &&
+	evt.metaKey &&
+	(! evt.shiftKey) && (! evt.altKey) && (! evt.ctrlKey)) {
+	
+	// Command-L
+	console.log('got command-L');
+    } else if ((evt.keyCode == 76) &&
+	       evt.metaKey && evt.shiftKey &&
+	       (! evt.altKey) && (! evt.ctrlKey)) {
+	
+	// Command-Shift-L
+	console.log('got command-shift-L');
+    } else {
+	console.log('got key '+evt.keyCode);
+    }    
 }
 
 

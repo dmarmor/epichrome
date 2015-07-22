@@ -579,7 +579,7 @@ ssbOptions.doExport = function() {
 		ssbOptions.doc.form.export_options.download =
 		    filename + ' Settings ' +
 		    date.getFullYear() + '-' +
-		    ('0' + date.getMonth()).slice(-2) + '-' +
+		    ('0' + (date.getMonth()+1)).slice(-2) + '-' +
 		    ('0' + date.getDate()).slice(-2) + '.json';
 
 		// create a live file
@@ -742,7 +742,7 @@ ssbOptions.setSaveButtonState = function(enabled) {
 	    ssbOptions.jqForm.unbind('.ssbSave');
 
 	    // add an unsaved elements warning message
-	    ssbOptions.setWarningMessage('Changes not yet saved');
+	    ssbOptions.setWarningMessage('Changes not yet saved...');
 	}
     }
 }
