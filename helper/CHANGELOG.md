@@ -8,12 +8,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Changed options page to open in its own tab as it got too big for the puny box Chrome put it in on the extensions page.
 - Added "Unsaved changes" status message to options box.
 - Extension now retrieves name of SSB from native host and applies it as the default name when exporting options.
+
 ### Fixed
 - Removed unnecessary permissions from the manifest.
 - Fixed off-by-one error in month in default filename when exporting options.
 - Fixed an edge case where the extension wouldn't run its rules on a newly-created tab.
-
-### Fixed
 
 ## [1.0.1] - 2015-07-15
 ### Changed
