@@ -1,6 +1,10 @@
 # Epichrome Helper Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.1] - 2015-07-23
+### Fixed
+- Added start-up check so that app-style SSBs can properly redirect incoming URLs (to the default browser or to the main tab) on startup. This way, if another app sends a link to an SSB and the SSB wasn't running, it will still properly send that tab to its main window.
+
 ## [1.1.0] - 2015-07-22
 ### Changed
 - Added the ability to switch an app-style window to a tab-style window and back with a hotkey or context menu.

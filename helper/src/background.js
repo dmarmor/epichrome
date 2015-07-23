@@ -100,7 +100,7 @@ ssbBG.startup = function() {
 		    
 		    // in 200ms, initialize all tabs
 		    // (giving Chrome startup time to override)
-		    if (typeof ssbBG.doInitTabs != 'boolean') ssbBG.doInitTabs = true;
+		    if (typeof ssbBG.isStartup != 'boolean') ssbBG.isStartup = false;
 		    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
 		});
 	} else {
@@ -172,12 +172,19 @@ ssbBG.initializeTabs = function() {
     
     delete ssbBG.initTabsTimeout;    
     
-    // if we're not in Chrome startup, find all existing tabs
-    if (ssbBG.doInitTabs) {
-	ssbBG.allTabs(
-	    function(tab, win, scripts) {
+    // find all existing tabs
+    ssbBG.allTabs(
+	function(tab, win, scripts) {
+
+	    // if we're in startup and there's a main tab, process all others
+	    if (ssbBG.isStartup) {
+		if (ssbBG.mainTab && (tab.id != ssbBG.mainTab.id)) {
+		    // dispose of or forward any extraneous tabs
+		    ssbBG.handleNewTab(tab);
+		}
+	    } else {
 		
-		// ping tab
+		// not in startup, so fire up tabs
 		chrome.tabs.sendMessage(tab.id, {type: 'ping'}, function(response) {
 		    
 		    if (response != 'ping') {
@@ -198,16 +205,18 @@ ssbBG.initializeTabs = function() {
     			}
     		    }
     		});
-	    },
-	    ssb.manifest.content_scripts[0].js);
-    }
+	    }
+	},
+	ssb.manifest.content_scripts[0].js);
 }
 
 
 // HANDLECHROMESTARTUP -- prevent initializing tabs on Chrome startup
 ssbBG.handleChromeStartup = function() {
     // Chrome is starting up, so don't initialize tabs
-    ssbBG.doInitTabs = false;
+    ssbBG.isStartup = true;
+
+    ssb.debug('startup', 'Chrome starting up');
 }
 
 
