@@ -44,7 +44,7 @@ These are my thoughts on where to take the project next, roughly in order of pri
 
 - Change *Epichrome.app* from a standalone app to a Chrome extension. I'm not sure if Google would frown on an extension of this type, but given that Chrome has to be installed for Epichrome to work, it makes sense, and would have some big user interface advantages. SSBs could automatically be built using the frontmost tab, or using all the tabs of a window, and I could finally away with the clumsy modal interface.
 
-- Extend *Epichrome Helper* to abuse the Chrome downloads list in order to generate a badge on the app's dock icon. This is a bit of a long-shot, but it would be cool to have customizable access to the app badge in the same way Fluid apps do.
+- Figure out some way to get the apps to show a badge on the dock icon. I tried abusing Chrome's download system, but that didn't work. This is a bit of a long-shot, but it would be cool to have customizable access to the app badge in the same way Fluid apps do.
 
 - Localize Epichrome so it can be used easily in other languages. This probably won't happen until/unless I convert it to a Chrome extension. I haven't found an easy way to localize an AppleScript app.
 
