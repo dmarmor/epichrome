@@ -48,6 +48,7 @@ ssbOptions.doc.form.message = {};
 ssbOptions.doc.form.message.box = document.getElementById('message_box');
 ssbOptions.doc.form.message.spinner = document.getElementById('message_spinner');
 ssbOptions.doc.form.message.text = document.getElementById('message_text');
+ssbOptions.doc.form.main_tab_options = document.getElementById('main_tab_options');
 
 // DIALOG -- dialog box elements
 ssbOptions.doc.dialog = {};
@@ -67,88 +68,137 @@ ssbOptions.doc.dialog.shutdown_content = document.getElementById('shutdown_conte
 // ---------------------------------------------------
 
 ssbOptions.startup = function() {
-
+    
+    // get prototype rule entry & remove from DOM
+    ssbOptions.rulePrototype = ssbOptions.doc.form.rules.children[0];
+    ssbOptions.rulePrototype.parentNode.removeChild(
+	ssbOptions.rulePrototype);
+    
+    // remove all dialog content sections from DOM
+    ssbOptions.doc.dialog.text_content.parentNode.removeChild(
+	ssbOptions.doc.dialog.text_content);
+    ssbOptions.doc.dialog.install_content.parentNode.removeChild(
+	ssbOptions.doc.dialog.install_content);
+    ssbOptions.doc.dialog.shutdown_content.parentNode.removeChild(
+	ssbOptions.doc.dialog.shutdown_content);
+    
     // start up shared code
     ssb.startup('options', function(success, message) {
 	
 	if (success) {
 	    
-	    // get prototype rule entry & remove from DOM
-	    ssbOptions.rulePrototype = ssbOptions.doc.form.rules.children[0];
-	    ssbOptions.rulePrototype.parentNode.removeChild(
-		ssbOptions.rulePrototype);
+	    // open keepalive connection to background page
+	    ssbOptions.keepalive = chrome.runtime.connect({name: 'options'});
 	    
-	    // remove all dialog content sections from DOM
-	    ssbOptions.doc.dialog.text_content.parentNode.removeChild(
-		ssbOptions.doc.dialog.text_content);
-	    ssbOptions.doc.dialog.install_content.parentNode.removeChild(
-		ssbOptions.doc.dialog.install_content);
-	    ssbOptions.doc.dialog.shutdown_content.parentNode.removeChild(
-		ssbOptions.doc.dialog.shutdown_content);
-	    
-	    // set up jquery for options form
-	    ssbOptions.jqForm = $( "#options_form" );
-	    
-	    // make rules list sortable by drag-and-drop
-	    ssbOptions.jqRules = $( "#rules" );
-	    ssbOptions.jqRules.sortable({
-		axis: 'y',
-		handle: '.drag-handle',
-		tolerance: 'pointer'
-	    });
-	    
-	    // handle clicks on per-row add-after and delete buttons
-	    ssbOptions.jqRules.on('click', '.delete-button',
-				  ssbOptions.deleteRule);
-	    ssbOptions.jqRules.on('click', '.add-after-button',
-				  ssbOptions.addRule);
-	    
-	    // handle clicks on empty-rules add button
-	    ssbOptions.doc.form.add_button.addEventListener(
-		'click', ssbOptions.addRule);
-	    
-	    // keyboard handlers for rules fields
-	    ssbOptions.jqRules.on('keydown', '.keydown',
-				  ssbOptions.handleRuleKeydown);
-	    
-	    // initialize save button to be disabled
-	    ssbOptions.setSaveButtonState(false);
-	    
-	    // save and reset buttons
-	    ssbOptions.doc.form.save_button.addEventListener(
-		'click', ssbOptions.doSave);
-	    ssbOptions.doc.form.reset_button.addEventListener(
-		'click', ssbOptions.doResetToDefault);
-
-	    // import button
-	    ssbOptions.doc.form.import_options.addEventListener(
-		'change', ssbOptions.doImport);
-	    ssbOptions.doc.form.import_button.addEventListener(
-		'click',
-		function() { ssbOptions.doc.form.import_options.click(); });
-	    
-	    // export button
-	    ssbOptions.doc.form.export_button.addEventListener(
-		'click', ssbOptions.doExport);
-	    
-	    // listen for changes to extension status
-	    window.addEventListener('storage',
-				    ssbOptions.checkExtensionStatus);
-	    
-	    // get extension status now
-	    ssbOptions.checkExtensionStatus();
-	    
-	    // populate the page from saved options
-	    ssbOptions.populate(ssb.options);
-	    
-	    // focus on the first rule, if any
-	    ssbOptions.focusOnPattern(0);
+	    if (ssbOptions.keepalive) {
+		
+		// if we lose the keepalive, shut down
+		ssbOptions.keepalive.onDisconnect.addListener(
+		    function() { ssbOptions.shutdown('Not connected to extension', 'Error'); });
+		
+		// set up jquery for options form
+		ssbOptions.jqForm = $( "#options_form" );
+		
+		// make rules list sortable by drag-and-drop
+		ssbOptions.jqRules = $( "#rules" );
+		ssbOptions.jqRules.sortable({
+		    axis: 'y',
+		    handle: '.drag-handle',
+		    tolerance: 'pointer'
+		});
+		
+		// handle clicks on per-row add-after and delete buttons
+		ssbOptions.jqRules.on('click', '.delete-button',
+				      ssbOptions.deleteRule);
+		ssbOptions.jqRules.on('click', '.add-after-button',
+				      ssbOptions.addRule);
+		
+		// handle clicks on empty-rules add button
+		ssbOptions.doc.form.add_button.addEventListener(
+		    'click', ssbOptions.addRule);
+		
+		// keyboard handlers for rules fields
+		ssbOptions.jqRules.on('keydown', '.keydown',
+				      ssbOptions.handleRuleKeydown);
+		
+		// initialize save button to be disabled
+		ssbOptions.setSaveButtonState(false);
+		
+		// save and reset buttons
+		ssbOptions.doc.form.save_button.addEventListener(
+		    'click', ssbOptions.doSave);
+		ssbOptions.doc.form.reset_button.addEventListener(
+		    'click', ssbOptions.doResetToDefault);
+		
+		// import button
+		ssbOptions.doc.form.import_options.addEventListener(
+		    'change', ssbOptions.doImport);
+		ssbOptions.doc.form.import_button.addEventListener(
+		    'click',
+		    function() { ssbOptions.doc.form.import_options.click(); });
+		
+		// export button
+		ssbOptions.doc.form.export_button.addEventListener(
+		    'click', ssbOptions.doExport);
+		
+		// listen for changes to extension status
+		window.addEventListener('storage',
+					ssbOptions.checkExtensionStatus);
+		
+		// get extension status now
+		ssbOptions.checkExtensionStatus();
+		
+		// populate the page from saved options
+		ssbOptions.populate(ssb.options);
+		
+		// focus on the first rule, if any
+		ssbOptions.focusOnPattern(0);
+		
+	    } else {
+		// display error dialog
+		ssbOptions.shutdown('Unable to connect to extension', 'Error');
+	    }
 	    
 	} else {
 	    // display error dialog
-	    ssbOptions.dialog.run(message, 'Error');
+	    ssbOptions.shutdown(message, 'Error');
 	}
     });
+}
+
+
+// SHUTDOWN -- shut the options page down
+ssbOptions.shutdown = function(message, title) {
+    
+    // remove extension status listener
+    window.removeEventListener('storage',
+			       ssbOptions.checkExtensionStatus);
+    
+    // show shutdown dialog
+    
+    // normalize message object
+    if (! message) {
+	
+	// no message
+	message = { 'message': '' };
+    } else if (typeof message == 'string') {
+	
+	// if message is a string, set up a default object
+	message = { 'message': message }
+    }
+    
+    var shutdownBox = ssbOptions.doc.dialog.shutdown_content;
+        
+    // if we never connected to the host, show extra information
+    if (message.nohost) {
+	shutdownBox.classList.add('nohost');
+    } else {
+	shutdownBox.classList.remove('nohost');
+    }
+    
+    // show the dialog
+    ssbOptions.dialog.run(message.message, title, undefined, 0, shutdownBox);
+
 }
 
 
@@ -510,10 +560,9 @@ ssbOptions.doImport = function(evt) {
 	// end working message
 	ssbOptions.setWorkingMessage();
 	
-	// here's where we'd handle updating from previous options version
+	// update options to latest version
 	ssb.updateOptions(newOptions);
-	//delete newOptions.optionsVersion;
-
+	
 	// allow user to choose how to bring in the new options
 	ssbOptions.dialog.run(
 	    ('You can use the settings and rules in the file to ' +
@@ -625,20 +674,6 @@ ssbOptions.checkExtensionStatus = function() {
 	    curStatus = { active: false, message: "Badly formed status." };
 	    localStorage.setItem('status', curStatus);
 	}
-	
-	if (curStatus.active === true)
-	    
-	    // ping the extension to make sure we're still connected
-	    chrome.runtime.sendMessage('ping', function(response) {
-		if (! response) {
-		    // not connected, so set status
-		    curStatus = { active: false,
-				  message: ('Disconnected from extension: ' +
-					    chrome.runtime.lastError)
-				};
-		    localStorage.setItem('status', curStatus);
-		}
-	    });
     }
     
     // save this status
@@ -646,9 +681,12 @@ ssbOptions.checkExtensionStatus = function() {
     
     // now check final extension status
     if (curStatus.active === true) {
-
+	
 	// we are live, so activate options page
 	ssbOptions.doc.dialog.overlay.style.display = 'none';
+
+	// show the main tab options if necessary
+	ssbOptions.doc.form.main_tab_options.style.display = (curStatus.mainTab ? 'block' : 'none');
 	
 	// check if we're installing
 	if (curStatus.showInstallMessage) {
@@ -664,38 +702,18 @@ ssbOptions.checkExtensionStatus = function() {
 		},
 		'Get Started',
 		ssbOptions.doc.dialog.install_content);
-	}	
+	}
     } else {
 	
-	// extension isn't active, so show shutdown box
-	var shutdownBox = ssbOptions.doc.dialog.shutdown_content;
-	var shutdownTitle;
-	
+	// extension isn't active
 	if (curStatus.startingUp) {
-	    // we're starting up, so don't show error or help messages
-	    shutdownBox.querySelector('#shutdown_help').style.display = 'none';
-	    shutdownBox.querySelector('#nohost_message').style.display = 'none';
-	    shutdownTitle = 'The extension is starting up';
+	    // we're still starting up
+	    ssbOptions.dialog.run(curStatus.message, 'The extension is starting up',
+				  undefined, 0);
 	} else {
-	    // real shutdown, so show the shutdown help
-	    shutdownBox.querySelector('#shutdown_help').style.display = 'none';
-	    shutdownTitle = 'The extension has shut down';
-	    
-	    // if we never connected to the host, show extra information
-	    if (curStatus.nohost) {
-		shutdownBox.querySelector('#nohost_message').style.display = 'block';
-		shutdownBox.querySelector('#nohost_help').style.display = 'inline';
-		shutdownBox.querySelector('#host_help').style.display = 'none';
-	    }
+	    // real shutdown, so shut down the options page
+	    ssbOptions.shutdown(curStatus, 'The extension has shut down');
 	}
-	
-	// show the dialog
-	ssbOptions.dialog.run(
-	    (curStatus.message ? curStatus.message : ''),
-	    shutdownTitle,
-	    undefined,
-	    0,
-	    shutdownBox);
     }
 }
 
@@ -871,9 +889,17 @@ ssbOptions.dialog.run = function(message, title, callback,
 
     // put content element into dialog box
     ssbOptions.doc.dialog.content.appendChild(contentElement);
-    
-    // if message is a string, set up a default object
-    if (typeof message == 'string') message = { 'message': message }
+
+    // normalize message object
+    if (! message) {
+
+	// no message
+	message = { 'message': '' };
+    } else if (typeof message == 'string') {
+	
+	// if message is a string, set up a default object
+	message = { 'message': message }
+    }
     
     // go through the message object and fill in fields in the content element
     for (var key in message) {

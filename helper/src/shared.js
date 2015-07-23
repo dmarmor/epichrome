@@ -67,6 +67,8 @@ ssb.startup = function(pageType, callback) {
 	
 	// call callback
 	callback(success, message);
+	//callback(false, 'simulated fail');
+
     }
     
     // get options
@@ -181,12 +183,12 @@ ssb.updateOptions = function(options) {
 		  options.optionsVersion,
 		  'to version',
 		  ssb.manifest.version);
-
+	
 	// pre-1.1.0 options: add stopPropagation
-	if (ssb.compareVersions(options.optionsVersion, '1.1.0') < 0) {
+	if (!options.hasOwnProperty('stopPropagation')) {
 	    options.stopPropagation = ssb.defaultOptions.stopPropagation;
 	}
-
+	
 	// update optionsVersion
 	options.optionsVersion = ssb.manifest.version;
 	

@@ -39,13 +39,13 @@ ssbContent.startup = function() {
 	// shared code loaded successfully
 	if (success) {
 	    
-	    // open persistent connection to background page
-	    ssbContent.port = chrome.runtime.connect();
+	    // open keepalive connection to background page
+	    ssbContent.keepalive = chrome.runtime.connect();
 	    
-	    if (ssbContent.port) {
+	    if (ssbContent.keepalive) {
 		
-		// if we get disconnected, shut down this content script
-		ssbContent.port.onDisconnect.addListener(ssbContent.shutdown);
+		// if we lose the keepalive, shut down this content script
+		ssbContent.keepalive.onDisconnect.addListener(ssbContent.shutdown);
 		
 		// Set up listener for messages from the background script
 		chrome.runtime.onMessage.addListener(ssbContent.handleMessage);
@@ -56,13 +56,11 @@ ssbContent.startup = function() {
 		} else {
 		    ssb.log('starting up content script');
 		    ssbContent.isTopLevel = true;
-
-		    // add global keydown handler for hotkeys
-		    document.addEventListener('keydown', ssbContent.handleHotKey);
-
-		    //$$$ REMOVE THIS ON SHUTDOWN!!!
 		}
-
+		
+		// assume we're not the main tab
+		ssbContent.isMainTab = false;
+		
 		// add click and mousedown handlers for all links
 		ssbContent.updateLinkHandlers(document, true);
 				
@@ -91,17 +89,16 @@ ssbContent.shutdown = function(message) {
     
     if (ssbContent.isTopLevel)
 	ssb.log('shutting down content script' +
-		((typeof message == 'string') ? (': ' + message) : '.'));
+		((typeof message == 'string') ? (': ' + message) : ''));
     
     // turn off observer
     if (ssbContent.mutationObserver) ssbContent.mutationObserver.disconnect();
     
-    // disconnect from background script
-    if (ssbContent.port) ssbContent.port.disconnect();
+    // disconnect keepalive from background script
+    if (ssbContent.keepalive) ssbContent.keepalive.disconnect();
 
     // stop listening for global hotkeys
-    if (ssbContent.isTopLevel)
-	document.removeEventListener('keydown', ssbContent.handleHotKey);
+    document.removeEventListener('keydown', ssbContent.handleHotKey);
     
     // stop listening for messages from background script
     chrome.runtime.onMessage.removeListener(ssbContent.handleMessage);
@@ -293,9 +290,10 @@ ssbContent.handleClick = function(evt) {
 	      ' url:',href,'['+target+']');
     
     // tell the background page about this click
+    message.type = 'url';
     message.redirect = doRedirect;
     message.url = href;
-    ssbContent.port.postMessage(message);
+    chrome.runtime.sendMessage(message);
     
     // if redirecting, prevent the default click action
     if (doRedirect) {
@@ -311,45 +309,75 @@ ssbContent.handleClick = function(evt) {
 }
 
 
-// HANDLEMESSAGE -- handle incoming one-time messages from the background page
-// ---------------------------------------------------------------------------
+// HANDLERS -- miscellaneous other handlers
+// ----------------------------------------
 
+// HANDLEMESSAGE -- handle incoming messages from the background page
 ssbContent.handleMessage = function(message, sender, respond) {
-
+    
+    // reject any message that's not from this extension
+    if (! (sender && (sender.id == chrome.runtime.id))) {
+	ssb.warn('ignoring message from',port.sender);
+	return;
+    }
+    
     // ensure the message is from the background page
-    if (! sender.tab)
-	switch (message) {
-	    
-	case 'ping':
-	    // respond to a ping
-	    respond('ping');
-	    break;
-	    
-	case 'shutdown':
-	    // the extension is shutting down
-	    ssbContent.shutdown();
-	    break;
+    if (sender.tab) {
+	ssb.warn('received message from another tab:', sender);
+	return;
+    }
+    
+    // make sure it's a well-formed message
+    if (! message.type) {
+	ssb.warn('received badly formed message:', message,'from',sender);
+	return;
+    }
+    
+    switch (message.type) {
+	
+    case 'ping':
+	// respond to a ping
+	ssb.debug('ping', 'got ping from extension');
+	respond('ping');
+	break;
+	
+    case 'shutdown':
+	// the extension is shutting down
+	ssbContent.shutdown();
+	break;
+
+    case 'mainTab':
+	ssb.debug('mainTab', 'received main tab state: '+message.state);
+	
+	// set up hotkey listener
+	if (! ssbContent.isMainTab) {
+	    // add global keydown handler for hotkeys
+	    document.addEventListener('keydown', ssbContent.handleHotKey);
 	}
+	
+	// update our state
+	ssbContent.isMainTab = message.state;
+	
+	break;
+
+    default:
+	ssb.warn('received unknown message type', message.type);
+    }
 }
 
 
 // HANDLEHOTKEY -- handle global hot-keys
 ssbContent.handleHotKey = function(evt) {
+    
+    // We're looking for Command-Shift-L in any state,
+    // and Command-L only when window is app-style
     if ((evt.keyCode == 76) &&
 	evt.metaKey &&
-	(! evt.shiftKey) && (! evt.altKey) && (! evt.ctrlKey)) {
+	(! evt.altKey) && (! evt.ctrlKey) &&
+	((ssbContent.isMainTab == 'popup') || evt.shiftKey)) {
 	
-	// Command-L
-	console.log('got command-L');
-    } else if ((evt.keyCode == 76) &&
-	       evt.metaKey && evt.shiftKey &&
-	       (! evt.altKey) && (! evt.ctrlKey)) {
-	
-	// Command-Shift-L
-	console.log('got command-shift-L');
-    } else {
-	console.log('got key '+evt.keyCode);
-    }    
+	chrome.runtime.sendMessage({type: 'windowSwitch'});
+    } 
 }
 
 

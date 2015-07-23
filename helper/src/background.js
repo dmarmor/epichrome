@@ -53,28 +53,55 @@ ssbBG.startup = function() {
 	    
 	    // status change listener (we don't need to do anything)
 	    //window.addEventListener('storage', function() { ssb.debug('storage', 'got a status change!'); });
-	    
-	    // set up listener for when pages connect to us
-	    chrome.runtime.onConnect.addListener(ssbBG.pages.handleConnect);
-	    
-	    // set up listener for handling pings
-	    chrome.runtime.onMessage.addListener(ssbBG.handlePing);
-	    
-	    // connect to host for the first time
-	    ssbBG.host.canCommunicate = false;
-	    ssbBG.host.connect();
-	    
-	    // handle new tabs
-	    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
 
-	    // we don't yet know which is the main tab
+	    // find the main tab if any (for optionally directing incoming tabs there
+	    // and for switching its window between popup and normal)
 	    ssbBG.mainTab = undefined;
-	    
-	    // in 200ms, initialize all tabs
-	    // (giving Chrome startup time to override)
-	    if (typeof ssbBG.doInitTabs != 'number') ssbBG.doInitTabs = 1;
-	    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
-	    
+	    ssbBG.allTabs(
+		function(tab, win) {
+		    // It's a bit of a kludge--I have no documentation that the first tab
+		    // loaded on startup will always have the lowest ID, but it appears to be true.
+		    // I look for the lowest tab ID that's the only tab in an app or popup window
+		    // type (for some reason, Chrome currently gives the window type as 'popup' for
+		    // app windows). Usually this all should only match one tab anyway.
+		    if (((ssbBG.mainTab == undefined) || (ssbBG.mainTab.id > tab.id)) &&
+			((win.type == 'popup') || (win.type == 'app')) &&
+			(win.tabs.length == 1)) {
+			ssbBG.mainTab = { id: tab.id };
+		    }
+		}, undefined,
+		function() {
+
+		    // done finding main tab -- proceed with startup
+		    if (ssbBG.mainTab != undefined) {
+			ssb.debug('initTabs', 'main tab set to', ssbBG.mainTab,'--',ssbBG.mainTab.url);
+
+			// initialize the context menu
+			ssbBG.updateContextMenu();
+			ssbBG.setContextMenuListeners(true);
+			
+		    } else {
+			ssb.debug('initTabs', 'no main tab found');
+		    }
+		    
+		    // set up listener for keepalive connections
+		    chrome.runtime.onConnect.addListener(ssbBG.handleKeepaliveConnect);
+		    
+		    // set up listener for handling messages from content scripts
+		    chrome.runtime.onMessage.addListener(ssbBG.pages.handleMessage);
+		    
+		    // connect to host for the first time
+		    ssbBG.host.canCommunicate = false;
+		    ssbBG.host.connect();
+		    
+		    // handle new tabs
+		    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
+		    
+		    // in 200ms, initialize all tabs
+		    // (giving Chrome startup time to override)
+		    if (typeof ssbBG.doInitTabs != 'boolean') ssbBG.doInitTabs = true;
+		    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
+		});
 	} else {
 	    ssbBG.shutdown(message);
 	}
@@ -104,22 +131,26 @@ ssbBG.shutdown = function(statusmessage) {
     // tell all tabs to shut down
     ssbBG.allTabs(function(tab) {
 	ssb.debug('shutdown', 'shutting down tab', tab.id);
-	chrome.tabs.sendMessage(tab.id, 'shutdown');
+	chrome.tabs.sendMessage(tab.id, {type: 'shutdown'});
     }, null, function() {
 	
 	// shut myself down
 	if (ssbBG.host.port) ssbBG.host.port.disconnect();
 	
+	// clear context menu
+	ssbBG.setContextMenuListeners(false);
+	ssbBG.removeContextMenu();
+	
 	// remove listeners
 	chrome.tabs.onCreated.removeListener(ssbBG.handleNewTab);
-	chrome.runtime.onConnect.removeListener(ssbBG.pages.handleConnect);
-	chrome.runtime.onMessage.removeListener(ssbBG.handlePing);
+	chrome.runtime.onConnect.removeListener(ssbBG.handleKeepaliveConnect);
+	chrome.runtime.onMessage.removeListener(ssbBG.pages.handleMessage);
 	
 	// set status in local storage
 	localStorage.setItem('status',
 			     JSON.stringify({ active: false,
 					      message: statusmessage,
-					      nohost: (! ssbBG.canCommunicate)
+					      nohost: (! ssbBG.host.canCommunicate)
 					    }));
 	
 	// open options page
@@ -139,26 +170,13 @@ ssbBG.initializeTabs = function() {
     
     delete ssbBG.initTabsTimeout;    
     
-    // find all existing tabs
-    ssbBG.allTabs(
-	function(tab, win, scripts) {
-	    
-	    // try to find the "main" tab (for optionally directing incoming tabs there)
-	    
-	    // It's a bit of a kludge--I have no documentation that the first tab
-	    // loaded on startup will always have the lowest ID, but it appears to be true.
-	    // I look for the lowest tab ID that's the only tab in an app or popup window
-	    // type (for some reason, Chrome currently gives the window type as 'popup' for
-	    // app windows). Usually this all should only match one tab anyway.
-	    if (((ssbBG.mainTab == undefined) || (ssbBG.mainTab.id > tab.id)) &&
-		((win.type == 'popup') || (win.type == 'app')) &&
-		(win.tabs.length == 1)) {
-		ssbBG.mainTab = tab;
-	    }
-	    
-	    // if we're not in Chrome startup, ping tab
-    	    if (ssbBG.doInitTabs) {
-		chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
+    // if we're not in Chrome startup, find all existing tabs
+    if (ssbBG.doInitTabs) {
+	ssbBG.allTabs(
+	    function(tab, win, scripts) {
+		
+		// ping tab
+		chrome.tabs.sendMessage(tab.id, {type: 'ping'}, function(response) {
 		    
 		    if (response != 'ping') {
 			
@@ -178,24 +196,16 @@ ssbBG.initializeTabs = function() {
     			}
     		    }
     		});
-	    }
-	},
-	ssb.manifest.content_scripts[0].js,
-
-	// we finished initializing all tabs
-	function() {
-	    if (ssbBG.mainTab != undefined)
-		ssb.debug('initTabs', 'main tab set to', ssbBG.mainTab,'--',ssbBG.mainTab.url);
-	    else
-		ssb.debug('initTabs', 'no main tab found');
-	});
+	    },
+	    ssb.manifest.content_scripts[0].js);
+    }
 }
 
 
 // HANDLECHROMESTARTUP -- prevent initializing tabs on Chrome startup
 ssbBG.handleChromeStartup = function() {
     // Chrome is starting up, so don't initialize tabs
-    ssbBG.doInitTabs = 0;
+    ssbBG.doInitTabs = false;
 }
 
 
@@ -283,6 +293,31 @@ ssbBG.allTabs = function(action, arg, finished) {
 // HANDLERS -- event and message handlers
 // ----------------------------------------------------
 
+
+// HANDLEKEEPALIVECONNECT -- set up a keepalive connection with a page
+ssbBG.handleKeepaliveConnect = function(port) {
+
+    // don't connect to any port that's not from this ID
+    if (! (port.sender && (port.sender.id == chrome.runtime.id))) {
+	ssb.warn('rejecting connection attempt from',port.sender);
+	port.disconnect();
+	return;
+    }
+    
+    // accept the connection
+    ssb.debug('keepalive', 'connected to', port.sender);
+
+    // if this is the main tab and we haven't already, anoint it
+    if (ssbBG.mainTab && (port.sender.tab.id == ssbBG.mainTab.id)) {
+	// only anoint the frame that connected
+	ssb.debug('mainTab', 'anointing tab '+port.sender.tab.id+', frame '+port.sender.frameId);
+	chrome.tabs.sendMessage(port.sender.tab.id,
+				{type: 'mainTab', state: 'popup'},
+				{frameId: port.sender.frameId});
+    }
+}
+
+
 // HANDLENEWTAB -- process a newly-opened tab
 ssbBG.handleNewTab = function(tab) {
     
@@ -311,7 +346,7 @@ ssbBG.handleNewTab = function(tab) {
 	    ssb.debug('newTab', 'using rules -- redirecting');
 	    
 	    // simulate a message from a page to send the redirect
-	    ssbBG.pages.handleMessage({redirect: true, url: tab.url});
+	    ssbBG.pages.handleMessage({type: 'url', redirect: true, url: tab.url});
 	    chrome.tabs.remove(tab.id);
 	    
 	} else {
@@ -363,104 +398,83 @@ ssbBG.handleNewTab = function(tab) {
 }
 
 
-// HANDLEPING -- handle incoming one-time pings from pages
-ssbBG.handlePing = function(message, sender, respond) {
-    switch (message) {
-    case 'ping':
-	respond('ping');
-	break;
-    default:
-	ssb.warn('ping handler received unknown message:', message,'from',sender);
-    }
-}
-
-
-// HANDLEWINDOWSWITCH -- switch a main app window between app-style and tabs style
-ssbBG.handleWindowSwitch = function() {
-
-    if (ssbBG.mainTab) {
-	chrome.tabs.get(ssbBG.mainTab.id,
-			function(tab) {
-			    if (chrome.runtime.lastError) {
-				ssb.warn('unable to find main tab',
-					 ssbBG.mainTab.id,
-					 '('+chrome.runtime.lastError.message+')');
-			    } else {
-				chrome.windows.get(tab.windowId, function(win) {
-				    if (chrome.runtime.lastError) {
-					ssb.warn('unable to find main window',
-						 win.id,
-						 '('+chrome.runtime.lastError.message+')');
-				    } else {
-					chrome.windows.create({
-					    tabId: ssbBG.mainTab.id,
-					    type: (win.type == 'popup') ? 'normal' : 'popup',
-					    left: win.left,
-					    top: win.top,
-					    width: win.width,
-					    height: win.height
-					});
-				    }
-				});
-			    }
-			});
-    }
-}
-// chrome.windows.create({tabId:2, type:"popup"}); // that'll get it back
-// update mainTab as it changes
-// set up hotkey in options? (cmd-L to get to tabs, but what to get out?)
-// triple-click
-// context menu -- var id = chrome.contextMenus.create({title: 'Show Address Bar', contexts:'all' ???});
-
-
 // PAGES -- object for handling communication with web pages
 // ---------------------------------------------------------
 
 ssbBG.pages = {};
 
 
-// PAGES.HANDLECONNECT -- set up a connection with a page
-ssbBG.pages.handleConnect = function(port) {
-    port.onMessage.addListener(ssbBG.pages.handleMessage);
-}
-
-
-// PAGES.HANDLEMESSAGE -- handle an incoming message from a page
-ssbBG.pages.handleMessage = function(message) {
-    ssb.debug('pageMessage','got message:',message);
+// PAGES.HANDLEMESSAGE -- handle incoming messages from content scripts
+ssbBG.pages.handleMessage = function(message, sender, respond) {
     
-    // hold onto this URL for a few seconds so we don't try to
-    // close any new tab or send it to the main page
+    // reject any message that's not from this extension
+    if (! (sender && (sender.id == chrome.runtime.id))) {
+	ssb.warn('ignoring message from',port.sender);
+	return;
+    }
     
-    // clear any old entry for this URL and start over
-    var curRedirect;
-    if (ssbBG.pages.urls[message.url]) {
-	curRedirect = ssbBG.pages.urls[message.url];
-    	if (curRedirect.timeout) {
-	    ssb.debug('pageMessage', 'clearing old timeout for',message.url);
-	    clearTimeout(curRedirect.timeout);
+    ssb.debug('pagemessage','got message:',message);
+
+    // make sure it's a well-formed message
+    if (! message.type) {
+	ssb.warn('received badly formed message:', message,'from',sender);
+	return false;
+    }
+
+    // parse the message
+    switch (message.type) {
+	
+    case 'url':
+	// URL message
+	
+	// hold onto this URL for a few seconds so we don't try to
+	// close any new tab or send it to the main page
+	
+	// clear any old entry for this URL and start over
+	var curRedirect;
+	if (ssbBG.pages.urls[message.url]) {
+	    curRedirect = ssbBG.pages.urls[message.url];
+    	    if (curRedirect.timeout) {
+		ssb.debug('pagemessage', 'clearing old timeout for',message.url);
+		clearTimeout(curRedirect.timeout);
+	    }
 	}
+	curRedirect = ssbBG.pages.urls[message.url] = { redirect: message.redirect };
+	
+	// figure out delay for the timeout based on what we're doing
+	var delay = (message.redirect ? 4000 : (message.isMousedown ? 10000 : 2000));
+	
+	ssb.debug('pagemessage', 'adding entry with delay',delay,'for',message.url);
+	
+	// set a timeout to get rid of this redirect
+	curRedirect.timeout = setTimeout(function(url) {
+	    
+	    // remove this redirect
+	    ssb.debug('pagemessage', 'timing out',url);
+	    delete ssbBG.pages.urls[url];
+	}, delay, message.url);
+	
+	// if we're redirecting, send the message to the native now
+	if (message.redirect) {
+	    // send message
+	    ssbBG.host.port.postMessage({"url": message.url});
+	    ssb.debug('host', 'requesting redirect for url', message.url);
+	}
+	break;
+
+    case 'windowSwitch':
+	ssbBG.handleWindowSwitch();
+	break;
+	
+    // case 'ping':
+    // 	respond('ping');
+    // 	break;
+	
+    default:
+	ssb.warn('received unknown message type:', message.type,'from',sender);
     }
-    curRedirect = ssbBG.pages.urls[message.url] = { redirect: message.redirect };
-    
-    // figure out delay for the timeout based on what we're doing
-    var delay = (message.redirect ? 4000 : (message.isMousedown ? 10000 : 2000));
-    
-    ssb.debug('pageMessage', 'adding entry with delay',delay,'for',message.url);
-    
-    // set a timeout to get rid of this redirect
-    curRedirect.timeout = setTimeout(function(url) {
-	// remove this redirect
-	ssb.debug('pageMessage', 'timing out',url);
-	delete ssbBG.pages.urls[url];
-    }, delay, message.url);
-    
-    // if we're redirecting, send the message now
-    if (message.redirect) {
-	// send message
-	ssbBG.host.port.postMessage({"url": message.url});
-	ssb.debug('host', 'requesting redirect for url', message.url);
-    }
+
+    return false;
 }
 
 
@@ -475,7 +489,6 @@ ssbBG.host.receiveMessage = function(message) {
     
     // we now know we have an operating port
     ssbBG.host.isReconnect = false;
-    
     ssbBG.host.canCommunicate = true;
     
     // parse response
@@ -496,9 +509,12 @@ ssbBG.host.receiveMessage = function(message) {
 	var status = { active: true };
 	
 	// other info that may be part of the handshake
-	if ('ssbID' in message) { status.ssbID = message.ssbID }
-	if ('ssbName' in message) { status.ssbName = message.ssbName }
-	if ('ssbShortName' in message) { status.ssbShortName = message.ssbShortName }
+	if ('ssbID' in message) { status.ssbID = message.ssbID; }
+	if ('ssbName' in message) { status.ssbName = message.ssbName; }
+	if ('ssbShortName' in message) { status.ssbShortName = message.ssbShortName; }
+	
+	// add in whether we have a main tab
+	if (ssbBG.mainTab) { status.mainTab = true; }
 	
 	// this is also how we know our connection to the host is live
 	localStorage.setItem('status', JSON.stringify(status));
@@ -534,7 +550,7 @@ ssbBG.host.connect = function(isReconnect) {
 	if (ssbBG.host.isReconnect) {
 	    // second connection attempt, so disconnect is an error
 	    var message;
-	    if (ssbBG.canCommunicate)
+	    if (ssbBG.host.canCommunicate)
 		message = 'Disconnected from redirect host';
 	    else
 		message = 'Unable to reach redirect host';
@@ -551,6 +567,132 @@ ssbBG.host.connect = function(isReconnect) {
     // say hello by asking for the host's version
     ssbBG.host.port.postMessage({'version': true});
     ssb.debug('host', 'requesting handshake');
+}
+
+
+// WINDOW SWITCHING -- functions for switching the main
+//                     window between app and tab style
+// ----------------------------------------------------
+
+// HANDLEWINDOWSWITCH -- switch a main app window between app-style and tabs style
+ssbBG.handleWindowSwitch = function() {
+    
+    if (ssbBG.mainTab) {
+	// find the main tab
+	chrome.tabs.get(ssbBG.mainTab.id,
+			function(tab) {
+			    if (chrome.runtime.lastError) {
+				
+				// main tab not found
+				ssb.warn('unable to find main tab',
+					 ssbBG.mainTab.id,
+					 '('+chrome.runtime.lastError.message+')');
+			    } else {
+
+				// find the main tab's window
+				chrome.windows.get(tab.windowId, function(win) {
+				    if (chrome.runtime.lastError) {
+
+					// window not found
+					ssb.warn('unable to find main window',
+						 win.id,
+						 '('+chrome.runtime.lastError.message+')');
+				    } else {
+
+					ssb.debug('windowSwitch', 'switching main window from '+win.type);
+
+					// turn off tab/window activation listeners
+					ssbBG.setContextMenuListeners(false);
+					
+					// switch the window style
+					chrome.windows.create({
+					    tabId: ssbBG.mainTab.id,
+					    type: (win.type == 'popup') ? 'normal' : 'popup',
+					    left: win.left,
+					    top: win.top,
+					    width: win.width,
+					    height: win.height
+					}, function(newWin) {
+					    // tell the main tab about its new state
+					    chrome.tabs.sendMessage(ssbBG.mainTab.id, {type: 'mainTab', state: newWin.type});
+					    
+					    // update context menu
+					    ssbBG.updateContextMenu();
+					    
+					    // turn listeners back on
+					    ssbBG.setContextMenuListeners(true);
+					});
+				    }
+				});
+			    }
+			});
+    }
+}
+
+
+// UPDATECONTEXTMENU -- update context menu when the active tab changes
+ssbBG.updateContextMenu = function() {
+    
+    // first remove the context menu in case it already exists    
+    ssbBG.removeContextMenu();
+    
+    // find the new active tab
+    if (ssbBG.mainTab) {
+	chrome.tabs.query({active: true, lastFocusedWindow: true}, function(tabs) {
+	    if (tabs && (tabs.length == 1) && (tabs[0].id == ssbBG.mainTab.id)) {
+		
+		// the main tab is in front -- add the context menu back
+		
+		// get the main tab's window
+		chrome.windows.get(tabs[0].windowId, function(win) {
+		    
+		    // create the context menu
+		    chrome.contextMenus.create(
+			{
+			    id: 'windowSwitch',
+			    title: ((win.type == 'popup') ? 'Show' : 'Hide') + ' Address Bar',
+			    contexts: ['all']
+			},
+			function() {
+			    if (chrome.runtime.lastError) {
+				ssb.debug('contextMenu', "couldn't create:", chrome.runtime.lastError.message);
+			    }
+			});
+
+		    // add listener for context menu
+		    chrome.contextMenus.onClicked.addListener(ssbBG.handleWindowSwitch);
+		});
+		
+	    }
+	});
+    }
+}
+
+
+// REMOVECONTEXTMENU -- remove the context menu
+ssbBG.removeContextMenu = function() {
+
+    // remove click listener
+    chrome.contextMenus.onClicked.removeListener(ssbBG.handleWindowSwitch);
+
+    // remove the menu
+    chrome.contextMenus.remove('windowSwitch', function() {
+	if (chrome.runtime.lastError) {
+	    //ssb.debug('contextMenu', "couldn't remove:",chrome.runtime.lastError.message);
+	}
+    });
+}
+
+
+// SETCONTEXTMENULISTENERS -- add or remove context menu change listeners
+ssbBG.setContextMenuListeners = function(add) {
+    if (add) {
+	chrome.tabs.onActivated.addListener(ssbBG.updateContextMenu);
+	chrome.windows.onFocusChanged.addListener(ssbBG.updateContextMenu);
+    } else {
+	chrome.tabs.onActivated.removeListener(ssbBG.updateContextMenu);
+	chrome.windows.onFocusChanged.removeListener(ssbBG.updateContextMenu);
+    }
 }
 
 

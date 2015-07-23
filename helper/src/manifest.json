@@ -4,7 +4,7 @@
     "name": "Epichrome Helper",
     "short_name": "EpichromHelp",
     "description": "Handles link redirection for Mac apps created with Epichrome.",
-    "version": "1.0.1.3",
+    "version": "1.0.1.7",
     
     "background": {
     	"scripts": ["shared.js", "background.js"]
@@ -23,15 +23,18 @@
                "48": "icon48.png",
                "128": "icon128.png" },
     
-    "options_ui": {
-	"page": "options.html",
-	"chrome_style": true
-    },
+    "options_page": "options.html",
+
+    // "options_ui": {
+    // 	"page": "options.html",
+    // 	"chrome_style": true
+    // },
     
     "permissions": [
 	"nativeMessaging",
 	"storage",
 	"tabs",
+	"contextMenus",
 	"*://*/"
     ]
 }

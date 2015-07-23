@@ -23,12 +23,34 @@
 
 /* OVERALL STYLES */
 
-body: {
+body {
     padding: 0;
     margin: 0;
 }
 
+#header {
+    height: 60px;
+    position: relative;
+    margin-bottom: 20px;
+    background-color: #d3d3d3;
+}
+#header img {
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translate(0, -50%);
+}
+#header h1 {
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    left: 90px;
+    top: 50%;
+    transform: translate(0, -50%);
+}
+
 #container {
+    margin-left: 50px;
     width: 502px;
     position: relative;
 }
@@ -94,9 +116,19 @@ body: {
 }
 #shutdown_content #nohost_message {
     font-style: italic;
+    display: none;
+}
+#shutdown_content.nohost #nohost_message {
+    display: block;
 }
 #shutdown_content #nohost_message em {
     text-decoration: underline;
+}
+#shutdown_content #nohost_prefix,#shutdown_content.nohost #host_prefix {
+    display: none;
+}
+#shutdown_content.nohost #nohost_prefix,#shutdown_content #host_prefix {
+    display: inline;
 }
 
 /* OPTIONS FORM */

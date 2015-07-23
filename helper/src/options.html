@@ -26,10 +26,14 @@
 <html>
   <head>
     <title>Epichrome Helper - Options</title>
+    <link rel="stylesheet" type="text/css" href="options-chrome.css" />
     <link rel="stylesheet" type="text/css" href="options.css" />
   </head>
   
   <body id="body">
+    <div id="header">
+      <img src="icon48.png" /><h1>Epichrome Helper Options</h1>
+    </div>
     <div id="container">
 
       <!-- overlay containing dialog box -->
@@ -65,8 +69,8 @@
               <h4 class="message"></h4>
 	      <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/epichrome/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
 	      <p id="shutdown_help">
-		<span id="nohost_help" class="invisible">If you're seeing this message in an Epichrome app, try</span>
-		<span id="host_help">Try</span>
+		<span id="nohost_prefix">If you're seeing this message in an Epichrome app, try</span>
+		<span id="host_prefix">Try</span>
 		disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/epichrome" target="_blank">github page</a>.
 	      </p>
 	    </div><!-- shutdown_content -->
@@ -176,17 +180,34 @@
 	  </span>
 	</label>
 	
-	<div class="divider"></div>
-	
-	<h4 class="section-header">Rules for handling incoming links from other apps</h4>
-
-	<!-- sendIncomingToMainTab checkbox -->
-	<label class="checkbox" title="If this is checked, links sent to this app from another app will open in the main window instead of a new tab. Note: this checkbox does *nothing* unless your app uses a single app-style window (no tabs). Also, if you ever close the main window, this will stop functioning until you restart the app.">
-          <input type="checkbox" class="sendIncomingToMainTab sub.options_form change" />
-          <span class="checkbox-text">
-	    Send incoming links to the main window instead of a new tab
-	  </span>
-	</label>
+	<div id="main_tab_options" class="invisible">
+	  
+	  <div class="divider"></div>
+	  
+	  <h4 class="section-header">Rules for handling incoming links from other apps</h4>
+	  
+	  <!-- sendIncomingToMainTab checkbox -->
+	  <label class="checkbox" title="If this is checked, links sent to this app from another app will open in the main window instead of a new tab. Note: this checkbox does *nothing* unless your app uses a single app-style window (no tabs). Also, if you ever close the main window, this will stop functioning until you restart the app.">
+            <input type="checkbox" class="sendIncomingToMainTab sub.options_form change" />
+            <span class="checkbox-text">
+	      Send incoming links to the main window instead of a new tab
+	    </span>
+	  </label>
+	  
+	  <div class="divider"></div>
+	  
+	  <h4 class="section-header">Main window type</h4>
+	  
+	  <!-- sendIncomingToMainTab checkbox -->
+	  <div id="window_switch_message">
+	    You can switch the main window between app-style and tab-style (in case you need access to the address bar or toolbar). You can use the context menu (right click anywhere on the page), or the following hot keys:
+	    <ul>
+	      <li>In app-style window: <strong>&#8984;-L</strong> or <strong>&#8984;-&#8679;-L</strong></li>
+	      <li>In tab-style window: <strong>&#8984;-&#8679;-L</strong></li>
+	    </ul>
+	    Note that the page itself must have focus for these hot-keys to work. If you have text selected in the address bar, for instance, they won't work.
+	  </div><!-- window_switch_message -->
+	</div><!-- main_tab_options -->
 	
 	<div class="divider"></div>
 

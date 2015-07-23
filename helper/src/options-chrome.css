@@ -1,0 +1,133 @@
+/* CHROME STYLES */
+
+body {
+    color: rgb(51, 51, 51);
+    cursor: default;
+    margin: 14px 17px;
+}
+body {
+    font-family: 'Helvetica Neue', 'Lucida Grande', sans-serif;
+    font-size: 75%;
+}
+
+h3 {
+    color: black;
+    font-size: 1.2em;
+    margin-bottom: 0.8em;
+}
+h1, h2, h3 {
+    -webkit-user-select: none;
+    font-weight: normal;
+    line-height: 1;
+}
+
+
+:-webkit-any(button,input[type="button"],input[type="submit"]) {
+    -webkit-padding-end: 10px;
+    -webkit-padding-start: 10px;
+}
+:-webkit-any(button,input[type="button"],input[type="submit"]), select {
+    min-height: 2em;
+    min-width: 4em;
+}
+:-webkit-any(button,input[type="button"],input[type="submit"]), select, input[type="checkbox"], input[type="radio"] {
+    -webkit-appearance: none;
+    -webkit-user-select: none;
+    background-image: linear-gradient(rgb(237, 237, 237), rgb(237, 237, 237) 38%, rgb(222, 222, 222));
+    border: 1px solid rgba(0, 0, 0, 0.247059);
+    border-image-source: initial;
+    border-image-slice: initial;
+    border-image-width: initial;
+    border-image-outset: initial;
+    border-image-repeat: initial;
+    border-radius: 2px;
+    box-shadow: rgba(0, 0, 0, 0.0784314) 0px 1px 0px, rgba(255, 255, 255, 0.74902) 0px 1px 2px inset;
+    color: rgb(68, 68, 68);
+    font: inherit;
+    margin: 0px 1px 0px 0px;
+    outline: none;
+    text-shadow: rgb(240, 240, 240) 0px 1px 0px;
+}
+
+:disabled:-webkit-any(button,input[type="button"],input[type="submit"]), select:disabled {
+    background-image: linear-gradient(rgb(241, 241, 241), rgb(241, 241, 241) 38%, rgb(230, 230, 230));
+    border-color: rgba(80, 80, 80, 0.2);
+    box-shadow: rgba(80, 80, 80, 0.0784314) 0px 1px 0px, rgba(255, 255, 255, 0.74902) 0px 1px 2px inset;
+    color: rgb(170, 170, 170);
+}
+
+:enabled:focus:-webkit-any(select,input[type="checkbox"],input[type="number"],input[type="password"],input[type="radio"],input[type="search"],input[type="text"],input[type="url"],input:not([type]),:-webkit-any(button,input[type="button"],input[type="submit"])) {
+    transition: border-color 200ms;
+    border-color: rgb(77, 144, 254);
+    outline: none;
+}
+
+:enabled:hover:-webkit-any(select,input[type="checkbox"],input[type="radio"],:-webkit-any(button,input[type="button"],input[type="submit"])) {
+    background-image: linear-gradient(rgb(240, 240, 240), rgb(240, 240, 240) 38%, rgb(224, 224, 224));
+    border-color: rgba(0, 0, 0, 0.298039);
+    box-shadow: rgba(0, 0, 0, 0.117647) 0px 1px 0px, rgba(255, 255, 255, 0.952941) 0px 1px 2px inset;
+    color: black;
+}
+
+:enabled:active:-webkit-any(select,input[type="checkbox"],input[type="radio"],:-webkit-any(button,input[type="button"],input[type="submit"])) {
+    background-image: linear-gradient(rgb(231, 231, 231), rgb(231, 231, 231) 38%, rgb(215, 215, 215));
+    box-shadow: none;
+    text-shadow: none;
+}
+
+
+input[type="checkbox"] {
+    height: 13px;
+    position: relative;
+    vertical-align: middle;
+    width: 13px;
+}
+
+
+input[type="checkbox"]:checked::before {
+    -webkit-user-select: none;
+    background-image: -webkit-image-set(url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAQAAAADpb+tAAAAaElEQVR4Xl3PIQoCQQCF4Y8JW42D1bDZ4iVEjDbxFpstYhC7eIVBZHkXFGw734sv/TqDQQ8Xb1udja/I8igeIm7Aygj2IpoKTGZnVRNxAHYi4iPiDlA9xX+aNQDFySziqDN6uSp6y7ofEMwZ05uUZRkAAAAASUVORK5CYII=) 1x, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAQAAABuvaSwAAAAvElEQVR4XrXPMUrDYBzG4UeRZnAQnFxq3XT3AsVABm8QPIHQIeAJuoqb2s1BcHAIin4HVLqEvx9NQgb5rc/wvn4mNBUbqlKDcezCp6Qexxx7lbapx/CBe6mrHsYrKXQ7hKtIre1nOD/W9eiQiK80inis680JEc+1kien+TEfzom4sJG2aZXxmG9LIqaRerohx6V2J72zl2NY2OTUgxm7MEU25sURfZg4590Zw5iFZ8mXS0ZwN+eaPjyh/8O/H7bzPJ5NOo0AAAAASUVORK5CYII=) 2x);
+    background-size: 100% 100%;
+    content: "";
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+
+input[type="number"], input[type="password"], input[type="search"], input[type="text"], input[type="url"], input:not([type]), textarea {
+    border: 1px solid rgb(191, 191, 191);
+    border-image-source: initial;
+    border-image-slice: initial;
+    border-image-width: initial;
+    border-image-outset: initial;
+    border-image-repeat: initial;
+    border-radius: 2px;
+    box-sizing: border-box;
+    color: rgb(68, 68, 68);
+    font: inherit;
+    margin: 0px;
+    min-height: 2em;
+    padding: 3px 3px 4px;
+    outline: none;
+}
+
+select {
+    -webkit-appearance: none;
+    -webkit-padding-end: 20px;
+    -webkit-padding-start: 6px;
+    background-image: -webkit-image-set(url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAICAQAAACxSAwfAAAAUklEQVQY02P4z0AMRGZGMaShwCisyhITmb8huMzfEhOxKvuvsGAh208Ik+3ngoX/FbBbClcIUcSAw21QhXxfIIrwKAMpfNsEUYRXGVCEFc6CQwBqq4CCCtU4VgAAAABJRU5ErkJggg==) 1x, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACcAAAAQCAQAAAA/1a6rAAAAQUlEQVR4Xu3MsQnAMBAEMI1+myf9gw0+3ASCenmu+mQn2yGn3S4Mp906DEW3CEPfzTD03QxD380w3OmIUHe9v+u9QwAt93yns5cAAAAASUVORK5CYII=) 2x), linear-gradient(rgb(237, 237, 237), rgb(237, 237, 237) 38%, rgb(222, 222, 222));
+    background-position: 100% 50%;
+    background-repeat: no-repeat;
+}
+
+
+:enabled:hover:-webkit-any(select) {
+    background-image: -webkit-image-set(url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAICAQAAACxSAwfAAAAUklEQVQY02P4z0AMRGZGMaShwCisyhITmb8huMzfEhOxKvuvsGAh208Ik+3ngoX/FbBbClcIUcSAw21QhXxfIIrwKAMpfNsEUYRXGVCEFc6CQwBqq4CCCtU4VgAAAABJRU5ErkJggg==) 1x, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACcAAAAQCAQAAAA/1a6rAAAAQUlEQVR4Xu3MsQnAMBAEMI1+myf9gw0+3ASCenmu+mQn2yGn3S4Mp906DEW3CEPfzTD03QxD380w3OmIUHe9v+u9QwAt93yns5cAAAAASUVORK5CYII=) 2x), linear-gradient(rgb(240, 240, 240), rgb(240, 240, 240) 38%, rgb(224, 224, 224));
+}
+
+
+:enabled:active:-webkit-any(select) {
+    background-image: -webkit-image-set(url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAICAQAAACxSAwfAAAAUklEQVQY02P4z0AMRGZGMaShwCisyhITmb8huMzfEhOxKvuvsGAh208Ik+3ngoX/FbBbClcIUcSAw21QhXxfIIrwKAMpfNsEUYRXGVCEFc6CQwBqq4CCCtU4VgAAAABJRU5ErkJggg==) 1x, url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACcAAAAQCAQAAAA/1a6rAAAAQUlEQVR4Xu3MsQnAMBAEMI1+myf9gw0+3ASCenmu+mQn2yGn3S4Mp906DEW3CEPfzTD03QxD380w3OmIUHe9v+u9QwAt93yns5cAAAAASUVORK5CYII=) 2x), linear-gradient(rgb(231, 231, 231), rgb(231, 231, 231) 38%, rgb(215, 215, 215));
+}
+
