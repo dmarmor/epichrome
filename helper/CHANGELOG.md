@@ -1,16 +1,17 @@
 # Epichrome Helper Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [1.1.0] - 2015-07-
+## [1.1.0] - 2015-07-22
 ### Changed
 - Added the ability to switch an app-style window to a tab-style window and back with a hotkey or context menu.
 - Added option to stop click propagation when a click is redirected (some websites seem to do funky JavaScript stuff that requires this so we don't get a duplicate navigation in the SSB).
-- Changed options page to size dynamically so it'll be easier to add fields in the future.
+- Changed options page to open in its own tab as it got too big for the puny box Chrome put it in on the extensions page.
 - Added "Unsaved changes" status message to options box.
 - Extension now retrieves name of SSB from native host and applies it as the default name when exporting options.
 ### Fixed
 - Removed unnecessary permissions from the manifest.
 - Fixed off-by-one error in month in default filename when exporting options.
+- Fixed an edge case where the extension wouldn't run its rules on a newly-created tab.
 
 ### Fixed
 
