@@ -317,7 +317,7 @@ ssbContent.handleMessage = function(message, sender, respond) {
     
     // reject any message that's not from this extension
     if (! (sender && (sender.id == chrome.runtime.id))) {
-	ssb.warn('ignoring message from',port.sender);
+	ssb.warn('ignoring message from', sender);
 	return;
     }
     

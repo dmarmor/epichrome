@@ -352,8 +352,8 @@ ssb.compareVersions = function(v1, v2) {
     for (var i = 0; i < len; i++) {
 	
 	// get and validate the current number
-	curV1 = ((i < v1.length) ? parseInt(v1[i]) : 0);
-	curV2 = ((i < v2.length) ? parseInt(v2[i]) : 0);
+	var curV1 = ((i < v1.length) ? parseInt(v1[i]) : 0);
+	var curV2 = ((i < v2.length) ? parseInt(v2[i]) : 0);
 	if (! (curV1 >= 0)) curV1 = 0;
 	if (! (curV2 >= 0)) curV2 = 0;
 

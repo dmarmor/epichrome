@@ -1,4 +1,5 @@
 *.dmg
+*.orig
 **/boneyard/**
 /*.xlsx
 /examples/**

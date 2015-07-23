@@ -44,7 +44,7 @@ ssbBG.startup = function() {
 	if (success) {
 	    
 	    ssb.log(ssb.logPrefix + ' is starting up');
-	    
+
 	    // we are active!
 	    localStorage.setItem('status', JSON.stringify({ active: false, startingUp: true, message: 'Please wait...' }));
 
@@ -96,6 +96,7 @@ ssbBG.startup = function() {
 		    
 		    // handle new tabs
 		    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
+		    chrome.webNavigation.onCreatedNavigationTarget.addListener(ssbBG.handleNewNavTarget);
 		    
 		    // in 200ms, initialize all tabs
 		    // (giving Chrome startup time to override)
@@ -143,6 +144,7 @@ ssbBG.shutdown = function(statusmessage) {
 	
 	// remove listeners
 	chrome.tabs.onCreated.removeListener(ssbBG.handleNewTab);
+	chrome.webNavigation.onCreatedNavigationTarget.removeListener(ssbBG.handleNewNavTarget);
 	chrome.runtime.onConnect.removeListener(ssbBG.handleKeepaliveConnect);
 	chrome.runtime.onMessage.removeListener(ssbBG.pages.handleMessage);
 	
@@ -346,7 +348,7 @@ ssbBG.handleNewTab = function(tab) {
 	    ssb.debug('newTab', 'using rules -- redirecting');
 	    
 	    // simulate a message from a page to send the redirect
-	    ssbBG.pages.handleMessage({type: 'url', redirect: true, url: tab.url});
+	    ssbBG.pages.handleMessage({type: 'url', redirect: true, url: tab.url}, {id: chrome.runtime.id});
 	    chrome.tabs.remove(tab.id);
 	    
 	} else {
@@ -398,6 +400,25 @@ ssbBG.handleNewTab = function(tab) {
 }
 
 
+// HANDLENEWNAVTARGET -- handle a newly-created navigation target (catches a few
+//                       edge cases handleNewTab misses)
+ssbBG.handleNewNavTarget = function(details) {
+    
+    ssb.debug('webNav', 'createdNavTarget:',details);
+
+    // try to find the tab
+    chrome.tabs.get(details.tabId, function(tab) {
+	if (chrome.runtime.lastError) {
+	    ssb.debug('webNav', 'tab has already closed -- ignoring');
+	    return;
+	}
+	
+	// handle the tab
+	ssbBG.handleNewTab(tab);
+    });
+}
+
+
 // PAGES -- object for handling communication with web pages
 // ---------------------------------------------------------
 
@@ -405,11 +426,11 @@ ssbBG.pages = {};
 
 
 // PAGES.HANDLEMESSAGE -- handle incoming messages from content scripts
-ssbBG.pages.handleMessage = function(message, sender, respond) {
+ssbBG.pages.handleMessage = function(message, sender) {
     
     // reject any message that's not from this extension
     if (! (sender && (sender.id == chrome.runtime.id))) {
-	ssb.warn('ignoring message from',port.sender);
+	ssb.warn('ignoring message from',sender);
 	return;
     }
     
@@ -450,11 +471,15 @@ ssbBG.pages.handleMessage = function(message, sender, respond) {
 	curRedirect.timeout = setTimeout(function(url) {
 	    
 	    // remove this redirect
-	    ssb.debug('pagemessage', 'timing out',url);
+	    var myRedirect = ssbBG.pages.urls[url];
+	    ssb.debug('pagemessage', 'timed out', myRedirect);
+	    if (myRedirect.redirect && ! myRedirect.response) {
+		ssb.warn('no response to redirect request for '+url);
+	    }
 	    delete ssbBG.pages.urls[url];
 	}, delay, message.url);
 	
-	// if we're redirecting, send the message to the native now
+	// if we're redirecting, send the message to the native host now
 	if (message.redirect) {
 	    // send message
 	    ssbBG.host.port.postMessage({"url": message.url});
@@ -486,6 +511,8 @@ ssbBG.host = {};
 
 // HOST.RECEIVEMESSAGE -- handler for messages from native host
 ssbBG.host.receiveMessage = function(message) {
+
+    ssb.debug('host', 'got message from host', message);
     
     // we now know we have an operating port
     ssbBG.host.isReconnect = false;
@@ -604,14 +631,16 @@ ssbBG.handleWindowSwitch = function() {
 					// turn off tab/window activation listeners
 					ssbBG.setContextMenuListeners(false);
 					
-					// switch the window style
+					// switch the window style (experimenting shows that
+					// you have to drop 22 pixels from height when coming
+					// back from normal to popup, not sure why)
 					chrome.windows.create({
 					    tabId: ssbBG.mainTab.id,
 					    type: (win.type == 'popup') ? 'normal' : 'popup',
 					    left: win.left,
 					    top: win.top,
 					    width: win.width,
-					    height: win.height
+					    height: (win.type == 'popup') ? win.height : (win.height - 22)
 					}, function(newWin) {
 					    // tell the main tab about its new state
 					    chrome.tabs.sendMessage(ssbBG.mainTab.id, {type: 'mainTab', state: newWin.type});
