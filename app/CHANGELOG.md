@@ -3,7 +3,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.1.5] - 2015-08-21
 ### Changed
-- Added the ability to create an Epichrome app in the Applications directory (or really anywhere), even if the user running Epichrome is not an administrator. Epichrome will attempt to invoke admin privileges.
+- Added the ability to create an Epichrome app in the Applications directory (or really anywhere), even if the user running Epichrome is not an administrator. Epichrome will attempt to invoke admin privileges. Thanks to [Zettt](https://github.com/Zettt "Zettt") for suggesting this.
 - Related to that, added the ability for a user to invoke admin privileges in order to update an app that they didn't create and don't have permissions to alter.
 - Minor change: the summary screen just before app creation now shows the path where the app will be created.
 
@@ -20,7 +20,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.1.2] - 2015-07-20
 ### Fixed
-- Apps created with a custom icon in ICNS format no longer ignore the custom icon. Thanks for [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") and [pattulus](https://github.com/pattulus "pattulus") for catching this.
+- Apps created with a custom icon in ICNS format no longer ignore the custom icon. Thanks to [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") and [pattulus](https://github.com/pattulus "pattulus") for catching this.
 
 ## [2.1.1] - 2015-07-16
 ### Changed
