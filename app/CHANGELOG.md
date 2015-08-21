@@ -1,6 +1,15 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.5] - 2015-08-21
+### Changed
+- Added the ability to create an Epichrome app in the Applications directory (or really anywhere), even if the user running Epichrome is not an administrator. Epichrome will attempt to invoke admin privileges.
+- Related to that, added the ability for a user to invoke admin privileges in order to update an app that they didn't create and don't have permissions to alter.
+- Minor change: the summary screen just before app creation now shows the path where the app will be created.
+
+### Fixed
+- Several minor bugs that could cause temporary directories to be left in place in some circumstances.
+
 ## [2.1.4] - 2015-07-22
 ### Fixed
 - Another small fix to the alert/dialog bug. Hopefully really fixed now.
