@@ -92,8 +92,20 @@ SSBCommandLine=("${@}")
 
 # create the app directory in a temporary location
 appTmp=$(tempname "$appPath")
-try /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
+cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
+if [[ "$?" != 0 ]] ; then
+    # if we don't have permission, let the app know to try for admin privileges
+    errre='Permission denied$'
+    [[ "$cmdtext" =~ $errre ]] && abort 'PERMISSION' 2
+    
+    # regular error
+    abort 'Unable to create temporary app bundle.' 1
+fi
 
+# set ownership of app bundle to this user (only necessary if running as admin)
+try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
+
+#abort "The user is $USER" 1
 
 # GET INFO NECESSARY TO RUN THE UPDATE
 
@@ -136,7 +148,7 @@ fi
 # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
 # populate the Contents directory
-updatessb "$appTmp" "$customIconTmp"
+updatessb "$appTmp" "$customIconTmp" '' newApp
 
 if [[ "$ok" ]] ; then
     # delete any temporary custom icon (fail silently, as any error here is non-fatal)

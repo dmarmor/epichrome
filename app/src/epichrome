@@ -32,7 +32,20 @@ function abort {
 # RELAUNCH -- relaunch this app after a delay
 function relaunch {
     [ "$1" ] && sleep "$1"
-    open "$myPath"
+    "$0" "$isAdmin"
+}
+
+# UNSUDO -- run a command as the original user
+function unsudo {
+    if [[ "$isAdmin" ]] ; then
+	sudo -u $USER "$@"
+	local result="$?"
+    else
+	"$@"
+	local result="$?"
+    fi
+
+    return "$result"
 }
 
 
@@ -161,6 +174,82 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 }
 
 
+# AUTHENTICATE -- relaunch authenticated if necessary
+isAuthenticated=
+function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, return 1 on auth fail)
+
+    # get ID of this authentication to pass to self
+    local id="$1"
+    shift
+    [[ "$id" ]] || id="admin"
+    
+    # build preamble
+    local preamble="$1"
+    shift
+    [[ "$preamble" ]] && preamble="$preamble "
+    
+    # build alert message
+    local msg="$1"
+    shift
+    [[ ! "$msg" ]] && msg="update"
+    
+    # get nonfatal argument
+    local nonfatal="$1"
+    
+    # only check if we're not already authenticated
+    if [[ ! "$isAuthenticated" ]] ; then
+	
+	# try to touch the app bundle--if we can, we have the privileges we need
+	cmdtext=$(/usr/bin/touch "$myPath" 2>&1)
+	
+	if [[ "$?" != 0 ]] ; then
+
+	    local doAuth=
+	    errre='Permission denied$'
+	    if [[ ! "$cmdtext" =~ $errre ]] ; then
+		
+		# some other error (not permission denied)
+		msg="Error attempting to determine if authentication is required."
+		
+		if [[ "$nonfatal" ]] ; then
+		    alert "$msg" 'Warning' '|caution'
+		else
+		    abort "$msg" 1
+		fi
+	    else
+		
+		# permission denied to touch this file--ask to authenticate
+		dialog doAuth "${preamble}In order to $msg, the app must run with administrator privileges." "Authentication Required" "|caution" "Authenticate" "+Cancel"
+		
+		# user wants to authenticate
+		if [[ "$doAuth" = "Authenticate" ]] ; then
+		    
+		    # replace ourself with an authenticated version
+		    #of the same script running with admin privileges
+		    #exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
+		    exec osascript -e 'do shell script (quoted form of "'"$0"'") & " " & (quoted form of "'"$id"'") with administrator privileges'
+		    
+		elif [[ "$nonfatal" ]] ; then
+		    return 1
+		else
+		    abort "Please relaunch with administrator privileges." 1
+		fi
+	    fi
+	else
+	    isAuthenticated=1
+	fi
+    fi
+    
+    # all went well, we are authenticated!
+    return 0
+}
+
+
+# COMMAND-LINE VARIABLES
+
+isAdmin="$1"
+
+
 # BOOTSTRAP RUNTIME SCRIPT
 
 # determine location of runtime script
@@ -216,8 +305,13 @@ chromeinfo
 
 # update config variable
 if [ "$SSBChromePath" != "$chromePath" ] ; then
-    SSBChromePath="$chromePath"
-    updateconfig=1
+    
+    authenticate chromepath '' '' nonfatal
+    
+    if [[ "$?" = 0 ]] ; then
+	SSBChromePath="$chromePath"
+	updateconfig=1
+    fi
 fi
 
 # check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
@@ -227,86 +321,126 @@ if [[ ( ! -h "$myChromeLink" ) || \
 	  ( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" ) ]] ; then
 
     # (note that readlink can fail silently--all it means is we'll do the update
+
+    # basic relink message
+    updatemsg='Google Chrome appears to have moved.'
     
-    # display a relink alert
-    alert 'Google Chrome appears to have moved. Attempting to relink...' 'Relinking Chrome' '|caution'
+    # authenticate
+    authenticate relink "$updatemsg" "relink"
     
+    # display a relink alert if we didn't just become admin
+    if [[ "$isAdmin" != relink ]] ; then
+	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
+    fi
+
     # relink to Google Chrome
     linkchrome "$myContents"
-
+    
     # abort if we failed to relink Chrome
     [[ "$ok" ]] || abort "$errmsg" 1
 fi
 
 # check for new version of Chrome and update
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
-    
-    # display a Chrome update alert
-    alert "New version of Google Chrome found ($chromeVersion). Updating app..." 'New Chrome Version' '|caution'
-    
-    # set new version number for config file
-    SSBChromeVersion="$chromeVersion"
-    
-    # use new runtime to update the SSB
-    updatessb "$myPath" '' ChromeOnly
 
-    # abort if we failed to update Chrome
-    [[ "$ok" ]] || abort "$errmsg" 1
-    
-    # relaunch!
-    relaunch 1 &
-    disown -ar
-    exit 0
+    updatemsg="New version of Google Chrome found ($chromeVersion)."
+
+    # authenticate
+    authenticate chromeupdate "$updatemsg" 'update' nonfatal
+    if [[ "$?" = 0 ]] ; then
+	
+	# display a Chrome update alert if we didn't just become admin
+	if [[ "$isAdmin" != chromeupdate ]] ; then
+	    alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
+	fi
+	
+	# set new version number for config file
+	SSBChromeVersion="$chromeVersion"
+	
+	# use new runtime to update the SSB
+	updatessb "$myPath" '' ChromeOnly
+	
+	# abort if we failed to update Chrome
+	if [[ "$ok" ]] ; then
+	    # relaunch!
+	    relaunch 1 &
+	    disown -ar
+	    exit 0
+	fi
+    else
+	ok=
+	errmsg="Permission denied."
+    fi
+
+    # failure is non-fatal
+    if [[ ! "$ok" ]] ; then
+	alert "Unable to update app to new version of Google Chrome. ($errmsg) It may or may not run properly." 'Warning' '|caution'
+	ok=
+	errmsg=
+    fi
 fi
 
 
 # CHECK FOR NEW VERSION OF MAKECHROMESSB AND UPDATE
 
 if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
-    
-    # Ask about updating
-    dialog doUpdate \
-	   "A new version of the Epichrome runtime was found ($mcssbVersion). Would you like to update now?" \
-	   "Update" \
-	   "|caution" \
-	   "+Update" \
-	   "-Later" \
-	   "Don't Ask Again For This Version"
-    
-    if [[ "$ok" ]] ; then
-	
-	# act based on dialog
-	case "$doUpdate" in
-	    Update)
-		# read in the new runtime
-		safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
 
-		# use new runtime to update the SSB
-		updatessb "$myPath"
-		
-		if [[ "$ok" ]] ; then
-		    # relaunch!
-		    relaunch 1 &
-		    disown -ar
-		    exit 0
-		fi
-		;;
-	    Later)
-		# don't update
-		doUpdate=
-		;;
-	    *)
-		# pretend we're already at the new version
-		SSBVersion="$mcssbVersion"
-		updateconfig=1
-		;;
-	esac
-    fi
+    # update message
+    updatemsg="A new version of the Epichrome runtime was found ($mcssbVersion)."
     
-    # alert the user to any error, but don't abort
-    if [[ ! "$ok" ]] ; then
-	alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
-	ok=1
+    # authenticate
+    authenticate mcssbupdate "$updatemsg" 'update' nonfatal
+    if [[ "$?" = 0 ]] ; then
+	
+	# Ask about updating (unless we asked with the authentication dialog)
+	if [[ "$isAdmin" != mcssbupdate ]] ; then
+	    dialog doUpdate \
+		   "A new version of the Epichrome runtime was found ($mcssbVersion). Would you like to update now?" \
+		   "Update" \
+		   "|caution" \
+		   "+Update" \
+		   "-Later" \
+		   "Don't Ask Again For This Version"
+	else
+	    doUpdate="Update"
+	fi
+	
+	if [[ "$ok" ]] ; then
+	    
+	    # act based on dialog
+	    case "$doUpdate" in
+		Update)
+
+		    # read in the new runtime
+		    safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
+		    
+		    # use new runtime to update the SSB
+		    updatessb "$myPath"
+		    
+		    if [[ "$ok" ]] ; then
+			# relaunch!
+			relaunch 1 &
+			disown -ar
+			exit 0
+		    fi
+		    ;;
+		Later)
+		    # don't update
+		    doUpdate=
+		    ;;
+		*)
+		    # pretend we're already at the new version
+		    SSBVersion="$mcssbVersion"
+		    updateconfig=1
+		    ;;
+	    esac
+	fi
+	
+	# alert the user to any error, but don't abort
+	if [[ ! "$ok" ]] ; then
+	    alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+	    ok=1
+	fi
     fi
 fi
 
@@ -317,7 +451,7 @@ newprofile=
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
     # UPDATE PROFILE PATH
-
+    
     # check if we're migrating profile paths
     if [[ "$(isarray SSBProfilePath)" ]] ; then
 	
@@ -329,7 +463,7 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 
 	# get the base directory
 	oldProfileBase="${oldProfilePath%/*}"
-
+	
 	# if there's a profile in the old location, try to move it
 	if [[ -d "$oldProfilePath" ]] ; then
 	    if [[ -e "$myProfilePath" && ! -d "$myProfilePath" ]]; then
@@ -343,7 +477,7 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 		# old profile exists, new one doesn't, so create it
 		newprofile=1
 		try 'profileBase=' dirname "$myProfilePath" 'Unable to get path to profile folder.'
-		try mkdir -p "$profileBase" 'Unable to create profile folder.'
+		try unsudo mkdir -p "$profileBase" 'Unable to create profile folder.'
 		try mv -f "$oldProfilePath" "$myProfilePath" 'Unable to move profile folder from old location.'
 		if [[ ! "$ok" ]] ; then
 		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' '|caution'
@@ -373,13 +507,13 @@ fi
 # create profile folder
 if [[ ! -d "$myProfilePath" ]]; then
     newprofile=1
-    try mkdir -p "$myProfilePath" 'Unable to create profile folder.'
+    try unsudo mkdir -p "$myProfilePath" 'Unable to create profile folder.'
     [[ "$ok" ]] || abort "$errmsg" 1
 fi
 
 # set First Run file so Chrome doesn't think it's new (fail silently)
 firstrunfile="${myProfilePath}/First Run"
-[[ -e "$firstrunfile" ]] || touch "$firstrunfile" > /dev/null 2>&1
+[[ -e "$firstrunfile" ]] || unsudo touch "$firstrunfile" > /dev/null 2>&1
 
 
 # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
@@ -431,7 +565,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     
     # if for any reason we need to copy the install directory, do it now
     if [[ "$ok" && "$extDoCopy" ]] ; then
-	safecopy "$extSourcePath" "$extDestPath" 'installation directory'
+	unsudo safecopy "$extSourcePath" "$extDestPath" 'installation directory'
     fi
     
     # report error, but don't abort
@@ -498,14 +632,16 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	hostSourcePath="$myContents/Resources/$hostDir"
 	
 	# create the install directory
-	try mkdir -p "$hostInstallPath" 'Unable to create installation folder.'
+	try unsudo /bin/mkdir -p "$hostInstallPath" 'Unable to create installation folder.'
 	
 	# stream-edit the manifest file
 	hostManifestTmp=$(tempname "$hostManifestInstalled")
+	try unsudo /usr/bin/touch "${hostManifestTmp}" 'Unable to create manifest.'
 	try "${hostManifestTmp}<" sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" 'Unable to copy manifest.'
 	
 	# stream-edit the host script
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
+	try unsudo /usr/bin/touch "${hostScriptTmp}" 'Unable to create script.'
 	try "${hostScriptTmp}<" sed "s/SSBID/$CFBundleIdentifier/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" "$hostSourcePath/$hostScript" 'Unable to copy script.'
 	
 	# fix host script permissions
@@ -539,12 +675,20 @@ fi
 # UPDATE CONFIG FILE IF NECESSARY
 
 if [[ "$SSBFirstRunSinceVersion" ]] ; then
+
+    # authenticate (fail to run otherwise)
+    authenticate firstrun '' 'run for the first time'
+    
     # update config file to signal no longer first run
     SSBFirstRunSinceVersion=
     updateconfig=1
 fi
 
 if [ "$updateconfig" ] ; then
+
+    # failsafe -- we should never get here without already authenticating
+    authenticate updateconfig '' 'update configuration'
+    
     writeconfig "$myContents"
     [[ "$ok" ]] || abort "$errmsg" 1
 fi
@@ -552,4 +696,11 @@ fi
 
 # LAUNCH THE SSB
 
-exec "$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}"
+myCommand=("$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
+
+if [[ "$isAdmin" ]] ; then
+    # we're running as admin, so launch the SSB as the original user
+    exec sudo -u $USER "${myCommand[@]}"
+else
+    exec "${myCommand[@]}"
+fi

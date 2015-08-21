@@ -136,9 +136,10 @@ function onerr {
 	
 	# save old error message
 	local olderrmsg="$errmsg"
-
+	
 	# run the command
 	ok=1
+	errmsg=
 	try "$@"
 	local result="$?"
 	ok=
@@ -293,8 +294,8 @@ function safecopy {
 # RMTEMP: remove a temporary file or directory (whether $ok or not)
 function rmtemp {
     local temp="$1"
-    local filetype="$2"
-    
+    local filetype="$2"	
+
     # delete the temp file
     if [ -e "$temp" ] ; then
 	if [[ "$ok" ]] ; then
@@ -304,6 +305,27 @@ function rmtemp {
 	fi
     fi
     
+    [[ "$ok" ]] && return 0
+    return 1
+}
+
+
+# SETOWNER: set the owner of a directory tree or file to the owner of the app
+function setowner {  # APPPATH THISPATH PATHINFO
+
+    if [[ "$ok" ]] ; then
+
+	# get args
+	local appPath="$1"
+	local thisPath="$2"
+	local pathInfo="$3"
+	[[ "$pathInfo" ]] || pathInfo="path \"$2\""
+	
+	local appOwner=
+	try 'appOwner=' /usr/bin/stat -f '%Su' "$appPath" 'Unable to get owner of app bundle.'
+	try /usr/sbin/chown -R "$appOwner" "$thisPath" "Unable to set ownership of $pathInfo."
+    fi
+
     [[ "$ok" ]] && return 0
     return 1
 }
@@ -339,7 +361,6 @@ function dirlist {
 	done <<< "$files"
 
 	# copy array to output variable
-	echo "${outvar}=(${filteredfiles[@]})"
 	eval "${outvar}=(${filteredfiles[@]})"
     fi
     
@@ -519,6 +540,9 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	
 	# create temporary link
 	try /bin/ln -s "$chromeExec" "$tmpChromeLink" 'Unable to create link to Chrome executable.'
+	
+	# set ownership of Chrome link
+	setowner "$1/.." "$tmpChromeLink" "Chrome executable link"
 	
 	# overwrite permanent link
 	permanent "$tmpChromeLink" "$fullChromeLink" "Chrome executable link"
@@ -738,6 +762,9 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 		[[ "$ok" ]] || break
 	    done
 	fi
+
+	# set ownership of config file
+	setowner "$1/.." "$tmpAppConfigScript" "config file"
 	
 	# move the temp file to its permanent place
 	permanent "$tmpAppConfigScript" "$fullConfigScript" "config file"
@@ -760,6 +787,7 @@ function updatessb {
 	local appPath="$1"
 	local customIconFile="$2"
 	local chromeOnly="$3"  # if non-empty, we're ONLY updating Chrome stuff
+	local newApp="$4"  # if non-empty, we're creating a new app
 	
 	# initially set this to permanent Contents directory
 	local contentsTmp="$appPath/Contents"
@@ -774,11 +802,12 @@ function updatessb {
 	    
 	    # copy in the boilerplate for the app
 	    try /bin/cp -a "$mcssbPath/Contents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
+	    [[ "$ok" ]] || return 1
 	    
 	    # place custom icon, if any
 	    
 	    # check if we are copying from an old version of a custom icon
-	    if [ \( ! "$customIconFile" \) -a \( "$SSBCustomIcon" = "Yes" \) ] ; then
+	    if [[ ( ! "$customIconFile" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
 		customIconFile="$appPath/Contents/Resources/$CFBundleIconFile"
 	    fi
 	    
@@ -790,76 +819,81 @@ function updatessb {
 	    
 	    # link to Chrome
 	    linkchrome "$contentsTmp"
-	    
-	    # create a bundle identifier if necessary
-	    local idbase="org.epichrome.app."
-	    local idre="^${idbase//./\\.}"
-	    
-	    # make a new identifier if: either we're making a new SSB, or
-	    # updating an old enough version that there's either no
-	    # CFBundleIdentifier or an old format one
-	    
-	    if [[ ! "$CFBundleIdentifier" || ! ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
-		
-		# create a bundle identifier
-		local maxbidlength=$((30 - ${#idbase}))       # identifier must be 30 characters or less
-		local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
-		[ ! "$bid" ] && bid="generic"                 # if trimmed away to nothing, use a default name
-		bid="${bid::$maxbidlength}"
-		local bidbase="${bid::$(($maxbidlength - 3))}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
-		
-		# if this identifier already exists on the system, create a unique one
-		local idfound=0
-		local randext="000"
-		while [[ 1 ]] ; do
-		    CFBundleIdentifier="${idbase}$bid"
-		    try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 'Unable to search system for bundle identifier.'
 
-		    # exit loop on error, or on not finding this ID
-		    [[ "$ok" && "$idfound" ]] || break
+	    if [[ "$ok" ]] ; then
+		
+		# create a bundle identifier if necessary
+		local idbase="org.epichrome.app."
+		local idre="^${idbase//./\\.}"
+		
+		# make a new identifier if: either we're making a new SSB, or
+		# updating an old enough version that there's either no
+		# CFBundleIdentifier or an old format one
+		
+		if [[ ! "$CFBundleIdentifier" || ! ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
 		    
-		    # try to create a new unique ID
-		    randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-		    bid="${bid::$bidbase}${randext:1:3}"
-		done
-		
-		# if we got out of the loop, we have a unique ID (or we got an error)
-	    fi
-
-	    # set profile path
-	    appProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
-	    
-	    # get the old profile path, if any
-	    if [[ "$SSBProfilePath" ]] ; then
-		if [[ "$(isarray SSBProfilePath)" ]] ; then
-		    oldProfilePath="${SSBProfilePath[0]}"
-		else
-		    oldProfilePath="$SSBProfilePath"
+		    # create a bundle identifier
+		    local maxbidlength=$((30 - ${#idbase}))       # identifier must be 30 characters or less
+		    local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
+		    [ ! "$bid" ] && bid="generic"                 # if trimmed away to nothing, use a default name
+		    bid="${bid::$maxbidlength}"
+		    local bidbase="${bid::$(($maxbidlength - 3))}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
+		    
+		    # if this identifier already exists on the system, create a unique one
+		    local idfound=0
+		    local randext="000"
+		    while [[ 1 ]] ; do
+			CFBundleIdentifier="${idbase}$bid"
+			try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 'Unable to search system for bundle identifier.'
+			
+			# exit loop on error, or on not finding this ID
+			[[ "$ok" && "$idfound" ]] || break
+			
+			# try to create a new unique ID
+			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
+			bid="${bid::$bidbase}${randext:1:3}"
+		    done
+		    
+		    # if we got out of the loop, we have a unique ID (or we got an error)
 		fi
-	    else
-		# this is the old-style profile path, from before it got saved
-		oldProfilePath="Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
-	    fi
-	    
-	    # if old path is different, save it in an array for migration on first run
-	    if [[ "$oldProfilePath" != "$appProfilePath" ]] ; then
-		SSBProfilePath=("$appProfilePath" "$oldProfilePath")
-	    else
-		SSBProfilePath="$appProfilePath"
-	    fi
-	    
-	    # set up first-run notification
-	    if [[ "$SSBVersion" ]] ; then
-		SSBFirstRunSinceVersion="$SSBVersion"
-	    else
-		SSBFirstRunSinceVersion="0.0.0"
 	    fi
 
-	    # update SSBVersion
-	    SSBVersion="$mcssbVersion"
-
-	    # clear host install error state
-	    SSBHostInstallError=
+	    if [[ "$ok" ]] ; then
+		
+		# set profile path
+		local appProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
+		
+		# get the old profile path, if any
+		local oldProfilePath=
+		if [[ "$SSBProfilePath" ]] ; then
+		    if [[ "$(isarray SSBProfilePath)" ]] ; then
+			oldProfilePath="${SSBProfilePath[0]}"
+		    fi
+		elif [[ ! "$newApp" ]] ; then
+		    # this is the old-style profile path, from before it got saved
+		    oldProfilePath="Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
+		fi
+		
+		# if old path exists and is different, save it in an array for migration on first run
+		if [[ "$oldProfilePath" && ( "$oldProfilePath" != "$appProfilePath" ) ]] ; then
+		    SSBProfilePath=("$appProfilePath" "$oldProfilePath")
+		else
+		    SSBProfilePath="$appProfilePath"
+		fi
+		
+		# set up first-run notification
+		if [[ "$SSBVersion" ]] ; then
+		    SSBFirstRunSinceVersion="$SSBVersion"
+		else
+		    SSBFirstRunSinceVersion="0.0.0"
+		fi
+		
+		# update SSBVersion
+		SSBVersion="$mcssbVersion"
+		
+		# clear host install error state
+		SSBHostInstallError=
+	    fi
 	elif [[ ! "$SSBVersion" ]] ; then
 
 	    # this should never be reached, but just in case, we set SSBVersion
@@ -878,28 +912,33 @@ function updatessb {
 	# copy scripting.sdef
 	safecopy "$chromeScriptingSdef" "$contentsTmp/$appScriptingSdef" "Chrome scripting.sdef file"
 	
-	
 	# WRITE OUT CONFIG FILE
 	
-	# set up output versions of Chrome variables
-	SSBChromePath="$chromePath"    
-	SSBChromeVersion="$chromeVersion"
+	if [[ "$ok" ]] ; then
+	    # set up output versions of Chrome variables
+	    SSBChromePath="$chromePath"    
+	    SSBChromeVersion="$chromeVersion"
+	fi
 	
-	# write the config file
 	writeconfig "$contentsTmp"
+	
+	# set ownership of app bundle to this user (only necessary if running as admin)
+	setowner "$appPath" "$contentsTmp" "app bundle Contents directory"
 	
 	
 	# MOVE CONTENTS TO PERMANENT HOME
 	
-	if [ ! "$chromeOnly" ] ; then
-	    # only need to do this if we were doing a full update
-	    permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
+	if [[ "$ok" ]] ; then
+	    if [[ ! "$chromeOnly" ]] ; then
+		# only need to do this if we were doing a full update
+		permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
+	    fi
 	else
 	    # remove temp contents on error
-	    [[ "$ok" ]] || rmtemp "$contentsTmp" 'Contents folder'
+	    rmtemp "$contentsTmp" 'Contents folder'
 	fi
     fi
-    
+
     [[ "$ok" ]] && return 0
     return 1    
 }

@@ -57,6 +57,9 @@ on step()
 	return "Step " & curStep & " of " & numSteps
 end step
 
+-- HAVE WE AUTHENTICATED?
+set isAuthenticated to false
+
 -- BUILD REPRESENTATION OF BROWSER TABS
 on tablist(tabs, tabnum)
 	local ttext
@@ -394,6 +397,8 @@ App: " & ssbName & "
 
 Menubar Name: " & ssbShortName & "
 
+Path: " & ssbDir & "
+
 "
 								if ssbStyle is "App Window" then
 									set ssbSummary to ssbSummary & "Style: App Window
@@ -444,25 +449,59 @@ Icon: "
 									
 									-- CREATE THE SSB
 									
-									try
-										do shell script chromeSSBScript & " " & Â
-											(quoted form of ssbPath) & " " & Â
-											(quoted form of ssbBase) & " " & Â
-											(quoted form of ssbShortName) & " " & Â
-											(quoted form of ssbIconSrc) & " " & Â
-											(quoted form of doRegisterBrowser) & " " & Â
-											ssbCmdLine
-										set creationSuccess to true
-									on error errStr number errNum
+									repeat
+										set creationSuccess to false
 										try
-											display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
-											return -- Quit button
-										on error number -128 -- Back button
-											set creationSuccess to false
+											do shell script chromeSSBScript & " " & Â
+												(quoted form of ssbPath) & " " & Â
+												(quoted form of ssbBase) & " " & Â
+												(quoted form of ssbShortName) & " " & Â
+												(quoted form of ssbIconSrc) & " " & Â
+												(quoted form of doRegisterBrowser) & " " & Â
+												ssbCmdLine
+											set creationSuccess to true
+										on error errStr number errNum
+											
+											-- if we couldn't create the app, try with admin privileges
+											if errStr is "PERMISSION" then
+												try
+													if not isAuthenticated then
+														display dialog "Creating an app in \"" & ssbDir & "\" requires an administrator name and password." with icon myIcon buttons {"Authenticate", "Cancel"} default button "Cancel" cancel button "Cancel" with title "Authentication Required"
+														set isAuthenticated to true
+													end if
+													
+													try
+														do shell script chromeSSBScript & " " & Â
+															(quoted form of ssbPath) & " " & Â
+															(quoted form of ssbBase) & " " & Â
+															(quoted form of ssbShortName) & " " & Â
+															(quoted form of ssbIconSrc) & " " & Â
+															(quoted form of doRegisterBrowser) & " " & Â
+															ssbCmdLine with administrator privileges
+														set creationSuccess to true
+													on error errStr number errNum
+														if errNum is -128 then
+															exit repeat
+														else if errStr is "PERMISSION" then
+															set errStr to "Permission denied."
+														end if
+													end try
+												on error number -128 -- authentication Cancel button
+													exit repeat
+												end try
+												
+											end if
+											
+											if not creationSuccess then
+												try
+													display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
+													return -- Quit button
+												on error number -128 -- Back button
+													exit repeat
+												end try
+											end if
 										end try
-									end try
-									
-									if creationSuccess then
+										
 										-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 										try
 											set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
@@ -487,7 +526,8 @@ Icon: "
 										end if
 										
 										return -- We're done!
-									end if
+										
+									end repeat
 									
 								end repeat
 								
