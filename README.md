@@ -35,7 +35,7 @@ The Chrome profile for an app lives in: ${HOME}/Library/Application Support/Epic
 
 It's not currently possible to "edit" an app. You'd need to first delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, then the new app will end up with the same ID, and thus use the existing Chrome profile and you won't need to re-create your settings.
 
-Alternately, you can alwasys copy an existing profile folder to a new name to copy settings between apps.
+Alternately, you can always copy an existing profile folder to a new name to copy settings between apps.
 
 
 ## Issues
