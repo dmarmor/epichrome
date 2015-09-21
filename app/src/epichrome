@@ -177,71 +177,76 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 # AUTHENTICATE -- relaunch authenticated if necessary
 isAuthenticated=
 function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, return 1 on auth fail)
-
-    # get ID of this authentication to pass to self
-    local id="$1"
-    shift
-    [[ "$id" ]] || id="admin"
     
-    # build preamble
-    local preamble="$1"
-    shift
-    [[ "$preamble" ]] && preamble="$preamble "
-    
-    # build alert message
-    local msg="$1"
-    shift
-    [[ ! "$msg" ]] && msg="update"
-    
-    # get nonfatal argument
-    local nonfatal="$1"
-    
-    # only check if we're not already authenticated
-    if [[ ! "$isAuthenticated" ]] ; then
+    # only run if no error
+    if [[ "$ok" ]]; then
 	
-	# try to touch the app bundle--if we can, we have the privileges we need
-	cmdtext=$(/usr/bin/touch "$myPath" 2>&1)
+	# get ID of this authentication to pass to self
+	local id="$1"
+	shift
+	[[ "$id" ]] || id="admin"
 	
-	if [[ "$?" != 0 ]] ; then
+	# build preamble
+	local preamble="$1"
+	shift
+	[[ "$preamble" ]] && preamble="$preamble "
+	
+	# build alert message
+	local msg="$1"
+	shift
+	[[ ! "$msg" ]] && msg="update"
+	
+	# get nonfatal argument
+	local nonfatal="$1"
+	
+	# only check if we're not already authenticated
+	if [[ ! "$isAuthenticated" ]] ; then
+	    
+	    # try to touch the app bundle--if we can, we have the privileges we need
+	    cmdtext=$(/usr/bin/touch "$myPath" 2>&1)
+	    
+	    if [[ "$?" != 0 ]] ; then
 
-	    local doAuth=
-	    errre='Permission denied$'
-	    if [[ ! "$cmdtext" =~ $errre ]] ; then
-		
-		# some other error (not permission denied)
-		msg="Error attempting to determine if authentication is required."
-		
-		if [[ "$nonfatal" ]] ; then
-		    alert "$msg" 'Warning' '|caution'
+		local doAuth=
+		errre='Permission denied$'
+		if [[ ! "$cmdtext" =~ $errre ]] ; then
+		    
+		    # some other error (not permission denied)
+		    msg="Error attempting to determine if authentication is required."
+		    
+		    if [[ "$nonfatal" ]] ; then
+			alert "$msg" 'Warning' '|caution'
+		    else
+			abort "$msg" 1
+		    fi
 		else
-		    abort "$msg" 1
+		    
+		    # permission denied to touch this file--ask to authenticate
+		    dialog doAuth "${preamble}In order to $msg, the app must run with administrator privileges." "Authentication Required" "|caution" "Authenticate" "+Cancel"
+		    
+		    # user wants to authenticate
+		    if [[ "$doAuth" = "Authenticate" ]] ; then
+			
+			# replace ourself with an authenticated version
+			#of the same script running with admin privileges
+			#exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
+			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " " & (quoted form of "'"$id"'") with administrator privileges'
+			
+		    elif [[ "$nonfatal" ]] ; then
+			return 1
+		    else
+			abort "Please relaunch with administrator privileges." 1
+		    fi
 		fi
 	    else
-		
-		# permission denied to touch this file--ask to authenticate
-		dialog doAuth "${preamble}In order to $msg, the app must run with administrator privileges." "Authentication Required" "|caution" "Authenticate" "+Cancel"
-		
-		# user wants to authenticate
-		if [[ "$doAuth" = "Authenticate" ]] ; then
-		    
-		    # replace ourself with an authenticated version
-		    #of the same script running with admin privileges
-		    #exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
-		    exec osascript -e 'do shell script (quoted form of "'"$0"'") & " " & (quoted form of "'"$id"'") with administrator privileges'
-		    
-		elif [[ "$nonfatal" ]] ; then
-		    return 1
-		else
-		    abort "Please relaunch with administrator privileges." 1
-		fi
+		isAuthenticated=1
 	    fi
-	else
-	    isAuthenticated=1
 	fi
     fi
     
     # all went well, we are authenticated!
-    return 0
+    [[ "$ok" ]] && return 0
+    return 1
 }
 
 
@@ -294,14 +299,14 @@ myProfilePath="${HOME}/$SSBProfilePath"
 # by default we don't need to update the config file
 updateconfig=
 
-# we've done a bunch of stuff--abort if any of it has gone wrong
-[[ "$ok" ]] || abort "$errmsg" 1
-
 
 # CHECK AND UPDATE CHROME LINKS
 
 # get Google Chrome info
 chromeinfo
+
+# we've done a bunch of stuff--abort if any of it has gone wrong
+[[ "$ok" ]] || abort "$errmsg" 1
 
 # update config variable
 if [ "$SSBChromePath" != "$chromePath" ] ; then

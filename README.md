@@ -1,6 +1,6 @@
-# Epichrome 2.1.5
+# Epichrome 2.1.6
 
-**Note: If you're using 2.1.2, please update to 2.1.5 as soon as possible. There's a bug that will cause the app to fail silently on startup errors.**
+**Note: If you're using 2.1.2, please update to 2.1.6 as soon as possible. There's a bug that will cause the app to fail silently on startup errors.**
 
 **Epichrome** (formerly MakeChromeSSB) is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -11,9 +11,11 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.5.
+## New in version 2.1.6.
 
-- Added the ability for non-administrator users to create and update Epichrome apps anywhere on the system by entering an admin password using Apple's authentication window.
+Epichrome should now do its best to run robustly even when Spotlight indexing is turned off. Note that if you do have Spotlight indexing off, your Epichrome apps will *not* update themselves automatically (because they can't find Epichrome without Spotlight).
+
+*Important:* You'll need to turn Spotlight on temporarily and run each of your apps to get them to update to 2.1.6 (previous versions won't recognize there's a new version installed without Spotlight). Starting with version 2.1.6, your apps will automatically update, but *only if* Epichrome is installed exactly in: /Applications/Epichrome.app.
 
 
 ## New in version 2.1
@@ -27,20 +29,22 @@ See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHA
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.10.4 with Chrome version 43.0.2357.134 (64-bit).
+Built and tested on Mac OS X 10.10.5 with Chrome version 45.0.2454.93 (64-bit).
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 
 The Chrome profile for an app lives in: ${HOME}/Library/Application Support/Epichrome/Apps/<app-id>
 
-It's not currently possible to "edit" an app. You'd need to first delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, then the new app will end up with the same ID, and thus use the existing Chrome profile and you won't need to re-create your settings.
+It's not currently possible to "edit" an app. In order to change an app, you'll need to first make sure Spotlight indexing is on for the root volume. Delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, the new app will end up with the same ID (this will *only* work if Spotlight indexing is on; otherwise Epichrome always tries to create a unique-looking ID). If all goes well, the new app will use the existing Chrome profile and you won't need to re-create your settings.
 
-Alternately, you can always copy an existing profile folder to a new name to copy settings between apps.
+Alternately (or if you don't want Spotlight indexing on), you can always copy existing profile folders to a new name to copy settings between apps.
 
 
 ## Issues
 
-None known at this time, but the extension is brand-new and there have been numerous changes to the runtime engine, so things will certainly crop up. Please open an [issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "Issues") for any bugs you find or features you'd like to request, and I'll get to them as soon as I can.
+On certain webside, buttons (or other non-<A> tag items) open links. The way Chrome handles these, the helper extension doesn't currently catch them, so can't redirect them. I'm looking at ways around this, but for now such links just open in the Epichrome app. If you're experiencing this, there's an [open issue](https://github.com/dmarmor/epichrome/issues/27 "Gmail shortcut links aren't delegated #27") where you can add your input.
+
+If you notice any other bugs, or have feature requests, please open a [new issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "New Issue"). I'll get to them as soon as I can.
 
 
 ## Future Development

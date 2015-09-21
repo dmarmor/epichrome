@@ -65,6 +65,7 @@ function try {
 	# see if we're storing output
 	local target="$1"
 	local type="${target:${#target}-1}"
+	local ignorestderr=1
 	if [[ "$type" = "=" ]]; then
 	    # storing in a variable
 	    target="${target%=}"
@@ -85,6 +86,13 @@ function try {
 	    target='/dev/null'
 	    type=
 	fi
+
+	# determine handling of stderr
+	if [[ "${target:${#target}-1}" = '&' ]] ; then
+	    # keep stderr
+	    target="${target%&}"
+	    ignorestderr=
+	fi
 	
 	# get command-line args
 	local args=("$@")
@@ -99,22 +107,37 @@ function try {
 	if [[ "$type" = var ]] ; then
 	    # store result in named variable
 	    local temp=
-	    temp="$("${args[@]}" 2>&1)"
-	    result="$?"
+	    if [[ "$ignorestderr" ]] ; then
+		temp="$("${args[@]}" 2> /dev/null)"
+		result="$?"
+	    else
+		temp="$("${args[@]}" 2>&1)"
+		result="$?"
+	    fi
 	    
 	    # escape special characters
 	    eval "${target}=$(printf '%q' "$temp")"
 	    
 	elif [[ "$type" = append ]] ; then
 	    # append result to a file or /dev/null
-	    "${args[@]}" >> "$target" 2>&1
-	    result="$?"
+	    if [[ "$ignorestderr" && ( "$target" != '/dev/null' ) ]] ; then
+		"${args[@]}" >> "$target" 2> /dev/null
+		result="$?"
+	    else
+		"${args[@]}" >> "$target" 2>&1
+		result="$?"
+	    fi
 	else
 	    # store result in a file or /dev/null
-	    "${args[@]}" > "$target" 2>&1
-	    result="$?"
+	    if [[ "$ignorestderr" && ( "$target" != '/dev/null' ) ]] ; then
+		"${args[@]}" > "$target" 2> /dev/null
+		result="$?"
+	    else
+		"${args[@]}" > "$target" 2>&1
+		result="$?"
+	    fi
 	fi
-
+	
 	# check result
 	if [[ "$result" != 0 ]]; then
 	    [[ "$myerrmsg" ]] && errmsg="$myerrmsg"
@@ -413,16 +436,27 @@ function mcssbinfo {
 	else
 	    # otherwise use spotlight to find it
 	    if [ ! -d "$mcssbPath" ] ; then
-		# try new app ID first
+		
 		mcssbPath=
-		try 'mcssbPath=' mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.builder'" 'Unable to find Epichrome.'
-		if [[ ! "$mcssbPath" ]]; then
-		    try 'mcssbPath=' mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" 'Unable to find Epichrome.'
-		fi
-		# pull out the first instance
+		
+		# try new app ID first
+		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.builder'" 2> /dev/null)
 		mcssbPath="${mcssbPath%%$'\n'*}"
+		
+		# new app ID failed, try old app ID
+		if [[ ! -d "$mcssbPath" ]]; then
+		    mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" 2> /dev/null)
+		    mcssbPath="${mcssbPath%%$'\n'*}"
+		fi
+		
+		# old app ID failed too, maybe Spotlight is off, try last-ditch
+		if [[ ! -d "$mcssbPath" ]]; then
+		    mcssbPath='/Applications/Epichrome.app'
+		fi
 	    fi
 	fi
+
+	echo "got here"
 	
 	# not found
 	if [[ ! -d "$mcssbPath" ]] ; then
@@ -442,77 +476,175 @@ function mcssbinfo {
 
 
 # CHROMEINFO: find absolute paths to and info on relevant Google Chrome items
-function chromeinfo {
-    
+function chromeinfo {  # $1 == FALLBACKLEVEL
+
     if [[ "$ok" ]]; then
 	
-	# default location for Chrome -- first try the config value
-	if [ "$SSBChromePath" ] ; then
-	    chromePath="$SSBChromePath"
-	else
-	    chromePath=
-	fi
+	# Chrome identifier
+	local CFBundleIdentifier='com.google.Chrome'
 
-	# if it's not where we left it, try using spotlight
-	if [ ! -d "$chromePath" ] ; then
-	    try 'chromePath=' mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'" ''
+	# holder for Info.plist file
+	local infoplist=
+
+	# save fallback level
+	local fallback="$1"
+
+	# determines if we need to check Chrome's ID
+	local checkid=
+	
+	if [[ ! "$fallback" ]] ; then
+
+	    # this is our first try finding Chrome -- use the config value, if any, or default location
+	    chromePath="$SSBChromePath"
+
+	    # next option is try the default install location
+	    fallback=DEFAULT
+	    
+	elif [[ "$fallback" = DEFAULT ]] ; then
+
+	    # try the default install location
+	    chromePath='/Applications/Google Chrome.app'
+	    
+	    # we need to check the app's ID
+	    checkid=1
+	    
+	    # if this fails, next stop is Spotlight search
+	    fallback=SPOTLIGHT
+	    
+	elif [[ "$fallback" = SPOTLIGHT ]] ; then
+	    
+	    # try using Spotlight to find Chrome
+	    chromePath=$(mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 2> /dev/null)
 	    
 	    # find first instance
-	    chromePath="${chromePath%%$'\n'*}"	    
-	fi
-	
-	if [[ ! "$ok" || ! -d "$chromePath" ]] ; then
+	    chromePath="${chromePath%%$'\n'*}"
+	    
+	    # if this fails, the final stop is manual selection
+	    fallback=MANUAL
+
+	else # "$fallback" = MANUAL
 	    
 	    # last-ditch - ask the user to locate it
-	    try 'chromePath=' osascript -e 'return POSIX path of (choose application with title "Locate Chrome" with prompt "Please locate Google Chrome" as alias)'
+	    try 'chromePath=' osascript -e 'return POSIX path of (choose application with title "Locate Chrome" with prompt "Please locate Google Chrome" as alias)' ''
 	    chromePath="${chromePath%/}"
 	    
-	    if [ ! -d "$chromePath" ] ; then
+	    if [[ ! "$ok" || ! -d "$chromePath" ]] ; then
+		
+		# NOW it's an error -- we've failed to find Chrome
 		chromePath=
 		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
 		errmsg="Unable to find Google Chrome application.$errmsg"
 		ok=
 		return 1
 	    fi
-	fi
 
-	# if we hit an error, abort
-	[[ "$ok" ]] || return 1
+	    # we need to check the ID
+	    checkid=1
+	    
+	    # don't change the fallback -- we'll just keep doing this
+	fi
 	
-	# Chrome executable
+	# create paths to necessary components
 	chromeExec="${chromePath}/Contents/MacOS/Google Chrome"
-	if [ ! -x "$chromeExec" ] ; then
-	    chromeExec=
-	    errmsg='Unable to find Google Chrome executable.'
-	    ok=
-	    return 1
-	fi
-	
-	# Chrome Info.plist
 	chromeInfoPlist="${chromePath}/Contents/Info.plist"
-	if [ ! -e "$chromeInfoPlist" ] ; then
-	    chromeInfoPlist=
-	    errmsg='Unable to find Google Chrome Info.plist file.'
-	    ok=
-	    return 1
-	fi
-	
-	# Chrome scripting.sdef
 	chromeScriptingSdef="${chromePath}/Contents/Resources/scripting.sdef"
-	if [ ! -e "$chromeScriptingSdef" ] ; then
-	    chromeScriptingSdef=
-	    errmsg='Unable to find Google Chrome scripting.sdef file.'
-	    ok=
-	    return 1
+	
+	# check that all necessary components exist
+	local fail=
+	if [[ ! ( -d "$chromePath" && -e "$chromeInfoPlist" ) ]] ; then
+	    fail=1
+	else
+	    if [[ "$checkid" ]] ; then
+		
+		# we need to check the app's ID, so do that now
+		
+		local re='<key>CFBundleIdentifier</key>[
+ 	]*<string>([^<]*)</string>'
+		infoplist=$(/bin/cat "${chromePath}/Contents/Info.plist" 2> /dev/null)
+		if [[ $? != 0 ]] ; then
+		    errmsg="Unable to read Chrome Info.plist. $fallback $chromePath"
+		    ok=
+		    return 1
+		fi
+		
+		# check the app bundle's identifier against Chrome's
+		if [[ "$infoplist" =~ $re ]] ; then
+		    
+		    # wrong identifier, so we need to try again
+		    [[ "${BASH_REMATCH[1]}" != "$CFBundleIdentifier" ]] && fail=1
+		else
+		    # error -- failed to find the identifier
+		    errmsg="Unable to retrieve Chrome identifier."
+		    ok=
+		    return 1
+		fi
+	    fi
+
+	    if [[ ! "$fail" ]] ; then
+
+		# make sure important Chrome-specific files are in place
+		if [[ ! ( -x "$chromeExec" && -e "$chromeScriptingSdef" ) ]] ; then
+		    
+		    # these errors are fatal
+		    
+		    if [[ ! -x "$chromeExec" ]] ; then
+			errmsg='Unable to find Google Chrome executable.'
+		    else
+			errmsg='Unable to find Google Chrome scripting.sdef file.'
+		    fi
+		
+		    # set error variables and quit
+		    ok=
+		    chromePath=
+		    chromeExec=
+		    chromeInfoPlist=
+		    chromeScriptingSdef=
+		    return 1
+		fi
+	    fi
 	fi
 
-	# Chrome version
+	# fall back to another method of finding Chrome if necessary
+	if [[ "$fail" ]] ; then
+	    chromeinfo "$fallback"
+	    return $?
+	fi
+	
+	# if we got here, we have a complete copy of Chrome, so get the version
+	
+	# Chrome version -- first try to get it via Spotlight
 	local re='^kMDItemVersion = "(.*)"$'
-	try 'chromeVersion=' mdls -name kMDItemVersion "$chromePath" 'Unable to retrieve Chrome version.'
-	[[ "$ok" ]] || return 1
-	if [[ "$chromeVersion" =~ $re ]] ; then
+	try 'chromeVersion=' mdls -name kMDItemVersion "$chromePath" ''
+	if [[ "$ok" && ( "$chromeVersion" =~ $re ) ]] ; then
 	    chromeVersion="${BASH_REMATCH[1]}"
 	else
+
+	    # Spotlight failed -- try searching the Info.plist file manually
+	    ok=1
+	    errmsg=
+	    chromeVersion=
+	    
+	    local re='<key>CFBundleShortVersionString</key>[
+ 	]*<string>([^<]*)</string>'
+	    
+	    # read Info.plist (if we didn't already)
+	    if [[ ! "$infoplist" ]] ; then
+		infoplist=$(/bin/cat "$chromeInfoPlist" 2> /dev/null)
+		if [[ $? != 0 ]] ; then
+		    errmsg='Unable to read Chrome Info.plist.'
+		    ok=
+		    return 1
+		fi
+	    fi
+	    
+	    # try to get the version out of it
+	    if [[ "$infoplist" =~ $re ]] ; then
+		chromeVersion="${BASH_REMATCH[1]}"
+	    fi
+	fi
+	
+	# check for error
+	if [[ ! "$ok" || ! "$chromeVersion" ]] ; then
 	    chromeVersion=
 	    errmsg='Unable to retrieve Chrome version.'
 	    ok=
@@ -603,7 +735,7 @@ function writeplist {  # $1 = destination app bundle Contents directory
 	
 	# run python script to filter Info.plist
 	local pyerr=
-	try 'pyerr=' python "$1/Resources/Scripts/infoplist.py" \
+	try 'pyerr&=' python "$1/Resources/Scripts/infoplist.py" \
 	    "$chromeInfoPlist" \
 	    "$tmpInfoPlist" \
 	    "${filterkeys[@]}" 'Error filtering Info.plist file.'
@@ -654,7 +786,7 @@ function copychromelproj {  # $1 = destination app bundle Contents directory
 	
 	# run python script to filter the InfoPlist.strings files for the .lproj directories
 	local pyerr=
-	try 'pyerr=' /usr/bin/python \
+	try 'pyerr&=' /usr/bin/python \
 	    "$appResources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$newlprojholder/"*.lproj \
 	    'Error filtering Info.plist.'
 	[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
@@ -837,24 +969,43 @@ function updatessb {
 		    local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
 		    [ ! "$bid" ] && bid="generic"                 # if trimmed away to nothing, use a default name
 		    bid="${bid::$maxbidlength}"
-		    local bidbase="${bid::$(($maxbidlength - 3))}" ; bidbase="${#bidbase}"  # length of the ID's base if using uniquifying numbers
+		    local bidbase="${bid::$(($maxbidlength - 3))}"
+		    bidbase="${#bidbase}"                         # length of the ID's base if using uniquifying numbers
+		    CFBundleIdentifier="${idbase}$bid"            # set initial identifier
 		    
 		    # if this identifier already exists on the system, create a unique one
 		    local idfound=0
 		    local randext="000"
+
+		    # determine if Spotlight is enabled for the root volume
+		    local spotlight=$(mdutil -s / 2> /dev/null)
+		    if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
+			spotlight=1
+		    else
+			spotlight=
+		    fi
+		    
 		    while [[ 1 ]] ; do
-			CFBundleIdentifier="${idbase}$bid"
-			try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 'Unable to search system for bundle identifier.'
-			
-			# exit loop on error, or on not finding this ID
-			[[ "$ok" && "$idfound" ]] || break
+
+			if [[ "$spotlight" ]] ; then
+			    try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" \
+				'Unable to search system for bundle identifier.'
+			    
+			    # exit loop on error, or on not finding this ID
+			    [[ "$ok" && "$idfound" ]] || break
+			fi
 			
 			# try to create a new unique ID
 			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
 			bid="${bid::$bidbase}${randext:1:3}"
+			CFBundleIdentifier="${idbase}$bid"
+			
+			# if we don't have spotlight we'll just use the first randomly-generated ID
+			[[ ! "$spotlight" ]] && break
+			
 		    done
 		    
-		    # if we got out of the loop, we have a unique ID (or we got an error)
+		    # if we got out of the loop, we have a unique-ish ID (or we got an error)
 		fi
 	    fi
 

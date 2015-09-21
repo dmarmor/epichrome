@@ -126,7 +126,7 @@ if [ "$iconSource" ] ; then
     customIconTmp=$(tempname "${appTmp}/${customIconName}" ".icns")
     
     # convert image into an ICNS
-    try 'makeiconerr=' "$makeIconScript" -f "$iconSource" "$customIconTmp" ''
+    try 'makeiconerr&=' "$makeIconScript" -f "$iconSource" "$customIconTmp" ''
     result="$?"
     
     # handle results

@@ -1,6 +1,10 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.6] - 2015-09-21
+### Fixed
+- Epichrome now does its best to run robustly even when Spotlight indexing is turned off.
+
 ## [2.1.5] - 2015-08-21
 ### Changed
 - Added the ability to create an Epichrome app in the Applications directory (or really anywhere), even if the user running Epichrome is not an administrator. Epichrome will attempt to invoke admin privileges. Thanks to [Zettt](https://github.com/Zettt "Zettt") for suggesting this.
