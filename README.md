@@ -17,6 +17,8 @@ Epichrome should now do its best to run robustly even when Spotlight indexing is
 
 *Important:* You'll need to turn Spotlight on temporarily and run each of your apps to get them to update to 2.1.6 (previous versions won't recognize there's a new version installed without Spotlight). Starting with version 2.1.6, your apps will automatically update, but *only if* Epichrome is installed exactly in: /Applications/Epichrome.app.
 
+Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat"), [TraderStf](https://github.com/TraderStf "TraderStf") and [breeden](https://github.com/breeden "breeden") for identifying and helping diagnose this!
+
 
 ## New in version 2.1
 

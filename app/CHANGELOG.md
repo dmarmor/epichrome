@@ -3,7 +3,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.1.6] - 2015-09-21
 ### Fixed
-- Epichrome now does its best to run robustly even when Spotlight indexing is turned off.
+- Epichrome now does its best to run robustly even when Spotlight indexing is turned off. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat"), [TraderStf](https://github.com/TraderStf "TraderStf") and [breeden](https://github.com/breeden "breeden") for identifying and helping diagnose this.
+
 
 ## [2.1.5] - 2015-08-21
 ### Changed
