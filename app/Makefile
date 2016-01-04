@@ -27,12 +27,12 @@ HELPERBG:=../helper/src/background.js
 DEBUG_UPDATE_FREQ:=30
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
-HELPERID_DEBUG1:=kgjjaagidkkjmochgjapgepeecdgdple
-HELPERID_DEBUG2:=pdofehfblahphhhpffpbihdkffkgnbnp
+HELPERID_INPLACE:=jpfekcccdbechegofpnjgnacicmoieoe
+HELPERID_DEBUG:=mimehlkkdehijopnahjpgcbmalichlfe
 
 HOSTMANIFEST_SED_COMMON:=s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; 
 HOSTMANIFEST_SED_RELEASE:=s/SSBHELPERID/${HELPERID}/
-HOSTMANIFEST_SED_DEBUG:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG1}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG2}\/"/
+HOSTMANIFEST_SED_DEBUG:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_INPLACE}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG}\/"/
 
 HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_RELEASE}'
 
