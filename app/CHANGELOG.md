@@ -1,7 +1,7 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.1.7] - 2016-01-21
+## [2.1.7] - 2016-01-22
 ### Fixed
 - Fixed an incompatibility with Chrome 48.0.2564.82. For whatever reason, Epichrome apps would no longer run unless they had a link to the Chrome Versions directory in their bundles. This update adds that link.
 
