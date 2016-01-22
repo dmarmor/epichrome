@@ -42,6 +42,7 @@ appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
 appScriptingSdef="Resources/scripting.sdef"
 appChromeLink="MacOS/Chrome"
+appChromeVersionsLink="Versions"
 
 # profile base
 appProfileBase="Library/Application Support/Epichrome/Apps"
@@ -455,8 +456,6 @@ function mcssbinfo {
 		fi
 	    fi
 	fi
-
-	echo "got here"
 	
 	# not found
 	if [[ ! -d "$mcssbPath" ]] ; then
@@ -546,6 +545,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# create paths to necessary components
 	chromeExec="${chromePath}/Contents/MacOS/Google Chrome"
+	chromeVersions="${chromePath}/Contents/Versions"
 	chromeInfoPlist="${chromePath}/Contents/Info.plist"
 	chromeScriptingSdef="${chromePath}/Contents/Resources/scripting.sdef"
 	
@@ -657,27 +657,34 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 }
 
 
-# LINKCHROME: link to absolute path to Google Chrome executable inside its app bundle
+# LINKCHROME: link to absolute path to Google Chrome executable &
+#             Versions directory inside Chrome app bundle
 function linkchrome {  # $1 = destination app bundle Contents directory
 
     if [[ "$ok" ]]; then
+    
 	# full path to Chrome link
 	local fullChromeLink="$1/$appChromeLink"
+	local fullChromeVersionsLink="$1/$appChromeVersionsLink"
 	
 	# find Chrome paths if necessary
-	[[ "$chromePath" ]] || chromeinfo
+	[[ "$chromePath" && "$chromeVersions" ]] || chromeinfo
 	
 	# make the new link in a temporary location
 	local tmpChromeLink=$(tempname "$fullChromeLink")
+	local tmpChromeVersionsLink=$(tempname "$fullChromeVersionsLink")
 	
-	# create temporary link
-	try /bin/ln -s "$chromeExec" "$tmpChromeLink" 'Unable to create link to Chrome executable.'
+	# create temporary links
+	try /bin/ln -s "$chromeExec" "$tmpChromeLink" 'Unable to create link to Chrome executable.'	
+	try /bin/ln -s "$chromeVersions" "$tmpChromeVersionsLink" 'Unable to create link to Chrome Versions directory.'
 	
-	# set ownership of Chrome link
+	# set ownership of Chrome links
 	setowner "$1/.." "$tmpChromeLink" "Chrome executable link"
+	setowner "$1/.." "$tmpChromeVersionsLink" "Chrome Versions directory link"
 	
 	# overwrite permanent link
 	permanent "$tmpChromeLink" "$fullChromeLink" "Chrome executable link"
+	permanent "$tmpChromeVersionsLink" "$fullChromeVersionsLink" "Chrome Versions directory link"
     fi
     
     [[ "$ok" ]] && return 0

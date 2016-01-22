@@ -1,6 +1,14 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.7] - 2016-01-21
+### Fixed
+- Fixed an incompatibility with Chrome 48.0.2564.82. For whatever reason, Epichrome apps would no longer run unless they had a link to the Chrome Versions directory in their bundles. This update adds that link.
+
+Thank to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), 
+and everyone else who pointed this issue out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
+
+
 ## [2.1.6] - 2015-09-21
 ### Fixed
 - Epichrome now does its best to run robustly even when Spotlight indexing is turned off. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat"), [TraderStf](https://github.com/TraderStf "TraderStf") and [breeden](https://github.com/breeden "breeden") for identifying and helping diagnose this.

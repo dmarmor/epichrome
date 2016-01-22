@@ -1,8 +1,6 @@
-# Epichrome 2.1.6
+# Epichrome 2.1.7
 
-**Note: If you're using 2.1.2, please update to 2.1.6 as soon as possible. There's a bug that will cause the app to fail silently on startup errors.**
-
-**Epichrome** (formerly MakeChromeSSB) is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
+**Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
 Each app automatically installs *Epichrome Helper*, which uses rules to decide which links the app should handle itself, and which should be sent to the default web browser.
 
@@ -11,13 +9,12 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.6.
+## New in version 2.1.7.
 
-Epichrome should now do its best to run robustly even when Spotlight indexing is turned off. Note that if you do have Spotlight indexing off, your Epichrome apps will *not* update themselves automatically (because they can't find Epichrome without Spotlight).
+This version fixes an incompatibility that has arisen with the release (on January 21, 2016) of Chrome 48.0.2564.82. This update was breaking all Epichrome apps. If your apps no longer start, install Epichrome 2.1.7 and run them again. Each one should offer you the choice of updating to 2.1.7, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
 
-*Important:* You'll need to turn Spotlight on temporarily and run each of your apps to get them to update to 2.1.6 (previous versions won't recognize there's a new version installed without Spotlight). Starting with version 2.1.6, your apps will automatically update, but *only if* Epichrome is installed exactly in: /Applications/Epichrome.app.
-
-Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat"), [TraderStf](https://github.com/TraderStf "TraderStf") and [breeden](https://github.com/breeden "breeden") for identifying and helping diagnose this!
+Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), 
+and everyone else who pointed this problem out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
 
 
 ## New in version 2.1
