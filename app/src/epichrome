@@ -319,11 +319,12 @@ if [ "$SSBChromePath" != "$chromePath" ] ; then
     fi
 fi
 
-# check if the Chrome link is either: not a link; not executable; or not pointing to the real Chrome executable
-myChromeLink="$myContents/$appChromeLink"
-if [[ ( ! -h "$myChromeLink" ) || \
-	  ( ! -x "$myChromeLink" ) || \
-	  ( "$chromeExec" != "$(readlink "$myChromeLink" 2> /dev/null)" ) ]] ; then
+# check if the Chrome engine executable is either:
+# not a link; not executable; or not pointing to the real Chrome executable
+myChromeExec="$myContents/$appChromeEngine/$engineExec"
+if [[ ( ! -h "$myChromeExec" ) || \
+	  ( ! -x "$myChromeExec" ) || \
+	  ( "$chromeExec" != "$(readlink "$myChromeExec" 2> /dev/null)" ) ]] ; then
 
     # (note that readlink can fail silently--all it means is we'll do the update
 
@@ -337,8 +338,8 @@ if [[ ( ! -h "$myChromeLink" ) || \
     if [[ "$isAdmin" != relink ]] ; then
 	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
     fi
-
-    # relink to Google Chrome
+    
+    # relink to Google Chrome engine
     linkchrome "$myContents"
     
     # abort if we failed to relink Chrome
@@ -701,7 +702,7 @@ fi
 
 # LAUNCH THE SSB
 
-myCommand=("$myChromeLink" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
+myCommand=("$myChromeExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
 
 if [[ "$isAdmin" ]] ; then
     # we're running as admin, so launch the SSB as the original user

@@ -34,15 +34,19 @@ CFBundleExecutable="Epichrome"
 
 # icon names
 CFBundleIconFile="app.icns"
-CFBundleTypeIconFile="doc.icns"
+CFBundleTypeIconFile="document.icns"
 
 # app paths -- relative to app Contents directory
 appInfoPlist="Info.plist"
 appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
-appScriptingSdef="Resources/scripting.sdef"
-appChromeLink="MacOS/Chrome"
-appChromeVersionsLink="Versions"
+appChromeEngine="Resources/ChromeEngine.app"
+
+# engine exec path -- relative to engine root
+engineExec="Contents/MacOS/ChromeEngine"
+
+# lproj directory regex
+lprojRegex='\.lproj$'
 
 # profile base
 appProfileBase="Library/Application Support/Epichrome/Apps"
@@ -356,7 +360,7 @@ function setowner {  # APPPATH THISPATH PATHINFO
 
 
 # DIRLIST: get (and possibly filter) a directory listing
-function dirlist {
+function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 
     if [[ "$ok" ]]; then
 
@@ -545,9 +549,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# create paths to necessary components
 	chromeExec="${chromePath}/Contents/MacOS/Google Chrome"
-	chromeVersions="${chromePath}/Contents/Versions"
 	chromeInfoPlist="${chromePath}/Contents/Info.plist"
-	chromeScriptingSdef="${chromePath}/Contents/Resources/scripting.sdef"
 	
 	# check that all necessary components exist
 	local fail=
@@ -582,23 +584,17 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 
 	    if [[ ! "$fail" ]] ; then
 
-		# make sure important Chrome-specific files are in place
-		if [[ ! ( -x "$chromeExec" && -e "$chromeScriptingSdef" ) ]] ; then
+		# make sure the Google Chrome executable is in place
+		if [[ ! ( -x "$chromeExec" ) ]] ; then
 		    
-		    # these errors are fatal
+		    # this error is fatal
+		    errmsg='Unable to find Google Chrome executable.'
 		    
-		    if [[ ! -x "$chromeExec" ]] ; then
-			errmsg='Unable to find Google Chrome executable.'
-		    else
-			errmsg='Unable to find Google Chrome scripting.sdef file.'
-		    fi
-		
 		    # set error variables and quit
 		    ok=
 		    chromePath=
 		    chromeExec=
 		    chromeInfoPlist=
-		    chromeScriptingSdef=
 		    return 1
 		fi
 	    fi
@@ -657,33 +653,83 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 }
 
 
-# LINKCHROME: create linked copy of the full Chrome app bundle inside the app
+# LINKCHROME: create linked copy of the full Chrome app bundle as an engine inside the app
 function linkchrome {  # $1 = destination app bundle Contents directory
 
     if [[ "$ok" ]]; then
-    
+
+	# delete legacy Chrome link (ignore failure--not that important)
+	local oldChromeLink="$1/MacOS/Chrome"
+	[[ -e "$oldChromeLink" ]] && /bin/rm -f "$oldChromeLink" > /dev/null 2>&1
+	
 	# full path to Chrome link
-	local fullChromeLink="$1/$appChromeLink"
-	local fullChromeVersionsLink="$1/$appChromeVersionsLink"
+	local fullChromeEngine="$1/$appChromeEngine"
 	
 	# find Chrome paths if necessary
-	[[ "$chromePath" && "$chromeVersions" ]] || chromeinfo
+	[[ "$chromePath" ]] || chromeinfo
 	
-	# make the new link in a temporary location
-	local tmpChromeLink=$(tempname "$fullChromeLink")
-	local tmpChromeVersionsLink=$(tempname "$fullChromeVersionsLink")
+	# make the new engine app bundle in a temporary location
+	local tmpEngine=$(tempname "$fullChromeEngine")
+	local tmpEngineContents="$tmpEngine/Contents"
+	local tmpEngineMacOS="$tmpEngineContents/MacOS"
+	local tmpEngineResources="$tmpEngineContents/Resources"
 	
-	# create temporary links
-	try /bin/ln -s "$chromeExec" "$tmpChromeLink" 'Unable to create link to Chrome executable.'	
-	try /bin/ln -s "$chromeVersions" "$tmpChromeVersionsLink" 'Unable to create link to Chrome Versions directory.'
+	# create temporary Chrome engine bundle & important directories
+	try /bin/mkdir -p "$tmpEngineMacOS" 'Unable to create Chrome engine.'
+	try /bin/mkdir "$tmpEngineResources" 'Unable to create Chrome engine Resources directory.'
 	
-	# set ownership of Chrome links
-	setowner "$1/.." "$tmpChromeLink" "Chrome executable link"
-	setowner "$1/.." "$tmpChromeVersionsLink" "Chrome Versions directory link"
+	# link everything in Chrome Contents except MacOS & Resources directories
+	local chromeContents="$chromePath/Contents"
+	dirlist "$chromeContents" curdir 'Chrome engine Contents'
+	if [[ "$ok" ]] ; then
+	    for entry in "${curdir[@]}" ; do
+		if [[ ( "$entry" != 'MacOS' ) && ( "$entry" != 'Resources' ) ]] ; then
+		    try /bin/ln -s "$chromeContents/$entry" "$tmpEngineContents" \
+			'Unable to create link to $entry in Chrome engine.'
+		fi
+	    done
+	fi
+
+	# create link to Chrome executable in engine's MacOS directory
+	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" "Unable to link to Chrome Engine executable"
+
+	# recreate Resources directory (except for .lproj directories)
+	local chromeResources="$chromeContents/Resources"
+	dirlist "$chromeResources" curdir 'Chrome engine Resources'
+	if [[ "$ok" ]] ; then
+	    for entry in "${curdir[@]}" ; do
+		if [[ ! "$entry" =~ $lprojRegex ]] ; then
+		    try /bin/ln -s "$chromeResources/$entry" "$tmpEngineResources" \
+			'Unable to create link to $entry in Chrome engine Resources directory.'
+		fi
+	    done
+	fi
+
+	# filter Chrome .lproj directories to modify InfoPlist.strings files
+	if [[ "$ok" ]] ; then
+	    
+	    # copy all .lproj directories from Chrome
+	    try /bin/cp -a "$chromeResources/"*.lproj "$tmpEngineResources" \
+		'Unable to copy localizations to Chrome engine.'
+	    
+	    # run python script to filter the InfoPlist.strings files for the .lproj directories
+	    local pyerr=
+	    try 'pyerr&=' /usr/bin/python \
+		"$1/Resources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$tmpEngineResources/"*.lproj \
+		'Error filtering InfoPlist.strings'
+	    [[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
+	    
+	    # on error, clean up as best we can
+	    if [[ ! "$ok" ]] ; then
+		onerr /bin/rm -rf "$tmpEngineResources/"*.lproj 'Also unable to clean up Chrome engine localization folders.'
+	    fi
+	fi
 	
-	# overwrite permanent link
-	permanent "$tmpChromeLink" "$fullChromeLink" "Chrome executable link"
-	permanent "$tmpChromeVersionsLink" "$fullChromeVersionsLink" "Chrome Versions directory link"
+	# set ownership of Chrome engine
+	setowner "$1/.." "$tmpEngine" "Chrome engine"
+	
+	# overwrite permanent engine
+	permanent "$tmpEngine" "$fullChromeEngine" "Chrome engine"
     fi
     
     [[ "$ok" ]] && return 0
@@ -758,64 +804,6 @@ function writeplist {  # $1 = destination app bundle Contents directory
 	else
 	    # move temp file to permanent location
 	    permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
-	fi
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1    
-}
-
-
-# COPYCHROMELPROJ: copy Google Chrome .lproj directories and update localization strings
-function copychromelproj {  # $1 = destination app bundle Contents directory
-
-    if [[ "$ok" ]] ; then
-	
-	# full path to Resources directory
-	local appResources="$1/Resources"
-	
-	local chromeResources="${chromePath}/Contents/Resources"
-        
-	local oldlprojholder="$(tempname "$appResources/oldlproj")"
-	local newlprojholder="$(tempname "$appResources/newlproj")"
-
-	# get listing of all .lproj directories
-	local lprojlist=
-	dirlist "$appResources" lprojlist "old localizations" '\.lproj$'
-	[[ "$ok" ]] || return 1
-	
-	# move any existing .lproj directories to holder
-	if [ "${#lprojlist[@]}" -gt 0 ] ; then
-	    try /bin/mkdir "$oldlprojholder" 'Unable to create temporary folder for old localizations.'
-	    try /bin/mv "$appResources/"*.lproj "$oldlprojholder" 'Unable to move old localizations.'
-	fi
-	
-	# copy all .lproj directories from Chrome
-	try /bin/mkdir "$newlprojholder" 'Unable to create temporary folder for new localizations.'
-	try /bin/cp -a "$chromeResources/"*.lproj "$newlprojholder" 'Unable to copy new localizations.'
-	
-	# run python script to filter the InfoPlist.strings files for the .lproj directories
-	local pyerr=
-	try 'pyerr&=' /usr/bin/python \
-	    "$appResources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$newlprojholder/"*.lproj \
-	    'Error filtering Info.plist.'
-	[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
-	
-	# move new .lproj directories to permanent location
-	try /bin/mv "$newlprojholder/"*.lproj "$appResources" 'Unable to move new localizations to permanent folder.'
-	try /bin/rmdir "$newlprojholder" 'Unable to remove temporary folder for new localizations.'
-	
-	# remove old .lproj directories
-	try /bin/rm -rf "$oldlprojholder" 'Unable to remove old localizations.'
-	
-	# on error, clean up as best we can
-	if [[ ! "$ok" ]] ; then
-	    if [ -d "$newlprojholder" ] ; then
-		onerr /bin/rm -rf "$newlprojholder" 'Also unable to clean up temporary new localization folder.'
-	    fi
-	    if [ -d "$oldlprojholder" ] ; then
-		onerr /bin/mv "$oldlprojholder/"* "$appResources" 'Also unable to move old localizations back into place.'
-	    fi
 	fi
     fi
     
@@ -1066,12 +1054,7 @@ function updatessb {
 	
 	# write out Info.plist
 	writeplist "$contentsTmp"
-	
-	# copy Chrome .lproj directories and modify InfoPlist.strings files    
-	copychromelproj "$contentsTmp"
-	
-	# copy scripting.sdef
-	safecopy "$chromeScriptingSdef" "$contentsTmp/$appScriptingSdef" "Chrome scripting.sdef file"
+		
 	
 	# WRITE OUT CONFIG FILE
 	

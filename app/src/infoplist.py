@@ -35,7 +35,7 @@ if len(sys.argv) < 3:
 infilename = sys.argv[1]
 outfilename = sys.argv[2]
 
-# zip the rest of the arguments into a dictionary: {<Info.plist-key>: <new-value>}
+# zip the rest of the arguments into a dictionary: {<Info.plist-key>: [ <found>, <new-value> ]}
 # where if <new-value> is False or '', it means delete the corresponding key
 filterkeys = dict();
 i = 3;
@@ -46,19 +46,19 @@ while i < len(sys.argv):
     if val == 'string':
         i += 1
         if i < len(sys.argv):
-            val = [ val, sys.argv[i] ]
+            val = ( val, sys.argv[i] )
         else:
             print "string key requires a value"
             exit(1)
     elif not val:
-        val = []
+        val = ()
     else:
         # a boolean key
-        val = [ val ]
+        val = ( val, )
     i += 1
 
     # add the dictionary entry
-    filterkeys[key] = val
+    filterkeys[key] = [ False, val ]
 
 #filterkeys = dict(izip_longest(*[iter(sys.argv[3:])] * 2, fillvalue=False))
 
@@ -103,6 +103,12 @@ def plist_filter(root):
         if (root[i].tag == 'key') and (root[i].text in filterkeys):
             curkey = root[i].text
             curval = filterkeys[curkey]
+
+            # mark this key as found
+            curval[0] = True
+
+            # now we're only interested in the new value
+            curval = curval[1]
             
             # we're deleting this key
             if len(curval) == 0:
@@ -158,6 +164,14 @@ def output(root):
 # filter the plist
 plist_filter(infoplist)
 
+# delete all found filterkeys
+delkeys = []
+for curkey in filterkeys:
+    if filterkeys[curkey][0]:
+        delkeys.append(curkey)
+for curkey in delkeys:
+    del filterkeys[curkey]
+
 # add in any remaining filterkeys
 if len(filterkeys) > 0:
     # make sure we go to the right node
@@ -181,7 +195,7 @@ if len(filterkeys) > 0:
     
     # create a list of new elements
     newelements = []
-    for (key,val) in filterkeys.iteritems():
+    for (key, [ignore, val]) in filterkeys.iteritems():
         if len(val) > 0:
             # add the key
             e = et.Element('key')
@@ -207,7 +221,7 @@ try:
     outfile.write(prologue + output(infoplist) + '\n')
     outfile.close()
 except:
-    print sys.exc_info()[1][1]
+    print sys.exc_info()[1][0]
     exit(2)
 
 # success!

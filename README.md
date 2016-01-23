@@ -1,4 +1,4 @@
-# Epichrome 2.1.7
+# Epichrome 2.1.8
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -9,9 +9,15 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.7.
+## New in version 2.1.8.
 
-This version fixes an incompatibility that has arisen with the release (on January 21, 2016) of Chrome 48.0.2564.82. This update was breaking all Epichrome apps. If your apps no longer start, install Epichrome 2.1.7 and run them again. Each one should offer you the choice of updating to 2.1.7, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
+*Note: This is likely to be my last update for a while (except for fixing catastrophic problems like 2.1.7). My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
+
+This version fixes a long-standing bug that caused all Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This could cause sluggish graphics response (especially on retina displays) and failures to load WebGL sites.
+
+Big thanks to [mhwinkler](https://github.com/mhwinkler "mhwinkler") and [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") for identifying this bug (in two utterly different forms) and putting in a bunch of time helping isolate it and test approaches to a fix, and to [breeden](https://github.com/breeden "breeden") for once again testing the new update before I inflicted it on everyone else.
+
+This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82. This update was breaking all Epichrome apps. If your apps no longer start, install Epichrome 2.1.8 and run them again. Each one should offer you the choice of updating to 2.1.8, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
 
 Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), and everyone else who pointed this problem out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
 
@@ -27,7 +33,7 @@ Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthomps
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.10.5 with Chrome version 45.0.2454.93 (64-bit).
+Built and tested on Mac OS X 10.11.2 with Chrome version 48.0.2564.82 (64-bit).
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 
