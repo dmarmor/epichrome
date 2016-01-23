@@ -2,7 +2,7 @@
 *.orig
 **/boneyard/**
 /*.xlsx
-/examples/**
+/research/**
 /app/epichrome.app/**
 /app/icons/source/**
 /app/icons/*.icns
