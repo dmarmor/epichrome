@@ -657,8 +657,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 }
 
 
-# LINKCHROME: link to absolute path to Google Chrome executable &
-#             Versions directory inside Chrome app bundle
+# LINKCHROME: create linked copy of the full Chrome app bundle inside the app
 function linkchrome {  # $1 = destination app bundle Contents directory
 
     if [[ "$ok" ]]; then
@@ -720,6 +719,10 @@ function writeplist {  # $1 = destination app bundle Contents directory
 					CFBundleVersion string "$SSBVersion" \
 					CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
 					CFBundleSignature string '????' \
+					BuildMachineOSBuild '' \
+					OSAScriptingDefinition '' \
+					LSHasLocalizedDisplayName '' \
+					UTExportedTypeDeclarations '' \
 					SCMRevision '' \
 					DTSDKBuild '' \
 					DTSDKName '' \

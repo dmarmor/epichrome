@@ -128,8 +128,8 @@ def plist_filter(root):
                 root.insert(i, newval)
                 i += 1
                 
-            # we're done with this filterkey
-            del filterkeys[curkey]
+            # we might have to filter multiple copies of a key, so don't delete
+            #del filterkeys[curkey]
 
         else:
             # not a key we're filtering, so recurse on it

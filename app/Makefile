@@ -54,7 +54,7 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: install clean clean-all debug
 
-.PRECIOUS: icons/app.icns icons/doc.icns
+.PRECIOUS: icons/app.icns icons/document.icns
 
 
 ${APP}: ${APP_SCPT}/main.scpt \
@@ -72,7 +72,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_NMHT}/${HOSTID}-host.py \
 	${APP_RNTM_NMEX}/${HELPERID}.json \
 	${APP_RNTM_RSRC}/app.icns \
-	${APP_RNTM_RSRC}/doc.icns
+	${APP_RNTM_RSRC}/document.icns
 
 debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
 debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
