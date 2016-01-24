@@ -15,6 +15,8 @@ See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHA
 
 This version fixes a long-standing bug that caused all Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This could cause sluggish graphics response (especially on retina displays) and failures to load WebGL sites.
 
+(Note that it's possible the first time you run your apps or Chrome after updating, you may have to re-log in to Chrome in your settings, and you may also have to re-log in to some or all your websites. Once you've done that, though, your credentials should persist even after you quit the newly-updated apps.)
+
 Big thanks to [mhwinkler](https://github.com/mhwinkler "mhwinkler") and [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") for identifying this bug (in two utterly different forms) and putting in a bunch of time helping isolate it and test approaches to a fix, and to [breeden](https://github.com/breeden "breeden") for once again testing the new update before I inflicted it on everyone else.
 
 This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82. This update was breaking all Epichrome apps. If your apps no longer start, install Epichrome 2.1.8 and run them again. Each one should offer you the choice of updating to 2.1.8, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
