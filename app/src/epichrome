@@ -32,7 +32,8 @@ function abort {
 # RELAUNCH -- relaunch this app after a delay
 function relaunch {
     [ "$1" ] && sleep "$1"
-    "$0" "$isAdmin"
+    # "$0" "$isAdmin"
+    open "$myPath"
 }
 
 # UNSUDO -- run a command as the original user
