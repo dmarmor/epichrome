@@ -1,4 +1,4 @@
-# Epichrome 2.1.8
+# Epichrome 2.1.9
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -9,11 +9,13 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.8.
+## New in version 2.1.9.
 
 *Note: This is likely to be my last update for a while (except for fixing catastrophic problems like 2.1.7). My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-This version fixes a long-standing bug that caused all Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This could cause sluggish graphics response (especially on retina displays) and failures to load WebGL sites.
+Version 2.1.9 fixes a minor bug where on first run after update, apps would display the wrong icon in the task switcher and dock.
+
+Version 2.1.8 fixes a long-standing bug that caused all Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This could cause sluggish graphics response (especially on retina displays) and failures to load WebGL sites.
 
 (Note that it's possible the first time you run your apps or Chrome after updating, you may have to re-log in to Chrome in your settings, and you may also have to re-log in to some or all your websites. Once you've done that, though, your credentials should persist even after you quit the newly-updated apps.)
 
@@ -35,7 +37,7 @@ Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthomps
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.11.2 with Chrome version 48.0.2564.82 (64-bit).
+Built and tested on Mac OS X 10.11.3 with Chrome version 48.0.2564.97 (64-bit).
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 

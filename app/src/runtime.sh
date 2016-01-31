@@ -424,6 +424,13 @@ function newversion {
 }
 
 
+# RELAUNCH -- relaunch this app after a delay
+function relaunch { # APP-PATH DELAY-SECONDS
+    [[ "$2" ]] && sleep "$2"
+    open "$1"
+}
+
+
 # MCSSBINFO: get absolute path and version info for Epichrome
 function mcssbinfo {
     
@@ -914,10 +921,10 @@ function updatessb {
     if [[ "$ok" ]] ; then
 	
 	# command-line arguments
-	local appPath="$1"
-	local customIconFile="$2"
-	local chromeOnly="$3"  # if non-empty, we're ONLY updating Chrome stuff
-	local newApp="$4"  # if non-empty, we're creating a new app
+	local appPath="$1"        # path to the app bundle
+	local customIconFile="$2" # path to custom icon file
+	local chromeOnly="$3"     # if non-empty, we're ONLY updating Chrome stuff
+	local newApp="$4"         # if non-empty, we're creating a new app
 	
 	# initially set this to permanent Contents directory
 	local contentsTmp="$appPath/Contents"
@@ -1080,6 +1087,14 @@ function updatessb {
 	else
 	    # remove temp contents on error
 	    rmtemp "$contentsTmp" 'Contents folder'
+	fi
+
+
+	# IF UPDATING (NOT CREATING A NEW APP), RELAUNCH AFTER A DELAY
+	if [[ "$ok" && ! "$newApp" ]] ; then
+	    relaunch "$appPath" 1 &
+	    disown -ar
+	    exit 0
 	fi
     fi
 

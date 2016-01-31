@@ -1,7 +1,13 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.1.7] - 2016-01-23
+
+## [2.1.9] - 2016-01-31
+### Fixed
+- Fixed a minor bug in 2.1.8 where on first run after update, apps would display the wrong icon in the task switcher and dock. Thanks to [trak3r](https://github.com/trak3r "trak3r") for reporting this.
+
+
+## [2.1.8] - 2016-01-23
 ### Fixed
 - Fixed a long-standing bug that caused Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This caused sluggish graphics response (especially on retina displays) and failures to load WebGL sites. Big thanks to [mhwinkler](https://github.com/mhwinkler "mhwinkler") and [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") for identifying this bug (in two utterly different forms) and putting in a bunch of time helping isolate it and test approaches to a fix, and to [breeden](https://github.com/breeden "breeden") for once again testing the new update before I inflicted it on everyone else.
 

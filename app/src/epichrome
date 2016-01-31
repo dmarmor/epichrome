@@ -28,14 +28,6 @@ function abort {
     exit $2
 }
 
-
-# RELAUNCH -- relaunch this app after a delay
-function relaunch {
-    [ "$1" ] && sleep "$1"
-    # "$0" "$isAdmin"
-    open "$myPath"
-}
-
 # UNSUDO -- run a command as the original user
 function unsudo {
     if [[ "$isAdmin" ]] ; then
@@ -255,7 +247,6 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 
 isAdmin="$1"
 
-
 # BOOTSTRAP RUNTIME SCRIPT
 
 # determine location of runtime script
@@ -364,16 +355,9 @@ if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
 	# set new version number for config file
 	SSBChromeVersion="$chromeVersion"
 	
-	# use new runtime to update the SSB
+	# use new runtime to update the SSB (and relaunch)
 	updatessb "$myPath" '' ChromeOnly
 	
-	# abort if we failed to update Chrome
-	if [[ "$ok" ]] ; then
-	    # relaunch!
-	    relaunch 1 &
-	    disown -ar
-	    exit 0
-	fi
     else
 	ok=
 	errmsg="Permission denied."
@@ -421,15 +405,9 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 		    # read in the new runtime
 		    safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
 		    
-		    # use new runtime to update the SSB
+		    # use new runtime to update the SSB (and relaunch)
 		    updatessb "$myPath"
 		    
-		    if [[ "$ok" ]] ; then
-			# relaunch!
-			relaunch 1 &
-			disown -ar
-			exit 0
-		    fi
 		    ;;
 		Later)
 		    # don't update
@@ -707,7 +685,8 @@ myCommand=("$myChromeExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]
 
 if [[ "$isAdmin" ]] ; then
     # we're running as admin, so launch the SSB as the original user
-    exec sudo -u $USER "${myCommand[@]}"
+    #exec sudo -u $USER "${myCommand[@]}"
+    exec sudo -u $USER open "$myPath"
 else
     exec "${myCommand[@]}"
 fi
