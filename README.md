@@ -43,10 +43,23 @@ Apps built with Epichrome are self-updating. Apps will notice when Chrome has be
 
 The Chrome profile for an app lives in: ${HOME}/Library/Application Support/Epichrome/Apps/<app-id>
 
-It's not currently possible to "edit" an app. In order to change an app, you'll need to first make sure Spotlight indexing is on for the root volume. Delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, the new app will end up with the same ID (this will *only* work if Spotlight indexing is on; otherwise Epichrome always tries to create a unique-looking ID). If all goes well, the new app will use the existing Chrome profile and you won't need to re-create your settings.
+It's not currently easy to "edit" an app.
+
+### Simple method
+
+In order to change an app, you'll need to first make sure Spotlight indexing is on for the root volume. Delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, the new app will end up with the same ID (this will *only* work if Spotlight indexing is on; otherwise Epichrome always tries to create a unique-looking ID). If all goes well, the new app will use the existing Chrome profile and you won't need to re-create your settings.
 
 Alternately (or if you don't want Spotlight indexing on), you can always copy existing profile folders to a new name to copy settings between apps.
 
+### Advanced method (change app URL)
+
+If you primarily want to change the URL, browse to the folder containing your app. Ctrl-click and choose *Show package contents*. Open /Contents > Resources > Scripts > config.sh/ in a text editor such as TextEdit or Atom. On the final line, you'll see something like:
+
+```shell
+SSBCommandLine=( --app=https://www.example.com )
+```
+
+Change the part after `--app` to your desired new destination. It is not recommended to change the entire app website unless you know what you're doing, but this is a good method to correct minor mistakes.
 
 ## Issues
 
