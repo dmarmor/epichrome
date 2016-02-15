@@ -1,2 +1,2 @@
 # Epichrome version
-mcssbVersion=2.1.9
+mcssbVersion=2.1.10

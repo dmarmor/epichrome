@@ -29,8 +29,9 @@
 
 # CONSTANTS
 
-# app executable name
+# app executable names
 CFBundleExecutable="Epichrome"
+chromeEngineName="ChromeEngine"
 
 # icon names
 CFBundleIconFile="app.icns"
@@ -40,10 +41,10 @@ CFBundleTypeIconFile="document.icns"
 appInfoPlist="Info.plist"
 appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
-appChromeEngine="Resources/ChromeEngine.app"
+appChromeEngine="Resources/$chromeEngineName.app"
 
 # engine exec path -- relative to engine root
-engineExec="Contents/MacOS/ChromeEngine"
+engineExec="Contents/MacOS/$chromeEngineName"
 
 # lproj directory regex
 lprojRegex='\.lproj$'
@@ -685,33 +686,71 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	try /bin/mkdir -p "$tmpEngineMacOS" 'Unable to create Chrome engine.'
 	try /bin/mkdir "$tmpEngineResources" 'Unable to create Chrome engine Resources directory.'
 	
-	# link everything in Chrome Contents except MacOS & Resources directories
+	# link everything in Chrome Contents except Info.plist, MacOS & Resources directories
 	local chromeContents="$chromePath/Contents"
 	dirlist "$chromeContents" curdir 'Chrome engine Contents'
 	if [[ "$ok" ]] ; then
 	    for entry in "${curdir[@]}" ; do
-		if [[ ( "$entry" != 'MacOS' ) && ( "$entry" != 'Resources' ) ]] ; then
+		if [[ ( "$entry" != 'Info.plist' ) && ( "$entry" != 'MacOS' ) && ( "$entry" != 'Resources' ) ]] ; then
 		    try /bin/ln -s "$chromeContents/$entry" "$tmpEngineContents" \
 			'Unable to create link to $entry in Chrome engine.'
 		fi
 	    done
 	fi
-
+	
+	# create list of keys to filter
+	# CFBundleDisplayName string "$CFBundleDisplayName"
+	# CFBundleIdentifier string "$CFBundleIdentifier"
+	# CFBundleName string "$CFBundleName"
+	# CFBundleShortVersionString string "$SSBVersion"
+	# CFBundleVersion string "$SSBVersion"
+	# CFBundleSignature string '????'
+	# BuildMachineOSBuild ''
+	# OSAScriptingDefinition ''
+	# LSHasLocalizedDisplayName ''
+	# UTExportedTypeDeclarations ''
+	# SCMRevision ''
+	# NSHighResolutionCapable true
+	local filterkeys=(CFBundleExecutable string "$chromeEngineName" \
+					      CFBundleIconFile string "$CFBundleIconFile" \
+					      CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
+					      DTSDKBuild '' \
+					      DTSDKName '' \
+					      DTXcode '' \
+					      DTXcodeBuild '' \
+					      KSChannelID-32bit '' \
+					      KSChannelID-32bit-full '' \
+					      KSChannelID-full '' \
+					      KSProductID '' \
+					      KSUpdateURL '' \
+					      KSVersion '')
+	
+	# filter Info.plist file from Chrome
+	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
+	
 	# create link to Chrome executable in engine's MacOS directory
 	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" "Unable to link to Chrome Engine executable"
-
-	# recreate Resources directory (except for .lproj directories)
+	
+	# recreate Resources directory (except for .lproj directories & icons)
 	local chromeResources="$chromeContents/Resources"
 	dirlist "$chromeResources" curdir 'Chrome engine Resources'
 	if [[ "$ok" ]] ; then
 	    for entry in "${curdir[@]}" ; do
-		if [[ ! "$entry" =~ $lprojRegex ]] ; then
+		if [[ ! ( ("$entry" =~ \.icns$ ) || ( "$entry" =~ $lprojRegex ) ) ]] ; then
 		    try /bin/ln -s "$chromeResources/$entry" "$tmpEngineResources" \
 			'Unable to create link to $entry in Chrome engine Resources directory.'
 		fi
 	    done
 	fi
 
+	# link to this app's icons
+	if [[ "$ok" ]] ; then
+	    try /bin/ln -s "../../../$CFBundleIconFile" "$tmpEngineResources/$CFBundleIconFile" \
+		"Unable to link to application icon file in Chrome engine Resources directory."
+	    try /bin/ln -s "../../../$CFBundleTypeIconFile" "$tmpEngineResources/$CFBundleTypeIconFile" \
+		"Unable to link to document icon file in Chrome engine Resources directory."
+	fi
+	
 	# filter Chrome .lproj directories to modify InfoPlist.strings files
 	if [[ "$ok" ]] ; then
 	    
@@ -744,10 +783,16 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 }
 
 
-# WRITEPLIST: write out new Info.plist file
-function writeplist {  # $1 = destination app bundle Contents directory
+# FILTERCHROMEINFOPLIST: write out new Info.plist file
+function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEYS...
     
     if [[ "$ok" ]]; then
+
+	local pyContentsDir="$1"   # Contents directory to use as root for Info.plist-filtering Python script
+	shift
+	local destContentsDir="$1" # Contents directory to use as root for destination Info.plist
+	shift
+	local filterkeys=("$@")    # keys to filter
 	
 	# ensure Chrome's Info.plist file is where we think it is
 	if [ ! -f "$chromeInfoPlist" ] ; then
@@ -757,48 +802,14 @@ function writeplist {  # $1 = destination app bundle Contents directory
 	fi
 	
 	# full path to Info.plist file
-	local fullInfoPlist="$1/$appInfoPlist"
+	local fullInfoPlist="$destContentsDir/$appInfoPlist"
 	
 	# create name for temp Info.plist file
 	local tmpInfoPlist="$(tempname "$fullInfoPlist")"
-        
-	# create list of keys to filter
-	filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
-					CFBundleExecutable string "$CFBundleExecutable" \
-					CFBundleIconFile string "$CFBundleIconFile" \
-					CFBundleIdentifier string "$CFBundleIdentifier" \
-					CFBundleName string "$CFBundleName" \
-					CFBundleShortVersionString string "$SSBVersion" \
-					CFBundleVersion string "$SSBVersion" \
-					CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-					CFBundleSignature string '????' \
-					BuildMachineOSBuild '' \
-					OSAScriptingDefinition '' \
-					LSHasLocalizedDisplayName '' \
-					UTExportedTypeDeclarations '' \
-					SCMRevision '' \
-					DTSDKBuild '' \
-					DTSDKName '' \
-					DTXcode '' \
-					DTXcodeBuild '' \
-					KSChannelID-32bit '' \
-					KSChannelID-32bit-full '' \
-					KSChannelID-full '' \
-					KSProductID '' \
-					KSUpdateURL '' \
-					KSVersion '' \
-					NSHighResolutionCapable true )
-	
-	# if we're not registering as a browser, delete these keys too
-	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
-	    filterkeys+=( CFBundleURLTypes '' \
-					   NSPrincipalClass '' \
-					   NSUserActivityTypes '' )
-	fi
 	
 	# run python script to filter Info.plist
 	local pyerr=
-	try 'pyerr&=' python "$1/Resources/Scripts/infoplist.py" \
+	try 'pyerr&=' python "$pyContentsDir/Resources/Scripts/infoplist.py" \
 	    "$chromeInfoPlist" \
 	    "$tmpInfoPlist" \
 	    "${filterkeys[@]}" 'Error filtering Info.plist file.'
@@ -954,9 +965,6 @@ function updatessb {
 		safecopy "$customIconFile" "${contentsTmp}/Resources/${CFBundleIconFile}" "custom icon"
 	    fi
 	    
-	    # link to Chrome
-	    linkchrome "$contentsTmp"
-
 	    if [[ "$ok" ]] ; then
 		
 		# create a bundle identifier if necessary
@@ -1059,9 +1067,46 @@ function updatessb {
 	
 	# OPERATIONS FOR UPDATING CHROME
 	
+	# link to latest version of Chrome
+	linkchrome "$contentsTmp"
+	
+	# create list of keys to filter
+	local filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
+					      CFBundleExecutable string "$CFBundleExecutable" \
+					      CFBundleIconFile string "$CFBundleIconFile" \
+					      CFBundleIdentifier string "$CFBundleIdentifier" \
+					      CFBundleName string "$CFBundleName" \
+					      CFBundleShortVersionString string "$SSBVersion" \
+					      CFBundleVersion string "$SSBVersion" \
+					      CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
+					      CFBundleSignature string '????' \
+					      BuildMachineOSBuild '' \
+					      OSAScriptingDefinition '' \
+					      LSHasLocalizedDisplayName '' \
+					      UTExportedTypeDeclarations '' \
+					      SCMRevision '' \
+					      DTSDKBuild '' \
+					      DTSDKName '' \
+					      DTXcode '' \
+					      DTXcodeBuild '' \
+					      KSChannelID-32bit '' \
+					      KSChannelID-32bit-full '' \
+					      KSChannelID-full '' \
+					      KSProductID '' \
+					      KSUpdateURL '' \
+					      KSVersion '' \
+					      NSHighResolutionCapable true )
+	
+	# if we're not registering as a browser, delete these keys too
+	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
+	    filterkeys+=( CFBundleURLTypes '' \
+					   NSPrincipalClass '' \
+					   NSUserActivityTypes '' )
+	fi
+	
 	# write out Info.plist
-	writeplist "$contentsTmp"
-		
+	filterchromeinfoplist "$contentsTmp" "$contentsTmp" "${filterkeys[@]}"
+	
 	
 	# WRITE OUT CONFIG FILE
 	

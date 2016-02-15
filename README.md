@@ -1,27 +1,27 @@
-# Epichrome 2.1.9
+# Epichrome 2.1.10
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
 Each app automatically installs *Epichrome Helper*, which uses rules to decide which links the app should handle itself, and which should be sent to the default web browser.
+
+**Important note: due to the way Chrome updates itself, it is *not* recommended to turn on "Set Up Automatic Updates for All Users" in Chrome. This could cause fatal errors in Epichrome apps when a Chrome update is applied.**
+
+**You can find out if this is on by checking if your system contains the directory /Library/Google/GoogleSoftwareUpdate. If you find this directory, the surest way to disable this option is by *first* removing the directory from your system (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ~/Library/Google/GoogleSoftwareUpdate before running the reinstalled Chrome.**
 
 Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui/releases "Download").
 
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.9.
+## New in version 2.1.10.
 
 *Note: This is likely to be my last update for a while (except for fixing catastrophic problems like 2.1.7). My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-Version 2.1.9 fixes a minor bug where on first run after update, apps would display the wrong icon in the task switcher and dock. Thanks to [trak3r](https://github.com/trak3r "trak3r") for reporting this.
+**If you're running any previous version, please update to version 2.1.10 as soon as possible. It fixes a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-Version 2.1.8 fixes a long-standing bug that caused all Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This could cause sluggish graphics response (especially on retina displays) and failures to load WebGL sites.
+This version also fixes a minor bug that would cause apps to display the wrong dock icon if an app was used to download a file or display certain dialog boxes. Thanks to [rschend](https://github.com/rschend "rschend") for finding this and tracking down the cause, and to the others who contributed their reports.
 
-(Note that it's possible the first time you run your apps or Chrome after updating, you may have to re-log in to Chrome in your settings, and you may also have to re-log in to some or all your websites. Once you've done that, though, your credentials should persist even after you quit the newly-updated apps.)
-
-Big thanks to [mhwinkler](https://github.com/mhwinkler "mhwinkler") and [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") for identifying this bug (in two utterly different forms) and putting in a bunch of time helping isolate it and test approaches to a fix, and to [breeden](https://github.com/breeden "breeden") for once again testing the new update before I inflicted it on everyone else.
-
-This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82. This update was breaking all Epichrome apps. If your apps no longer start, install Epichrome 2.1.8 and run them again. Each one should offer you the choice of updating to 2.1.8, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
+This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82, which was breaking all Epichrome apps based on 2.1.7 or earlier. If your apps no longer start, install the latest Epichrome and run them again. Each one should offer you the choice of updating to the latest version, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
 
 Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), and everyone else who pointed this problem out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
 
@@ -52,6 +52,8 @@ In order to change an app, you'll need to first make sure Spotlight indexing is 
 Alternately (or if you don't want Spotlight indexing on), you can always copy existing profile folders to a new name to copy settings between apps.
 
 ### Advanced method (change app URL)
+
+*Warning: Only try this if you're comfortable editing shell scripts and understand what you're doing inside an app bundle. If you make a mistake with this method, it is possible to render your Epichrome app unusable.*
 
 If you primarily want to change the URL, browse to the folder containing your app. Ctrl-click and choose *Show package contents*. Open /Contents > Resources > Scripts > config.sh/ in a text editor such as TextEdit or Atom. On the final line, you'll see something like:
 

@@ -2,6 +2,13 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.1.10] - 2016-02-14
+### Fixed
+- Fixed a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated. The internal ChromeEngine in each app had Info.plist keys that would cause it to try to auto-update and that would break it. Those keys are now removed.
+- Fixed a minor bug that would cause apps to display the wrong dock icon if an app was used to download a file or display certain dialog boxes. The internal ChromeEngine now uses the localized name and icons of the main app, so that when the download badge appears, the icon and name don't change. Thanks to [rschend](https://github.com/rschend "rschend") for finding this and tracking down the cause, and to the others who contributed their reports.
+- Added warning to README that Chrome should not be set up with Automatic Updates for All Users.
+- [wizonesolutions](https://github.com/wizonesolutions "wizonesolutions") contributed README documentation for editing an app's URL.
+
 ## [2.1.9] - 2016-01-31
 ### Fixed
 - Fixed a minor bug in 2.1.8 where on first run after update, apps would display the wrong icon in the task switcher and dock. Thanks to [trak3r](https://github.com/trak3r "trak3r") for reporting this.
