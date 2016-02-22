@@ -711,8 +711,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	# UTExportedTypeDeclarations ''
 	# SCMRevision ''
 	# NSHighResolutionCapable true
-	local filterkeys=(CFBundleExecutable string "$chromeEngineName" \
-					      CFBundleIconFile string "$CFBundleIconFile" \
+	local filterkeys=(CFBundleIconFile string "$CFBundleIconFile" \
 					      CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
 					      DTSDKBuild '' \
 					      DTSDKName '' \
@@ -728,8 +727,11 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	# filter Info.plist file from Chrome
 	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
 	
-	# create link to Chrome executable in engine's MacOS directory
+	# create links to Chrome executable in engine's MacOS directory
 	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" "Unable to link to Chrome Engine executable"
+	try /bin/ln -s "$chromeExec" "$tmpEngineMacOS" "Unable to link to Chrome Engine dummy executable"
+
+	# create dummy executable in engine's MacOS directory
 	
 	# recreate Resources directory (except for .lproj directories & icons)
 	local chromeResources="$chromeContents/Resources"

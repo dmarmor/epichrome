@@ -1,4 +1,4 @@
-# Epichrome 2.1.10
+# Epichrome 2.1.11
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -13,17 +13,15 @@ Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui
 See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.10.
+## New in version 2.1.11.
 
-*Note: This is likely to be my last update for a while (except for fixing catastrophic problems like 2.1.7). My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
+*Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-**If you're running any previous version, please update to version 2.1.10 as soon as possible. It fixes a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
+**If you're running any version earlier than 2.1.10, please update to the latest version as soon as possible. Prior versions have a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-This version also fixes a minor bug that would cause apps to display the wrong dock icon if an app was used to download a file or display certain dialog boxes. Thanks to [rschend](https://github.com/rschend "rschend") for finding this and tracking down the cause, and to the others who contributed their reports.
+This version fixes a bug that broke compatibility with Browser Fairy (a great app that allows you to route URLs to different browsers based on their origin or the content of the link). For now, links are still not able to launch an Epichrome app (but will route properly if the app is already open). The next update of Browser Fairy should fix that last problem too. Thanks again to [rschend](https://github.com/rschend "rschend") for identifying this, and to [jschuster](https://github.com/jschuster "jschuster"), the creator of Browser Fairy, for helping with the fix!
 
-This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82, which was breaking all Epichrome apps based on 2.1.7 or earlier. If your apps no longer start, install the latest Epichrome and run them again. Each one should offer you the choice of updating to the latest version, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for more details.
-
-Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), and everyone else who pointed this problem out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
+This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82, which was breaking all Epichrome apps based on 2.1.7 or earlier. If your apps no longer start, install the latest Epichrome and run them again. Each one should offer you the choice of updating to the latest version, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/CHANGELOG.md "CHANGELOG") for more details.
 
 
 ## New in version 2.1

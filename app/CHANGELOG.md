@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+
+## [2.1.11] - 2016-02-21
+### Fixed
+- Fixed a bug that broke compatibility with Browser Fairy. For now, links are still not able to launch an Epichrome app (but will route properly if the app is already open). The next update of Browser Fairy should fix that last problem too. Thanks again to [rschend](https://github.com/rschend "rschend") for identifying this, and to [jschuster](https://github.com/jschuster "jschuster"), the creator of Browser Fairy, for helping with the fix!
+
+
 ## [2.1.10] - 2016-02-14
 ### Fixed
 - Fixed a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated. The internal ChromeEngine in each app had Info.plist keys that would cause it to try to auto-update and that would break it. Those keys are now removed.
