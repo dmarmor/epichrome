@@ -8,9 +8,9 @@ Each app automatically installs *Epichrome Helper*, which uses rules to decide w
 
 **You can find out if this is on by checking if your system contains the directory /Library/Google/GoogleSoftwareUpdate. If you find this directory, the surest way to disable this option is by *first* removing the directory from your system (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ~/Library/Google/GoogleSoftwareUpdate before running the reinstalled Chrome.**
 
-Download the binary release [here](https://github.com/dmarmor/osx-chrome-ssb-gui/releases "Download").
+Download the binary release [here](https://github.com/dmarmor/epichrome/releases "Download").
 
-See [CHANGELOG.md](https://github.com/dmarmor/osx-chrome-ssb-gui/blob/master/CHANGELOG.md "CHANGELOG") for the latest changes.
+See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
 ## New in version 2.1.11.
