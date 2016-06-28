@@ -369,12 +369,11 @@ ssbContent.handleMessage = function(message, sender, respond) {
 // HANDLEHOTKEY -- handle global hot-keys
 ssbContent.handleHotKey = function(evt) {
     
-    // We're looking for Command-Shift-L in any state,
-    // and Command-L only when window is app-style
+    // We're looking for Command-Shift-L in any state
     if ((evt.keyCode == 76) &&
 	evt.metaKey &&
-	(! evt.altKey) && (! evt.ctrlKey) &&
-	((ssbContent.isMainTab == 'popup') || evt.shiftKey)) {
+	evt.shiftKey &&
+	(! evt.altKey) && (! evt.ctrlKey)) {
 	
 	chrome.runtime.sendMessage({type: 'windowSwitch'});
     } 
