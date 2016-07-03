@@ -372,9 +372,8 @@ ssbContent.handleHotKey = function(evt) {
     // We're looking for Command-Shift-L in any state,
     // and Command-L only when window is app-style
     if ((evt.keyCode == 76) &&
-	evt.metaKey &&
-	(! evt.altKey) && (! evt.ctrlKey) &&
-	((ssbContent.isMainTab == 'popup') || evt.shiftKey)) {
+	evt.metaKey && evt.shiftKey &&
+	(! evt.altKey) && (! evt.ctrlKey)) {
 	
 	chrome.runtime.sendMessage({type: 'windowSwitch'});
     } 
