@@ -40,7 +40,7 @@ re_strings = re.compile(ur'((?:(CFBundleDisplayName)|(CFBundleName))\s*=\s*")[^"
 
 # go through each directory & filter
 for lprojdir in sys.argv[3:]:
-    
+
     # read in the InfoPlist.strings file, then reopen for writing
     stringsfile = lprojdir + "/InfoPlist.strings"
     try:
@@ -48,10 +48,16 @@ for lprojdir in sys.argv[3:]:
         intext = infile.read()
         infile.close()
         outfile = codecs.open(stringsfile, "w", "utf-16")
-    except:
-        print sys.exc_info()[1][1]
-        exit(2)
-    
+    except UnicodeError:
+        try:
+            infile = codecs.open(stringsfile, "r", "utf-8")
+            intext = infile.read()
+            infile.close()
+            outfile = codecs.open(stringsfile, "w", "utf-8")
+        except:
+            print sys.exc_info()
+            exit(2)
+
     # replace the dock and menubar names
     prevend = 0
     outtext = []
@@ -64,7 +70,7 @@ for lprojdir in sys.argv[3:]:
             curname = menuname
         outtext.append(m.group(1) + curname + m.group(4))
     outtext.append(intext[prevend:])
-    
+
     # write out the output file
     try:
         outfile.write(''.join(outtext))
