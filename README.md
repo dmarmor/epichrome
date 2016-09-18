@@ -1,4 +1,4 @@
-# Epichrome 2.1.11
+# Epichrome 2.1.12
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -13,15 +13,15 @@ Download the binary release [here](https://github.com/dmarmor/epichrome/releases
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.11.
+## New in version 2.1.12.
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
 **If you're running any version earlier than 2.1.10, please update to the latest version as soon as possible. Prior versions have a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-This version fixes a bug that broke compatibility with Browser Fairy (a great app that allows you to route URLs to different browsers based on their origin or the content of the link). For now, links are still not able to launch an Epichrome app (but will route properly if the app is already open). The next update of Browser Fairy should fix that last problem too. Thanks again to [rschend](https://github.com/rschend "rschend") for identifying this, and to [jschuster](https://github.com/jschuster "jschuster"), the creator of Browser Fairy, for helping with the fix!
+This version fixes a minor bug in processing Chrome localization strings files. It may improve your performance using the Chrome beta channel (but may not). Thanks to [vhf](https://github.com/vhf "vhf") for the fix!
 
-This version will also fix crashes you may be experiencing since the release (on January 21, 2016) of Chrome 48.0.2564.82, which was breaking all Epichrome apps based on 2.1.7 or earlier. If your apps no longer start, install the latest Epichrome and run them again. Each one should offer you the choice of updating to the latest version, after which they should work again. See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
+See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
 
 ## New in version 2.1
@@ -35,7 +35,7 @@ This version will also fix crashes you may be experiencing since the release (on
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.11.3 with Chrome version 48.0.2564.116 (64-bit).
+Built and tested on Mac OS X 10.11.6 with Chrome version 53.0.2785.116 (64-bit).
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 

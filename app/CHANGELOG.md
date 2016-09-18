@@ -2,6 +2,10 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.1.12] - 2016-09-18
+### Fixed
+- Fixed a minor bug in processing Chrome localization strings files. It may improve your performance using the Chrome beta channel (but may not). Thanks to [vhf](https://github.com/vhf "vhf") for the fix!
+
 
 ## [2.1.11] - 2016-02-21
 ### Fixed
