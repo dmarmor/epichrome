@@ -763,7 +763,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	    # run python script to filter the InfoPlist.strings files for the .lproj directories
 	    local pyerr=
 	    try 'pyerr&=' /usr/bin/python \
-		"$1/Resources/Scripts/strings.py" "$CFBundleDisplayName" "$CFBundleName" "$tmpEngineResources/"*.lproj \
+		"$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" "$tmpEngineResources/"*.lproj \
 		'Error filtering InfoPlist.strings'
 	    [[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
 	    

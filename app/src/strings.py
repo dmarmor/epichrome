@@ -55,7 +55,7 @@ for lprojdir in sys.argv[3:]:
             infile.close()
             outfile = codecs.open(stringsfile, "w", "utf-8")
         except:
-            print sys.exc_info()
+            print sys.exc_info()[1]
             exit(2)
 
     # replace the dock and menubar names
@@ -76,7 +76,7 @@ for lprojdir in sys.argv[3:]:
         outfile.write(''.join(outtext))
         outfile.close()
     except:
-        print sys.exc_info()[1][1]
+        print sys.exc_info()[1]
         exit(3)
 
 exit(0)
