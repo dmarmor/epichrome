@@ -63,9 +63,11 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_SCPT}/version.sh \
 	${APP_SCPT}/build.sh \
 	${APP_SCPT}/pathinfo.sh \
+	${APP_SCPT}/updatecheck.sh \
 	${APP_SCPT}/makeicon.sh \
 	${APP_RNTM_MCOS}/Epichrome \
 	${APP_RNTM_SCPT}/runtime.sh \
+	${APP_RNTM_SCPT}/getversion.py \
 	${APP_RNTM_SCPT}/infoplist.py \
 	${APP_RNTM_SCPT}/strings.py \
 	${APP_RNTM_NMHT}/${HOSTID}.json \

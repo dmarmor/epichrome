@@ -41,13 +41,16 @@ set myIcon to path to resource "applet.icns"
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
 set chromeSSBScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
---set lastPathScript to quoted form of (POSIX path of (path to resource "lastpath.sh" in directory "Scripts"))
+set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
+set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
 
--- LAST-USED ICON AND SSB PATH
+-- PERSISTENT PROPERTIES
 property lastIconPath : ""
 property lastSSBPath : ""
 property doRegisterBrowser : "No"
 property doCustomIcon : "Yes"
+property updateCheckDate : (current date) - (1 * days)
+property updateCheckVersion : false
 
 -- NUMBER OF STEPS IN THE PROCESS
 property numSteps : 7
@@ -99,9 +102,58 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will 
 	end if
 end tablist
 
+
 -- INITIALIZE IMPORTANT VARIABLES
 set ssbBase to "My Epichrome App"
 set ssbURLs to {}
+
+
+-- CHECK FOR UPDATES TO EPICHROME
+set curDate to current date
+display alert "TEMPORARY: updateCheckDate is " & (updateCheckDate as text) & ", updateCheckVersion is " & updateCheckVersion
+if updateCheckDate < curDate then
+	-- set next update for 24 hours from now
+	set updateCheckDate to (curDate + (1 * day))
+	
+	-- if updateCheckVersion isn't set, set it to the current version of Epichrome
+	if updateCheckVersion is false then
+		set updateCheckVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
+	end if
+	
+	try
+		set updateCheckResult to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion)
+	on error errStr number errNum
+		set updateCheckResult to false
+		display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+	end try
+	
+	if updateCheckResult is not false then
+		if updateCheckResult is not "" then
+			set newVersion to paragraph 1 of updateCheckResult
+			set updateURL to paragraph 2 of updateCheckResult
+			try
+				set dlgResult to button returned of (display dialog "A new version of Epichrome (" & newVersion & ") is available on GitHub." with title "Update Available" buttons {"Download", "Later", "Ignore This Version"} default button "Download" cancel button "Later" with icon myIcon)
+			on error number -128
+				set dlgResult to false
+				set updateCheckDate to (curDate + (7 * days))
+			end try
+			
+			-- Download or Ignore
+			if dlgResult is "Download" then
+				open location updateURL
+			else if dlgResult is "Ignore This Version" then
+				set updateCheckVersion to newVersion
+			end if
+		else
+			display alert "TEMPORARY: No update at this time (my version is " & updateCheckVersion & "). Will check again in 24 hours."
+		end if
+	end if
+end if
+
+--display alert ((current date) as number)
+
+--display alert "updateCheck result: '" & updateCheckResult & "'"
+-- "A new version of Epichrome ($newVersion) is available on GitHub."
 
 repeat
 	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION

@@ -1,4 +1,4 @@
-# Epichrome 2.1.12
+# Epichrome 2.1.13
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -13,13 +13,13 @@ Download the binary release [here](https://github.com/dmarmor/epichrome/releases
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.1.12.
+## New in version 2.1.13.
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
 **If you're running any version earlier than 2.1.10, please update to the latest version as soon as possible. Prior versions have a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-This version fixes a minor bug in processing Chrome localization strings files. It may improve your performance using the Chrome beta channel (but may not). Thanks to [vhf](https://github.com/vhf "vhf") for the fix!
+This version adds a check in the icon-conversion code to point out that it can't handle images with no alpha channel. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for helping diagnose this. Sorry I don't have time to actually make the code handle non-alpha images right now.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 

@@ -42,6 +42,7 @@ appInfoPlist="Info.plist"
 appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
 appChromeEngine="Resources/$chromeEngineName.app"
+appGetVersionScript="Resources/Scripts/getversion.py"
 
 # engine exec path -- relative to engine root
 engineExec="Contents/MacOS/$chromeEngineName"
@@ -433,7 +434,7 @@ function relaunch { # APP-PATH DELAY-SECONDS
 
 
 # MCSSBINFO: get absolute path and version info for Epichrome
-function mcssbinfo {
+function mcssbinfo { # (optional)MCSSB-PATH
     
     if [[ "$ok" ]]; then
 	
@@ -443,7 +444,7 @@ function mcssbinfo {
 	
 	# find Epichrome
 	
-	if [ "$1" ] ; then
+	if [[ "$1" ]] ; then
 	    # we've been told where it is
 	    mcssbPath="$1"
 	else
@@ -479,6 +480,14 @@ function mcssbinfo {
 	
 	# get current value for mcssbVersion
 	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" 'Unable to load Epichrome version.'
+	
+	# set up SSBNextUpdateCheck if not already set
+	if [[ "$ok" ]] ; then
+	    if [[ ! "$SSBNextUpdateCheck" ]] ; then
+		try 'SSBNextUpdateCheck=' /bin/date '+%s' 'Unable to get date for Epichrome update check.'
+		SSBNextUpdateCheck=$(($SSBNextUpdateCheck + (24 * 60 * 60)))  # set first check in 24 hrs
+	    fi
+	fi
     fi
     
     [[ "$ok" ]] && return 0
@@ -842,6 +851,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 			       CFBundleName \
 			       CFBundleIdentifier \
 			       SSBVersion \
+			       SSBNextUpdateCheck \
 			       SSBProfilePath \
 			       SSBChromePath \
 			       SSBChromeVersion \
@@ -925,6 +935,42 @@ function writeconfig {  # $1 = destination app bundle Contents directory
     
     [[ "$ok" ]] && return 0
     return 1    
+}
+
+
+# CHECKMCSSBVERSION: function that checks for a new version of Epichrome on github
+function checkmcssbversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
+
+    # URL for the latest Epichrome release
+    local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
+    
+    # call Python script to check github for the latest version
+    local latestVersion="$( "$1/$appGetVersionScript" 2> /dev/null )"
+    if [[ "$?" != 0 ]] ; then
+	ok=0
+	errmsg="$latestVersion"
+    fi
+    
+    # set current version to compare against
+    local curVersion="$mcssbVersion"
+    [[ "$2" ]] && curVersion="$2"
+    
+    # compare versions
+    if [[ "$ok" && "$(newversion "$curVersion" "$latestVersion")" ]] ; then
+	# output new available version number & download URL
+	echo "$latestVersion"
+	echo "$updateURL"
+    # elif [[ "$ok" ]] ; then
+    # 	echo "TEMPORARY EQUAL $mcssbVersion $latestVersion"
+    # 	echo "$updateURL"
+    fi
+    
+    # return value tells us know if we had any errors
+    if [[ "$ok" ]]; then
+	return 0
+    else
+	return 1
+    fi
 }
 
 

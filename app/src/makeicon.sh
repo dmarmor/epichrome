@@ -21,7 +21,8 @@
 #  Based on a script found at http://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil
 #  in an answer by Henry posted 12/20/2013 at 12:24
 #
-#  VERSION 1.0
+
+version="1.1"
 
 unset CDPATH
 
@@ -33,7 +34,7 @@ function usage {
     echo \
 	"Usage: ${prog} [-afd] <input> [<output>]" 1>&2
     
-    if [ ! "$1" ] ; then
+    if [[ ! "$1" ]] ; then
 	# long usage
 	echo "\
 
@@ -44,8 +45,9 @@ function usage {
    
    -f - do not prompt for confirmation before overwriting files
 
-   -d - debug mode: print all messages from underlying programs on error
-" 1>&2
+   -d - debug mode: print output from offending program on error
+
+(version $version)" 1>&2
     fi
     
     exit $1
@@ -59,12 +61,12 @@ iset_exists=
 converted_exists=
 output_exists=
 function abort {
-    [ "$iset_exists" ] && rm -rf "$iset"
-    [ "$converted_exists" ] && rm -f "$converted"
-    [ "$output_exists" ] && rm -rf "$output"
+    [[ "$iset_exists" ]] && rm -rf "$iset"
+    [[ "$converted_exists" ]] && rm -f "$converted"
+    [[ "$output_exists" ]] && rm -rf "$output"
     
-    [ "$debug" ] && echo "$cmdtext" 1>&2
-    [ "$1" ] && echo "$1" 1>&2
+    [[ "$debug" ]] && echo "$cmdtext" 1>&2
+    [[ "$1" ]] && echo "$1" 1>&2
     
     exit "$2"
 }
@@ -73,6 +75,26 @@ function abort {
 # HANDLE EARLY TERMINATION
 
 trap "abort 'Error: unexpected termination.' 5" SIGHUP SIGINT SIGTERM
+
+
+# CHECKERROR: check for an error & abort if necessary
+function checkerror {
+    local result="$?"
+    local nl='
+'
+    local errtext=
+    local iserr=
+    
+    # extract error text from sips or iconutil if any
+    if [[ "$cmdtext" =~ ((E)|(:e)|(${nl}e))rror:\ ([^$nl]*)$nl ]] ; then
+	iserr=yes
+	errtext="${BASH_REMATCH[5]}"
+	[[ "$errtext" ]] && errtext=" ($errtext)"
+    fi
+
+    # check if we need to abort
+    [[ ( "$result" != 0 ) || "$iserr" ]] && abort "${1}${errtext}" "$2"
+}
 
 
 # CONFIRM: confirm action (unless -f flag is in effect)
@@ -89,18 +111,18 @@ function confirm {
 
 # DELETE: possibly delete an existing file/directory after possibly prompting
 function confirmdelete {  # FILE DON'T-CONFIRM? DON'T-DELETE?
-    if [ -e "$1" ] ; then
+    if [[ -e "$1" ]] ; then
 
 	# prompt unless we're not supposed to
-	if [ ! "$2" ] ; then
+	if [[ ! "$2" ]] ; then
 	    confirm "Overwrite $1"
-	    [ $? != 1 ] && abort "" 0
+	    [[ "$?" != 1 ]] && abort "" 0
 	fi
 
 	# remove unless we're not supposed to
-	if [ ! "$3" ] ; then
+	if [[ ! "$3" ]] ; then
 	    cmdtext=$(rm -rf "$1" 2>&1)
-	    [ $? != 0 ] && abort "Error: unable to overwrite $1." 1
+	    [[ $? != 0 ]] && abort "Error: unable to overwrite $1." 1
 	fi
     fi
 }
@@ -109,13 +131,12 @@ function confirmdelete {  # FILE DON'T-CONFIRM? DON'T-DELETE?
 function tempname {
     # approximately equivalent to result=$(/usr/bin/mktemp "${appPath}.XXXXX" 2>&1)
     result="${1}.${RANDOM}${2}"
-    while [ -e "$result" ] ; do
+    while [[ -e "$result" ]] ; do
 	result="${result}.${RANDOM}${2}"
     done
 
     echo "$result"
 }
-
 
 
 # COMMAND-LINE OPTIONS AND USAGE
@@ -126,7 +147,7 @@ force=
 debug=
 help=
 while getopts :afdh opt; do
-    if [ $? != 0 ] ; then echo usage 2 ; fi
+    if [[ "$?" != 0 ]] ; then echo usage 2 ; fi
     case $opt in
 	a)
 	    convertIcns=1
@@ -153,10 +174,10 @@ shift $((OPTIND - 1))
 # input and output files
 
 input="$1" ; shift
-[ ! "$input" ] && usage 1
+[[ ! "$input" ]] && usage 1
 
 output="$1" ; shift
-[ ! "$output" ] && output="${input%.*}.icns"
+[[ ! "$output" ]] && output="${input%.*}.icns"
 
 # confirm output file should be deleted if it already exists (but don't delete)
 confirmdelete "$output" "" 1
@@ -165,48 +186,49 @@ confirmdelete "$output" "" 1
 iset="${output%.icns}.iconset"
 
 # make sure input file exists
-[ -e "$input" ] || abort "Error: image file does not exist." 2
+[[ -e "$input" ]] || abort "Error: image file does not exist." 2
 
 # get file format from sips
-format=$(sips -g format "$input" 2>&1)
-[ "$?" != "0" ] && abort "Error: unable to determine image format." 2
-
-# abort on unrecognized file format
-[[ "$format" =~ Error ]] && abort "Error: not a recognized image format." 2
+cmdtext=$(sips -g format "$input" 2>&1)
+checkerror "Error: not a recognized image format." 2
 format=${format#*format: }
 
 # possibly exit if already an ICNS
-if [ "$format" = "icns" ] ; then
-    [ ! "$convertIcns" ] && abort "Error: input file is already ICNS." 3
+if [[ "$format" = "icns" ]] ; then
+    [[ ! "$convertIcns" ]] && abort "Error: input file is already ICNS." 3
 fi
 
-# get image dimensions
-w=$(sips -g pixelWidth "$input" 2>&1)
-[ "$?" != "0" ] && abort "Error: unable to get image width." 2
-w=${w#*pixelWidth: }
+# # abort on image with no alpha channel (iconutil seems to require this)
+# alpha=$(sips --getProperty hasAlpha "$input" 2>&1)
+# [[ "$?" != "0" ]] && abort "Error: unable to get image alpha property." 2
+# [[ "${alpha#*hasAlpha: }" != "yes" ]] && abort "Error: image does not have an alpha channel." 2
 
-h=$(sips -g pixelHeight "$input" 2>&1)
-[ "$?" != "0" ] && abort "Error: unable to get image height." 2
-h=${h#*pixelHeight: }
+# get image dimensions
+cmdtext=$(sips -g pixelWidth "$input" 2>&1)
+checkerror "Error: unable to get image width." 2
+w=${cmdtext#*pixelWidth: }
+
+cmdtext=$(sips -g pixelHeight "$input" 2>&1)
+checkerror "Error: unable to get image height." 2
+h=${cmdtext#*pixelHeight: }
 
 # problems with the image dimensions
-[ \( "$h" -lt "16" \) -o \( "$w" -lt "16" \) ] && abort "Error: image is less than 16x16." 2
-
+[[ ( "$h" -lt "16" ) || ( "$w" -lt "16" ) ]] && abort "Error: image is less than 16x16." 2
 
 # if not a square PNG, convert to a square PNG
 converted=
 convert_args=()
-if [ "$h" -ne "$w" ] ; then
+if [[ "$h" -ne "$w" ]] ; then
     min=$(( $h > $w ? $w : $h ))
     convert_args=( -c "$min" "$min" )
 fi
-[ "$format" != "png" ] && convert_args=( "${convert_args[@]}" -s format png )
+[[ "$format" != "png" ]] && convert_args=( "${convert_args[@]}" -s format png )
 
-if [ "${#convert_args[@]}" -gt 0 ] ; then
+if [[ "${#convert_args[@]}" -gt 0 ]] ; then
     converted=$(tempname "${output}" ".png")
     
-    sipstxt=$(sips "${convert_args[@]}" "$input" --out "$converted" 2>&1)
-    [ "$?" != "0" ] && abort "Error: unable to convert image to a square PNG." 2
+    cmdtext=$(sips "${convert_args[@]}" "$input" --out "$converted" 2>&1)
+    checkerror "Error: unable to convert image to a square PNG." 2
     converted_exists=1
     
     input="$converted"
@@ -218,7 +240,7 @@ fi
 confirmdelete "$iset"
 
 cmdtext=$(mkdir "$iset" 2>&1)
-[ "$?" != "0" ] && abort "Error: unable to create temporary iconset directory." 1
+[[ "$?" != "0" ]] && abort "Error: unable to create temporary iconset directory." 1
 iset_exists=1
 
 # create sized images
@@ -231,24 +253,24 @@ for cursize in ${sizes[@]} ; do
     nm="${nm}.png"
     dbl=$(($cursize * 2))
     
-    if [ "$h" -eq "$dbl" ] ; then
+    if [[ "$h" -eq "$dbl" ]] ; then
 	cp "$input" "$dblnm"
-    elif [ "$h" -gt "$dbl" ] ; then
-	sipstxt=$(sips -z $dbl $dbl "$input" --out "$dblnm" 2>&1)
-	[ "$?" != "0" ] && abort "Error: unable to create image size ${dbl}x${dbl}." 2
+    elif [[ "$h" -gt "$dbl" ]] ; then
+	cmdtext=$(sips -z $dbl $dbl "$input" --out "$dblnm" 2>&1)
+	checkerror "Error: unable to create image size ${dbl}x${dbl}." 2
     fi
-
-    if [ "$h" -eq "$cursize" ] ; then
+    
+    if [[ "$h" -eq "$cursize" ]] ; then
 	cp "$input" "$nm"
-    elif [ "$h" -gt "$cursize" ] ; then
-	sipstxt=$(sips -z $cursize $cursize "$input" --out "$nm" 2>&1)
-	[ "$?" != "0" ] && abort "Error: unable to create image size ${cursize}x${cursize}." 2
+    elif [[ "$h" -gt "$cursize" ]] ; then
+	cmdtext=$(sips -z $cursize $cursize "$input" --out "$nm" 2>&1)
+	checkerror "Error: unable to create image size ${cursize}x${cursize}." 2
     fi
 done
 
 confirmdelete "$output" 1  # delete without prompting
 
 cmdtext=$(iconutil -c icns -o "$output" "$iset" 2>&1)
-[ "$?" != "0" ] && abort "Error: unable to convert iconset to ICNS file." 4
+checkerror "Error: unable to convert iconset to ICNS file." 4
 
 abort "" 0
