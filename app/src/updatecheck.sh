@@ -55,5 +55,3 @@ mcssbinfo "$myPath"
 checkmcssbversion "$myRuntimePath" "$1"
 
 [[ "$ok" ]] || abort "$errmsg" 1
-
-# IFS=$'\n' y=($x)

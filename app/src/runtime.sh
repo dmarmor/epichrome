@@ -481,13 +481,6 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	# get current value for mcssbVersion
 	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" 'Unable to load Epichrome version.'
 	
-	# set up SSBNextUpdateCheck if not already set
-	if [[ "$ok" ]] ; then
-	    if [[ ! "$SSBNextUpdateCheck" ]] ; then
-		try 'SSBNextUpdateCheck=' /bin/date '+%s' 'Unable to get date for Epichrome update check.'
-		SSBNextUpdateCheck=$(($SSBNextUpdateCheck + (24 * 60 * 60)))  # set first check in 24 hrs
-	    fi
-	fi
     fi
     
     [[ "$ok" ]] && return 0
@@ -851,7 +844,8 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 			       CFBundleName \
 			       CFBundleIdentifier \
 			       SSBVersion \
-			       SSBNextUpdateCheck \
+			       SSBUpdateCheckDate \
+			       SSBUpdateCheckVersion \
 			       SSBProfilePath \
 			       SSBChromePath \
 			       SSBChromeVersion \

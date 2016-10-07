@@ -1,7 +1,10 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.1.13] - ?????
+## [2.1.13] - 2016-10-07
+### Changed
+- Added code to automatically check Github once a week for a new version of Epichrome. If one is found, a dialog is displayed giving the user the option to go to the download page for the new release, check again later or ignore this version. Thanks to [Zettt](https://github.com/Zettt "Zettt") for proposing an update-checking system.
+
 ### Fixed
 - Added a check in the icon-conversion code to point out that it can't handle images with no alpha channel. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for helping diagnose this. Sorry I don't have time to actually make the code handle non-alpha images right now.
 

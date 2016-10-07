@@ -109,17 +109,18 @@ set ssbURLs to {}
 
 
 -- CHECK FOR UPDATES TO EPICHROME
+
 set curDate to current date
-display alert "TEMPORARY: updateCheckDate is " & (updateCheckDate as text) & ", updateCheckVersion is " & updateCheckVersion
 if updateCheckDate < curDate then
-	-- set next update for 24 hours from now
-	set updateCheckDate to (curDate + (1 * day))
+	-- set next update for 1 week from now
+	set updateCheckDate to (curDate + (7 * days))
 	
 	-- if updateCheckVersion isn't set, set it to the current version of Epichrome
 	if updateCheckVersion is false then
 		set updateCheckVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
 	end if
 	
+	-- run the actual update check script
 	try
 		set updateCheckResult to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion)
 	on error errStr number errNum
@@ -127,6 +128,7 @@ if updateCheckDate < curDate then
 		display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
 	end try
 	
+	-- parse update check results
 	if updateCheckResult is not false then
 		if updateCheckResult is not "" then
 			set newVersion to paragraph 1 of updateCheckResult
@@ -134,8 +136,8 @@ if updateCheckDate < curDate then
 			try
 				set dlgResult to button returned of (display dialog "A new version of Epichrome (" & newVersion & ") is available on GitHub." with title "Update Available" buttons {"Download", "Later", "Ignore This Version"} default button "Download" cancel button "Later" with icon myIcon)
 			on error number -128
+				-- Later: do nothing
 				set dlgResult to false
-				set updateCheckDate to (curDate + (7 * days))
 			end try
 			
 			-- Download or Ignore
@@ -144,16 +146,12 @@ if updateCheckDate < curDate then
 			else if dlgResult is "Ignore This Version" then
 				set updateCheckVersion to newVersion
 			end if
-		else
-			display alert "TEMPORARY: No update at this time (my version is " & updateCheckVersion & "). Will check again in 24 hours."
 		end if
 	end if
 end if
 
---display alert ((current date) as number)
 
---display alert "updateCheck result: '" & updateCheckResult & "'"
--- "A new version of Epichrome ($newVersion) is available on GitHub."
+-- BUILD THE APP
 
 repeat
 	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION

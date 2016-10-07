@@ -19,7 +19,9 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 **If you're running any version earlier than 2.1.10, please update to the latest version as soon as possible. Prior versions have a potentially serious bug where updates to Chrome could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-This version adds a check in the icon-conversion code to point out that it can't handle images with no alpha channel. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for helping diagnose this. Sorry I don't have time to actually make the code handle non-alpha images right now.
+Starting with this version, Epichrome (and all Epichrome apps) will automatically check Github once a week for a new version of Epichrome. If one is found, a dialog is displayed giving the user the option to go to the download page for the new release, check again later or ignore this version. Thanks to [Zettt](https://github.com/Zettt "Zettt") for proposing an update-checking system.
+
+This version also adds a check in the icon-conversion code to point out that it can't handle images with no alpha channel. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for helping diagnose this. Sorry I don't have time to actually make the code handle non-alpha images right now.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
