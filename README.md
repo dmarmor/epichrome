@@ -38,7 +38,7 @@ find /Applications ~/Applications -path '*/Contents/MacOS/Epichrome' -exec sed -
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-This version changes the way Epichrome apps update themselves. They now attempt to update to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to xxx for helping diagnose this problem.
+This version changes the way Epichrome apps update themselves. They now attempt to update to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.
 
 This version also has brand-new icon-creation code, now able to handle JPG, GIF and other input file formats with indexed color or without alpha channels. And as a bonus, it also creates custom document icons based on the custom app icon. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
 
