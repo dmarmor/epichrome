@@ -22,7 +22,7 @@
 #  in an answer by Henry posted 12/20/2013 at 12:24
 #
 
-version="2.0.0"
+version="2.0.1"
 
 unset CDPATH
 
@@ -96,7 +96,6 @@ function abort {
     
     # on error, also print any debug messages
     if [[ "$2" != 0 ]] ; then
-	#[[ -e "$output" ]] && rm -rf "$output" > /dev/null 2>&1
 	[[ "$debug" && "$cmdtext" ]] && echo "$cmdtext" 1>&2
     fi
     
@@ -666,7 +665,7 @@ if [[ -d "$outputMainIconset" ]] ; then
     checkerror "Error: unable to convert iconset to ICNS file." 4
 elif [[ "$mainAction" = copy ]] ; then
     # copy input (already ICNS) to output
-    outputMainTmp=$(tempname "$output" '.icns')
+    outputMainTmp=$(tempname "$outputMain" '.icns')
     cmdtext=$(/bin/cp -- "$input" "$outputMainTmp" 2>&1)
     [[ "$?" != 0 ]] && abort "Unable to copy $input." 2
 fi
