@@ -467,6 +467,9 @@ function mcssbinfo { # (optional)MCSSB-PATH
 		if [[ ! -d "$mcssbPath" ]]; then
 		    mcssbPath='/Applications/Epichrome.app'
 		fi
+		if [[ ! -d "$mcssbPath" ]]; then
+		    mcssbPath=~/'Applications/Epichrome.app'
+		fi
 	    fi
 	fi
 	
