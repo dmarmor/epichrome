@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  runtime.sh: runtime utility functions for Epichrome creator & apps
-#  Copyright (C) 2015  David Marmor
+#  Copyright (C) 2016  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -255,7 +255,7 @@ function permanent {
 	# MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
 	
 	# move the permanent file to a holding location for later removal
-	if [ -e "$perm" ] ; then
+	if [[ -e "$perm" ]] ; then
 	    permOld=$(tempname "$perm")
 	    try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
 	    [[ "$ok" ]] || permOld=
@@ -277,7 +277,7 @@ function permanent {
 	if [[ ! "$ok" ]] ; then
 	    
 	    # move old permanent file back
-	    if [ "$permOld" ] ; then
+	    if [[ "$permOld" ]] ; then
 		onerr /bin/mv "$permOld" "$perm" "Also unable to restore old $filetype."
 	    fi
 	    
@@ -399,7 +399,7 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 }
 
 
-# NEWVERSION (V1 V2) -- check if the V1 < V2
+# NEWVERSION (V1 V2) -- if V1 < V2, return (and echo) 1, else return 0
 function newversion {
     local re='^([0-9]+)\.([0-9]+)\.([0-9]+)'
     if [[ "$1" =~ $re ]] ; then
@@ -415,11 +415,11 @@ function newversion {
 
     local i= ; local idx=( 0 1 2 )
     for i in "${idx[@]}" ; do
-	if [ "${old[$i]}" -lt "${new[$i]}" ] ; then
+	if [[ "${old[$i]}" -lt "${new[$i]}" ]] ; then
 	    echo "1"
 	    return 1
 	fi
-	[ "${old[$i]}" -gt "${new[$i]}" ] && return 0
+	[[ "${old[$i]}" -gt "${new[$i]}" ]] && return 0
     done
     
     return 0
@@ -660,6 +660,41 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
     
     [[ "$ok" ]] && return 0
     return 1    
+}
+
+
+# MCSSBMAKEICONS: wrapper for makeicon.sh
+function mcssbmakeicons {  # INPUT OUTPUT-DIR app|doc|both
+    if [[ "$ok" ]] ; then
+
+	# find makeicon.sh
+	local makeIconScript="${mcssbPath}/Contents/Resources/Scripts/makeicon.sh"
+	[[ -e "$makeIconScript" ]] || abort "Unable to locate makeicon.sh." 1
+	
+	# build command-line
+	local args=
+	local docargs=(-c "$mcssbPath/Contents/Resources/docbg.png" 256 286 512 "$1" "$2/$CFBundleTypeIconFile")
+	case "$3" in
+	    app)
+		args=(-f "$1" "$2/$CFBundleIconFile")
+		;;
+	    doc)
+		args=(-f "${docargs[@]}")
+		;;
+	    both)
+		args=(-f -o "$2/$CFBundleIconFile" "${docargs[@]}")
+		;;
+	esac
+
+	# run script
+	try 'makeiconerr&=' "$makeIconScript" "${args[@]}" ''
+	
+	# parse errors
+	if [[ ! "$ok" ]] ; then
+	    errmsg="${makeiconerr#*Error: }"
+	    errmsg="${errmsg%.*}"
+	fi
+    fi
 }
 
 
@@ -975,7 +1010,7 @@ function updatessb {
 	
 	# command-line arguments
 	local appPath="$1"        # path to the app bundle
-	local customIconFile="$2" # path to custom icon file
+	local customIconDir="$2"  # path to custom icon directory
 	local chromeOnly="$3"     # if non-empty, we're ONLY updating Chrome stuff
 	local newApp="$4"         # if non-empty, we're creating a new app
 	
@@ -997,14 +1032,33 @@ function updatessb {
 	    # place custom icon, if any
 	    
 	    # check if we are copying from an old version of a custom icon
-	    if [[ ( ! "$customIconFile" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
-		customIconFile="$appPath/Contents/Resources/$CFBundleIconFile"
+	    local remakeDocIcon=
+	    if [[ ( ! "$customIconDir" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
+		customIconDir="$appPath/Contents/Resources"
+		
+		# starting in 2.1.14 we can customize the document icon too
+		if [[ $(newversion "$SSBVersion" "2.1.14") ]] ; then
+		    remakeDocIcon=1
+		fi
 	    fi
 	    
-	    # if there's a custom icon, copy it in
-	    if [ -e "$customIconFile" ] ; then
+	    # if there's a custom app icon, copy it in
+	    if [[ -e "$customIconDir/$CFBundleIconFile" ]] ; then
 		# copy in custom icon
-		safecopy "$customIconFile" "${contentsTmp}/Resources/${CFBundleIconFile}" "custom icon"
+		safecopy "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources/$CFBundleIconFile" "custom icon"
+	    fi
+
+	    # either copy or remake the doc icon
+	    if [[ "$remakeDocIcon" ]] ; then
+		# remake doc icon now that we can customize that
+		mcssbmakeicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
+		if [[ ! "$ok" ]] ; then
+		    errmsg="Unable to update doc icon ($errmsg)."
+		fi
+		
+	    elif [[ -e "$customIconDir/$CFBundleTypeIconFile" ]] ; then
+		# copy in existing custom doc icon
+		safecopy "$customIconDir/$CFBundleTypeIconFile" "${contentsTmp}/Resources/$CFBundleTypeIconFile" "custom icon"
 	    fi
 	    
 	    if [[ "$ok" ]] ; then

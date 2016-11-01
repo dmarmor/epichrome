@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the project.
-#  Copyright (C) 2015  David Marmor
+#  Copyright (C) 2016  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -60,6 +60,7 @@ INSTALL_PATH:=/Applications/Epichrome.app
 ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
 	${APP_RSRC}/applet.icns \
+	${APP_RSRC}/docbg.png \
 	${APP_SCPT}/version.sh \
 	${APP_SCPT}/build.sh \
 	${APP_SCPT}/pathinfo.sh \
@@ -106,6 +107,10 @@ ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
 	@touch ${APP} ${APP_CTNT}
 
 ${APP_RSRC}/applet.icns: icons/epichrome.icns
+	cp -p $< $@
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
+
+${APP_RSRC}/docbg.png: icons/docbg.png
 	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 

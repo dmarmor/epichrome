@@ -1,6 +1,15 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.14] - 2016-11-01
+### Changed
+- Epichrome apps now attempt to update themselves to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.
+- Rewrote icon-creation code to handle JPG, GIF and other formats with indexed color or without alpha channels. Custom document icons are now also created. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
+
+### Fixed
+- Fixed a bug introduced in 2.1.13 that caused the Epichrome update dialog box to fail, which renders apps unable to ever update to a later version. Added a terminal one-liner in the [README](https://github.com/dmarmor/epichrome) as a workaround to allow 2.1.13 apps to update to 2.1.14.
+
+
 ## [2.1.13] - 2016-10-07
 ### Changed
 - Added code to automatically check Github once a week for a new version of Epichrome. If one is found, a dialog is displayed giving the user the option to go to the download page for the new release, check again later or ignore this version. Thanks to [Zettt](https://github.com/Zettt "Zettt") for proposing an update-checking system.
@@ -36,7 +45,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed a long-standing bug that caused Epichrome apps to run without hardware graphics acceleration due to the GPU process crashing on startup. This caused sluggish graphics response (especially on retina displays) and failures to load WebGL sites. Big thanks to [mhwinkler](https://github.com/mhwinkler "mhwinkler") and [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") for identifying this bug (in two utterly different forms) and putting in a bunch of time helping isolate it and test approaches to a fix, and to [breeden](https://github.com/breeden "breeden") for once again testing the new update before I inflicted it on everyone else.
 
 
-
 ## [2.1.7] - 2016-01-22
 ### Fixed
 - Fixed an incompatibility with Chrome 48.0.2564.82. For whatever reason, Epichrome apps would no longer run unless they had a link to the Chrome Versions directory in their bundles. This update adds that link. Thanks to [ylluminate](https://github.com/ylluminate "ylluminate"), [evansthompson](https://github.com/evansthompson "evansthompson"), [msubel](https://github.com/msubel "msubel"), and everyone else who pointed this issue out. Special thanks to [breeden](https://github.com/breeden "breeden") for helping test the solution!
@@ -56,17 +64,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - Several minor bugs that could cause temporary directories to be left in place in some circumstances.
 
+
 ## [2.1.4] - 2015-07-22
 ### Fixed
 - Another small fix to the alert/dialog bug. Hopefully really fixed now.
+
 
 ## [2.1.3] - 2015-07-21
 ### Fixed
 - Caught bug that would prevent alerts from being displayed on error. This is potentially bad, since if something goes wrong on startup, there won't be any way to know what.
 
+
 ## [2.1.2] - 2015-07-20
 ### Fixed
 - Apps created with a custom icon in ICNS format no longer ignore the custom icon. Thanks to [jdsimcoe](https://github.com/jdsimcoe "jdsimcoe") and [pattulus](https://github.com/pattulus "pattulus") for catching this.
+
 
 ## [2.1.1] - 2015-07-16
 ### Changed
@@ -78,6 +90,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - The app version number should no longer be mistakenly updated to the latest Epichrome version in the rare occasion that a new version of Epichrome is installed, and a new version of Chrome is installed, *and* the user decided not to update the app, but do it later.
 - The Helper extension should now stay properly auto-installed even if a user deletes their profile folder.
 
+
 ## [2.1.0] - 2015-07-15
 ### Changed
 - Renamed the project Epichrome, mostly because I found MakeChromeSSB very annoying to say and write.
@@ -88,6 +101,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Umlauts can now be used in app names. (Possibly this is a general fix for unicode characters in app names, but I can't be sure as I have no good way to test it on my system.) (Thanks to [Zettt](https://github.com/Zettt "Zettt") for finding this.)
 - Apps should now display properly on retina screens. (Thanks to [mikejacobs](https://github.com/mikejacobs "mikejacobs"), [Zettt](https://github.com/Zettt "Zettt") and [mhwinkler](https://github.com/mhwinkler "mhwinkler") for pointing this out and helping test the fix.)
 - Streamlined error-handling in the runtime engine.
+
 
 ## [2.0.1] - 2015-06-09
 ### Changed

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #  infoplist.py: edit Chrome Info.plist for an SSB
-#  Copyright (C) 2015  David Marmor
+#  Copyright (C) 2016  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

@@ -1,7 +1,7 @@
 (*
  * 
  *  main.applescript: An AppleScript GUI for creating Epichrome apps.
- *  Copyright (C) 2015  David Marmor
+ *  Copyright (C) 2016  David Marmor
  *
  *  https://github.com/dmarmor/epichrome
  *

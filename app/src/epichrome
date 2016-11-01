@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  Epichrome: Run an Epichrome app
-#  Copyright (C) 2015  David Marmor
+#  Copyright (C) 2016  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -79,7 +79,7 @@ end tell"
 	local try_end=
 	local numbuttons=0
 	
-	for button in $@ ; do
+	for button in "$@" ; do
 	    # increment button count
 	    numbuttons=$((${numbuttons} + 1))
 	    
@@ -293,86 +293,6 @@ myProfilePath="${HOME}/$SSBProfilePath"
 updateconfig=
 
 
-# CHECK AND UPDATE CHROME LINKS
-
-# get Google Chrome info
-chromeinfo
-
-# we've done a bunch of stuff--abort if any of it has gone wrong
-[[ "$ok" ]] || abort "$errmsg" 1
-
-# update config variable
-if [ "$SSBChromePath" != "$chromePath" ] ; then
-    
-    authenticate chromepath '' '' nonfatal
-    
-    if [[ "$?" = 0 ]] ; then
-	SSBChromePath="$chromePath"
-	updateconfig=1
-    fi
-fi
-
-# check if the Chrome engine executable is either:
-# not a link; not executable; or not pointing to the real Chrome executable
-myChromeExec="$myContents/$appChromeEngine/$engineExec"
-if [[ ( ! -h "$myChromeExec" ) || \
-	  ( ! -x "$myChromeExec" ) || \
-	  ( "$chromeExec" != "$(readlink "$myChromeExec" 2> /dev/null)" ) ]] ; then
-
-    # (note that readlink can fail silently--all it means is we'll do the update
-
-    # basic relink message
-    updatemsg='Google Chrome appears to have moved.'
-    
-    # authenticate
-    authenticate relink "$updatemsg" "relink"
-    
-    # display a relink alert if we didn't just become admin
-    if [[ "$isAdmin" != relink ]] ; then
-	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
-    fi
-    
-    # relink to Google Chrome engine
-    linkchrome "$myContents"
-    
-    # abort if we failed to relink Chrome
-    [[ "$ok" ]] || abort "$errmsg" 1
-fi
-
-# check for new version of Chrome and update
-if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
-
-    updatemsg="New version of Google Chrome found ($chromeVersion)."
-
-    # authenticate
-    authenticate chromeupdate "$updatemsg" 'update' nonfatal
-    if [[ "$?" = 0 ]] ; then
-	
-	# display a Chrome update alert if we didn't just become admin
-	if [[ "$isAdmin" != chromeupdate ]] ; then
-	    alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
-	fi
-	
-	# set new version number for config file
-	SSBChromeVersion="$chromeVersion"
-	
-	# use new runtime to update the SSB (and relaunch)
-	updatessb "$myPath" '' ChromeOnly
-	
-    else
-	ok=
-	errmsg="Permission denied."
-    fi
-
-    # failure is non-fatal
-    if [[ ! "$ok" ]] ; then
-	alert "Unable to update app to new version of Google Chrome. ($errmsg) It may or may not run properly." 'Warning' '|caution'
-	ok=
-	errmsg=
-    fi
-fi
-
-
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
 
 if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
@@ -393,6 +313,12 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 		   "+Update" \
 		   "-Later" \
 		   "Don't Ask Again For This Version"
+	    if [[ ! "$ok" ]] ; then
+		alert "A new version of the Epichrome runtime was found ($mcssbVersion) but update dialog failed. Attempting to update now." 'Update' '|caution'
+		doUpdate="Update"
+		ok=1
+		errmsg=
+	    fi
 	else
 	    doUpdate="Update"
 	fi
@@ -500,6 +426,86 @@ if [[ "$ok" ]] ; then
 		IFS="$oldifs"
 	    fi
 	fi
+    fi
+fi
+
+
+# CHECK AND UPDATE CHROME LINKS
+
+# get Google Chrome info
+chromeinfo
+
+# we've done a bunch of stuff--abort if any of it has gone wrong
+[[ "$ok" ]] || abort "$errmsg" 1
+
+# update config variable
+if [ "$SSBChromePath" != "$chromePath" ] ; then
+    
+    authenticate chromepath '' '' nonfatal
+    
+    if [[ "$?" = 0 ]] ; then
+	SSBChromePath="$chromePath"
+	updateconfig=1
+    fi
+fi
+
+# check if the Chrome engine executable is either:
+# not a link; not executable; or not pointing to the real Chrome executable
+myChromeExec="$myContents/$appChromeEngine/$engineExec"
+if [[ ( ! -h "$myChromeExec" ) || \
+	  ( ! -x "$myChromeExec" ) || \
+	  ( "$chromeExec" != "$(readlink "$myChromeExec" 2> /dev/null)" ) ]] ; then
+
+    # (note that readlink can fail silently--all it means is we'll do the update
+
+    # basic relink message
+    updatemsg='Google Chrome appears to have moved.'
+    
+    # authenticate
+    authenticate relink "$updatemsg" "relink"
+    
+    # display a relink alert if we didn't just become admin
+    if [[ "$isAdmin" != relink ]] ; then
+	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
+    fi
+    
+    # relink to Google Chrome engine
+    linkchrome "$myContents"
+    
+    # abort if we failed to relink Chrome
+    [[ "$ok" ]] || abort "$errmsg" 1
+fi
+
+# check for new version of Chrome and update
+if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
+
+    updatemsg="New version of Google Chrome found ($chromeVersion)."
+
+    # authenticate
+    authenticate chromeupdate "$updatemsg" 'update' nonfatal
+    if [[ "$?" = 0 ]] ; then
+	
+	# display a Chrome update alert if we didn't just become admin
+	if [[ "$isAdmin" != chromeupdate ]] ; then
+	    alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
+	fi
+	
+	# set new version number for config file
+	SSBChromeVersion="$chromeVersion"
+	
+	# use new runtime to update the SSB (and relaunch)
+	updatessb "$myPath" '' ChromeOnly
+	
+    else
+	ok=
+	errmsg="Permission denied."
+    fi
+
+    # failure is non-fatal
+    if [[ ! "$ok" ]] ; then
+	alert "Unable to update app to new version of Google Chrome. ($errmsg) It may or may not run properly." 'Warning' '|caution'
+	ok=
+	errmsg=
     fi
 fi
 

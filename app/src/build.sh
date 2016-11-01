@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  build.sh: Create an Epichrome application
-#  Copyright (C) 2015  David Marmor
+#  Copyright (C) 2016  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -115,32 +115,22 @@ chromeinfo
 
 # PREPARE CUSTOM ICON IF WE'RE USING ONE
 
-customIconTmp=
+customIconDir=
 
-if [ "$iconSource" ] ; then    
-    # find makeicon.sh
-    makeIconScript="${mcssbPath}/Contents/Resources/Scripts/makeicon.sh"
-    [ -e "$makeIconScript" ] || abort "Unable to locate makeicon.sh." 1
+if [[ "$iconSource" ]] ; then
     
-    # get temporary name for icon file
-    customIconTmp=$(tempname "${appTmp}/${customIconName}" ".icns")
+    # get name for temporary icon directory
+    customIconDir=$(tempname "${appTmp}/icons")
+    try /bin/mkdir -p "$customIconDir" 'Unable to create temporary icon directory.'
+    [[ "$?" != 0 ]] && abort "$errmsg" 1
     
     # convert image into an ICNS
-    try 'makeiconerr&=' "$makeIconScript" -f "$iconSource" "$customIconTmp" ''
-    result="$?"
+    mcssbmakeicons "$iconSource" "$customIconDir" both
     
     # handle results
-    if [[ "$result" = 3 ]] ; then
-	# not really an error, so clear error state
-	ok=1 ; errmsg=
-
-	# file was already an ICNS, so copy it in
-	try /bin/cp -p "$iconSource" "$customIconTmp" 'Unable to copy icon file into app.'
-    elif [[ "$result" != 0 ]] ; then
-	# really an error, set errmsg
-	errmsg="${makeiconerr#Error: }"
-	errmsg="${errmsg%.}"
-	abort "Unable to create icon (${errmsg})." 1
+    if [[ ! "$ok" ]] ; then
+	[[ "$errmsg" ]] && errmsg=" ($errmsg)"
+	abort "Unable to create icon${errmsg}." 1
     fi
 fi
 
@@ -148,11 +138,11 @@ fi
 # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
 # populate the Contents directory
-updatessb "$appTmp" "$customIconTmp" '' newApp
+updatessb "$appTmp" "$customIconDir" '' newApp
 
 if [[ "$ok" ]] ; then
-    # delete any temporary custom icon (fail silently, as any error here is non-fatal)
-    [[ -e "$customIconTmp" ]] && /bin/rm -f "$customIconTmp" > /dev/null 2>&1
+    # delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
+    [[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
     
     # move new app to permanent location (overwriting any old app)
     permanent "$appTmp" "$appPath" "app bundle"
