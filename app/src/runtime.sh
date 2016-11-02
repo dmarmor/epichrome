@@ -992,9 +992,6 @@ function checkmcssbversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
 	# output new available version number & download URL
 	echo "$latestVersion"
 	echo "$updateURL"
-    # elif [[ "$ok" ]] ; then
-    # 	echo "TEMPORARY EQUAL $mcssbVersion $latestVersion"
-    # 	echo "$updateURL"
     fi
     
     # return value tells us know if we had any errors
@@ -1151,8 +1148,9 @@ function updatessb {
 		    SSBFirstRunSinceVersion="0.0.0"
 		fi
 		
-		# update SSBVersion
+		# update SSBVersion & SSBUpdateCheckVersion
 		SSBVersion="$mcssbVersion"
+		SSBUpdateCheckVersion="$mcssbVersion"
 		
 		# clear host install error state
 		SSBHostInstallError=
@@ -1161,6 +1159,7 @@ function updatessb {
 
 	    # this should never be reached, but just in case, we set SSBVersion
 	    SSBVersion="$mcssbVersion"
+	    SSBUpdateCheckVersion="$mcssbVersion"
 	fi
 	
 	

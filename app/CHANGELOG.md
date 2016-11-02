@@ -1,6 +1,10 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.15] - 2016-11-01
+### Fixed
+- Fixed a small bug in the code that checks github for new versions. Apps will no longer insist that there's a new version on github even though they've just been updated to that new version.
+
 ## [2.1.14] - 2016-11-01
 ### Changed
 - Epichrome apps now attempt to update themselves to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.

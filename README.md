@@ -1,4 +1,4 @@
-# Epichrome 2.1.14
+# Epichrome 2.1.15
 
 ###If you've been using version 2.1.13 or below, please see [important note](#important-note-on-updating) below!
 
@@ -26,13 +26,15 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 *Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The epichrome_fix.sh script now included in the DMG is the easiest way to do this. Otherwise, you can just right-click on each app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
 
 
-## New in version 2.1.14.
+## New in version 2.1.15.
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-This version changes the way Epichrome apps update themselves. They now attempt to update to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.
+Version 2.1.14 changes the way Epichrome apps update themselves. They now attempt to update to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.
 
-This version also has brand-new icon-creation code, now able to handle JPG, GIF and other input file formats with indexed color or without alpha channels. And as a bonus, it also creates custom document icons based on the custom app icon. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
+2.1.14 also has brand-new icon-creation code, now able to handle JPG, GIF and other input file formats with indexed color or without alpha channels. And as a bonus, it also creates custom document icons based on the custom app icon. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
+
+And finally, in 2.1.15 the code that checks github for new versions will no longer insist that there's a new version on github even though the app just been updated to that new version.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
