@@ -8,7 +8,6 @@
 /app/icons/source/**
 /app/icons/*.icns
 /builder/**
-/dmg/**
 /helper/*.zip
 /helper/extension/**
 /helper/store/**
