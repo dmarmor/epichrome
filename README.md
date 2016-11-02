@@ -1,6 +1,6 @@
 # Epichrome 2.1.14
 
-###If you're running version 2.1.13, please see [important note](#important-note-on-updating) below!
+###If you've been using version 2.1.13 or below, please see [important note](#important-note-on-updating) below!
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -19,19 +19,11 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 **If you're running any version earlier than 2.1.14, please update to the latest version as soon as possible. Prior versions have potentially serious problems where updates could break Epichrome apps permanently, so they'd have to be deleted and recreated.**
 
-**If you're running 2.1.13, updating to 2.1.14 or later will probably fail. When you try, you'll see the following dialog:**
+**Obviously this is a huge problem, so I've create a workaround. When you open the DMG, you'll see two new icons, a README file and a shell script. Please read the README and follow the directions to install and then run the shell script if need be. This will help make the update as smooth as possible by working around the problems in versions 2.1.13 and earlier.**
 
-![Unable to Update](https://github.com/dmarmor/epichrome/blob/master/images/020113unabletoupdate.png)
+**If you don't use the shell script, updating your apps will very likely fail, and possibly render your existing apps unusable.**
 
-**Obviously this is a huge problem, so I've create a workaround. First, _back up all your Epichrome apps_. Then run the following one-liner from the terminal (change the paths if you have your apps installed somewhere different, and you may need sudo privileges depending how you installed the apps):**
-
-```bash
-find /Applications ~/Applications -path '*/Contents/MacOS/Epichrome' -exec sed -i .bak 's/for button in $@ ; do/for button in "$@" ; do/' '{}' \;
-```
-
-**When you're done, your apps should be able to update as normal to 2.1.14. Sorry for the inconvenience.**
-
-*Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The easiest way I've found to do this is just right-click on the app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
+*Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The epichrome_fix.sh script now included in the DMG is the easiest way to do this. Otherwise, you can just right-click on each app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
 
 
 ## New in version 2.1.14.
