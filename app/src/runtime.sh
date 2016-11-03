@@ -724,15 +724,19 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	
 	# create temporary Chrome engine bundle & important directories
 	try /bin/mkdir -p "$tmpEngineMacOS" 'Unable to create Chrome engine.'
-	try /bin/mkdir "$tmpEngineResources" 'Unable to create Chrome engine Resources directory.'
+	try /bin/mkdir "$tmpEngineResources" \
+	    'Unable to create Chrome engine Resources directory.'
 	
-	# link everything in Chrome Contents except Info.plist, MacOS & Resources directories
+	# link everything in Chrome Contents except Info.plist, MacOS &
+	# Resources directories
 	local chromeContents="$chromePath/Contents"
 	dirlist "$chromeContents" curdir 'Chrome engine Contents'
 	if [[ "$ok" ]] ; then
 	    for entry in "${curdir[@]}" ; do
-		if [[ ( "$entry" != 'Info.plist' ) && ( "$entry" != 'MacOS' ) && ( "$entry" != 'Resources' ) ]] ; then
-		    try /bin/ln -s "$chromeContents/$entry" "$tmpEngineContents" \
+		if [[ ( "$entry" != 'Info.plist' ) && ( "$entry" != 'MacOS' ) \
+			  && ( "$entry" != 'Resources' ) ]] ; then
+		    try /bin/ln -s "$chromeContents/$entry" \
+			"$tmpEngineContents" \
 			'Unable to create link to $entry in Chrome engine.'
 		fi
 	    done
@@ -752,24 +756,27 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	# SCMRevision ''
 	# NSHighResolutionCapable true
 	local filterkeys=(CFBundleIconFile string "$CFBundleIconFile" \
-					      CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-					      DTSDKBuild '' \
-					      DTSDKName '' \
-					      DTXcode '' \
-					      DTXcodeBuild '' \
-					      KSChannelID-32bit '' \
-					      KSChannelID-32bit-full '' \
-					      KSChannelID-full '' \
-					      KSProductID '' \
-					      KSUpdateURL '' \
-					      KSVersion '')
+					   CFBundleTypeIconFile string \
+					   "$CFBundleTypeIconFile" \
+					   DTSDKBuild '' \
+					   DTSDKName '' \
+					   DTXcode '' \
+					   DTXcodeBuild '' \
+					   KSChannelID-32bit '' \
+					   KSChannelID-32bit-full '' \
+					   KSChannelID-full '' \
+					   KSProductID '' \
+					   KSUpdateURL '' \
+					   KSVersion '')
 	
 	# filter Info.plist file from Chrome
 	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
 	
 	# create links to Chrome executable in engine's MacOS directory
-	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" "Unable to link to Chrome Engine executable"
-	try /bin/ln -s "$chromeExec" "$tmpEngineMacOS" "Unable to link to Chrome Engine dummy executable"
+	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" \
+	    "Unable to link to Chrome Engine executable"
+	try /bin/ln -s "$chromeExec" "$tmpEngineMacOS" \
+	    "Unable to link to Chrome Engine dummy executable"
 
 	# create dummy executable in engine's MacOS directory
 	
@@ -778,8 +785,10 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	dirlist "$chromeResources" curdir 'Chrome engine Resources'
 	if [[ "$ok" ]] ; then
 	    for entry in "${curdir[@]}" ; do
-		if [[ ! ( ("$entry" =~ \.icns$ ) || ( "$entry" =~ $lprojRegex ) ) ]] ; then
-		    try /bin/ln -s "$chromeResources/$entry" "$tmpEngineResources" \
+		if [[ ! ( ("$entry" =~ \.icns$ ) || \
+			      ( "$entry" =~ $lprojRegex ) ) ]] ; then
+		    try /bin/ln -s "$chromeResources/$entry" \
+			"$tmpEngineResources" \
 			'Unable to create link to $entry in Chrome engine Resources directory.'
 		fi
 	    done
@@ -787,9 +796,11 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 
 	# link to this app's icons
 	if [[ "$ok" ]] ; then
-	    try /bin/ln -s "../../../$CFBundleIconFile" "$tmpEngineResources/$CFBundleIconFile" \
+	    try /bin/ln -s "../../../$CFBundleIconFile" \
+		"$tmpEngineResources/$CFBundleIconFile" \
 		"Unable to link to application icon file in Chrome engine Resources directory."
-	    try /bin/ln -s "../../../$CFBundleTypeIconFile" "$tmpEngineResources/$CFBundleTypeIconFile" \
+	    try /bin/ln -s "../../../$CFBundleTypeIconFile" \
+		"$tmpEngineResources/$CFBundleTypeIconFile" \
 		"Unable to link to document icon file in Chrome engine Resources directory."
 	fi
 	
@@ -800,24 +811,25 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	    try /bin/cp -a "$chromeResources/"*.lproj "$tmpEngineResources" \
 		'Unable to copy localizations to Chrome engine.'
 	    
-	    # run python script to filter the InfoPlist.strings files for the .lproj directories
+	    # run python script to filter the InfoPlist.strings files for the
+	    # .lproj directories
 	    local pyerr=
 	    try 'pyerr&=' /usr/bin/python \
-		"$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" "$tmpEngineResources/"*.lproj \
+		"$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
+		"$tmpEngineResources/"*.lproj \
 		'Error filtering InfoPlist.strings'
 	    [[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
-	    
-	    # on error, clean up as best we can
-	    if [[ ! "$ok" ]] ; then
-		onerr /bin/rm -rf "$tmpEngineResources/"*.lproj 'Also unable to clean up Chrome engine localization folders.'
-	    fi
 	fi
 	
 	# set ownership of Chrome engine
 	setowner "$1/.." "$tmpEngine" "Chrome engine"
 	
-	# overwrite permanent engine
-	permanent "$tmpEngine" "$fullChromeEngine" "Chrome engine"
+	# overwrite permanent engine, or delete temp engine on error
+	if [[ "$ok" ]] ; then
+	    permanent "$tmpEngine" "$fullChromeEngine" "Chrome engine"
+	else
+	    rmtemp "$tmpEngine" "Chrome engine"
+	fi
     fi
     
     [[ "$ok" ]] && return 0
@@ -1221,17 +1233,15 @@ function updatessb {
 	
 	
 	# MOVE CONTENTS TO PERMANENT HOME
-	
-	if [[ "$ok" ]] ; then
-	    if [[ ! "$chromeOnly" ]] ; then
-		# only need to do this if we were doing a full update
+	if [[ ! "$chromeOnly" ]] ; then
+	    if [[ "$ok" ]] ; then
 		permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
+	    else
+		# remove temp contents on error
+		rmtemp "$contentsTmp" 'Contents folder'
 	    fi
-	else
-	    # remove temp contents on error
-	    rmtemp "$contentsTmp" 'Contents folder'
 	fi
-
+	
 
 	# IF UPDATING (NOT CREATING A NEW APP), RELAUNCH AFTER A DELAY
 	if [[ "$ok" && ! "$newApp" ]] ; then
