@@ -1,6 +1,6 @@
-# Epichrome 2.1.15
+# Epichrome 2.1.16
 
-###If you've been using version 2.1.13 or below, please see [important note](#important-note-on-updating) below!
+###If you've been using version 2.1.13 or earlier, please see [important note](#important-note-on-updating) below!
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -26,7 +26,7 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 *Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The epichrome_fix.sh script now included in the DMG is the easiest way to do this. Otherwise, you can just right-click on each app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
 
 
-## New in version 2.1.15.
+## New in version 2.1.16.
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
@@ -34,7 +34,9 @@ Version 2.1.14 changes the way Epichrome apps update themselves. They now attemp
 
 2.1.14 also has brand-new icon-creation code, now able to handle JPG, GIF and other input file formats with indexed color or without alpha channels. And as a bonus, it also creates custom document icons based on the custom app icon. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
 
-And finally, in 2.1.15 the code that checks github for new versions will no longer insist that there's a new version on github even though the app just been updated to that new version.
+In 2.1.15 the code that checks github for new versions will no longer insist that there's a new version on github even though the app just been updated to that new version.
+
+Finally, 2.1.16 finally squashes the bug that caused those failed Chrome updates to destroy the entire app. From now on, even if a Chrome update fails, the app should stay intact.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 

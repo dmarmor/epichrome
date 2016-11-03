@@ -1,9 +1,16 @@
 # Epichrome.app Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [2.1.16] - 2016-11-03
+### Fixed
+- Finally squashed the bug that caused those failed Chrome updates to destroy the entire app. From now on, even if a Chrome update fails, the app should stay intact.
+
+
 ## [2.1.15] - 2016-11-01
 ### Fixed
 - Fixed a small bug in the code that checks github for new versions. Apps will no longer insist that there's a new version on github even though they've just been updated to that new version.
+
 
 ## [2.1.14] - 2016-11-01
 ### Changed
