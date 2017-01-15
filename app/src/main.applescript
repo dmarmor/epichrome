@@ -565,7 +565,8 @@ Icon: "
 										if dlgResult is "Launch Now" then
 											delay 1
 											try
-												tell application ssbName to activate
+												do shell script "open " & quoted form of (POSIX path of ssbPath)
+												--tell application ssbName to activate
 											on error
 												return
 											end try
