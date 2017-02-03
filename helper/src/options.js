@@ -1,10 +1,10 @@
 /*! options.js
-(c) 2015 David Marmor
+(c) 2017 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  *
- * options.js: options page code for Epichrome Helper extension
+ * options.js: options page code for Epichrome Runtime extension
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,11 +26,41 @@ http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 
 var ssbOptions = {};
 
+// ISSAVED -- current saved/unsaved state
+ssbOptions.isSaved = undefined;
+
 // DOC -- options page document elements
 ssbOptions.doc = {};
 
-// CONTAINER -- container div for all other elements
-ssbOptions.doc.container = document.getElementById('container');
+// BODY -- main body of page
+ssbOptions.doc.body = document.getElementById('body');
+
+// WORKING -- working status bar
+ssbOptions.doc.working = document.getElementById('working');
+
+// BUTTON BAR -- floating bar of buttons/dialog elements
+ssbOptions.doc.button_bar = document.getElementById('button_bar');
+
+ssbOptions.doc.import_button = document.getElementById('import_button');
+ssbOptions.doc.import_options = document.getElementById('import_options');
+ssbOptions.doc.export_button = document.getElementById('export_button');
+ssbOptions.doc.export_options = document.getElementById('export_options');
+ssbOptions.doc.reset_button = document.getElementById('reset_button');
+
+ssbOptions.doc.save_button = document.getElementById('save_button');
+ssbOptions.doc.revert_button = document.getElementById('revert_button');
+
+// DIALOG -- dialog bar elements
+ssbOptions.doc.dialog = {};
+ssbOptions.doc.dialog.bar = document.getElementById('dialog_bar');
+ssbOptions.doc.dialog.title = document.getElementById('dialog_title');
+ssbOptions.doc.dialog.text_content = document.getElementById('text_content');
+ssbOptions.doc.dialog.button1 = document.getElementById('dialog_button1');
+ssbOptions.doc.dialog.button2 = document.getElementById('dialog_button2');
+ssbOptions.doc.dialog.button3 = document.getElementById('dialog_button3');
+
+// OVERLAY -- overlay for deactivating the form
+ssbOptions.doc.overlay = document.getElementById('overlay');
 
 // FORM -- form elements
 ssbOptions.doc.form = {};
@@ -38,30 +68,7 @@ ssbOptions.doc.form.all = document.getElementById('options_form');
 ssbOptions.doc.form.rules = document.getElementById('rules');
 ssbOptions.doc.form.add_rule_list = document.getElementById('add_rule_list');
 ssbOptions.doc.form.add_button = document.getElementById('add_button');
-ssbOptions.doc.form.save_button = document.getElementById('save_button');
-ssbOptions.doc.form.reset_button = document.getElementById('reset_button');
-ssbOptions.doc.form.import_button = document.getElementById('import_button');
-ssbOptions.doc.form.import_options = document.getElementById('import_options');
-ssbOptions.doc.form.export_button = document.getElementById('export_button');
-ssbOptions.doc.form.export_options = document.getElementById('export_options');
-ssbOptions.doc.form.message = {};
-ssbOptions.doc.form.message.box = document.getElementById('message_box');
-ssbOptions.doc.form.message.spinner = document.getElementById('message_spinner');
-ssbOptions.doc.form.message.text = document.getElementById('message_text');
 ssbOptions.doc.form.main_tab_options = document.getElementById('main_tab_options');
-
-// DIALOG -- dialog box elements
-ssbOptions.doc.dialog = {};
-ssbOptions.doc.dialog.overlay = document.getElementById('overlay');
-ssbOptions.doc.dialog.box = document.getElementById('dialog_box');
-ssbOptions.doc.dialog.title = document.getElementById('dialog_title');
-ssbOptions.doc.dialog.content = document.getElementById('dialog_content');
-ssbOptions.doc.dialog.button1 = document.getElementById('dialog_button1');
-ssbOptions.doc.dialog.button2 = document.getElementById('dialog_button2');
-ssbOptions.doc.dialog.button3 = document.getElementById('dialog_button3');
-ssbOptions.doc.dialog.text_content = document.getElementById('text_content');
-ssbOptions.doc.dialog.install_content = document.getElementById('install_content');
-ssbOptions.doc.dialog.shutdown_content = document.getElementById('shutdown_content');
 
 
 // STARTUP -- start up and populate the options window
@@ -73,15 +80,7 @@ ssbOptions.startup = function() {
     ssbOptions.rulePrototype = ssbOptions.doc.form.rules.children[0];
     ssbOptions.rulePrototype.parentNode.removeChild(
 	ssbOptions.rulePrototype);
-    
-    // remove all dialog content sections from DOM
-    ssbOptions.doc.dialog.text_content.parentNode.removeChild(
-	ssbOptions.doc.dialog.text_content);
-    ssbOptions.doc.dialog.install_content.parentNode.removeChild(
-	ssbOptions.doc.dialog.install_content);
-    ssbOptions.doc.dialog.shutdown_content.parentNode.removeChild(
-	ssbOptions.doc.dialog.shutdown_content);
-    
+        
     // start up shared code
     ssb.startup('options', function(success, message) {
 	
@@ -121,25 +120,26 @@ ssbOptions.startup = function() {
 		ssbOptions.jqRules.on('keydown', '.keydown',
 				      ssbOptions.handleRuleKeydown);
 		
-		// initialize save button to be disabled
-		ssbOptions.setSaveButtonState(false);
-		
-		// save and reset buttons
-		ssbOptions.doc.form.save_button.addEventListener(
+		// save and revert buttons
+		ssbOptions.doc.save_button.addEventListener(
 		    'click', ssbOptions.doSave);
-		ssbOptions.doc.form.reset_button.addEventListener(
-		    'click', ssbOptions.doResetToDefault);
+		ssbOptions.doc.revert_button.addEventListener(
+		    'click', ssbOptions.doRevert);
 		
 		// import button
-		ssbOptions.doc.form.import_options.addEventListener(
+		ssbOptions.doc.import_options.addEventListener(
 		    'change', ssbOptions.doImport);
-		ssbOptions.doc.form.import_button.addEventListener(
+		ssbOptions.doc.import_button.addEventListener(
 		    'click',
-		    function() { ssbOptions.doc.form.import_options.click(); });
+		    function() { ssbOptions.doc.import_options.click(); });
 		
 		// export button
-		ssbOptions.doc.form.export_button.addEventListener(
+		ssbOptions.doc.export_button.addEventListener(
 		    'click', ssbOptions.doExport);
+
+		// reset to default button
+		ssbOptions.doc.reset_button.addEventListener(
+		    'click', ssbOptions.doResetToDefault);
 		
 		// listen for changes to extension status
 		window.addEventListener('storage',
@@ -149,10 +149,15 @@ ssbOptions.startup = function() {
 		ssbOptions.checkExtensionStatus();
 		
 		// populate the page from saved options
-		ssbOptions.populate(ssb.options);
+		// (this also initializes form state to "saved")
+		ssbOptions.doRevert();
 		
 		// focus on the first rule, if any
 		ssbOptions.focusOnPattern(0);
+
+		// FOR TESTING SHUTDOWN DIALOG:
+		//ssbOptions.shutdown('Test extension shutdown', 'Test');
+		//ssbOptions.shutdown({message: 'Test no host found', nohost: true}, 'Test');
 		
 	    } else {
 		// display error dialog
@@ -187,18 +192,9 @@ ssbOptions.shutdown = function(message, title) {
 	message = { 'message': message }
     }
     
-    var shutdownBox = ssbOptions.doc.dialog.shutdown_content;
-        
-    // if we never connected to the host, show extra information
-    if (message.nohost) {
-	shutdownBox.classList.add('nohost');
-    } else {
-	shutdownBox.classList.remove('nohost');
-    }
-    
-    // show the dialog
-    ssbOptions.dialog.run(message.message, title, undefined, 0, shutdownBox);
-
+    // show the dialog (if we never connected to the host, show extra information)
+    ssbOptions.dialog.run(message.message, title, undefined, 0,
+			  'shutdown' + (message.nohost ? ' nohost' : ''));
 }
 
 
@@ -212,30 +208,36 @@ ssbOptions.populate = function(items) {
 
 
 // SETOPTIONS -- set extension options from a given set of new options
-ssbOptions.setOptions = function(workingMessage, failPrefix, newOptions) {
+ssbOptions.setOptions = function(failPrefix, newOptions) {
 
+    // turn on working bar
+    ssbOptions.setWorkingStatus(true);
+    
     if (!newOptions)
 	newOptions = ssbOptions.formItem(ssbOptions.doc.form.all);
     
-    // turn on working spinner
-    ssbOptions.setWorkingMessage(workingMessage);
+    // FOR TESTING WORKING BAR (PART 1):
+    //setTimeout(function(){
     
     // save current state of the form to storage
     ssb.setOptions(
 	newOptions,
 	function(success, message) {
 	    
-	    // on completion, turn off working spinner
-	    ssbOptions.setWorkingMessage();
+	    // turn off working bar
+	    ssbOptions.setWorkingStatus(false);
 	    
 	    if (success) {
-		// save succeeded, so disable the save button
-		ssbOptions.setSaveButtonState(false);
+		// save succeeded, all changes are now saved
+		ssbOptions.setSavedStatus(true);
 	    } else {
 		// failed
 		ssbOptions.dialog.run(failPrefix + ' ' + message, 'Warning');
 	    }
 	});
+
+    // FOR TESTING WORKING BAR (PART 2):
+    //}, 3000);
 }
 
 
@@ -258,7 +260,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	// this is not settable in the form, so do nothing on set
 	if (!doSet) result = ssb.manifest.version;
 	break;
-
+	
     case 'ignoreAllInternalSameDomain':
     case 'sendIncomingToMainTab':
     case 'stopPropagation':
@@ -325,36 +327,20 @@ ssbOptions.formItem = function(item, newValue, append) {
 	
 	if (doSet) {
 	    
-	    var oldNumRules;
+	    // if we're overwriting rules, delete old ones first
 	    if (!append) {
-		// we're overwriting rules
-		oldNumRules = item.children.length;
-	    } else {
-		// we're appending rules: abuse oldNumRules so we immediately
-		// start adding new rules entries (and the deleting loop will
-		// never run)
-		oldNumRules = 0;
+		while (item.firstChild) {
+		    item.removeChild(item.firstChild);
+		}
 	    }
 	    
-	    // loop through all new rules
+	    // add and recursively fill in new rules
 	    var newValueLength = newValue.length;
 	    for (i = 0; i < newValueLength; i++) {
-		if (i >= oldNumRules) {
-		    // new rules list is longer than the old one, so add an entry
-		    item.appendChild(ssbOptions.rulePrototype.cloneNode(true));
-		}
-		
-		// fill in the current entry recursively
-		ssbOptions.formItem(item.children[i], newValue[i]);
+		newRule = item.appendChild(ssbOptions.rulePrototype.cloneNode(true));
+		ssbOptions.formItem(newRule, newValue[i]);
 	    }
 	    
-	    // if new rules list is shorter than old, delete extra entries
-	    var curRule;
-	    for (j = oldNumRules - 1; j >= i; j--) {
-		curRule = item.children[j];
-		curRule.parentNode.removeChild(curRule);
-	    }
-
 	    // show or hide add button
 	    ssbOptions.setAddButtonState();
 	    
@@ -414,10 +400,10 @@ ssbOptions.addRule = function(evt) {
     
     // give focus to the pattern & select all text
     ssbOptions.focusOnPattern(newRule);
-
+    
     // update button states
     ssbOptions.setAddButtonState();
-    ssbOptions.setSaveButtonState(true);
+    ssbOptions.setSavedStatus(false);
 }
 
 
@@ -428,7 +414,7 @@ ssbOptions.deleteRule = function(evt) {
     var thisRule = evt.target;
     while (thisRule && ! thisRule.classList.contains('rule'))
 	thisRule = thisRule.parentNode;
-
+    
     if (thisRule) {
 	
 	// remove this row from the rules list
@@ -436,14 +422,14 @@ ssbOptions.deleteRule = function(evt) {
 	
 	// update button states
 	ssbOptions.setAddButtonState();
-	ssbOptions.setSaveButtonState(true);
+	ssbOptions.setSavedStatus(false);
     }
 }
 
 
 // HANDLERULEKEYDOWN -- move between rule rows or create a new rule at the end
 ssbOptions.handleRuleKeydown = function(evt) {
-    
+
     // we're only interested in the Enter key
     if (evt.which == 13) {
 
@@ -496,13 +482,23 @@ ssbOptions.focusOnPattern = function(rule) {
 
 // DOSAVE -- save options to chrome.storage.local
 ssbOptions.doSave = function() {
-    ssbOptions.setOptions('Saving...', 'Failed to save options.');
+    ssbOptions.setOptions('Failed to save options.');
+}
+
+
+// DOREVERT -- revert to last saved options from chrome.storage.local
+ssbOptions.doRevert = function() {
+    // populate the page from saved options
+    ssbOptions.populate(ssb.options);
+    
+    // set form state to saved
+    ssbOptions.setSavedStatus(true);
 }
 
 
 // DORESETTODEFAULT -- reset all options to default values
 ssbOptions.doResetToDefault = function() {
-
+    
     // open a dialog to confirm
     ssbOptions.dialog.run(
 	'This will overwrite all your options and rules. Are you sure you want to continue?',
@@ -516,7 +512,7 @@ ssbOptions.doResetToDefault = function() {
 		ssbOptions.populate(ssb.defaultOptions);
 		
 		// save default options to storage
-		ssbOptions.setOptions('Resetting...', 'Reset failed.',
+		ssbOptions.setOptions('Reset failed.',
 				      ssb.defaultOptions);
 	    }
 	});
@@ -526,9 +522,9 @@ ssbOptions.doResetToDefault = function() {
 // DOIMPORT -- import settings from a file
 ssbOptions.doImport = function(evt) {
     
-    // turn on working spinner
-    ssbOptions.setWorkingMessage('Importing...');
-
+    // turn on working bar
+    ssbOptions.setWorkingStatus(true);
+    
     // set up a FileReader
     var file = evt.target.files[0]; // this is a FileList object
     var reader = new FileReader();
@@ -537,9 +533,12 @@ ssbOptions.doImport = function(evt) {
     
     // handle successful file load
     reader.onload = function(loadevent) {
+	
+	// FOR TESTING WORKING BAR (PART 1):
+	//setTimeout(function(){
 
 	// reset the import file field
-	ssbOptions.doc.form.import_options.value = '';
+	ssbOptions.doc.import_options.value = '';
 
 	// parse the options
 	try {
@@ -547,8 +546,8 @@ ssbOptions.doImport = function(evt) {
 	} catch(err) {
 	    // parse failed
 	    
-	    // end working message
-	    ssbOptions.setWorkingMessage();
+	    // turn off working bar
+	    ssbOptions.setWorkingStatus(false);
 
 	    // open an alert
 	    ssbOptions.dialog.run(
@@ -557,8 +556,8 @@ ssbOptions.doImport = function(evt) {
 	    return;
 	}
 	
-	// end working message
-	ssbOptions.setWorkingMessage();
+	// turn off working bar
+	ssbOptions.setWorkingStatus(false);
 	
 	// update options to latest version
 	ssb.updateOptions(newOptions);
@@ -572,7 +571,14 @@ ssbOptions.doImport = function(evt) {
 	    function(action) {
 		
 		// cancel == 0
-		if (action) {		    
+		if (action) {
+
+		    // turn off working bar
+		    ssbOptions.setWorkingStatus(true);
+		    
+		    // FOR TESTING WORKING BAR (PART 1):
+		    //setTimeout(function(){
+			
 		    if (action == 1) {
 			// replace all options
 			ssbOptions.populate(newOptions);
@@ -581,23 +587,33 @@ ssbOptions.doImport = function(evt) {
 			ssbOptions.formItem(ssbOptions.doc.form.rules,
 					    newOptions.rules, true);
 		    }
+
+		    // turn off working bar
+		    ssbOptions.setWorkingStatus(false);
 		    
-		    // enable save button
-		    ssbOptions.setSaveButtonState(true);
+		    ssbOptions.setSavedStatus(false);
+			
+		    // FOR TESTING WORKING BAR (PART 2):
+		    //}, 3000);
+
 		}
 	    },
 	    [['Replace', 1], ['Add', 2], ['Cancel', 0]]);
+
+	// FOR TESTING WORKING BAR (PART 2):
+	//}, 3000);
+
     }
     
     // handle abort on file load
     reader.onabort = function() {
-	ssbOptions.setWorkingMessage();	
+	ssbOptions.setWorkingStatus(false);	
 	ssbOptions.dialog.run('Import of "' + file.name + '" was aborted.', 'Alert');
     }
-
+    
     // handle error on file load
     reader.onerror = function() {
-	ssbOptions.setWorkingMessage();	
+	ssbOptions.setWorkingStatus(false);
 	ssbOptions.dialog.run('Error importing "' + file.name + '".', 'Alert');
     }
     
@@ -609,44 +625,43 @@ ssbOptions.doImport = function(evt) {
 // DOEXPORT -- export settings to a file
 ssbOptions.doExport = function() {
 
-    // make sure options have been saved before exporting
-    if (ssbOptions.doc.form.save_button.disabled) {
+    // turn on working bar
+    ssbOptions.setWorkingStatus(true);
+    
+    // FOR TESTING WORKING BAR (PART 1):
+    //setTimeout(function(){
+    
+    // get options from storage
+    chrome.storage.local.get(
+	null,
+	function(items) {
+	    
+	    // now that we have the options, create a JSON file
+	    
+	    // create the default filename
+	    var date = new Date();
+	    var filename = (ssbOptions.status.ssbName ? ssbOptions.status.ssbName : 'Epichrome Runtime');
+	    ssbOptions.doc.export_options.download =
+		filename + ' Settings ' +
+		date.getFullYear() + '-' +
+		('0' + (date.getMonth()+1)).slice(-2) + '-' +
+		('0' + date.getDate()).slice(-2) + '.json';
+	    
+	    // create a live file
+	    ssbOptions.doc.export_options.href =
+		URL.createObjectURL(new Blob([JSON.stringify(items)],
+					     {type: 'application/json'}));
+	    
+	    // turn off working bar
+	    ssbOptions.setWorkingStatus(false);
+	    
+	    // simulate a click on the export object
+	    ssbOptions.doc.export_options.click();	    
+	});
 	
-	// set working message
-	ssbOptions.setWorkingMessage('Exporting...');
-	
-	// get options from storage
-	chrome.storage.local.get(
-	    null,
-	    function(items) {
-		
-		// now that we have the options, create a JSON file
+    // FOR TESTING WORKING BAR (PART 2):
+    //}, 3000);
 
-		// create the default filename
-		var date = new Date();
-		var filename = (ssbOptions.status.ssbName ? ssbOptions.status.ssbName : 'Epichrome Helper');
-		ssbOptions.doc.form.export_options.download =
-		    filename + ' Settings ' +
-		    date.getFullYear() + '-' +
-		    ('0' + (date.getMonth()+1)).slice(-2) + '-' +
-		    ('0' + date.getDate()).slice(-2) + '.json';
-
-		// create a live file
-		ssbOptions.doc.form.export_options.href =
-		    URL.createObjectURL(new Blob([JSON.stringify(items)],
-						 {type: 'application/json'}));
-
-		// simulate a click on the export object
-		ssbOptions.doc.form.export_options.click();
-		
-		// end working message
-		ssbOptions.setWorkingMessage();
-	    });
-    } else {
-	// options haven't been saved yet, so we can't export
-	ssbOptions.dialog.run('Please save options before exporting.',
-			      'Unable to Export');
-    }
 }
 
 
@@ -683,10 +698,10 @@ ssbOptions.checkExtensionStatus = function() {
     if (curStatus.active === true) {
 	
 	// we are live, so activate options page
-	ssbOptions.doc.dialog.overlay.style.display = 'none';
-
+	
 	// show the main tab options if necessary
-	ssbOptions.doc.form.main_tab_options.style.display = (curStatus.mainTab ? 'block' : 'none');
+	ssbOptions.doc.form.main_tab_options.style.display =
+	    (curStatus.mainTab ? 'block' : 'none');
 	
 	// check if we're installing
 	if (curStatus.showInstallMessage) {
@@ -701,7 +716,7 @@ ssbOptions.checkExtensionStatus = function() {
 		    localStorage.setItem('status', JSON.stringify(curStatus));
 		},
 		'Get Started',
-		ssbOptions.doc.dialog.install_content);
+		'install');
 	}
     } else {
 	
@@ -718,49 +733,47 @@ ssbOptions.checkExtensionStatus = function() {
 }
 
 
-// SETSAVEBUTTONSTATE -- enable or disable the save button
-ssbOptions.setSaveButtonState = function(enabled) {
-    
-    var disabled;
-    
-    // if called by event handler, we're always enabling
-    if (typeof enabled == 'object') {
-	var disabled = false;
-    } else {
-	disabled = ! enabled;
+// SETSAVEDSTATE -- set the saved/unsaved state of the form &
+//                  enable or disable the save button bar
+ssbOptions.setSavedStatus = function(saved) {
+
+    // if called by event handler, we're always unsaved
+    if (typeof saved == 'object') {
+	saved = false;
     }
     
-    // only act if button state isn't already set
-    if (! ssbOptions.doc.form.save_button.disabled != (! disabled)) {
+    // only act if state is changing
+    if (ssbOptions.isSaved != saved) {
+
+	ssbOptions.isSaved = saved;
 	
-	// enable or disable the button
-	ssbOptions.doc.form.save_button.disabled = disabled;
-	ssbOptions.doc.form.save_button.style.cursor =
-	    (disabled ? 'auto' : 'pointer');
-	
-	if (disabled) {
+	if (saved) {
 	    
-	    // we just disabled the save button -- add enabling handlers
+	    // we're setting the state to SAVED
+	    
+	    // set saved state for the form
+	    ssbOptions.doc.button_bar.classList.remove('unsaved');
+
+	    // add handlers to set state to unsaved
 	    ssbOptions.jqRules.on('sortupdate.ssbSave',
-				  ssbOptions.setSaveButtonState);
+				  ssbOptions.setSavedStatus);
 	    ssbOptions.jqForm.on('change.ssbSave', '.change',
-				 ssbOptions.setSaveButtonState);
+				 ssbOptions.setSavedStatus);
 	    ssbOptions.jqForm.on('click.ssbSave', '.click',
-				 ssbOptions.setSaveButtonState);
+				 ssbOptions.setSavedStatus);
 	    ssbOptions.jqForm.on('input.ssbSave', '.input',
-				 ssbOptions.setSaveButtonState);
-	    
-	    // remove any warning message (in practice, it's already been cleared by setWorkingMessage()
-	    ssbOptions.setWarningMessage();
+				 ssbOptions.setSavedStatus);
 	    
 	} else {
-	    
-	    // we just enabled the save button -- remove enabling handlers
-	    ssbOptions.jqRules.unbind('.ssbSave');
-	    ssbOptions.jqForm.unbind('.ssbSave');
 
-	    // add an unsaved elements warning message
-	    ssbOptions.setWarningMessage('Changes not yet saved...');
+	    // we're setting the state to UNSAVED
+	    
+	    // remove enabling handlers
+	    ssbOptions.jqRules.unbind('.ssbSave');
+	    ssbOptions.jqForm.unbind('.ssbSave');	    
+
+	    // set saved state for the form
+	    ssbOptions.doc.button_bar.classList.add('unsaved');
 	}
     }
 }
@@ -774,33 +787,26 @@ ssbOptions.setAddButtonState = function() {
 }
 
 
-// SETWORKINGMESSAGE -- show or hide a working message with spinner
-ssbOptions.setWorkingMessage = function(message) {
-    if (message) {
-	// set the message and show it
-	ssbOptions.doc.form.message.text.innerHTML = message;
-	ssbOptions.doc.form.message.box.classList.remove('warning');
-	ssbOptions.doc.form.message.box.style.display = 'inline-block';
+// SETWORKINGSTATUS -- show or hide a working status bar
+ssbOptions.setWorkingStatus = function(enable) {
+    if (enable) {
+	// show the status bar
+	ssbOptions.setOverlaySize();
+	ssbOptions.doc.body.classList.add('working');
     } else {
-	// no message, so hide
-	ssbOptions.doc.form.message.text.innerHTML = '';
-	ssbOptions.doc.form.message.box.style.display = 'none';	
+	// hide the status bar
+	ssbOptions.doc.body.classList.remove('working');
     }
 }
 
 
-// SETWARNINGMESSAGE -- show or hide a warning message
-ssbOptions.setWarningMessage = function(message) {
-    if (message) {
-	// set the message and show it
-	ssbOptions.doc.form.message.text.innerHTML = message;
-	ssbOptions.doc.form.message.box.classList.add('warning');
-	ssbOptions.doc.form.message.box.style.display = 'inline-block';
-    } else {
-	// no message, so hide
-	ssbOptions.doc.form.message.text.innerHTML = '';
-	ssbOptions.doc.form.message.box.style.display = 'none';	
-    }
+// OVERLAY -- overlay object
+// -------------------------
+
+ssbOptions.setOverlaySize = function() {    
+    var formrect = ssbOptions.doc.form.all.getBoundingClientRect();
+    ssbOptions.doc.overlay.style.width = formrect.width+'px';
+    ssbOptions.doc.overlay.style.height = formrect.height+'px';
 }
 
 
@@ -816,10 +822,7 @@ ssbOptions.dialog.handleButton = null;
 
 // DIALOG.RUN -- show a dialog, alert or buttonless modal window
 ssbOptions.dialog.run = function(message, title, callback,
-				 buttons, contentElement) {
-    
-    // set up default contentElement if necessary
-    if (! contentElement) contentElement = ssbOptions.doc.dialog.text_content;
+				 buttons, contentClass) {
     
     // set up default buttons if necessary
     if ((typeof callback != 'function') && (buttons == undefined)) {
@@ -830,88 +833,57 @@ ssbOptions.dialog.run = function(message, title, callback,
 	buttons = 2;
     }
 
-    // if a number was passed, set up default buttons
-    if (typeof buttons == 'number') {
-	switch (buttons) {
-	case 0:
-	    buttons = [ ];
-	    break;
-	case 1:
-	    // alert
-	    buttons = [ [ 'OK', true ] ];
-	    break;
-	case 2:
-	    // dialog
-	    buttons = [ [ 'Yes', true ], [ 'No', false ] ];
-	    break;
-	default:
-	    // 3-option dialog
-	    buttons = [ [ 'Yes', 1 ], [ 'No', 2 ], [ 'Cancel', 0 ] ];
-	}
-    } else if (typeof buttons == 'string') {
-	// one button with a custom name
-	buttons = [ [ buttons, true ] ];
-    }
-    
-    // set up object keyed on button values
-    var  buttonValues = {};
-    var i = buttons.length; while (i--)
-	buttonValues[buttons[i][0]] = buttons[i][1];
-    
-    // set up button handler for this dialog
-    ssbOptions.dialog.handleButton = function(evt) {
-	// hide the dialog box
-	ssbOptions.doc.dialog.overlay.style.display = 'none';
-	
-	// remove button listeners
-	ssbOptions.doc.dialog.button1.removeEventListener(
-	    'click', ssbOptions.dialog.handleButton);
-	ssbOptions.doc.dialog.button2.removeEventListener(
-	    'click', ssbOptions.dialog.handleButton);
-	ssbOptions.doc.dialog.button3.removeEventListener(
-	    'click', ssbOptions.dialog.handleButton);
-	
-	// if there's a callback, call it
-	if (typeof callback == 'function')
-	    callback(buttonValues ?
-		     buttonValues[evt.target.textContent] :
-		     undefined);
-    }
-    
-    // set dialog title
-    ssbOptions.doc.dialog.title.innerHTML = title;
-    
-    // clear out the dialog box content
-    var content = ssbOptions.doc.dialog.content;
-    while (content.firstChild) {
-	content.removeChild(content.firstChild);
-    }
-
-    // put content element into dialog box
-    ssbOptions.doc.dialog.content.appendChild(contentElement);
-
-    // normalize message object
-    if (! message) {
-
-	// no message
-	message = { 'message': '' };
-    } else if (typeof message == 'string') {
-	
-	// if message is a string, set up a default object
-	message = { 'message': message }
-    }
-    
-    // go through the message object and fill in fields in the content element
-    for (var key in message) {
-	if (message.hasOwnProperty(key)) {
-	    var curElement = contentElement.getElementsByClassName(key);
-	    if (curElement && curElement.length) {
-		curElement[0].innerHTML = message[key];
-	    }
-	}
-    }
-    
     // set up buttons
+    if (buttons != 0) {
+	// if a number was passed, set up default buttons
+	if (typeof buttons == 'number') {
+	    switch (buttons) {
+	    case 1:
+		// alert
+		buttons = [ [ 'OK', true ] ];
+		break;
+	    case 2:
+		// dialog
+		buttons = [ [ 'Yes', true ], [ 'No', false ] ];
+		break;
+	    default:
+		// 3-option dialog
+		buttons = [ [ 'Yes', 1 ], [ 'No', 2 ], [ 'Cancel', 0 ] ];
+	    }
+	} else if (typeof buttons == 'string') {
+	    // one button with a custom name
+	    buttons = [ [ buttons, true ] ];
+	}
+	
+	// set up object keyed on button values
+	var  buttonValues = {};
+	var i = buttons.length; while (i--)
+	    buttonValues[buttons[i][0]] = buttons[i][1];
+	
+	// set up button handler for this dialog
+	ssbOptions.dialog.handleButton = function(evt) {
+	    
+	    // hide the dialog box
+	    //ssbOptions.setOverlayState(false);
+	    ssbOptions.doc.body.classList.remove('dialog');
+	    
+	    // remove button listeners
+	    ssbOptions.doc.dialog.button1.removeEventListener(
+		'click', ssbOptions.dialog.handleButton);
+	    ssbOptions.doc.dialog.button2.removeEventListener(
+		'click', ssbOptions.dialog.handleButton);
+	    ssbOptions.doc.dialog.button3.removeEventListener(
+		'click', ssbOptions.dialog.handleButton);
+	    
+	    // if there's a callback, call it
+	    if (typeof callback == 'function')
+		callback(buttonValues ?
+			 buttonValues[evt.target.textContent] :
+			 undefined);
+	}
+    }
+    
+    // display/hide buttons
     var curButton;
     i = 3; while (i--) {
 	// get ID of current button
@@ -920,35 +892,37 @@ ssbOptions.dialog.run = function(message, title, callback,
 	if (buttons[i]) {
 	    // fill in this button and show it
 	    ssbOptions.doc.dialog[curButton].textContent = buttons[i][0];
-	    ssbOptions.doc.dialog[curButton].style.display = 'inline-block';
-
+	    ssbOptions.doc.dialog[curButton].classList.add('active');
+	    
 	    // add click listener
 	    ssbOptions.doc.dialog[curButton].addEventListener(
 		'click', ssbOptions.dialog.handleButton);
 	} else {
 	    // hide this button
-	    ssbOptions.doc.dialog[curButton].style.display = 'none';
+	    ssbOptions.doc.dialog[curButton].classList.remove('active');
 	}
     }
     
-    // set the overlay dimensions
-    var formrect = ssbOptions.doc.form.all.getBoundingClientRect();
-    ssbOptions.doc.dialog.overlay.style.width = formrect.width+'px';
-    ssbOptions.doc.dialog.overlay.style.height = formrect.height+'px';
+    // set dialog title
+    ssbOptions.doc.dialog.title.innerHTML = title;
+    
+    // normalize message object
+    if (message) {
+	ssbOptions.doc.dialog.text_content.innerHTML = message;
+    } else {
+	ssbOptions.doc.dialog.text_content.style.display = 'none';
+    }
 
+    // set content class
+    if (typeof contentClass == 'string') {
+	ssbOptions.doc.dialog.bar.className = contentClass;
+    } else {
+	ssbOptions.doc.dialog.bar.className = '';
+    }
+    
     // display the dialog
-    ssbOptions.doc.dialog.overlay.style.display = 'block';
-
-    // center the dialog (vertical center looked shitty, so doing vertical position in CSS)
-    // var boxrect = ssbOptions.doc.dialog.box.getBoundingClientRect();
-    // console.log('top was:',ssbOptions.doc.dialog.box.style.top);
-    // var top = ((formrect.height-boxrect.height)/2);
-    // if (top < 0) top = 0;
-    // var left = ((formrect.width-boxrect.width)/2);
-    // if (left < 0) left = 0;
-    // ssbOptions.doc.dialog.box.style.top = top+'px';
-    // ssbOptions.doc.dialog.box.style.left = left+'px';
-    // console.log('top is:',ssbOptions.doc.dialog.box.style.top);
+    ssbOptions.setOverlaySize();
+    ssbOptions.doc.body.classList.add('dialog');
 }
 
 

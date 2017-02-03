@@ -1,10 +1,10 @@
 /*! background.js
-(c) 2015 David Marmor
+(c) 2017 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /* 
  *
- * background.js: background page for Epichrome Helper extension
+ * background.js: background page for Epichrome Runtime extension
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -334,7 +334,7 @@ ssbBG.handleNewTab = function(tab) {
     
     ssb.debug('newTab', 'tab created ( id =',tab.id,'openerId =',tab.openerTabId,')');
     
-    if (!tab.url || (tab.url == 'chrome://newtab/')) {
+    if (!tab.url || (tab.url == 'chrome://newtab/')) { // || (tab.url == 'about:blank')
 
 	// blank tab
 	ssb.debug('newTab', 'tab is empty -- ignoring');
@@ -640,16 +640,14 @@ ssbBG.handleWindowSwitch = function() {
 					// turn off tab/window activation listeners
 					ssbBG.setContextMenuListeners(false);
 					
-					// switch the window style (experimenting shows that
-					// you have to drop 22 pixels from height when coming
-					// back from normal to popup, not sure why)
+					// switch the window style
 					chrome.windows.create({
 					    tabId: ssbBG.mainTab.id,
 					    type: (win.type == 'popup') ? 'normal' : 'popup',
 					    left: win.left,
 					    top: win.top,
 					    width: win.width,
-					    height: (win.type == 'popup') ? win.height : (win.height - 22)
+					    height: win.height
 					}, function(newWin) {
 					    // tell the main tab about its new state
 					    chrome.tabs.sendMessage(ssbBG.mainTab.id, {type: 'mainTab', state: newWin.type});

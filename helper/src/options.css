@@ -1,6 +1,6 @@
 /* 
- * options.css: options page style-sheet for Epichrome Helper extension
- * Copyright (C) 2015 David Marmor.
+ * options.css: options page style-sheet for Epichrome Runtime extension
+ * Copyright (C) 2017 David Marmor.
  *
  * https://github.com/dmarmor/epichrome
  * 
@@ -28,108 +28,268 @@ body {
     margin: 0;
 }
 
-#header {
-    height: 60px;
-    position: relative;
-    margin-bottom: 20px;
-    background-color: #d3d3d3;
-}
-#header img {
-    position: absolute;
-    left: 30px;
-    top: 50%;
-    transform: translate(0, -50%);
-}
-#header h1 {
-    margin: 0;
-    padding: 0;
-    position: absolute;
-    left: 90px;
-    top: 50%;
-    transform: translate(0, -50%);
-}
-
-#container {
-    margin-left: 50px;
-    width: 502px;
-    position: relative;
-}
-
 .invisible {
     display: none;
 }
 
-
-/* DIALOG BOX */
-
-/* overlay */
-#overlay {
-    position: relative;
-    background-color: rgba(255, 255, 255, 0.75);
-    z-index: 2;
+button {
+    cursor: pointer;
 }
 
-/* dialog box */
-#dialog_box {
-    position: relative;
-    width: 350px;
-    padding: 15px;
-    left: 61px; /* ((container width - width) / 2) - padding */
-    top: 3em;
 
-    /* copied from Chrome overlay.css */
-    -webkit-border-radius: 3px;
-    -webkit-box-orient: vertical;
-    -webkit-transition: 200ms -webkit-transform;
-    background: white;
-    box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15);
-    color: #333;
-    display: -webkit-box;
+/* HEADER - TITLE */
+
+#title {
+    height: 65px;
+    top: 0;
+    width: 100%;
+    position: fixed;
+    background-color: #d3d3d3;
+    z-index: 1000;
 }
-#dialog_box h3 {
+#title img {
+    position: absolute;
+    left: 30px;
+    top: 30px;
+    transform: translate(0, -50%);
+}
+#title h1 {
     margin: 0;
-    padding-bottom: 10px;
+    padding: 0;
+    position: absolute;
+    left: 90px;
+    top: 30px;
+    transform: translate(0, -50%);
+}
+
+
+/* HEADER - WORKING BAR */
+
+#working {
+    height: 5px;
+    width: 100%;
+    position: absolute;
+    top: 60px;
+    opacity: 0;
+    transition: opacity .5s;
+    /* (rainbow) background: repeating-linear-gradient(90deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3, #ff2400); */
+    background: repeating-linear-gradient(90deg, rgba(59,152,252,1), rgba(59,152,252,0.2), rgba(59,152,252,1));
+    background-size: 400px 100%;
+    animation-name: working;
+    animation-duration: 5s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;    
+}
+@keyframes working {
+    0%{background-position:0% 0%}
+    100%{background-position:1600px 0%}
+}
+.working #working {
+    opacity: 1;
+}
+
+
+/* HEADER - BUTTON BAR */
+
+#button_bar {
+    vertical-align: middle;
+    position: fixed;
+    z-index: 999;
+    width: 100%;
+    top: 65px;
+    transition: top .2s;
+    box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15);
+    background-color: #f0f0f0;  
+}
+.working #button_bar {
+    top: 10px;
+}
+#button_bar.unsaved {
+    background-color: #ff9a9a;
+    transition: background-color 600ms ease-out, top .2s ease;
+}
+
+#button_bar button {
+    display: inline-block;
+    position: relative;
+    margin-right: .75em;
+}
+#button_bar>div {
+    position: relative;
+    padding-right: 50px;
+    padding-left: 50px;
+    margin: 0;
+}
+
+/* import/export bar */
+#importexport_bar {
+    display: block;
+    height: 50px;
+}
+
+#reset_button {
+    margin-left: 1.5em;
+}
+.unsaved #importexport_bar, .dialog #importexport_bar {
+    display: none;
+}
+
+/* save bar */
+#save_bar {
+    display: none;
+    height: 50px;
+}
+.unsaved #save_bar {
+    display: block;
+}
+.flash #save_bar {
+    transition: none;
+}
+
+.dialog #save_bar {
+    display: none;
+}
+#save_bar div {
+    font-size: 110%;
+    height: auto;
+    display: inline-block;
+    position: relative;
+    vertical-align: top;
+    margin: 0 0 0 15px;
+    padding: 0;
+    top: 50%;
+    transform: translate(0, -50%);
+}
+
+/* import/export & save bars */
+#save_bar button, #importexport_bar button {
+    top: 50%;
+    transform: translate(0, -50%);
+}
+
+
+/* HEADER - DIALOG BAR */
+
+#dialog_bar {
+    padding-top: 1.5em;
+    padding-bottom: 1.5em;
+    background: white;
+    color: #333;
+    display: none;
+}
+.dialog #dialog_bar {
+    display: block;
+}
+
+#dialog_content {
+    padding: 0;
+}
+#dialog_bar h3 {
+    margin: 0;
+    padding-bottom: 1em;
     border-bottom: 1px solid #d3d3d3;
 }
-#dialog_box .content {
-    padding: 10px;
-}
-#dialog_box .content p {
+#dialog_bar .content p {
     line-height: 150%;
+}
+#dialog_bar button {
+    margin-top: .5em;
+    display: none;
+}
+#dialog_bar button.active {
+    display: inline-block;
+}
+
+
+/* DIALOG BAR CONTENT */
+
+/* text content */
+#text_content {
+    margin-top: 1em;
+    margin-bottom: 1em;
 }
 
 /* installation message */
 #install_content {
     font-size: 110%;
+    display: none;
+}
+#dialog_bar.install #install_content {
+    display: block;
+}
+#dialog_bar.install {
     background-image: url("install-bg.png");
-    background-position: center;
+    background-position: 150px;
     background-repeat: no-repeat;
 }
+
 #install_content li {
     font-style: italic;
     margin-bottom: 1em;
 }
 
 /* shutdown message */
-#shutdown_content .message {
+#shutdown_content {
+    /* margin-top: 1em; */
+    padding-bottom: .5em;
+    display: none;
+}
+#dialog_bar.shutdown #shutdown_content {
+    display: block;
+}
+#dialog_bar.shutdown #text_content {
+    font-size: 110%;
+    font-weight: bold;
+}
+#shutdown_help {
     margin: 0;
 }
-#shutdown_content #nohost_message {
+#nohost_message {
     font-style: italic;
     display: none;
 }
-#shutdown_content.nohost #nohost_message {
+#dialog_bar.nohost #nohost_message {
     display: block;
 }
-#shutdown_content #nohost_message em {
+#nohost_message em {
     text-decoration: underline;
 }
-#shutdown_content #nohost_prefix,#shutdown_content.nohost #host_prefix {
+
+#nohost_prefix,#dialog_bar.nohost #host_prefix {
     display: none;
 }
-#shutdown_content.nohost #nohost_prefix,#shutdown_content #host_prefix {
+#dialog_bar.nohost #nohost_prefix,#host_prefix {
     display: inline;
 }
+
+
+/* MAIN FORM CONTAINER */
+
+#container {
+    margin-left: 50px;
+    margin-top: 135px;
+    width: 502px;
+    position: absolute;
+}
+
+
+/* FORM OVERLAY */
+
+#overlay {
+    position: relative;
+    background-color: #ffffff;
+    z-index: 2;
+    display: none;
+}
+.dialog #overlay {
+    display: block;
+    opacity: .75;
+}
+.working #overlay {
+    display: block;
+    opacity: 0;
+}
+
 
 /* OPTIONS FORM */
 
@@ -171,6 +331,7 @@ input[type="checkbox"] {
     display: inline-block;
     width: 90%;
 }
+
 
 /* RULES */
 
@@ -282,48 +443,4 @@ ul.rules-list {
 /* OTHER OPTIONS */
 .redirectByDefault {
     margin-left: .5em;
-}
-
-
-/* BUTTON ROW */
-
-#button_row,#working_holder,#spinner,#working_message {
-    vertical-align: middle;
-}
-/*
-#button_row {
-    margin-bottom: 2em;
-}
-*/
-
-/* general button styles */
-button {
-    cursor: pointer;
-}
-
-/* button spacing */
-#save_button {
-    margin-right: 20px;
-}
-#reset_button {
-    margin-right: 20px;
-}
-#import_button {
-    margin-right: 5px;
-}
-
-/* message area */
-#message_holder {
-    display: inline-block;
-    margin-left: 10px;
-}
-#message_spinner {
-    margin-right: 4px;
-}
-#message_box.warning {
-    color: red;
-    font-weight: bold;
-}
-#message_box.warning #message_spinner {
-    display: none;
 }

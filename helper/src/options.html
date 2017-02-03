@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 
- options.html: options page HTML for Epichrome Helper extension
- Copyright (C) 2015 David Marmor.
+ options.html: options page HTML for Epichrome Runtime extension
+ Copyright (C) 2017 David Marmor.
  
  https://github.com/dmarmor/epichrome
  
@@ -25,58 +25,88 @@
 
 <html>
   <head>
-    <title>Epichrome Helper - Options</title>
+    <title>Epichrome Runtime - Options</title>
     <link rel="stylesheet" type="text/css" href="options-chrome.css" />
     <link rel="stylesheet" type="text/css" href="options.css" />
   </head>
   
   <body id="body">
-    <div id="header">
-      <img src="icon48.png" /><h1>Epichrome Helper Options</h1>
+    
+    <!-- FLOATING TITLE BOX -->
+    <div id="title">
+      <img src="icon48.png" /><h1>Epichrome Runtime Options</h1>
+
+      <!-- working bar -->
+      <div id="working"></div>
     </div>
+    
+    <!-- FLOATING BUTTON BAR -->
+
+    <div id="button_bar">
+      
+      <!-- IMPORT, EXPORT & RESET BAR -->
+      
+      <div id="importexport_bar">
+	<button id="import_button">Import</button>
+	<button id="export_button">Export</button>
+	
+	<button id="reset_button">Reset to Default</button>
+	
+        <!-- invisible elements for import and export -->
+	<a download="Epichrome Runtime Settings.txt" id="export_options" class="invisible">export options</a>
+	<input type="file" id="import_options" name="filename" class="invisible" />
+      </div> <!-- importexport_bar -->
+      
+      <!-- SAVE/REVERT BAR -->
+      
+      <div id="save_bar">
+	<button id="save_button">Save</button>
+	<button id="revert_button">Revert</button>
+	<div>Changes have not yet been saved.</div>
+      </div> <!-- save_bar -->
+      
+    <!-- DIALOG BAR -->
+      
+      <div id="dialog_bar">
+	
+	<!-- dialog box elements -->
+	<h3 id="dialog_title"></h3>
+	
+	<!-- dialog box content for regular dialog -->
+	<div id="text_content"></div>
+		
+	<!-- dialog box content for install message -->
+	<div id="install_content">
+	  <h4>This extension helps it work more like a true app:</h4>
+	  <ul>
+	    <li>Use rules to decide which links the app should handle and which should be sent to your default browser.</li>
+	    <li>Choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</li>
+	  </ul>
+	  <p>This options page is where you set up your rules, as well as import and export rules for backup or migration.</p>
+        </div><!-- install_content -->
+	
+	<!-- dialog box content for shutdown message -->
+	<div id="shutdown_content">
+	  <p id="nohost_message">This extension is <em>only</em> intended for use with macOS apps created with <a href="https://github.com/dmarmor/epichrome/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
+	  <p id="shutdown_help">
+	    <span id="nohost_prefix">If you're seeing this message in an Epichrome app, try</span>
+	    <span id="host_prefix">Try</span>
+	    disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/epichrome" target="_blank">github page</a>.
+	  </p>
+	</div><!-- shutdown_content -->
+
+	<!-- dialog buttons -->
+	<button id="dialog_button1">Button 1</button>
+	<button id="dialog_button2">Button 2</button>
+	<button id="dialog_button3">Button 3</button>
+      </div><!-- dialog_bar -->
+    </div><!-- button_bar -->
+
     <div id="container">
 
       <!-- overlay containing dialog box -->
-      <div id="overlay" class="invisible">
-
-	  <!-- dialog box -->
-	  <div id="dialog_box" class="box">
-	    
-	    <!-- dialog box elements -->
-	    <h3 id="dialog_title"></h3>
-	    <div id="dialog_content" class="content"></div>
-	    <button id="dialog_button1">Button 1</button>
-	    <button id="dialog_button2">Button 2</button>
-	    <button id="dialog_button3">Button 3</button>
-	    
-	    <!-- dialog box content for regular dialog -->
-	    <div id="text_content">
-	      <p class="message"></p>
-	    </div>
-	    
-	    <!-- dialog box content for install message -->
-	    <div id="install_content" class="content">
-	      <h4>This extension helps it work more like a true app:</h4>
-	      <ul>
-		<li>Use rules to decide which links the app should handle and which should be sent to your default browser.</li>
-		<li>Choose to have incoming links opened in the main app window instead of in a new tab as Chrome ordinarily does.</li>
-	      </ul>
-	      <p>This options page is where you set up your rules, as well as import and export rules for backup or migration.</p>
-            </div><!-- install_content -->
-	    
-	    <!-- dialog box content for shutdown message -->
-	    <div id="shutdown_content" class="content">
-              <h4 class="message"></h4>
-	      <p id="nohost_message" class="invisible">This extension is <em>only</em> intended for use with Apple OSX apps created with <a href="https://github.com/dmarmor/epichrome/releases" title="Epichrome">Epichrome</a>. It will not do anything if you install it in Chrome.</p>
-	      <p id="shutdown_help">
-		<span id="nohost_prefix">If you're seeing this message in an Epichrome app, try</span>
-		<span id="host_prefix">Try</span>
-		disabling and re-enabling the extension. If it still doesn't work, you can check for updates/fixes, or open an issue at the project's <a href="https://github.com/dmarmor/epichrome" target="_blank">github page</a>.
-	      </p>
-	    </div><!-- shutdown_content -->
-	  </div><!-- dialog_box -->
-      </div><!-- overlay -->
-
+      <div id="overlay"></div>
+      
       <!-- options form -->
       <div id="options_form" class="options_form">
 
@@ -204,32 +234,9 @@
 	    <p>Note that the page itself must have focus for the hot-key to work. If you have text selected in the address bar, for instance, it won't work.</p>
 	  </div><!-- window_switch_message -->
 	</div><!-- main_tab_options -->
-	
-	<div class="divider"></div>
-
-	<!-- save, reset, import & export buttons -->
-	<div id="button_row">
-	  <button id="save_button">Save</button>
-	  <button id="reset_button">Reset to Default</button>
-	  
-	  <button id="import_button">Import</button>      
-	  <button id="export_button">Export</button>
-
-	  <!-- invisible elements for import and export -->
-	  <a download="Epichrome Helper Settings.txt" id="export_options" class="invisible">export options</a>
-	  <input type="file" id="import_options" name="filename" class="invisible" />
-
-	  <!-- message -->
-	  <span id="message_holder">
-	    <span id="message_box" class="invisible">
-	      <img id="message_spinner" src="working.gif" width="16" height="16"/>
-	      <span id="message_text"></span>
-	    </span><!-- message_box -->
-	  </span><!-- message_holder -->
-	</div><!-- button_row -->
       </div><!-- options_form -->
     </div><!-- container -->
-
+    
     <!-- scripts -->
     <script src="jquery-2.1.4.min.js"></script>
     <script src="jquery-ui-1.11.4.min.js"></script>

@@ -1,6 +1,6 @@
 #
-#  Makefile: Build rules for the Epichrome Helper extension.
-#  Copyright (C) 2015  David Marmor
+#  Makefile: Build rules for the Epichrome Runtime extension.
+#  Copyright (C) 2017  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -22,8 +22,9 @@
 
 ICON_SIZES:=16 48 128
 ICON_SOURCE:=../app/icons/app.psd
-HELPERVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
-ZIP:=epichrome-helper-${HELPERVERSION}.zip
+EXTVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
+ZIPPREFIX:=epichrome-runtime-
+ZIP:=${ZIPPREFIX}${EXTVERSION}.zip
 
 SRC_CP:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 SRC_JS:=$(patsubst src/jquery%,,$(wildcard src/*.js))
@@ -32,7 +33,7 @@ OUT_CP:=$(subst src/,extension/,${SRC_CP})
 OUT_JS:=$(subst src/,extension/,${SRC_JS})
 
 OUT_ICONS:=$(patsubst %,extension/icon%.png,${ICON_SIZES})
-OUT_IMAGES:=extension/install-bg.png extension/working.gif
+OUT_IMAGES:=extension/install-bg.png
 INPLACE_FILES:=$(subst extension/,src/,${OUT_ICONS}) $(subst extension/,src/,${OUT_IMAGES})
 
 STORE_FILES:=store/icon.png
@@ -67,7 +68,7 @@ ${ZIP}: release
 store: store-dir ${STORE_FILES}
 
 clean: clean-inplace clean-store
-	rm -f epichrome-helper-*.zip
+	rm -f ${ZIPPREFIX}*.zip
 	rm -rf extension
 
 clean-inplace:

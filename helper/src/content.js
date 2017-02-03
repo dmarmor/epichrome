@@ -1,10 +1,10 @@
 /*! content.js
-(c) 2015 David Marmor
+(c) 2017 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
  * 
- * content.js: content script for Epichrome Helper extension
+ * content.js: content script for Epichrome Runtime extension
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -131,14 +131,15 @@ ssbContent.updateLinkHandlers = function(node, add) {
     
     // go through all links
     var i = links.length; while (i--) {
-
-	links[i].removeEventListener('click', ssbContent.handleClick);
-	links[i].removeEventListener('mousedown', ssbContent.handleClick);
-	    
+	
 	if (add) {
-	    // optionally add new handlers
+	    // add new handlers
 	    links[i].addEventListener('click', ssbContent.handleClick);
 	    links[i].addEventListener('mousedown', ssbContent.handleClick);
+	} else {
+	    // remove existing handlers
+	    links[i].removeEventListener('click', ssbContent.handleClick);
+	    links[i].removeEventListener('mousedown', ssbContent.handleClick);
 	}
     }
 }
@@ -280,6 +281,18 @@ ssbContent.handleClick = function(evt) {
 	    }
 	}
 
+	// $$$ TEMPORARY LINK CONTEXT-CHECKING. REPLACE WITH GENERAL CLASS RULES
+	if (doRedirect == undefined) {
+	    curParent = link;
+	    while (curParent) {
+		if (curParent.classList.contains('editable')) {
+		    ssb.debug('click', 'FOUND EDITABLE IN', curParent);
+		    doRedirect = false;
+		}
+		curParent = curParent.parentElement;
+	    }
+	}
+	
 	// if we still haven't decide if we're redirecting, use rules
 	if (doRedirect == undefined) {
 	    doRedirect = ssb.shouldRedirect(href, target);
