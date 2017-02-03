@@ -1,0 +1,9 @@
+To update jQuery UI:
+
+1. Go to download page http://jqueryui.com/download/
+2. Deselect all components
+3. Select:
+     Widget
+     Sortable
+   (this will autoselect dependencies including Mouse)
+4. At the bottom, select No Theme
