@@ -106,7 +106,7 @@ input[type="number"], input[type="password"], input[type="search"], input[type="
     box-sizing: border-box;
     color: rgb(68, 68, 68);
     font: inherit;
-    margin: 0px;
+    /* margin: 0px; */
     min-height: 2em;
     padding: 3px 3px 4px;
     outline: none;

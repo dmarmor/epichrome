@@ -280,22 +280,10 @@ ssbContent.handleClick = function(evt) {
 		}
 	    }
 	}
-
-	// $$$ TEMPORARY LINK CONTEXT-CHECKING. REPLACE WITH GENERAL CLASS RULES
-	if (doRedirect == undefined) {
-	    curParent = link;
-	    while (curParent) {
-		if (curParent.classList.contains('editable')) {
-		    ssb.debug('click', 'FOUND EDITABLE IN', curParent);
-		    doRedirect = false;
-		}
-		curParent = curParent.parentElement;
-	    }
-	}
 	
 	// if we still haven't decide if we're redirecting, use rules
 	if (doRedirect == undefined) {
-	    doRedirect = ssb.shouldRedirect(href, target);
+	    doRedirect = ssb.shouldRedirect(href, target, link);
 	}
     }
     

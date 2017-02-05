@@ -335,21 +335,16 @@ input[type="checkbox"] {
 
 /* RULES */
 
-/* header */
-#rules_header {
-    font-style: italic;
-}
-#rules_header .header {
-    vertical-align: bottom;
-}
-
 /* scroll box */
 #rules_scroll {
     width: 500px;
-    height: 135px;
+    height: 159px;
     overflow-y: scroll;
     margin-bottom: 1em;
     border: 1px solid #C1C1C1
+}
+.advanced #rules_scroll {
+    width: 630px;
 }
 
 /* rules list */
@@ -365,10 +360,16 @@ ul.rules-list {
 }
 
 /* general rule field styles */
-.drag-handle,.pattern,.target,.redirect,.delete-button,.add-after-button {
-    margin: 0 5px;
-    vertical-align: middle;
+.rule-element,.rule-header-element {
+    margin: 0 5px 0 0;
     display: inline-block;
+}
+.rule-header-element {
+    font-style: italic;
+    vertical-align: bottom;
+}
+.rule-element {
+    vertical-align: middle;
 }
 
 /* drag handle */
@@ -398,7 +399,18 @@ ul.rules-list {
 /* target drop-down */
 .target {
     width: 90px;
+}
+#options_form:not(.advanced) .target,.classPattern {
     margin-right: 10px;
+}
+
+/* class text box */
+.classPattern {
+    width: 120px;
+    display: none;
+}
+.advanced .classPattern {
+    display: inline-block;
 }
 
 /* per-row add and delete buttons */

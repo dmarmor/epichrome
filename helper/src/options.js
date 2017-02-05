@@ -97,6 +97,10 @@ ssbOptions.startup = function() {
 		
 		// set up jquery for options form
 		ssbOptions.jqForm = $( "#options_form" );
+
+		// display or hide advanced rules
+		ssbOptions.jqForm.on('change.advanced', '.advancedRules',
+				     ssbOptions.setAdvancedStatus);
 		
 		// make rules list sortable by drag-and-drop
 		ssbOptions.jqRules = $( "#rules" );
@@ -202,7 +206,7 @@ ssbOptions.shutdown = function(message, title) {
 // ----------------------------------------------------------------------
 
 // POPULATE -- populate options form from a given set of options
-ssbOptions.populate = function(items) {    
+ssbOptions.populate = function(items) {
     ssbOptions.formItem(ssbOptions.doc.form.all, items);
 }
 
@@ -261,6 +265,13 @@ ssbOptions.formItem = function(item, newValue, append) {
 	if (!doSet) result = ssb.manifest.version;
 	break;
 	
+    case 'advancedRules':
+	// special case -- display or hide advanced rules
+	if (doSet)
+	    ssbOptions.setAdvancedStatus(newValue);
+	
+	// fall through to generic checkbox code
+	
     case 'ignoreAllInternalSameDomain':
     case 'sendIncomingToMainTab':
     case 'stopPropagation':
@@ -270,7 +281,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	else
 	    result = item.checked;
 	break;
-	
+
     case 'redirectByDefault':
     case 'redirect':
 	// handle true-false drop-down menu elements
@@ -281,6 +292,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	break;
 
     case 'pattern':
+    case 'classPattern':
     case 'target':
 	// handle miscellaneous straight translations
 	if (doSet)
@@ -290,7 +302,7 @@ ssbOptions.formItem = function(item, newValue, append) {
 	break;
 
     case 'rule':
-    case 'options_form':
+    case 'options':
 	// handle a set of options recursively
 	
 	if (doSet) {
@@ -309,13 +321,13 @@ ssbOptions.formItem = function(item, newValue, append) {
 	    var curItem, curValue;
 
 	    // get all suboptions of this item
-	    var subItems = item.getElementsByClassName('sub.'+optionName);
+	    var subItems = item.getElementsByClassName('sub-'+optionName);
 
 	    // recursively build object from subkeys
 	    var subItemsLength = subItems.length;
 	    for (i = 0; i < subItemsLength; i++) {
 		curItem = subItems[i];
-		curValue = ssbOptions.formItem(subItems[i]);
+		curValue = ssbOptions.formItem(curItem);
 		if (curValue !== undefined)
 		    result[curItem.classList.item(0)] = curValue;
 	    }
@@ -365,6 +377,20 @@ ssbOptions.formItem = function(item, newValue, append) {
 
 // RULES -- add and delete rule rows, and handle moving between rules
 // ------------------------------------------------------------------
+
+// SETADVANCEDSTATUS -- show or hide advanced rules
+ssbOptions.setAdvancedStatus = function(enabled) {
+    // if we're called from event handler, get the new status
+    if (typeof enabled == 'object')
+	enabled = enabled.target.checked;
+
+    // show or hide advanced rules
+    if (enabled)
+    	ssbOptions.doc.form.all.classList.add('advanced');
+    else
+    	ssbOptions.doc.form.all.classList.remove('advanced');
+}
+
 
 // ADDRULE -- add a rule to the list
 ssbOptions.addRule = function(evt) {
@@ -558,7 +584,7 @@ ssbOptions.doImport = function(evt) {
 	
 	// turn off working bar
 	ssbOptions.setWorkingStatus(false);
-	
+
 	// update options to latest version
 	ssb.updateOptions(newOptions);
 	
@@ -754,7 +780,7 @@ ssbOptions.setSavedStatus = function(saved) {
 	    // set saved state for the form
 	    ssbOptions.doc.button_bar.classList.remove('unsaved');
 
-	    // add handlers to set state to unsaved
+	    // add handlers that can set state back to unsaved
 	    ssbOptions.jqRules.on('sortupdate.ssbSave',
 				  ssbOptions.setSavedStatus);
 	    ssbOptions.jqForm.on('change.ssbSave', '.change',

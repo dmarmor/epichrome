@@ -42,6 +42,7 @@ ssb.startup = function(pageType, callback) {
 	{
 	    optionsVersion: ssb.manifest.version,
 	    ignoreAllInternalSameDomain: true,
+	    advancedRules: false,
 	    rules: [
 		// {pattern: '*',
 		//  target: 'external',
@@ -51,6 +52,15 @@ ssb.startup = function(pageType, callback) {
 	    redirectByDefault: false,
 	    stopPropagation: false,
 	    sendIncomingToMainTab: false
+	};
+
+    // set default rule prototype
+    ssb.defaultRule =
+	{
+	    'pattern':      '*',
+	    'target':       'both',
+	    'classPattern': '',
+	    'redirect':     false
 	};
     
     // what type of page are we running in?
@@ -184,13 +194,23 @@ ssb.updateOptions = function(options) {
 		  'to version',
 		  ssb.manifest.version);
 	
-	// pre-1.1.0 options: add stopPropagation
-	if (!options.hasOwnProperty('stopPropagation')) {
-	    options.stopPropagation = ssb.defaultOptions.stopPropagation;
-	}
-	
 	// update optionsVersion
 	options.optionsVersion = ssb.manifest.version;
+	
+	// add default values for any missing options
+	var key;
+	for (key in ssb.defaultOptions)
+	    if (!options.hasOwnProperty(key))
+		options[key] = ssb.defaultOptions[key];
+
+	// add default values for any missing rule components
+	var curRule, i = options.rules.length;
+	while (i--) {
+	    curRule = options.rules[i];
+	    for (key in ssb.defaultRule)
+		if (!curRule.hasOwnProperty(key))
+		    curRule[key] = ssb.defaultRule[key];
+	}
 	
 	result = true;
     }
@@ -203,26 +223,79 @@ ssb.updateOptions = function(options) {
 // -----------------------------------------------------------
 
 // SHOULDREDIRECT -- return true if a URL should be redirected
-ssb.shouldRedirect = function(url, target) {
+ssb.shouldRedirect = function(url, target, link) {
     
     // always ignore chrome schemes
     if (ssb.regexpChromeScheme.test(url)) { return false; }
     
     // iterate through rules until one matches
-    var index = 0
     if (ssb.options.rules) {
-	var rulesLength = ssb.options.rules.length;
-	for (var i = 0; i < rulesLength; i++) {
-	    var rule = ssb.options.rules[i];
+	var i, j,
+	    rulesLength = ssb.options.rules.length,
+	    ruleNum = 0,
+	    rule,
+	    match,
+	    curParent, curClassList;
+	for (i = 0; i < rulesLength; i++) {
+	    
+	    // check if rule's regexp matches link url
+	    rule = ssb.options.rules[i];
+	    match = false;
 	    if (((rule.target == 'both') || (target == rule.target)) &&
-		rule.regexp.test(url)) {
-		ssb.debug('rules',
-			  (rule.redirect ? 'redirecting' : 'ignoring') +
-			  ' based on rule',
-			  index,'--', url, '[' + target + ']');
-		return rule.redirect;
+		rule.urlRegexp.test(url)) {
+		
+		// if we're checking parent class, try to match that too
+		if (ssb.options.advancedRules && rule.classRegexp) {
+
+		    // if we got here by clicking a link, move up the chain
+		    // trying to match the class pattern
+		    if (typeof link == 'object') {
+			curParent = link;
+			while (curParent) {
+			    // get current parent's class list
+			    curClassList = curParent.classList;
+			    j = curClassList.length;
+
+			    // loop through each class
+			    while (j--) {
+				// if any class matches, we're done
+				if (rule.classRegexp.test(curClassList[j])) {
+				    match = true;
+				    break;
+				}
+
+				// we matched, so no need to check more classes
+				if (match) break;
+			    }
+
+			    // we matched, so no need to check more parents
+			    if (match) break;
+
+			    // move up the parent chain
+			    curParent = curParent.parentElement;
+			}
+		    } else
+			// no link object, so see if class pattern matches nothing
+			match = rule.classRegexp.text('');
+		} else
+		    // we're not checking classes, so match based on URL alone
+		    match = true;
+		
+		// we matched this rule, so return the rule's action
+		if (match) {
+		    // debugging messages
+		    ssb.debug('rules',
+			      (rule.redirect ? 'redirecting' : 'ignoring') +
+			      ' based on rule',
+			      ruleNum,'--', url, '[' + target + ']');
+		    if (curParent)
+			ssb.debug('rules',
+				  '-- and class match:',curClassList[j],curParent);
+		    
+		    return rule.redirect;
+		}
 	    }
-	    index++;
+	    ruleNum++;
 	}
     }
     
@@ -242,34 +315,63 @@ ssb.parseRules = function(rules) {
 	
 	var i = rules.length; while (i--) {
 	    var rule = rules[i];
+
+	    // URL REGEXP
 	    
 	    // create new regexp
-	    rule.regexp = rule.pattern;
-	    if (! rule.regexp) rule.regexp = '*';
-
+	    rule.urlRegexp = rule.pattern;
+	    if (! rule.urlRegexp) rule.urlRegexp = '*';
+	    
 	    // determine if this pattern has a scheme (e.g. http://)
-	    var noscheme = (! ssb.regexpHasScheme.test(rule.regexp));
+	    var noscheme = (! ssb.regexpHasScheme.test(rule.urlRegexp));
 
 	    // escape any special characters
-	    rule.regexp = rule.regexp.replace(ssb.regexpEscape, '\\$1');
+	    rule.urlRegexp = rule.urlRegexp.replace(ssb.regexpEscape, '\\$1');
 
 	    // collapse multiple * (e.g. ***) into a single *
-	    rule.regexp =
-		rule.regexp.replace(ssb.regexpCollapseStars, '$1[*]');
+	    rule.urlRegexp =
+		rule.urlRegexp.replace(ssb.regexpCollapseStars, '$1[*]');
 
 	    // replace * with .*
-	    rule.regexp = rule.regexp.replace(ssb.regexpStar, '.*');
+	    rule.urlRegexp = rule.urlRegexp.replace(ssb.regexpStar, '.*');
 	    
 	    // if no scheme in pattern, prepend one that matches any scheme
 	    if (noscheme) {
-		rule.regexp = '[^/]+:(?://)?' + rule.regexp;
+		rule.urlRegexp = '[^/]+:(?://)?' + rule.urlRegexp;
 	    }
 
 	    // make sure regexp only matches entire url
-	    rule.regexp = '^' + rule.regexp + '$';
+	    rule.urlRegexp = '^' + rule.urlRegexp + '$';
 
 	    // create the regexp
-	    rule.regexp = new RegExp(rule.regexp, 'i');
+	    rule.urlRegexp = new RegExp(rule.urlRegexp, 'i');
+	    
+	    
+	    // CLASS REGEXP
+
+	    if (! rule.classPattern)
+		rule.classRegexp = false;
+	    else {
+
+		// create new regexp
+		rule.classRegexp = rule.classPattern;
+		
+		// escape any special characters
+		rule.classRegexp = rule.classRegexp.replace(ssb.regexpEscape, '\\$1');
+		
+		// collapse multiple * (e.g. ***) into a single *
+		rule.classRegexp =
+		    rule.classRegexp.replace(ssb.regexpCollapseStars, '$1[*]');
+		
+		// replace * with .*
+		rule.classRegexp = rule.classRegexp.replace(ssb.regexpStar, '.*');
+		
+		// make sure regexp only matches entire class
+		rule.classRegexp = '^' + rule.classRegexp + '$';
+		
+		// create the regexp
+		rule.classRegexp = new RegExp(rule.classRegexp, 'i');
+	    }
 	}
 }
 
