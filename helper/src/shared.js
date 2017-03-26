@@ -24,7 +24,7 @@ http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 // SSB -- object that holds all data & methods
 // ---------------------------------------------
 
-var ssb = {};
+ssb = {};
 
 
 // STARTUP/SHUTDOWN -- handle startup, shutdown & installation
@@ -223,7 +223,8 @@ ssb.updateOptions = function(options) {
 // -----------------------------------------------------------
 
 // SHOULDREDIRECT -- return true if a URL should be redirected
-ssb.shouldRedirect = function(url, target, link) {
+//                   target should be 'internal' or 'external'
+ssb.shouldRedirect = function(url, target, classList) {
     
     // always ignore chrome schemes
     if (ssb.regexpChromeScheme.test(url)) { return false; }
@@ -236,47 +237,35 @@ ssb.shouldRedirect = function(url, target, link) {
 	    rule,
 	    match,
 	    curParent, curClassList;
+	
 	for (i = 0; i < rulesLength; i++) {
 	    
 	    // check if rule's regexp matches link url
 	    rule = ssb.options.rules[i];
 	    match = false;
+	    
+	    ssb.debug('rules', 'testing rule', rule, 'against', url, target, classList);
+	    
 	    if (((rule.target == 'both') || (target == rule.target)) &&
 		rule.urlRegexp.test(url)) {
 		
 		// if we're checking parent class, try to match that too
 		if (ssb.options.advancedRules && rule.classRegexp) {
 
-		    // if we got here by clicking a link, move up the chain
-		    // trying to match the class pattern
-		    if (typeof link == 'object') {
-			curParent = link;
-			while (curParent) {
-			    // get current parent's class list
-			    curClassList = curParent.classList;
-			    j = curClassList.length;
-
-			    // loop through each class
-			    while (j--) {
-				// if any class matches, we're done
-				if (rule.classRegexp.test(curClassList[j])) {
-				    match = true;
-				    break;
-				}
-
-				// we matched, so no need to check more classes
-				if (match) break;
+		    if (classList) {
+			j = classList.length;
+			
+			// loop through each class set
+			while (j--) {
+			    // if any class matches, we're done
+			    if (rule.classRegexp.test(classList[j])) {
+				match = true;
+				break;
 			    }
-
-			    // we matched, so no need to check more parents
-			    if (match) break;
-
-			    // move up the parent chain
-			    curParent = curParent.parentElement;
 			}
 		    } else
 			// no link object, so see if class pattern matches nothing
-			match = rule.classRegexp.text('');
+			match = rule.classRegexp.test('');
 		} else
 		    // we're not checking classes, so match based on URL alone
 		    match = true;
@@ -287,7 +276,8 @@ ssb.shouldRedirect = function(url, target, link) {
 		    ssb.debug('rules',
 			      (rule.redirect ? 'redirecting' : 'ignoring') +
 			      ' based on rule',
-			      ruleNum,'--', url, '[' + target + ']');
+			      ruleNum,'--', url, '[' + target + ']',
+			      (classList && classList[j]) ? 'class: "'+classList[j]+'"' : '');
 		    if (curParent)
 			ssb.debug('rules',
 				  '-- and class match:',curClassList[j],curParent);
@@ -295,6 +285,7 @@ ssb.shouldRedirect = function(url, target, link) {
 		    return rule.redirect;
 		}
 	    }
+	    
 	    ruleNum++;
 	}
     }

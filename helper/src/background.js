@@ -20,11 +20,33 @@ http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 // SSBBG -- object that holds all data & methods
 // ---------------------------------------------
 
-var ssbBG = {};
+ssbBG = {};
+
+// $$$ TESTING
+ssbBG.isChromeStartup = false;
+
+// HANDLECHROMESTARTUP -- prevent initializing tabs on Chrome startup
+ssbBG.handleChromeStartup = function() {
+    // Chrome is starting up, so don't initialize tabs
+    ssbBG.isChromeStartup = true;
+    
+    ssb.debug('startup', 'Chrome starting up');
+}
+
+// handle Chrome startup
+chrome.runtime.onStartup.addListener(ssbBG.handleChromeStartup);
+
+
+// $$$ DOCUMENT
+ssbBG.events = {
+    interaction: undefined,
+    newTab: undefined
+}
+
+//ssbBG.lastWebNav = undefined;
 
 
 // STARTUP/SHUTDOWN -- handle startup, shutdown & installation
@@ -32,7 +54,7 @@ var ssbBG = {};
 
 // STARTUP -- main startup function for the extension
 ssbBG.startup = function() {
-
+    
     // a persistent listener to immediately install available updates (currently unused)
     // chrome.runtime.onUpdateAvailable.addListener(function(details) {
     // 	console.log('version',details.version,'is available -- updating extension');
@@ -46,63 +68,111 @@ ssbBG.startup = function() {
 	    ssb.log(ssb.logPrefix + ' is starting up');
 
 	    // we are active!
-	    localStorage.setItem('status', JSON.stringify({ active: false, startingUp: true, message: 'Please wait...' }));
+	    localStorage.setItem('status',
+				 JSON.stringify(
+				     {
+					 active: false,
+					 startingUp: true,
+					 message: 'Please wait...'
+				     }));
 
+	    // $$$ get rid of this?
 	    // initialize pages.urls
-	    ssbBG.pages.urls = {};
+	    // ssbBG.pages.urls = {};
 	    
 	    // status change listener (we don't need to do anything)
 	    //window.addEventListener('storage', function() { ssb.debug('storage', 'got a status change!'); });
+	    
+	    // create context menus
+	    ssbBG.contextMenuCreate(undefined, 'epichrome', 'Epichrome');
+	    ssbBG.contextMenuCreate('epichrome', 'urlDefaultBrowser',
+				    'Open in Default Browser (⌘⇧-click)', ['link']);
+	    ssbBG.contextMenuCreate('epichrome', 'separator1',
+				    undefined, ['link'], 'separator');
+	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppNewWindow',
+				    'Open in New App Window (X⇧-click)', ['link']);
+	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppNewTab',
+				    'Open in New Tab (X⌘-click)', ['link']);
+	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppSameTab',
+				    'Open in Same Window (X⌘⇧-click)', ['link']);
+	    ssbBG.contextMenuCreate('epichrome', 'separator2',
+				    undefined, ['link'], 'separator');
+	    ssbBG.contextMenuCreate('epichrome', 'windowSwitch',
+				    'Show/Hide Address Bar (⌘⇧L)');
+	    
+	    // set initial context menu text
+	    //ssbBG.focusChangeHandler();
+	    
+	    // set up handlers for context menu
+	    chrome.contextMenus.onClicked.addListener(ssbBG.contextMenuHandler);
+	    // chrome.tabs.onActivated.addListener(ssbBG.focusChangeHandler);
+	    // chrome.windows.onFocusChanged.addListener(ssbBG.focusChangeHandler);
 
-	    // find the main tab if any (for optionally directing incoming tabs there
-	    // and for switching its window between popup and normal)
-	    ssbBG.mainTab = undefined;
-	    ssbBG.allTabs(
-		function(tab, win) {
-		    // It's a bit of a kludge--I have no documentation that the first tab
-		    // loaded on startup will always have the lowest ID, but it appears to be true.
-		    // I look for the lowest tab ID that's the only tab in an app or popup window
-		    // type (for some reason, Chrome currently gives the window type as 'popup' for
-		    // app windows). Usually this all should only match one tab anyway.
-		    if (((ssbBG.mainTab == undefined) || (ssbBG.mainTab.id > tab.id)) &&
-			((win.type == 'popup') || (win.type == 'app')) &&
-			(win.tabs.length == 1)) {
-			ssbBG.mainTab = { id: tab.id };
-		    }
-		}, undefined,
-		function() {
+	    
+	    // } else {
+	    // 	ssb.debug('initTabs', 'no main tab found');
+	    // }
+	    
+	    // set up handler for keepalive connections
+	    chrome.runtime.onConnect.addListener(ssbBG.handleKeepaliveConnect);
+	    
+	    // connect to host for the first time
+	    ssbBG.host.canCommunicate = false;
+	    ssbBG.host.connect();
+	    
+	    // set up handlers for tab changes
+	    chrome.tabs.onCreated.addListener(ssbBG.tabCreatedHandler);
 
-		    // done finding main tab -- proceed with startup
-		    if (ssbBG.mainTab != undefined) {
-			ssb.debug('initTabs', 'main tab set to', ssbBG.mainTab,'--',ssbBG.mainTab.url);
-
-			// initialize the context menu
-			ssbBG.updateContextMenu();
-			ssbBG.setContextMenuListeners(true);
+	    // set up handlers for webNavigation events
+	    chrome.webNavigation.onCreatedNavigationTarget.addListener(ssbBG.navTargetCreatedHandler);
+	    
+	    // $$$ set up handlers for webRequest events
+	    chrome.webRequest.onBeforeRequest.addListener(ssbBG.beforeRequestHandler,
+							  {urls: ["<all_urls>"],
+							   types: ["main_frame"]},
+							  ["blocking"]);
+	    
+	    // give Chrome startup 500ms to register, then if we're not in Chrome startup,
+	    // give content scripts 1000ms to register, or reload them
+	    setTimeout(function() {
+		if (!ssbBG.isChromeStartup) {
+		    setTimeout(function() {
+			ssb.debug('initTabs', 'reloading all tabs -- not in Chrome startup');
 			
-		    } else {
-			ssb.debug('initTabs', 'no main tab found');
-		    }
-		    
-		    // set up listener for keepalive connections
-		    chrome.runtime.onConnect.addListener(ssbBG.handleKeepaliveConnect);
-		    
-		    // set up listener for handling messages from content scripts
-		    chrome.runtime.onMessage.addListener(ssbBG.pages.handleMessage);
-		    
-		    // connect to host for the first time
-		    ssbBG.host.canCommunicate = false;
-		    ssbBG.host.connect();
-		    
-		    // handle new tabs
-		    chrome.tabs.onCreated.addListener(ssbBG.handleNewTab);
-		    chrome.webNavigation.onCreatedNavigationTarget.addListener(ssbBG.handleNewNavTarget);
-		    
-		    // in 200ms, initialize all tabs
-		    // (giving Chrome startup time to override)
-		    if (typeof ssbBG.isStartup != 'boolean') ssbBG.isStartup = false;
-		    ssbBG.initTabsTimeout = setTimeout(ssbBG.initializeTabs, 200);
-		});
+			ssbBG.allTabs(
+			    function(tab, win, scripts) {
+				
+				ssb.debug('initTabs', 'sending ping to tab', tab.id);
+				
+				// not in startup, so fire up tabs
+				chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
+		    		    
+				    if (response != 'ping') {
+					ssb.debug('initTabs', 'reloading tab', tab.id);
+					
+					// inject all content scripts
+    					for(var i = 0 ; i < scripts.length; i++ ) {
+    					    chrome.tabs.executeScript(
+						tab.id,
+						{ file: scripts[i], allFrames: true },
+						function () {
+						    if (chrome.runtime.lastError) {
+							ssb.warn('unable to load tab '+tab.id+': '+
+								 chrome.runtime.lastError.message);
+						    }
+						});
+    					}
+				    } else {
+					ssb.debug('initTabs', 'NOT reloading tab', tab.id,'-- got ping');
+				    }
+				});
+			    },
+			    ssb.manifest.content_scripts[0].js);
+		    }, 1000);
+		} else {
+		    ssb.debug('initTabs', 'NOT reloading tabs -- in Chrome startup');
+		}
+	    }, 500);
 	} else {
 	    ssbBG.shutdown(message);
 	}
@@ -115,108 +185,52 @@ ssbBG.shutdown = function(statusmessage) {
     
     ssb.log(ssb.logPrefix + ' is shutting down:', statusmessage);
     
-    // cancel startup timeouts
-    if (ssbBG.initTabsTimeout) {
-	clearTimeout(ssbBG.initTabsTimeout);
-	delete ssbBG.initTabsTimeout;
-    }
+    // // $$$ KILL THIS cancel page timeouts
+    // if (ssbBG.pages.urls)
+    // 	Object.keys(ssbBG.pages.urls).forEach(
+    // 	    function(key) {
+    // 		ssb.debug('shutdown', 'clearing timeout for ' + key);
+    // 		clearTimeout(ssbBG.pages.urls[key].timeout);
+    // 	    });
     
-    // cancel page timeouts
-    if (ssbBG.pages.urls)
-	Object.keys(ssbBG.pages.urls).forEach(
-	    function(key) {
-		ssb.debug('shutdown', 'clearing timeout for ' + key);
-		clearTimeout(ssbBG.pages.urls[key].timeout);
-	    });
+    // $$$ OBSOLETE? tell all tabs to shut down
+    // ssbBG.allTabs(function(tab) {
+    // 	ssb.debug('shutdown', 'shutting down tab', tab.id);
+    // 	chrome.tabs.sendMessage(tab.id, {type: 'shutdown'});
+    // }, null, function() {
+	
+    // shut myself down
+    if (ssbBG.host.port) ssbBG.host.port.disconnect();
     
-    // tell all tabs to shut down
-    ssbBG.allTabs(function(tab) {
-	ssb.debug('shutdown', 'shutting down tab', tab.id);
-	chrome.tabs.sendMessage(tab.id, {type: 'shutdown'});
-    }, null, function() {
-	
-	// shut myself down
-	if (ssbBG.host.port) ssbBG.host.port.disconnect();
-	
-	// clear context menu
-	ssbBG.setContextMenuListeners(false);
-	ssbBG.removeContextMenu();
-	
-	// remove listeners
-	chrome.tabs.onCreated.removeListener(ssbBG.handleNewTab);
-	chrome.webNavigation.onCreatedNavigationTarget.removeListener(ssbBG.handleNewNavTarget);
-	chrome.runtime.onConnect.removeListener(ssbBG.handleKeepaliveConnect);
-	chrome.runtime.onMessage.removeListener(ssbBG.pages.handleMessage);
-	
-	// set status in local storage
-	localStorage.setItem('status',
-			     JSON.stringify({ active: false,
-					      message: statusmessage,
-					      nohost: (! ssbBG.host.canCommunicate)
-					    }));
-	
-	// open options page
-	chrome.runtime.openOptionsPage();
-	// shut down shared.js
-	ssb.shutdown();
-	
-	// kill myself
-	delete window.ssbBG;
-    });
-}
-
-
-// INITIALIZETABS -- reload content scripts for every open tab &
-//                   identify the "main" tab (by lowest ID)
-ssbBG.initializeTabs = function() {
+    // clear context menu
+    // chrome.tabs.onActivated.removeListener(ssbBG.focusChangeHandler);
+    // chrome.windows.onFocusChanged.removeListener(ssbBG.focusChangeHandler);
+    chrome.contextMenus.onClicked.removeListener(ssbBG.contextMenuHandler);
+    chrome.contextMenus.removeAll();
     
-    delete ssbBG.initTabsTimeout;    
+    // remove listeners
+    chrome.tabs.onCreated.removeListener(ssbBG.tabCreatedHandler);
+    chrome.webNavigation.onCreatedNavigationTarget.removeListener(ssbBG.navTargetCreatedHandler);
+    chrome.webRequest.onBeforeRequest.removeListener(ssbBG.beforeRequestHandler);
     
-    // find all existing tabs
-    ssbBG.allTabs(
-	function(tab, win, scripts) {
-
-	    // if we're in startup and there's a main tab, process all others
-	    if (ssbBG.isStartup) {
-		if (ssbBG.mainTab && (tab.id != ssbBG.mainTab.id)) {
-		    // dispose of or forward any extraneous tabs
-		    ssbBG.handleNewTab(tab);
-		}
-	    } else {
-		
-		// not in startup, so fire up tabs
-		chrome.tabs.sendMessage(tab.id, {type: 'ping'}, function(response) {
-		    
-		    if (response != 'ping') {
-			
-			ssb.debug('initTabs', 'reloading tab', tab.id);
-			
-			// no response, so inject content scripts
-    			for(var i = 0 ; i < scripts.length; i++ ) {
-    			    chrome.tabs.executeScript(
-				tab.id,
-				{ file: scripts[i], allFrames: true },
-				function () {
-				    if (chrome.runtime.lastError) {
-					ssb.warn('unable to load tab '+tab.id+': '+
-						 chrome.runtime.lastError.message);
-				    }
-				});
-    			}
-    		    }
-    		});
-	    }
-	},
-	ssb.manifest.content_scripts[0].js);
-}
-
-
-// HANDLECHROMESTARTUP -- prevent initializing tabs on Chrome startup
-ssbBG.handleChromeStartup = function() {
-    // Chrome is starting up, so don't initialize tabs
-    ssbBG.isStartup = true;
-
-    ssb.debug('startup', 'Chrome starting up');
+    chrome.runtime.onConnect.removeListener(ssbBG.handleKeepaliveConnect);
+    
+    // set status in local storage
+    localStorage.setItem('status',
+			 JSON.stringify({ active: false,
+					  message: statusmessage,
+					  nohost: (! ssbBG.host.canCommunicate)
+					}));
+    
+    // open options page
+    chrome.runtime.openOptionsPage();
+    // shut down shared.js
+    ssb.shutdown();
+    
+    // kill myself
+    delete window.ssbBG;
+    
+    // });
 }
 
 
@@ -307,7 +321,7 @@ ssbBG.allTabs = function(action, arg, finished) {
 
 // HANDLEKEEPALIVECONNECT -- set up a keepalive connection with a page
 ssbBG.handleKeepaliveConnect = function(port) {
-
+    
     // don't connect to any port that's not from this ID
     if (! (port.sender && (port.sender.id == chrome.runtime.id))) {
 	ssb.warn('rejecting connection attempt from',port.sender);
@@ -315,199 +329,437 @@ ssbBG.handleKeepaliveConnect = function(port) {
 	return;
     }
     
-    // accept the connection
-    ssb.debug('keepalive', 'connected to', port.sender);
+    ssb.debug('keepalive',
+	      'connected to tab', port.sender.tab.id,
+	      'frame', port.sender.frameId, port.sender);
 
-    // if this is the main tab and we haven't already, anoint it
-    if (ssbBG.mainTab && (port.sender.tab.id == ssbBG.mainTab.id)) {
-	// only anoint the frame that connected
-	ssb.debug('mainTab', 'anointing tab '+port.sender.tab.id+', frame '+port.sender.frameId);
-	chrome.tabs.sendMessage(port.sender.tab.id,
-				{type: 'mainTab', state: 'popup'},
-				{frameId: port.sender.frameId});
+    // set up handler for messages from content scripts
+    port.onMessage.addListener(ssbBG.keepaliveMessageHandler);
+}
+
+
+// $$$ GET RID OF recal parameter
+// TABCREATEDHANDLER -- process a newly-opened tab
+ssbBG.tabCreatedHandler = function(tab) {
+    
+    /// $$$ NEW CODE -- DOCUMENT
+    var eventTime = Date.now();
+    
+    // check if we've been ordered to convert this tab to an app-style window
+    if (ssbBG.events.convertTabToApp) {
+	var convertToNewTab = eventTime - ssbBG.events.convertTabToApp;
+	if ((convertToNewTab >= 0) && (convertToNewTab < 200)) {
+	    ssb.debug('newTab', 'CONVERT', '('+convertToNewTab+')', tab);
+	    ssbBG.actionHandler('windowSwitch', tab, 'popup');
+	} else {
+	    ssb.debug('newTab', 'ignore convert order -- too old', '('+convertToNewTab+')', tab);
+	}
+	
+	// either way, delete this convert request
+	ssbBG.events.convertTabToApp = undefined;
+	
+    // check if tab opened directly after interaction
+    } else if (tab.url && (tab.url != 'chrome://newtab/')) { // && (tab.url != 'about:blank')
+	
+	if (!ssb.regexpChromeScheme.test(tab.url)) {
+	    
+	    if (ssbBG.events.interaction) {
+		var interactToNewTab = eventTime - ssbBG.events.interaction.time;
+		
+		if ((interactToNewTab >= 0) && (interactToNewTab < 200)) {
+		    
+		    // $$$ KILL
+		    ssb.debug('newTab', 'CAPTURE', tab.url, '('+interactToNewTab+')', tab);
+		    
+		    // determine if we should redirect this tab
+		    ssbBG.redirectNewTab(tab.id, tab.url);
+		    
+		    // we've officially used up this user interaction
+		    ssbBG.events.interaction = undefined;
+		    
+		    return;
+		}
+	    }
+	    
+    	    // $$$ has URL but not captured
+    	    ssbBG.events.newTab = { tab: tab, time: eventTime, hasUrl: true };
+
+	    // $$$ KILL THIS
+    	    if (!ssbBG.events.interaction)
+		ssb.debug('newTab', 'LOG -- no user interaction');
+	    else // if (interactToNewTab out of range)
+		ssb.debug('newTab', 'LOG -- interaction time mismatch', eventTime, interactToNewTab, tab);
+    	} else {
+	    
+    	    // else -- chrome:// page, so ignore
+
+	    // $$$ KILL THIS
+	    ssb.debug('newTab', 'IGNORE -- tab for chrome:// page', tab);
+	}
+    } else {
+    	// blank tab -- log
+    	ssbBG.events.newTab = { tab: tab, time: eventTime, hasUrl: false };
+    	ssb.debug('newTab', 'LOG -- empty tab', tab);
     }
 }
 
 
-// HANDLENEWTAB -- process a newly-opened tab
-ssbBG.handleNewTab = function(tab) {
+// NAVTARGETCREATEDHANDLER -- handle a newly-created navigation target
+ssbBG.navTargetCreatedHandler = function(details) {
     
-    ssb.debug('newTab', 'tab created ( id =',tab.id,'openerId =',tab.openerTabId,')');
-    
-    if (!tab.url || (tab.url == 'chrome://newtab/')) { // || (tab.url == 'about:blank')
-
-	// blank tab
-	ssb.debug('newTab', 'tab is empty -- ignoring');
+    // $$$ TESTING
+    if (!ssb.regexpChromeScheme.test(details.url) &&
+	ssbBG.events.interaction &&
+	ssbBG.events.newTab && !ssbBG.events.newTab.hasUrl &&
+       	(details.sourceTabId == ssbBG.events.interaction.tabId) &&
+	(details.tabId == ssbBG.events.newTab.tab.id)) {
 	
-    } else if (!ssb.regexpChromeScheme.test(tab.url)) {
+	var interactToNewTab = ssbBG.events.newTab.time - ssbBG.events.interaction.time;
+	var newTabToWebNav = Math.abs(details.timeStamp - ssbBG.events.newTab.time);
 	
-	// incoming or nav tab
-	ssb.debug('newTab', 'tab has url',tab.url);
-	
-	if (!tab.openerTabId && ssbBG.pages.urls[tab.url] &&
-	    ssbBG.pages.urls[tab.url].redirect) {
+	if ((interactToNewTab >= 0) && (interactToNewTab < 200) &&
+	    (newTabToWebNav < 200)) {
 
-	    // tab redirected from here apparently landed here again, so we
-	    // ignore it to avoid an endless redirection loop
-	    ssb.debug('newTab', 'tab was redirected from this app -- ignoring');
-	    
-	} else if (ssb.shouldRedirect(tab.url, 'external')) {
+	    if (details.url == 'about:blank') {
 
-	    // according to the rules, this URL should be redirected
-	    ssb.debug('newTab', 'using rules -- redirecting');
-	    
-	    // simulate a message from a page to send the redirect
-	    ssbBG.pages.handleMessage({type: 'url', redirect: true, url: tab.url}, {id: chrome.runtime.id});
-	    chrome.tabs.remove(tab.id);
+		// this probably came from a Javascript that hasn't populated the tab yet
+		ssbBG.events.navTarget = {
+		    details: details,
+		    interaction: ssbBG.events.interaction
+		};
+				
+		ssb.debug('navTarget', 'LOG -- target URL is about:blank', details);
+	    } else {
+		
+		// debug
+		ssb.debug('navTarget', 'CAPTURE (', interactToNewTab, '+', newTabToWebNav, ')',
+			  details);
+		
+		// determine if we should redirect this tab
+		ssbBG.redirectNewTab(details.tabId, details.url);
+	    }
+
+	    // $$$ KILL NEWTAB EVENT I THINK (MAYBE NOT INTERACTION TO HANDLE MULTIPLES)
+	    ssbBG.events.newTab = undefined;
 	    
 	} else {
+	    // $$$ KILL THIS
+	    ssb.debug('navTarget', 'IGNORE -- bad interaction/newTab times (',
+		      interactToNewTab, '/', newTabToWebNav, ')', details);
+	}
+    } else {
+	// $$$ KILL THIS
+	if (ssb.regexpChromeScheme.test(details.url))
+	    ssb.debug('navTarget', 'IGNORE -- chrome:// URL', details);
+	else if (!ssbBG.events.interaction)
+	    ssb.debug('navTarget', 'IGNORE -- no interaction found', details);
+	else if (!ssbBG.events.newTab)
+	    ssb.debug('navTarget', 'IGNORE -- no newTab found', details);
+	else if (ssbBG.events.newTab.hasUrl)
+	    ssb.debug('navTarget', 'IGNORE -- newTab already has URL',
+		      ssbBG.events.newTab, details);
+	else if (details.sourceTabId != ssbBG.events.interaction.tabId)
+	    ssb.debug('navTarget', 'IGNORE -- navTarget sourceTabId not interaction tab (',
+		      details.sourceTabId, '/', ssbBG.events.interaction.tabId, ')',
+		      details);
+	else // if (details.tabId == ssbBG.events.newTab.tab.id)
+	    ssb.debug('navTarget', 'IGNORE -- navTarget not in same tab as newTab (',
+		      details.sourceTabId, '/', ssbBG.events.interaction.tabId, ')',
+		      details);
+    }
+}
 
-	    // according to the rules, this URL should be kept
-	    ssb.debug('newTab', 'using rules -- keeping');
+// $$$ BEFOREREQUESTHANDLER -- handle navigation starting
+ssbBG.beforeRequestHandler = function(details) {
+
+    // by default don't interfere with request
+    var result = undefined;
+    
+    // $$$$ document
+    if (ssbBG.lastWebRequest && (details.requestId == ssbBG.lastWebRequest.requestId)) {
+	ssb.debug('beforeRequest', 'IGNORE -- request already handled', details);
+    } else {
+	
+	// this is now the last request
+	ssbBG.lastWebRequest = details;
+	
+	if ((details.method == 'GET') && !ssb.regexpChromeScheme.test(details.url)) {
+
+	    var handled = false;
 	    
-	    // if it's truly an incoming tab (we didn't create it through any
-	    // kind of click), we might send it to the main tab
-	    if (! ssbBG.pages.urls[tab.url] &&
-		ssb.options.sendIncomingToMainTab &&
-		(ssbBG.mainTab != undefined)) {
-
-		// according to our options, it should be sent to main tab
-		ssb.debug('newTab', 'using options -- sending to main tab');
+	    if (ssbBG.events.navTarget) {
+		var navTargetToRequest = details.timeStamp - ssbBG.events.navTarget.details.timeStamp;
 		
-		var oldTabId = tab.id;
-		var thisUrl = tab.url;
-		chrome.tabs.update(
-		    ssbBG.mainTab.id,
-		    {url: thisUrl, active: true},
-		    function (myTab) {
-			if (chrome.runtime.lastError) {
-			    // unable to update the main tab
-			    ssb.warn('unable to find main tab',ssbBG.mainTab.id,
-				     '('+chrome.runtime.lastError.message+') -- leaving new tab open');
+		if ((navTargetToRequest >= 0) && (navTargetToRequest < 500)) {
+		    
+		    if (details.tabId == ssbBG.events.navTarget.details.tabId) {
+
+			ssb.debug('beforeRequest', 'CAPTURE late navTarget', details, ssbBG.events.navTarget);
+			
+			// determine if we should redirect this tab
+			ssbBG.redirectNewTab(details.tabId, details.url,
+					     ssbBG.events.navTarget.interaction);
+			
+			handled = true;			
+		    } else {
+			// $$$ debug
+			ssb.debug('beforeRequest', 'IGNORE late navTarget -- different tab from target (',
+				  details.tabId, '/', ssbBG.events.navTarget.tabId, ')', details);
+		    }
+		    
+		} else {
+		    // this navTarget is too old
+		    killNavTarget = true;
+		    
+		    ssb.debug('beforeRequest', 'IGNORE late navTarget -- too late',
+			      navTargetToRequest, details, ssbBG.events.navTarget);
+		}
+				
+		// possibly kill this navTarget
+		if (handled || killNavTarget || !ssbBG.events.interaction ||
+		    (ssbBG.events.interaction.time > ssbBG.events.navTarget.details.timeStamp)) {
+		    
+		    ssbBG.events.navTarget = undefined;
+
+		    // $$$ debug
+		    if (!handled && !killNavTarget) {
+			if (!ssbBG.events.interaction)
+			    ssb.debug('beforeRequest', 'KILL late navTarget -- no interaction found', details);
+			else // if interaction time > navTarget time
+			    ssb.debug('beforeRequest', 'KILL late navTarget -- interaction after navTarget', details);
+		    }
+		}
+	    } else {
+		ssb.debug('beforeRequest', 'IGNORE late navTarget -- no target found', details);
+	    }
+
+	    // not handled as late navTarget, try handling as interaction result
+	    if (!handled) {
+		if (ssbBG.events.interaction &&
+		    (details.tabId == ssbBG.events.interaction.tabId)) {
+		
+		    var interactToRequest = details.timeStamp - ssbBG.events.interaction.time;
+		    
+		    if ((interactToRequest >= 0) && (interactToRequest < 200)) {
+			
+			ssb.debug('beforeRequest', 'CAPTURE', '('+interactToRequest+')', details);
+			
+			// run rules here
+			if (ssb.shouldRedirect(details.url, 'internal', ssbBG.events.interaction.classList)) {
+			    ssbBG.host.port.postMessage({'url': details.url});
+			    result = { redirectUrl: ssbBG.events.interaction.curUrl };
+			}
+			
+			// kill interaction event
+			ssbBG.events.interaction = undefined;
+		    } else {
+			// $$$$ KILL THIS
+			ssb.debug('beforeRequest', 'IGNORE -- bad interaction time',
+				  '('+interactToRequest+')', details);
+		    }
+		} else {
+		    if (!ssbBG.events.interaction)
+			ssb.debug('beforeRequest', 'IGNORE -- no interaction found', details);
+		    else // if (details.tabId != ssbBG.events.interaction.tabId)
+			ssb.debug('beforeRequest', 'IGNORE -- different tab from interaction (',
+				  details.tabId, '/', ssbBG.events.interaction.tabId, ')', details);
+		}
+	    }
+	} else {
+	    // $$$ KILL THIS
+	    if (details.method != 'GET')
+		ssb.debug('beforeRequest', 'IGNORE -- non-GET request', details);
+	    else // if (!ssb.regexpChromeScheme.test(details.url))
+		ssb.debug('beforeRequest', 'IGNORE -- chrome:// URL', details.url, details);
+	}
+    }
+    
+    return result;
+}
+
+
+
+// $$$ DOCUMENT
+ssbBG.redirectNewTab = function(tabId, url, interaction) {
+
+    if (!interaction) interaction = ssbBG.events.interaction;
+    
+    if (ssb.shouldRedirect(url, 'external', interaction.classList)) {
+	// send the redirect
+	ssbBG.host.port.postMessage({'url': url});
+	chrome.tabs.remove(tabId);
+	
+	// refocus tab that created this tab
+	chrome.windows.update(interaction.windowId, { focused: true });
+	chrome.tabs.update(interaction.tabId, { active: true });
+	
+	return true;
+    }
+    
+    return false;
+}
+
+
+
+
+
+// ACTIONHANDLER -- main dispatcher to handle action messages
+ssbBG.actionHandler = function(action, tab, info) {
+
+    ssb.debug('actionHandler', 'got request:', action, tab, info);
+    
+    switch (action) {
+	
+    case 'windowSwitch':
+	chrome.tabs.get(tab.id, function(curTab) {
+	    
+	    if (!chrome.runtime.lastError) {
+		
+		// find the tab's window
+		chrome.windows.get(curTab.windowId, function(win) {
+		    if (!chrome.runtime.lastError) {
+			
+			var newType = undefined;
+			
+			if (info && (info != win.type)) {
+			    newType = info;
 			} else {
-			    // we updated the tab, so get rid of the old one & focus
-			    chrome.tabs.remove(oldTabId);
-			    chrome.windows.update(
-				myTab.windowId,
-				{focused: true},
-				function () {
-				    // log it if we failed to focus on the window
+			    newType = (win.type == 'popup') ? 'normal' : 'popup';
+			}
+
+			if (newType) {
+			    ssb.debug('setWindowType', 'setting window', win.id, 'to', newType);
+			    
+			    // switch the window style
+			    chrome.windows.create(
+				{
+				    tabId: curTab.id,
+				    type: newType,
+				    left: win.left,
+				    top: win.top,
+				    width: win.width,
+				    height: win.height
+				},
+				function() {
 				    if (chrome.runtime.lastError) {
-					ssb.warn('unable to focus on main window',myTab.windowId,
+					// window not found
+					ssb.warn('unable to set window type for tab',
+						 curTab.id,
 						 '('+chrome.runtime.lastError.message+')');
 				    }
 				});
+			} else {
+			    ssb.debug('setWindowType', 'ignoring -- window is already', win.type);
 			}
-		    });
+		    } else {
+			// window not found
+			ssb.warn('unable to find window for tab',
+				 tab.id,
+				 '('+chrome.runtime.lastError.message+')');
+		    }
+		});
 	    } else {
-		// either it's an actual redirect, or our options don't call
-		// for redirecting to the main tab
-		ssb.debug('newTab', 'leaving new tab open');
+		// tab not found
+		ssb.warn('unable to find tab', tab.id,
+			 '('+chrome.runtime.lastError.message+')');
 	    }
-	}
-    }
-}
-
-
-// HANDLENEWNAVTARGET -- handle a newly-created navigation target (catches a few
-//                       edge cases handleNewTab misses)
-ssbBG.handleNewNavTarget = function(details) {
-    
-    ssb.debug('webNav', 'createdNavTarget:',details);
-
-    // try to find the tab
-    chrome.tabs.get(details.tabId, function(tab) {
-	if (chrome.runtime.lastError) {
-	    ssb.debug('webNav', 'tab has already closed -- ignoring');
-	    return;
-	}
+	});
+	break;
 	
-	// handle the tab
-	ssbBG.handleNewTab(tab);
-    });
+    case 'urlDefaultBrowser':
+	// open the URL in the default browser
+	ssbBG.host.port.postMessage({'url': info});
+	break;
+	
+    case 'urlThisAppNewWindow':
+	// open the URL in a new app-style window
+	chrome.windows.create({ url: info, type: 'popup' });
+	break;
+
+    case 'urlThisAppNewTab':
+	// open the URL in a new Chrome-style tab
+	chrome.tabs.create({ url: info });
+	break;
+	
+    case 'urlThisAppSameTab':
+	// open the URL in the same tab even if it would usually open in a new one
+	chrome.tabs.update(tab.id, { url: info });
+	break;
+	
+    case 'convertTabToApp':
+	// expect a tab to open & tell it to convert to an app-style window
+	ssbBG.events.convertTabToApp = info;
+	ssb.debug('convertTabToApp', 'convert next new tab after', info);
+	break;
+	
+	// $$$ DOCUMENT
+    case 'interaction':
+	// clear any old interaction
+	ssbBG.events.interaction = undefined;
+	
+	if (info) {
+	    info.tabId = tab.id;
+	    info.windowId = tab.windowId;
+	    
+	    if (info.isLate) {
+		if (ssbBG.events.newTab && ssbBG.events.newTab.hasUrl) {
+		    
+		    var newTabToInteract = info.time - ssbBG.events.newTab.time;
+		    
+		    if ((newTabToInteract >= 0) && (newTabToInteract < 200)) {
+			// check if late interaction is directly after tab opened
+			// $$$ this captures ONLY tabs opened through the context menu
+			
+			// $$$ FIX THIS determine if we should redirect
+			ssb.debug('interaction',
+				  'CAPTURE new tab with url from context menu click',
+				  '('+newTabToInteract+')');
+
+			// redirect or not
+			ssbBG.redirectNewTab(ssbBG.events.newTab.tab.id,
+					     ssbBG.events.newTab.tab.url,
+					     info);
+			
+		    } else {
+			// $$$ KILL THIS ELSE
+			ssb.debug('interaction',
+				  'IGNORE context menu/new tab too far apart',
+				  '('+newTabToInteract+')');
+		    }
+		} else {
+		    // $$$ KILL THIS ELSE
+		    ssb.debug('interaction',
+			      'IGNORE -- context menu/new tab mismatch',
+			      info, ssbBG.events.newTab);
+		}
+	    } else {
+		ssbBG.events.interaction = info;
+		ssb.debug('interaction', 'LOG', info.type,
+			  'at', '-' + (Date.now() - info.time), info);
+	    }
+	} else {
+	    ssb.debug('interaction', 'CLEAR');
+	}
+	break;
+	
+    default:
+	ssb.warn('received unknown action', action, 'from', tab);
+    }
 }
 
 
-// PAGES -- object for handling communication with web pages
-// ---------------------------------------------------------
-
-ssbBG.pages = {};
-
-
-// PAGES.HANDLEMESSAGE -- handle incoming messages from content scripts
-ssbBG.pages.handleMessage = function(message, sender) {
+// $$$$  HANDLEMESSAGE -- handle incoming messages from content scripts
+ssbBG.keepaliveMessageHandler = function(message, port) {
     
-    // reject any message that's not from this extension
-    if (! (sender && (sender.id == chrome.runtime.id))) {
-	ssb.warn('ignoring message from',sender);
-	return;
-    }
-    
-    ssb.debug('pagemessage','got message:',message);
-
     // make sure it's a well-formed message
     if (! message.type) {
-	ssb.warn('received badly formed message:', message,'from',sender);
+	ssb.warn('received badly formed message:', message,'from', port.sender);
 	return false;
     }
 
-    // parse the message
-    switch (message.type) {
-	
-    case 'url':
-	// URL message
-	
-	// hold onto this URL for a few seconds so we don't try to
-	// close any new tab or send it to the main page
-	
-	// clear any old entry for this URL and start over
-	var curRedirect;
-	if (ssbBG.pages.urls[message.url]) {
-	    curRedirect = ssbBG.pages.urls[message.url];
-    	    if (curRedirect.timeout) {
-		ssb.debug('pagemessage', 'clearing old timeout for',message.url);
-		clearTimeout(curRedirect.timeout);
-	    }
-	}
-	curRedirect = ssbBG.pages.urls[message.url] = { redirect: message.redirect };
-	
-	// figure out delay for the timeout based on what we're doing
-	var delay = (message.redirect ? 4000 : (message.isMousedown ? 10000 : 2000));
-	
-	ssb.debug('pagemessage', 'adding entry with delay',delay,'for',message.url);
-	
-	// set a timeout to get rid of this redirect
-	curRedirect.timeout = setTimeout(function(url) {
-	    
-	    // remove this redirect
-	    var myRedirect = ssbBG.pages.urls[url];
-	    ssb.debug('pagemessage', 'timed out', myRedirect);
-	    if (myRedirect.redirect && ! myRedirect.response) {
-		ssb.warn('no response to redirect request for '+url);
-	    }
-	    delete ssbBG.pages.urls[url];
-	}, delay, message.url);
-	
-	// if we're redirecting, send the message to the native host now
-	if (message.redirect) {
-	    // send message
-	    ssbBG.host.port.postMessage({"url": message.url});
-	    ssb.debug('host', 'requesting redirect for url', message.url);
-	}
-	break;
-
-    case 'windowSwitch':
-	ssbBG.handleWindowSwitch();
-	break;
-	
-    // case 'ping':
-    // 	respond('ping');
-    // 	break;
-	
-    default:
-	ssb.warn('received unknown message type:', message.type,'from',sender);
-    }
-
+    // send to action handler
+    ssbBG.actionHandler(message.type, port.sender.tab, message.info);
+    
     return false;
 }
 
@@ -520,8 +772,6 @@ ssbBG.host = {};
 
 // HOST.RECEIVEMESSAGE -- handler for messages from native host
 ssbBG.host.receiveMessage = function(message) {
-
-    ssb.debug('host', 'got message from host', message);
     
     // we now know we have an operating port
     ssbBG.host.isReconnect = false;
@@ -533,7 +783,6 @@ ssbBG.host.receiveMessage = function(message) {
 	ssb.debug('host','got redirect response:',message);
 	
 	// acknowledging a URL redirect	
-	ssbBG.pages.urls[message.url].response = true;
 	if (message.result != "success") {
 	    ssbBG.shutdown('Redirect request failed.');
 	}
@@ -548,7 +797,8 @@ ssbBG.host.receiveMessage = function(message) {
 	if ('ssbID' in message) { status.ssbID = message.ssbID; }
 	if ('ssbName' in message) { status.ssbName = message.ssbName; }
 	if ('ssbShortName' in message) { status.ssbShortName = message.ssbShortName; }
-	
+
+	// $$$ obsolete -- remove and fix options page
 	// add in whether we have a main tab
 	if (ssbBG.mainTab) { status.mainTab = true; }
 	
@@ -606,130 +856,41 @@ ssbBG.host.connect = function(isReconnect) {
 }
 
 
+// $$$ CLEAN UP ORDER/NAMING/COMMENTS
 // WINDOW SWITCHING -- functions for switching the main
 //                     window between app and tab style
 // ----------------------------------------------------
-
-// HANDLEWINDOWSWITCH -- switch a main app window between app-style and tabs style
-ssbBG.handleWindowSwitch = function() {
-    
-    if (ssbBG.mainTab) {
-	// find the main tab
-	chrome.tabs.get(ssbBG.mainTab.id,
-			function(tab) {
-			    if (chrome.runtime.lastError) {
-				
-				// main tab not found
-				ssb.warn('unable to find main tab',
-					 ssbBG.mainTab.id,
-					 '('+chrome.runtime.lastError.message+')');
-			    } else {
-
-				// find the main tab's window
-				chrome.windows.get(tab.windowId, function(win) {
-				    if (chrome.runtime.lastError) {
-
-					// window not found
-					ssb.warn('unable to find main window',
-						 win.id,
-						 '('+chrome.runtime.lastError.message+')');
-				    } else {
-
-					ssb.debug('windowSwitch', 'switching main window from '+win.type);
-
-					// turn off tab/window activation listeners
-					ssbBG.setContextMenuListeners(false);
-					
-					// switch the window style
-					chrome.windows.create({
-					    tabId: ssbBG.mainTab.id,
-					    type: (win.type == 'popup') ? 'normal' : 'popup',
-					    left: win.left,
-					    top: win.top,
-					    width: win.width,
-					    height: win.height
-					}, function(newWin) {
-					    // tell the main tab about its new state
-					    chrome.tabs.sendMessage(ssbBG.mainTab.id, {type: 'mainTab', state: newWin.type});
-					    
-					    // update context menu
-					    ssbBG.updateContextMenu();
-					    
-					    // turn listeners back on
-					    ssbBG.setContextMenuListeners(true);
-					});
-				    }
-				});
-			    }
-			});
-    }
-}
-
-
-// UPDATECONTEXTMENU -- update context menu when the active tab changes
-ssbBG.updateContextMenu = function() {
-    
-    // first remove the context menu in case it already exists    
-    ssbBG.removeContextMenu();
-    
-    // find the new active tab
-    if (ssbBG.mainTab) {
-	chrome.tabs.query({active: true, lastFocusedWindow: true}, function(tabs) {
-	    if (tabs && (tabs.length == 1) && (tabs[0].id == ssbBG.mainTab.id)) {
-		
-		// the main tab is in front -- add the context menu back
-		
-		// get the main tab's window
-		chrome.windows.get(tabs[0].windowId, function(win) {
-		    
-		    // create the context menu
-		    chrome.contextMenus.create(
-			{
-			    id: 'windowSwitch',
-			    title: ((win.type == 'popup') ? 'Show' : 'Hide') + ' Address Bar',
-			    contexts: ['all']
-			},
-			function() {
-			    if (chrome.runtime.lastError) {
-				ssb.debug('contextMenu', "couldn't create:", chrome.runtime.lastError.message);
-			    }
-			});
-
-		    // add listener for context menu
-		    chrome.contextMenus.onClicked.addListener(ssbBG.handleWindowSwitch);
-		});
-		
+ssbBG.contextMenuCreate = function(parent, id, title, contexts, type) {
+    chrome.contextMenus.create(
+	{
+	    parentId: parent,
+	    type: type,
+	    id: id,
+	    title: title,
+	    contexts: (contexts ? contexts : ['all'])
+	},
+	function() {
+	    if (chrome.runtime.lastError) {
+		ssb.warn('Error creating context menu item "'+title+'":',
+			 chrome.runtime.lastError.message);
 	    }
 	});
-    }
 }
 
 
-// REMOVECONTEXTMENU -- remove the context menu
-ssbBG.removeContextMenu = function() {
+// $$$ fix documentation
+// contextMenuHandler -- switch a window between app-style and tabs style
+ssbBG.contextMenuHandler = function(info, tab) {
 
-    // remove click listener
-    chrome.contextMenus.onClicked.removeListener(ssbBG.handleWindowSwitch);
-
-    // remove the menu
-    chrome.contextMenus.remove('windowSwitch', function() {
-	if (chrome.runtime.lastError) {
-	    //ssb.debug('contextMenu', "couldn't remove:",chrome.runtime.lastError.message);
-	}
-    });
+    ssbBG.actionHandler(info.menuItemId, tab, info.linkUrl);
 }
 
 
-// SETCONTEXTMENULISTENERS -- add or remove context menu change listeners
-ssbBG.setContextMenuListeners = function(add) {
-    if (add) {
-	chrome.tabs.onActivated.addListener(ssbBG.updateContextMenu);
-	chrome.windows.onFocusChanged.addListener(ssbBG.updateContextMenu);
-    } else {
-	chrome.tabs.onActivated.removeListener(ssbBG.updateContextMenu);
-	chrome.windows.onFocusChanged.removeListener(ssbBG.updateContextMenu);
-    }
-}
+// REGEXPS
+// -----------------
+
+// REGEXPSTRINGIFY
+ssbBG.regexpEscapeStringify = new RegExp("['\\\\]", 'g');
 
 
 // BOOTSTRAP STARTUP
@@ -738,8 +899,15 @@ ssbBG.setContextMenuListeners = function(add) {
 // handle new installation
 chrome.runtime.onInstalled.addListener(ssbBG.handleInstall);
 
-// handle Chrome startup
-chrome.runtime.onStartup.addListener(ssbBG.handleChromeStartup);
-
 // start the extension
-ssbBG.startup();
+ssbBG.bootstrap = function() {
+    if (typeof ssb === 'object') {
+	ssb.debug('bootstrap', 'starting up -- shared.js loaded!');
+	ssbBG.startup();
+    } else {
+	console.debug('[bootstrap]:', 'delaying startup -- shared.js not yet loaded');
+	setTimeout(ssbBG.bootstrap, 500);
+    }
+}
+
+ssbBG.bootstrap();
