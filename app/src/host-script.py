@@ -24,7 +24,7 @@
 import struct
 import sys
 import json
-import webbrowser
+import subprocess
 import os
 
 
@@ -89,8 +89,8 @@ while 1:
     if 'url' in message:
         # open the url
         try:
-            webbrowser.open(message['url'])
-        except webbrowser.Error:
+            subprocess.check_call(["/usr/bin/open", message['url']])
+        except subprocess.CalledProcessError:
             send_result("error", message['url'])
         else:
             send_result("success", message['url'])
