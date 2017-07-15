@@ -20,18 +20,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* $$$ COLORS $$$ */
-/* grey: #b3b3b3 */
-/* red:  # */
-/* green: #679d6f */
-/* blue: # */
-/* yellow: #feeb7f */
-
-/* $$$ CHROME COLORS */
-/* BLUE: #5b9dd3 */
-/* YELLOW: #fdd800 */
-/* GREEN: #5bc15b */
-/* RED: #ec5547 */
 
 /* OVERALL STYLES */
 
@@ -42,7 +30,6 @@ body {
 
 .invisible {
     display: none;
-	<div id="setup_tab" class="tab_button"></div>
 }
 
 button {
@@ -57,7 +44,7 @@ button {
     top: 0;
     width: 100%;
     position: fixed;
-    background-color: #e0e0e0;
+    background-color: #d3d3d3;
     z-index: 1000;
 }
 #title img {
@@ -73,7 +60,6 @@ button {
     left: 90px;
     top: 30px;
     transform: translate(0, -50%);
-    font-weight: bold;
 }
 
 
@@ -112,8 +98,8 @@ button {
     width: 100%;
     top: 65px;
     transition: top .2s;
-    /* box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15); */
-    background-color: #a6d9a9;
+    box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15);
+    background-color: #f0f0f0;  
 }
 .working #button_bar {
     top: 10px;
@@ -187,9 +173,9 @@ button {
 #dialog_bar {
     padding-top: 1.5em;
     padding-bottom: 1.5em;
-    background: #f8f8f8;
+    background: white;
+    color: #333;
     display: none;
-    box-shadow: 0 4px 23px 5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0,0,0,0.15);
 }
 .dialog #dialog_bar {
     display: block;
@@ -276,31 +262,10 @@ button {
     display: inline;
 }
 
-/* $$$ TESTING */
-#tab_bar {
-    height: 100%;
-    top: 115px;
-    width: 150px;
-    position: fixed;
-    background-color: #9bc4e5;
-    z-index: 998;
-}
-#tab_bar .tab_button {
-    vertical-align: middle;
-    height: 50px;
-    padding-left: 50px;
-}
-#tab_bar .tab_button.active {
-    background: white;
-}
-#tab_bar .tab_button a {
-    align: right;
-    position: relative;
-}
+
 /* MAIN FORM CONTAINER */
 
 #container {
-    left: 150px;
     margin-left: 50px;
     margin-top: 135px;
     width: 502px;

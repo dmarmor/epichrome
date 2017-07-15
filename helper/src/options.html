@@ -25,7 +25,7 @@
 
 <html>
   <head>
-    <title>Epichrome Options</title>
+    <title>Epichrome Runtime - Options</title>
     <link rel="stylesheet" type="text/css" href="options-chrome.css" />
     <link rel="stylesheet" type="text/css" href="options.css" />
   </head>
@@ -34,7 +34,7 @@
     
     <!-- FLOATING TITLE BOX -->
     <div id="title">
-      <img src="icon48.png" /><h1>Epichrome Options</h1>
+      <img src="icon48.png" /><h1>Epichrome Runtime Options</h1>
 
       <!-- working bar -->
       <div id="working"></div>
@@ -101,18 +101,10 @@
 	<button id="dialog_button3">Button 3</button>
       </div><!-- dialog_bar -->
     </div><!-- button_bar -->
-    
-      <div id="tab_bar">
-	<div id="tab_bar_overlay"></div>
-	<div id="setup_tab" class="tab_button active"><a href="#">Setup</a></div>
-	<div id="options_tab" class="tab_button">Options</div>
-	<div id="rules_tab" class="tab_button">Rules</div>
-	
-      </div><!-- tab_bar -->
-      
+
     <div id="container">
-      
-      <!-- overlay to dim controls when dialog bar is visible -->
+
+      <!-- overlay containing dialog box -->
       <div id="overlay"></div>
       
       <!-- options form -->
@@ -183,7 +175,7 @@
 		<option value="false" selected="selected">This app</option>
 		<option value="true">Default browser</option>
 	      </select>
-	      
+	      	      
 	      <!-- rule delete button -->
 	      <span title="Delete this rule">
 		<svg class="delete-button rule-element" version="1.1" x="0px" y="0px" width="16px" height="16px">
@@ -245,11 +237,11 @@
 	  
 	  <div class="divider"></div>
 	  
-	  <h4 class="section-header">Toggle Address Bar</h4>
+	  <h4 class="section-header">Main window type</h4>
 	  
 	  <!-- sendIncomingToMainTab checkbox -->
 	  <div id="window_switch_message">
-	    <p>You can toggle any window between app-style and tab-style (in case you need access to the address bar or toolbar) with the context menu (right click anywhere on the page), or by hitting <strong>&#8984;-&#8679;-L</strong>.</p>
+	    <p>You can switch the main window between app-style and tab-style (in case you need access to the address bar or toolbar). You can use the context menu (right click anywhere on the page), or hit <strong>&#8984;-&#8679;-L</strong>.</p>
 	    <p>Note that the page itself must have focus for the hot-key to work. If you have text selected in the address bar, for instance, it won't work.</p>
 	  </div><!-- window_switch_message -->
 	</div><!-- main_tab_options -->
