@@ -31,7 +31,7 @@
 
 # app executable names
 CFBundleExecutable="Epichrome"
-chromeEngineName="ChromeEngine"
+chromeEngineName="zzzzChromeEngine"
 
 # icon names
 CFBundleIconFile="app.icns"
@@ -706,11 +706,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 
     if [[ "$ok" ]]; then
 
-	# delete legacy Chrome link (ignore failure--not that important)
-	local oldChromeLink="$1/MacOS/Chrome"
-	[[ -e "$oldChromeLink" ]] && /bin/rm -f "$oldChromeLink" > /dev/null 2>&1
-	
-	# full path to Chrome link
+	# full path to Chrome engine
 	local fullChromeEngine="$1/$appChromeEngine"
 	
 	# find Chrome paths if necessary
@@ -755,30 +751,29 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	# UTExportedTypeDeclarations ''
 	# SCMRevision ''
 	# NSHighResolutionCapable true
-	local filterkeys=(CFBundleIconFile string "$CFBundleIconFile" \
-					   CFBundleTypeIconFile string \
-					   "$CFBundleTypeIconFile" \
-					   DTSDKBuild '' \
-					   DTSDKName '' \
-					   DTXcode '' \
-					   DTXcodeBuild '' \
-					   KSChannelID-32bit '' \
-					   KSChannelID-32bit-full '' \
-					   KSChannelID-full '' \
-					   KSProductID '' \
-					   KSUpdateURL '' \
-					   KSVersion '')
+	local filterkeys=(CFBundleExecutable string "$chromeEngineName" \
+					     CFBundleIconFile string "$CFBundleIconFile" \
+					     CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
+					     DTSDKBuild '' \
+					     DTSDKName '' \
+					     DTXcode '' \
+					     DTXcodeBuild '' \
+					     KSChannelID-32bit '' \
+					     KSChannelID-32bit-full '' \
+					     KSChannelID-full '' \
+					     KSProductID '' \
+					     KSUpdateURL '' \
+					     KSVersion '' \
+					     CFBundleURLTypes '' \
+					     NSPrincipalClass '' \
+					     NSUserActivityTypes '' )
 	
 	# filter Info.plist file from Chrome
 	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
 	
-	# create links to Chrome executable in engine's MacOS directory
+	# create link to Chrome executable in engine's MacOS directory
 	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" \
 	    "Unable to link to Chrome Engine executable"
-	try /bin/ln -s "$chromeExec" "$tmpEngineMacOS" \
-	    "Unable to link to Chrome Engine dummy executable"
-
-	# create dummy executable in engine's MacOS directory
 	
 	# recreate Resources directory (except for .lproj directories & icons)
 	local chromeResources="$chromeContents/Resources"
@@ -829,6 +824,16 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	    permanent "$tmpEngine" "$fullChromeEngine" "Chrome engine"
 	else
 	    rmtemp "$tmpEngine" "Chrome engine"
+	fi
+
+	if [[ "$ok" ]] ; then
+	    # delete legacy Chrome link (ignore failure--not that important)
+	    local oldChromeLink="$1/MacOS/Chrome"
+	    [[ -e "$oldChromeLink" ]] && /bin/rm -f "$oldChromeLink" > /dev/null 2>&1
+	    
+	    # delete legacy ChromeEngine.app bundle (ignore failure--not that important)
+	    local oldChromeEngine="$1/Resources/ChromeEngine.app"
+	    [[ -e "$oldChromeEngine" ]] && /bin/rm -f "$oldChromeEngine" > /dev/null 2>&1
 	fi
     fi
     

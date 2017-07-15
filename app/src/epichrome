@@ -479,16 +479,16 @@ fi
 # check for new version of Chrome and update
 if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
 
-    updatemsg="New version of Google Chrome found ($chromeVersion)."
+    # updatemsg="New version of Google Chrome found ($chromeVersion)."
 
     # authenticate
     authenticate chromeupdate "$updatemsg" 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
 	
 	# display a Chrome update alert if we didn't just become admin
-	if [[ "$isAdmin" != chromeupdate ]] ; then
-	    alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
-	fi
+	# if [[ "$isAdmin" != chromeupdate ]] ; then
+	#     alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
+	# fi
 	
 	# set new version number for config file
 	SSBChromeVersion="$chromeVersion"

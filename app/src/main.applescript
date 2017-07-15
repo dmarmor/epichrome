@@ -556,7 +556,9 @@ Icon: "
 										try
 											set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
 
-(A companion extension, Epichrome Helper, will automatically install when the app is first launched. If it installs successfully, its options page will open and display a welcome message.)" with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
+IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched.
+
+HOWEVER, in Chrome 59.0.3071.115 and later, it will be installed DISABLED. You'll need to go to the Window menu, choose Extensions and enable it manually. Once successfully enabled, its options page will open and display a welcome message." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
 											return -- "Quit" button
 										end try

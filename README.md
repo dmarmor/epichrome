@@ -1,4 +1,4 @@
-# Epichrome 2.1.16
+# Epichrome 2.1.17
 
 ###If you've been using version 2.1.13 or earlier, please see [important note](#important-note-on-updating) below!
 
@@ -14,6 +14,10 @@ Download the binary release [here](https://github.com/dmarmor/epichrome/releases
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
+### Note on Chrome 59.0.3071.115:
+
+Apparently Google has change Chrome so that external extensions that are auto-installed (like Epichrome Helper) are now set to be disabled upon first run. I'm looking for a workaround to this, but in the meantime have added a note to the Success dialogue to remind users that they'll need to enable Epichrome Helper when they first run their new app.
+
 
 ## IMPORTANT NOTE ON UPDATING
 
@@ -26,17 +30,15 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 *Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The epichrome_fix.sh script now included in the DMG is the easiest way to do this. Otherwise, you can just right-click on each app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
 
 
-## New in version 2.1.16.
+## New in version 2.1.17.
 
 *Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-Version 2.1.14 changes the way Epichrome apps update themselves. They now attempt to update to the latest Epichrome engine _before_ updating themselves to the latest version of Chrome. Doing it the other way around was causing problems if people had installed a current version of Epichrome but hadn't updated their apps before a new version of Chrome was installed. Thanks to [gnyrd](https://github.com/gnyrd "gnyrd") and everyone else who noticed and helped diagnose this problem.
+Version 2.1.17 works around a bug in macOS 10.12.5 that caused Epichrome Helper to open all external URLs in Firefox or Safari no matter what the default browser is. Special thanks to [henderea](https://github.com/henderea "henderea") for first identifying and then coming up with the fix for this. Thanks also to everyone else who helped diagnose the problem.
 
-2.1.14 also has brand-new icon-creation code, now able to handle JPG, GIF and other input file formats with indexed color or without alpha channels. And as a bonus, it also creates custom document icons based on the custom app icon. Thanks to [io41](https://github.com/io41 "io41") and [freewind](https://github.com/freewind "freewind") for identifying the shortcomings with the old icon code.
+This version also changes the way the internal Chrome Engine works in order to hopefully get rid of the annoying proliferation of copies of ChromeEngine.app in the list of system browsers. Thanks to [jarredt](https://github.com/jarredt "jarredt") for raising this issue.
 
-In 2.1.15 the code that checks github for new versions will no longer insist that there's a new version on github even though the app just been updated to that new version.
-
-Finally, 2.1.16 finally squashes the bug that caused those failed Chrome updates to destroy the entire app. From now on, even if a Chrome update fails, the app should stay intact.
+Finally, it fixes a bug in how Epichrome.app handles the Launch button at the end of app creation. It should now no longer accidentally launch other apps with the same name as your new app. Thanks to [pvinis](https://github.com/pvinis "pvinis") for catching this.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
@@ -52,7 +54,7 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.11.6 with Chrome version 54.0.2840.71 (64-bit).
+Built and tested on Mac OS X 10.12.5 with Chrome version 59.0.3071.115 (64-bit).
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 

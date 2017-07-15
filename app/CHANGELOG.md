@@ -2,10 +2,15 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.1.17] - ???
+## [2.1.17] - 2017-07-15
 ### Fixed
-- Fixed a bug in how Epichrome.app handles the Launch button at the end of app creation. It should now no longer accidentally launch other apps with the same name as your new app. Thanks to [pvinis](https://github.com/pvinis "pvinis") for catching this!
+- Worked around a bug in macOS 10.12.5 that caused Epichrome Helper to open all external URLs in Firefox or Safari no matter what the default browser is. Special thanks to [henderea](https://github.com/henderea "henderea") for first identifying and then coming up with the fix for this. Thanks also to everyone else who helped diagnose the problem.
+- Changed the way the internal Chrome Engine works in order to hopefully get rid of the annoying proliferation of copies of ChromeEngine.app in the list of system browsers. Thanks to [jarredt](https://github.com/jarredt "jarredt") for raising this issue.
+- Fixed a bug in how Epichrome.app handles the Launch button at the end of app creation. It should now no longer accidentally launch other apps with the same name as your new app. Thanks to [pvinis](https://github.com/pvinis "pvinis") for catching this.
 
+### Changed
+- Added text to the Success dialogue to warn users that they will now need to manually enable Epichrome Helper in new apps.
+- Removed the alert that used to pop up in each Epichrome app when it detected a new version of Chrome. They now silently relink to the new version and only show an alert if something goes wrong.
 
 ## [2.1.16] - 2016-11-03
 ### Fixed
