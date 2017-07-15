@@ -1,6 +1,6 @@
 # Epichrome 2.1.17
 
-###If you've been using version 2.1.13 or earlier, please see [important note](#important-note-on-updating) below!
+### If you've been using version 2.1.13 or earlier, please see [important note](#important-note-on-updating) below!
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
