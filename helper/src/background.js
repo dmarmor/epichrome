@@ -90,11 +90,11 @@ ssbBG.startup = function() {
 	    ssbBG.contextMenuCreate('epichrome', 'separator1',
 				    undefined, ['link'], 'separator');
 	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppNewWindow',
-				    'Open in New App Window (X⇧-click)', ['link']);
+				    'Open in New App Window (⌥⇧-click)', ['link']);
 	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppNewTab',
-				    'Open in New Tab (X⌘-click)', ['link']);
+				    'Open in New Tab (⌥⌘-click)', ['link']);
 	    ssbBG.contextMenuCreate('epichrome', 'urlThisAppSameTab',
-				    'Open in Same Window (X⌘⇧-click)', ['link']);
+				    'Open in Same Window (⌥⌘⇧-click)', ['link']);
 	    ssbBG.contextMenuCreate('epichrome', 'separator2',
 				    undefined, ['link'], 'separator');
 	    ssbBG.contextMenuCreate('epichrome', 'windowSwitch',
