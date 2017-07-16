@@ -766,7 +766,8 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 					     KSVersion '' \
 					     CFBundleURLTypes '' \
 					     NSPrincipalClass '' \
-					     NSUserActivityTypes '' )
+					     NSUserActivityTypes '' \
+					     NSHighResolutionCapable true )
 	
 	# filter Info.plist file from Chrome
 	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
