@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.1.18] - 2017-07-16
+### Fixed
+- Added key to Chrome Engine Info.plist so SSBs run at high-res on retina displays. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat") for first catching this.
+
+
 ## [2.1.17] - 2017-07-15
 ### Fixed
 - Worked around a bug in macOS 10.12.5 that caused Epichrome Helper to open all external URLs in Firefox or Safari no matter what the default browser is. Special thanks to [henderea](https://github.com/henderea "henderea") for first identifying and then coming up with the fix for this. Thanks also to everyone else who helped diagnose the problem.
