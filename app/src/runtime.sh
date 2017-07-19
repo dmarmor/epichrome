@@ -401,16 +401,16 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 
 # NEWVERSION (V1 V2) -- if V1 < V2, return (and echo) 1, else return 0
 function newversion {
-    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)'
+    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)(.*)'
     if [[ "$1" =~ $re ]] ; then
 	old=("${BASH_REMATCH[@]:1}")
     else
-	old=( 0 0 0 )
+	old=( 0 0 0 '' )
     fi
     if [[ "$2" =~ $re ]] ; then
 	new=("${BASH_REMATCH[@]:1}")
     else
-	new=( 0 0 0 )
+	new=( 0 0 0 '' )
     fi
 
     local i= ; local idx=( 0 1 2 )
@@ -421,7 +421,14 @@ function newversion {
 	fi
 	[[ "${old[$i]}" -gt "${new[$i]}" ]] && return 0
     done
+
+    # if any trailing text is updated, that counts too (so 2.1.18b > 2.1.18)
+    if [[ "${old[3]}" < "${new[3]}" ]] ; then
+	echo "1"
+	return 1
+    fi
     
+    # if we got here, the versions are equal
     return 0
 }
 
@@ -751,29 +758,30 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	# UTExportedTypeDeclarations ''
 	# SCMRevision ''
 	# NSHighResolutionCapable true
-	local filterkeys=(CFBundleExecutable string "$chromeEngineName" \
-					     CFBundleIconFile string "$CFBundleIconFile" \
-					     CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-					     DTSDKBuild '' \
-					     DTSDKName '' \
-					     DTXcode '' \
-					     DTXcodeBuild '' \
-					     KSChannelID-32bit '' \
-					     KSChannelID-32bit-full '' \
-					     KSChannelID-full '' \
-					     KSProductID '' \
-					     KSUpdateURL '' \
-					     KSVersion '' \
-					     CFBundleURLTypes '' \
-					     NSPrincipalClass '' \
-					     NSUserActivityTypes '' \
-					     NSHighResolutionCapable true )
+	local filterkeys=(CFBundleIconFile string "$CFBundleIconFile" \
+					   CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
+					   DTSDKBuild '' \
+					   DTSDKName '' \
+					   DTXcode '' \
+					   DTXcodeBuild '' \
+					   KSChannelID-32bit '' \
+					   KSChannelID-32bit-full '' \
+					   KSChannelID-full '' \
+					   KSProductID '' \
+					   KSUpdateURL '' \
+					   KSVersion '' \
+					   CFBundleURLTypes '' \
+					   NSPrincipalClass '' \
+					   NSUserActivityTypes '' \
+					   NSHighResolutionCapable true )
 	
 	# filter Info.plist file from Chrome
 	filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
 	
-	# create link to Chrome executable in engine's MacOS directory
+	# create links to Chrome executable in engine's MacOS directory
 	try /bin/ln -s "$chromeExec" "$tmpEngine/$engineExec" \
+	    "Unable to link to Chrome Engine executable"
+	try /bin/ln -s "$chromeExec" "$tmpEngineMacOS" \
 	    "Unable to link to Chrome Engine executable"
 	
 	# recreate Resources directory (except for .lproj directories & icons)
