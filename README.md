@@ -34,15 +34,13 @@ Apparently Google has change Chrome so that external extensions that are auto-in
 
 *Note: I'm only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-Version 2.1.20 fixes a problem introduced in 2.1.17 that caused Epichrome apps to run at low-resolution on retina displays. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat") for first catching this problem. And thanks to [ylluminate](https://github.com/ylluminate "ylluminate") for catching a bug in the bug-fix!
+Version 2.1.20 adds functionality that should allow Epichrome apps to work properly with Chrome extensions that use native messaging (such as 1Password as of version 6.8). Thanks to [tamaracks](https://github.com/tamaracks "tamaracks") and [henderea](https://github.com/henderea "henderea") for catching this change and helping figure out the solution.
 
-This version also adds functionality that should allow Epichrome apps to work properly with Chrome extensions that use native messaging (such as 1Password as of version 6.8). Thanks to [tamaracks](https://github.com/tamaracks "tamaracks") and [henderea](https://github.com/henderea "henderea") for catching this change and helping figure out the solution.
+Recent changes starting in version 2.1.17 fix several problems:
 
-Version 2.1.17 fixes several problems:
-
-- Works around a bug in macOS 10.12.5 that caused Epichrome Helper to open all external URLs in Firefox or Safari no matter what the default browser is. Special thanks to [henderea](https://github.com/henderea "henderea") for first identifying and then coming up with the fix for this. Thanks also to everyone else who helped diagnose the problem.
-- Changes the way the internal Chrome Engine works in order to hopefully get rid of the annoying proliferation of copies of ChromeEngine.app in the list of system browsers. Thanks to [jarredt](https://github.com/jarredt "jarredt") for raising this issue.
-- Fixes a bug in how Epichrome.app handles the Launch button at the end of app creation. It should now no longer accidentally launch other apps with the same name as your new app. Thanks to [pvinis](https://github.com/pvinis "pvinis") for catching this.
+- Work around a bug in macOS 10.12.5 that caused Epichrome Helper to open all external URLs in Firefox or Safari no matter what the default browser is. Special thanks to [henderea](https://github.com/henderea "henderea") for first identifying and then coming up with the fix for this. Thanks also to everyone else who helped diagnose the problem.
+- Change the way the internal Chrome Engine works in order to hopefully get rid of the annoying proliferation of copies of ChromeEngine.app in the list of system browsers. Thanks to [jarredt](https://github.com/jarredt "jarredt") for raising this issue.
+- Fix a bug in how Epichrome.app handles the Launch button at the end of app creation. It should now no longer accidentally launch other apps with the same name as your new app. Thanks to [pvinis](https://github.com/pvinis "pvinis") for catching this.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
