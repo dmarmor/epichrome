@@ -92,7 +92,7 @@ while 1:
         # open the url
 
         # work around macOS 10.2.5 python bug
-        if platform.mac_ver()[0] != '10.12.5':
+        if platform.mac_ver()[0] == '10.12.5':
             try:
                 subprocess.check_call(["/usr/bin/open", message['url']])
             except subprocess.CalledProcessError:
