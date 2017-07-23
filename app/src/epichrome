@@ -352,6 +352,7 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 	if [[ ! "$ok" ]] ; then
 	    alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
 	    ok=1
+	    errmsg=
 	fi
     fi
 fi
@@ -737,6 +738,48 @@ if [[ ! "$SSBHostInstallError" ]]; then
 fi
 
 
+# UPDATE LINKS TO CHROME NATIVE MESSAGING HOSTS
+
+if [[ "$ok" ]] ; then
+    
+    chromeHostDir="${HOME}/Library/Application Support/Google/Chrome/NativeMessagingHosts"
+
+    # if this directory doesn't exist, we're done
+    if [[ -d "$chromeHostDir" ]] ; then
+    
+	try pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}."
+	hostFiles=(*)
+	
+	for curFile in "${hostFiles[@]}" ; do
+	    if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
+		try rm -f "$curFile" "Unable to remove dead link to $curFile."
+	    fi
+	done
+	
+	try pushd "$chromeHostDir" "Unable to navigate to ${chromeHostDir}."
+	hostFiles=(*)
+	try popd "Unable to navigate away from ${chromeHostDir}."
+	
+	for curFile in "${hostFiles[@]}" ; do
+	    if [[ ( ! -e "$curFile" ) || \
+		      ( -L "$curFile" && \
+			    ! "$curFile" -ef "${chromeHostDir}/$curFile" ) ]] ; then
+		try ln -sf "${chromeHostDir}/$curFile" "$curFile" "Unable to link to Chrome host ${curFile}."
+	    fi
+	done
+	
+	try popd "Unable to navigate away from ${hostInstallPath}."
+    fi
+
+    # errors here are non-fatal
+    if [[ ! "$ok" ]] ; then
+	alert "Warning: ${errmsg}." 'Unable to Link to Chrome Hosts' '|caution'
+	ok=1
+	errmsg=
+    fi
+fi
+
+
 # UPDATE CONFIG FILE IF NECESSARY
 
 if [[ "$SSBFirstRunSinceVersion" ]] ; then
@@ -749,7 +792,7 @@ if [[ "$SSBFirstRunSinceVersion" ]] ; then
     updateconfig=1
 fi
 
-if [ "$updateconfig" ] ; then
+if [[ "$updateconfig" ]] ; then
 
     # failsafe -- we should never get here without already authenticating
     authenticate updateconfig '' 'update configuration'

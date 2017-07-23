@@ -2,6 +2,13 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.1.20] - 2017-07-22
+### Changed
+- Added functionality that should allow Epichrome apps to work properly with Chrome extensions that use native messaging (such as 1Password as of version 6.8). Thanks to [tamaracks](https://github.com/tamaracks "tamaracks") and [henderea](https://github.com/henderea "henderea") for catching this change and helping figure out the solution.
+### Fixed
+- Rolled back a change to the Chrome engine so that the CFExecutable key once again points to Google Chrome. The change seems to have caused some link redirection problems, and possibly other problems too. Thanks to [ylluminate](https://github.com/ylluminate "ylluminate") for catching this.
+- Updated the macOS 10.12.5 workaround from Epichrome 2.1.17 now that macOS 10.12.6 has been released. Now the Epichrome Helper native messaging host only uses the subprocess method when it's running under macOS 10.12.5, and uses the original, more efficient webbrowser method on all other macOS versions.
+
 ## [2.1.18] - 2017-07-16
 ### Fixed
 - Added key to Chrome Engine Info.plist so SSBs run at high-res on retina displays. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat") for first catching this.

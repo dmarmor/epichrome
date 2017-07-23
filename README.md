@@ -1,4 +1,4 @@
-# Epichrome 2.1.18
+# Epichrome 2.1.20
 
 ### If you've been using version 2.1.13 or earlier, please see [important note](#important-note-on-updating) below!
 
@@ -30,11 +30,13 @@ Apparently Google has change Chrome so that external extensions that are auto-in
 *Note: In general, it's a good idea to keep a backup of your Epichrome apps in case updates do break them. The epichrome_fix.sh script now included in the DMG is the easiest way to do this. Otherwise, you can just right-click on each app in the Finder and select Compress. Then if anything goes wrong, you can always delete the app and double-click the zip archive to recreate it intact.*
 
 
-## New in version 2.1.18.
+## New in version 2.1.20.
 
-*Note: I'm currently only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
+*Note: I'm only addressing bugs at the moment. My day job has gotten very busy, so I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-Version 2.1.18 fixes a problem introduced in 2.1.17 that caused Epichrome apps to run at low-resolution on retina displays. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat") for first catching this problem.
+Version 2.1.20 fixes a problem introduced in 2.1.17 that caused Epichrome apps to run at low-resolution on retina displays. Thanks to [linusbobcat](https://github.com/linusbobcat "linusbobcat") for first catching this problem. And thanks to [ylluminate](https://github.com/ylluminate "ylluminate") for catching a bug in the bug-fix!
+
+This version also adds functionality that should allow Epichrome apps to work properly with Chrome extensions that use native messaging (such as 1Password as of version 6.8). Thanks to [tamaracks](https://github.com/tamaracks "tamaracks") and [henderea](https://github.com/henderea "henderea") for catching this change and helping figure out the solution.
 
 Version 2.1.17 fixes several problems:
 

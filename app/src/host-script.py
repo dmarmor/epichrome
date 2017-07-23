@@ -24,9 +24,10 @@
 import struct
 import sys
 import json
-#import webbrowser
+import webbrowser
 import subprocess
 import os
+import platform
 
 
 # info specific to this host (filled in on install)
@@ -89,13 +90,21 @@ while 1:
     
     if 'url' in message:
         # open the url
-        try:
-            subprocess.check_call(["/usr/bin/open", message['url']])
-        except subprocess.CalledProcessError:
-        #     webbrowser.open(message['url'])
-        # except webbrowser.Error:
-            send_result("error", message['url'])
+
+        # work around macOS 10.2.5 python bug
+        if platform.mac_ver()[0] != '10.12.5':
+            try:
+                subprocess.check_call(["/usr/bin/open", message['url']])
+            except subprocess.CalledProcessError:
+                send_result("error", message['url'])
+            else:
+                send_result("success", message['url'])
         else:
-            send_result("success", message['url'])
-    
+            try:
+                webbrowser.open(message['url'])
+            except webbrowser.Error:
+                send_result("error", message['url'])
+            else:
+                send_result("success", message['url'])
+        
 exit(0)
