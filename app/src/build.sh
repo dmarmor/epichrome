@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  build.sh: Create an Epichrome application
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -60,7 +60,7 @@ mcssbinfo "$myPath"
 appPath="$1"
 shift
 
-# long name (for the dock)
+# long name (for the dock, and name for Chrome engine)
 CFBundleDisplayName="$1"
 shift
 
@@ -86,6 +86,9 @@ shift
 
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
+
+# determine path to Chrome engine
+updatechromeenginepath "$appPath"
 
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION

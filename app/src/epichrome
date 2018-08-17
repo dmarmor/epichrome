@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  Epichrome: Run an Epichrome app
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -281,6 +281,12 @@ if [[ ! "$ok" ]] ; then
     ok=1 ; errmsg=
 fi
 
+# by default we don't need to update the config file
+updateconfig=
+
+# update Chrome engine path
+updatechromeenginepath "$myPath" || updateconfig=1
+
 # get absolute profile path
 if [[ "$(isarray SSBProfilePath)" ]] ; then
     myProfilePath="${SSBProfilePath[0]}"
@@ -288,9 +294,6 @@ else
     myProfilePath="$SSBProfilePath"
 fi
 myProfilePath="${HOME}/$SSBProfilePath"
-
-# by default we don't need to update the config file
-updateconfig=
 
 
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
@@ -450,35 +453,8 @@ if [ "$SSBChromePath" != "$chromePath" ] ; then
     fi
 fi
 
-# check if the Chrome engine executable is either:
-# not a link; not executable; or not pointing to the real Chrome executable
-myChromeExec="$myContents/$appChromeEngine/$engineExec"
-if [[ ( ! -h "$myChromeExec" ) || \
-	  ( ! -x "$myChromeExec" ) || \
-	  ( "$chromeExec" != "$(readlink "$myChromeExec" 2> /dev/null)" ) ]] ; then
-
-    # (note that readlink can fail silently--all it means is we'll do the update
-
-    # basic relink message
-    updatemsg='Google Chrome appears to have moved.'
-    
-    # authenticate
-    authenticate relink "$updatemsg" "relink"
-    
-    # display a relink alert if we didn't just become admin
-    if [[ "$isAdmin" != relink ]] ; then
-	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
-    fi
-    
-    # relink to Google Chrome engine
-    linkchrome "$myContents"
-    
-    # abort if we failed to relink Chrome
-    [[ "$ok" ]] || abort "$errmsg" 1
-fi
-
 # check for new version of Chrome and update
-if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
+if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
 
     # updatemsg="New version of Google Chrome found ($chromeVersion)."
 
@@ -509,6 +485,42 @@ if [ "$SSBChromeVersion" != "$chromeVersion" ] ; then
 	errmsg=
     fi
 fi
+
+# paths into engine
+myEngineContents="$myContents/$SSBChromeEngine/Contents"
+myEngineExec="$myEngineContents/$engineExec"
+
+# compare engine executable to the real Chrome executable
+/usr/bin/cmp -s "$myEngineExec" "$chromeExec"  > /dev/null 2>&1
+engineCmpResult="$?"
+
+# check that we're properly linked to Chrome
+if [[ ( "$engineCmpResult" = 1 ) || \
+	  ! ( "$myEngineContents/Info.plist" -ef "$chromeInfoPlist" ) ]] ; then
+    
+    # # basic relink message  $$$ EVENTUALLY DELETE THIS
+    # updatemsg='No longer linked to Google Chrome.'
+    
+    # authenticate
+    authenticate relink "$updatemsg" "relink"
+    
+    # # display a relink alert if we didn't just become admin  $$$ EVENTUALLY DELETE THIS
+    # if [[ "$isAdmin" != relink ]] ; then
+    # 	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
+    # fi
+    
+    # relink to Google Chrome engine
+    linkchrome "$myContents"
+    
+elif [[ "$engineCmpResult" != 0 ]] ; then
+
+    # error running cmp
+    ok=
+    errmsg='Error comparing engine executable with Chrome executable.'
+fi
+
+# abort if we failed during Chrome relink check
+[[ "$ok" ]] || abort "$errmsg" 1
 
 
 # HANDLE FIRST-RUN SETUP
@@ -583,15 +595,14 @@ firstrunfile="${myProfilePath}/First Run"
 
 
 # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
-    
+
+extDoCopy=
 if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     
     # set up useful variables
     extDir="External Extensions"
     extSourcePath="$myContents/Resources/$extDir"
     extDestPath="$myProfilePath/$extDir"
-    
-    extDoCopy=
     
     # make sure the extension install source folder exists
     if [[ ! -d "$extSourcePath" ]] ; then
@@ -639,9 +650,12 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
 	# show warning alert
 	alert "Can't install \"Epichrome Helper\" extension. ($errmsg) Your app will still work, but if you want to use the extension, you'll have to install it manually." 'Extension Install Error' '|caution'
 
+	# clear extension copy state
+	extDoCopy=
+	
 	# clear error state
 	ok=1 ; errmsg=
-    fi    
+    fi
 fi
 
 	
@@ -744,22 +758,25 @@ if [[ "$ok" ]] ; then
     
     chromeHostDir="${HOME}/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 
-    # if this directory doesn't exist, we're done
-    if [[ -d "$chromeHostDir" ]] ; then
+    # remove dead host links
+    try pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}."
+    hostFiles=(*)
     
-	try pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}."
-	hostFiles=(*)
-	
-	for curFile in "${hostFiles[@]}" ; do
-	    if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
-		try rm -f "$curFile" "Unable to remove dead link to $curFile."
-	    fi
-	done
-	
+    for curFile in "${hostFiles[@]}" ; do
+	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
+	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
+	fi
+    done
+    
+    # if there's no directory for Chrome hosts, we're done
+    if [[ -d "$chromeHostDir" ]] ; then
+
+	# get a list of all Chrome hosts
 	try pushd "$chromeHostDir" "Unable to navigate to ${chromeHostDir}."
 	hostFiles=(*)
 	try popd "Unable to navigate away from ${chromeHostDir}."
-	
+
+	# link to Chrome hosts
 	for curFile in "${hostFiles[@]}" ; do
 	    if [[ ( ! -e "$curFile" ) || \
 		      ( -L "$curFile" && \
@@ -768,9 +785,10 @@ if [[ "$ok" ]] ; then
 	    fi
 	done
 	
-	try popd "Unable to navigate away from ${hostInstallPath}."
     fi
-
+    
+    try popd "Unable to navigate away from ${hostInstallPath}."
+    
     # errors here are non-fatal
     if [[ ! "$ok" ]] ; then
 	alert "Warning: ${errmsg}." 'Unable to Link to Chrome Hosts' '|caution'
@@ -804,7 +822,14 @@ fi
 
 # LAUNCH THE SSB
 
-myCommand=("$myChromeExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
+# if [[ "$extDoCopy" ]] ; then  # NOT YET IMPLEMENTED
+#     # if we just copied the extension-installation script in, run once with a page
+#     # instructing the user to enable the extension
+#     myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "file://$myContents/Resources/FirstRun/welcome.html")
+# else
+# normal run -- use the regular command line
+myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
+# fi
 
 if [[ "$isAdmin" ]] ; then
     # we're running as admin, so launch the SSB as the original user

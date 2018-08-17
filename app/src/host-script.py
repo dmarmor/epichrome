@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #  org.epichrome.helper-host.py: native messaging host for Epichrome Helper
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #  strings.py: alter InfoPlist.strings localization files with dock & menubar names
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

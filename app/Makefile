@@ -48,6 +48,7 @@ APP_RNTM_RSRC:=${APP_RNTM}/Resources
 APP_RNTM_SCPT:=${APP_RNTM_RSRC}/Scripts
 APP_RNTM_NMHT:=${APP_RNTM_RSRC}/NativeMessagingHosts
 APP_RNTM_NMEX:=${APP_RNTM_RSRC}/External\ Extensions
+# APP_RNTM_FRUN:=${APP_RNTM_RSRC}/FirstRun
 APP_RNTM_MCOS:=${APP_RNTM}/MacOS
 
 INSTALL_PATH:=/Applications/Epichrome.app
@@ -76,6 +77,10 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_NMEX}/${HELPERID}.json \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/document.icns
+# ${APP_RNTM_FRUN}/welcome.html \
+# ${APP_RNTM_FRUN}/welcome.css \
+# ${APP_RNTM_FRUN}/welcome-chrome.css \
+# ${APP_RNTM_FRUN}/icon48.png \
 
 debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
 debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
@@ -89,7 +94,7 @@ clean-all: clean
 	rm icons/*.icns
 
 install: ${APP}
-	if [ -e "${INSTALL_PATH}" ] ; then osascript -e 'tell application "Finder" to move ((POSIX file "${INSTALL_PATH}") as alias) to trash' ; fi
+	if [[ -e "${INSTALL_PATH}" ]] ; then rm -r "${INSTALL_PATH}" ; fi
 	cp -a ${APP} "${INSTALL_PATH}"
 
 ${APP_SCPT}/main.scpt: src/main.applescript
@@ -100,6 +105,7 @@ ${APP_SCPT}/main.scpt: src/main.applescript
 	mkdir -p ${APP_RNTM_MCOS}
 	mkdir -p ${APP_RNTM_NMHT}
 	mkdir -p ${APP_RNTM_NMEX}
+#	mkdir -p ${APP_RNTM_FRUN}
 	touch ${APP}
 
 ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
@@ -138,6 +144,11 @@ ${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh
 ${APP_RNTM_NMEX}/${HELPERID}.json: src/install-extension.json
 	cp -p $< ${APP_RNTM_NMEX}/${HELPERID}.json
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
+
+# ${APP_RNTM_FRUN}/%: src/firstrun/%
+# 	cp -p $< ${APP_RNTM_FRUN}/
+# 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_FRUN}
+
 
 ${APP_RNTM_RSRC}/%.icns: icons/%.icns
 	cp -p $< ${APP_RNTM_RSRC}/

@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  pathinfo.sh: Return information about a given Epichrome app path
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
