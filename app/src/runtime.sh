@@ -538,17 +538,20 @@ function updatechromeenginepath {  # $1 = path to Epichrome app
     # regex for pulling out current app name
     local ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
     
+    # create path to Chrome engine
+    local curChromeEngine="Resources/ChromeEngine/${CFBundleDisplayName}.framework"
+    
+    # $$$$ DELETE THIS: old way that follows the name of the app
     # get current name of this Epichrome app
-    local curChromeEngine=
-    if [[ "$1" =~ $ssbNameRe ]] ; then
-	curChromeEngine="Resources/ChromeEngine/${BASH_REMATCH[1]}.app"
-    else
-	errmsg="Epichrome app has an unparsable name ($1)"
-	ok=
-	return 2
-    fi
-
-    # update or set up Chrome engine app name
+    # if [[ "$1" =~ $ssbNameRe ]] ; then
+    # 	curChromeEngine="Resources/ChromeEngine/${BASH_REMATCH[1]}.framework"
+    # else
+    # 	errmsg="Epichrome app has an unparsable name ($1)"
+    # 	ok=
+    # 	return 2
+    # fi
+    
+    # set up new Chrome engine path, or update existing one
     local curContents="$1/Contents"
     if [[ ! "$SSBChromeEngine" ]] ; then
 
@@ -557,7 +560,7 @@ function updatechromeenginepath {  # $1 = path to Epichrome app
 	result=1
 	
     elif [[ "$SSBChromeEngine" != "$curChromeEngine" ]] ; then
-
+	
 	# Chrome engine path out of date, so update
 	
 	# check if the old path already exists
@@ -573,7 +576,8 @@ function updatechromeenginepath {  # $1 = path to Epichrome app
 	    fi
 	    
 	    # rename Chrome engine
-	    try /bin/mv "$curContents/$SSBChromeEngine" "$curContents/$curChromeEngine" \
+	    try /bin/mv "$curContents/$SSBChromeEngine" \
+		"$curContents/$curChromeEngine" \
 		'Unable to update Chrome engine name.'
 	fi
 	
