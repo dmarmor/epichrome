@@ -32,6 +32,9 @@
 # app executable name
 CFBundleExecutable="Epichrome"
 
+# path to Chrome engine
+enginePath="Resources/ChromeEngine.framework"
+
 # icon names
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
@@ -520,73 +523,13 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	fi
 	
 	# get current value for mcssbVersion
-	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" 'Unable to load Epichrome version.'
+	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" \
+	    'Unable to load Epichrome version.'
 	
     fi
     
     [[ "$ok" ]] && return 0
     return 1
-}
-
-
-# UPDATECHROMEENGINEPATH: check for a Chrome engine path & update based on current app name
-function updatechromeenginepath {  # $1 = path to Epichrome app
-    # RETURN: 0 if path exists & is unchanged; 1 if path has been updated/set ; 2 on error
-
-    result=0
-
-    # regex for pulling out current app name
-    local ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
-    
-    # create path to Chrome engine
-    local curChromeEngine="Resources/ChromeEngine/${CFBundleDisplayName}.framework"
-    
-    # $$$$ DELETE THIS: old way that follows the name of the app
-    # get current name of this Epichrome app
-    # if [[ "$1" =~ $ssbNameRe ]] ; then
-    # 	curChromeEngine="Resources/ChromeEngine/${BASH_REMATCH[1]}.framework"
-    # else
-    # 	errmsg="Epichrome app has an unparsable name ($1)"
-    # 	ok=
-    # 	return 2
-    # fi
-    
-    # set up new Chrome engine path, or update existing one
-    local curContents="$1/Contents"
-    if [[ ! "$SSBChromeEngine" ]] ; then
-
-	# no Chrome engine path set up, so initialize
-	SSBChromeEngine="$curChromeEngine"
-	result=1
-	
-    elif [[ "$SSBChromeEngine" != "$curChromeEngine" ]] ; then
-	
-	# Chrome engine path out of date, so update
-	
-	# check if the old path already exists
-	if [[ -e "$curContents/$SSBChromeEngine" ]] ; then
-
-	    # update existing Chrome engine with new name
-	    
-	    # make sure new path doesn't already exist
-	    if [[ -e "$curContents/$curChromeEngine" ]] ; then
-		errmsg="Duplicate Chrome engines found!"
-		ok=
-		return 2
-	    fi
-	    
-	    # rename Chrome engine
-	    try /bin/mv "$curContents/$SSBChromeEngine" \
-		"$curContents/$curChromeEngine" \
-		'Unable to update Chrome engine name.'
-	fi
-	
-	# update variable
-	SSBChromeEngine="$curChromeEngine"
-	result=1
-    fi
-
-    return "$result"
 }
 
 
@@ -609,7 +552,8 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	if [[ ! "$fallback" ]] ; then
 
-	    # this is our first try finding Chrome -- use the config value, if any, or default location
+	    # this is our first try finding Chrome -- use the config value,
+	    # if any, or default location
 	    chromePath="$SSBChromePath"
 
 	    # next option is try the default install locations
@@ -793,7 +737,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	if [[ ( "$chromeMajorVersion" =~ ^[1-9][0-9]*$ ) && \
 	    ( "$chromeMajorVersion" -lt 69 ) ]] ; then
 	    chromeVersionPre69=1
-	    # pre-69 we can name the engine to avoid clashes with the real Chrome
+	    # pre-69 we name the engine to avoid clashes with the real Chrome
 	    engineExec="MacOS/zzzzChromeEngine"
 	else
 	    # from 69 on it MUST have the same name to avoid security problems
@@ -848,13 +792,13 @@ function linkchrome {  # $1 = destination app bundle Contents directory
     if [[ "$ok" ]]; then
 
 	# get path to Chrome engine
-	local fullChromeEngine="$1/$SSBChromeEngine"
+	local fullEnginePath="$1/$enginePath"
 	
 	# find Chrome paths if necessary
 	[[ "$chromePath" ]] || chromeinfo
 	
 	# make the new engine app bundle in a temporary location
-	local tmpEngine=$(tempname "$fullChromeEngine")
+	local tmpEngine=$(tempname "$fullEnginePath")
 	local tmpEngineContents="$tmpEngine/Contents"
 	local tmpEngineMacOS="$tmpEngineContents/MacOS"
 	local tmpEngineResources="$tmpEngineContents/Resources"
@@ -996,7 +940,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	
 	# overwrite permanent engine, or delete temp engine on error
 	if [[ "$ok" ]] ; then
-	    permanent "$tmpEngine" "$fullChromeEngine" "Chrome engine"
+	    permanent "$tmpEngine" "$fullEnginePath" "Chrome engine"
 	else
 	    rmtemp "$tmpEngine" "Chrome engine"
 	fi
@@ -1083,7 +1027,6 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 			       SSBProfilePath \
 			       SSBChromePath \
 			       SSBChromeVersion \
-			       SSBChromeEngine \
 			       SSBRegisterBrowser \
 			       SSBCustomIcon \
 			       SSBFirstRunSinceVersion \
@@ -1361,9 +1304,6 @@ function updatessb {
 	
 	
 	# OPERATIONS FOR UPDATING CHROME
-	
-	# update Chrome engine path
-	updatechromeenginepath "$appPath"
 	
 	# link to latest version of Chrome
 	linkchrome "$contentsTmp"

@@ -60,7 +60,7 @@ mcssbinfo "$myPath"
 appPath="$1"
 shift
 
-# long name (for the dock, and name for Chrome engine)
+# long name (for the dock)
 CFBundleDisplayName="$1"
 shift
 
@@ -86,9 +86,6 @@ shift
 
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
-
-# determine path to Chrome engine
-updatechromeenginepath "$appPath"
 
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
