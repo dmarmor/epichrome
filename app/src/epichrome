@@ -284,6 +284,11 @@ fi
 # by default we don't need to update the config file
 updateconfig=
 
+# store & reset first-run status
+isFirstRun="$SSBFirstRun"
+SSBFirstRun=
+[[ "$isFirstRun" ]] && updateconfig=1
+
 # get absolute profile path
 if [[ "$(isarray SSBProfilePath)" ]] ; then
     myProfilePath="${SSBProfilePath[0]}"
@@ -495,16 +500,8 @@ engineCmpResult="$?"
 if [[ ( "$engineCmpResult" = 1 ) || \
 	  ! ( "$myEngineContents/Info.plist" -ef "$chromeInfoPlist" ) ]] ; then
     
-    # # basic relink message  $$$ EVENTUALLY DELETE THIS
-    # updatemsg='No longer linked to Google Chrome.'
-    
     # authenticate
     authenticate relink "$updatemsg" "relink"
-    
-    # # display a relink alert if we didn't just become admin  $$$ EVENTUALLY DELETE THIS
-    # if [[ "$isAdmin" != relink ]] ; then
-    # 	alert "$updatemsg Attempting to relink..." 'Relinking Chrome' '|caution'
-    # fi
     
     # relink to Chrome engine
     linkchrome "$myContents"
@@ -819,14 +816,15 @@ fi
 
 # LAUNCH THE SSB
 
-# if [[ "$extDoCopy" ]] ; then  # NOT YET IMPLEMENTED
-#     # if we just copied the extension-installation script in, run once with a page
-#     # instructing the user to enable the extension
-#     myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "file://$myContents/Resources/FirstRun/welcome.html")
-# else
+if [[ "$isFirstRun" ]] ; then  # was using extDoCopy but wasn't reliable?
+    # if we're creating a new profile (first run), run once with a page
+    # instructing the user to enable Epichrome Helper
+    echo "first run: isFirstRun=$isFirstRun" # $$$$
+    myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "file://$myContents/Resources/FirstRun/welcome.html")
+else
 # normal run -- use the regular command line
-myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
-# fi
+    myCommand=("$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}")
+fi
 
 if [[ "$isAdmin" ]] ; then
     # we're running as admin, so launch the SSB as the original user

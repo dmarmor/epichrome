@@ -137,6 +137,9 @@ fi
 
 # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
+# mark this as the first ever run
+SSBFirstRun=1
+
 # populate the Contents directory
 updatessb "$appTmp" "$customIconDir" '' newApp
 

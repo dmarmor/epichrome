@@ -23,16 +23,18 @@
  *)
 
 
--- PLACEHOLDER FOR LATER UPDATE FUNCTIONALITY
--- on open these_items
---   display dialog "Update functionality goes here. " & these_items
--- end open
-
 -- MISC CONSTANTS
 set ssbPrompt to "Select name and location for the app."
 set ssbDefaultURL to "https://www.google.com/mail/"
 set iconPrompt to "Select an image to use as an icon."
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
+
+
+-- USER DATA PATHS
+global userDataPath
+set userDataPath to "Library/Application Support/Epichrome"
+global userDataFile
+set userDataFile to "epichrome.plist"
 
 
 -- GET MY ICON FOR DIALOG BOXES
@@ -44,16 +46,88 @@ set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
 set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
 
+
 -- PERSISTENT PROPERTIES
-property lastIconPath : ""
-property lastSSBPath : ""
-property doRegisterBrowser : "No"
-property doCustomIcon : "Yes"
-property updateCheckDate : (current date) - (1 * days)
-property updateCheckVersion : false
+
+global lastIconPath
+global lastSSBPath
+global doRegisterBrowser
+global doCustomIcon
+global updateCheckDate
+global updateCheckVersion
+
+-- READPROPERTIES: read properties from user data file, or initialize properties on failure
+on readProperties()
+	
+	-- blank out properties
+	set lastIconPath to "undefined"
+	set lastSSBPath to "undefined"
+	set doRegisterBrowser to "undefined"
+	set doCustomIcon to "undefined"
+	set updateCheckDate to "undefined"
+	set updateCheckVersion to "undefined"
+	
+	try
+		tell application "System Events"
+			-- read in the file
+			set myProperties to property list file ("~/" & userDataPath & "/" & userDataFile)
+			
+			-- set properties from the file
+			set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
+			set lastSSBPath to (value of (get property list item "lastSSBPath" of myProperties) as text)
+			set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
+			set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
+			set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
+			set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
+		end tell
+	on error --errmsg number errno
+		--display alert "error: " & errno & " " & (errmsg as text)
+		-- if anything went wrong, initialize any unset properties
+		if (lastIconPath is "undefined") then set lastIconPath to ""
+		if (lastSSBPath is "undefined") then set lastSSBPath to ""
+		if (doRegisterBrowser is "undefined") then set doRegisterBrowser to "No"
+		if (doCustomIcon is "undefined") then set doCustomIcon to "Yes"
+		if (updateCheckDate is "undefined") then set updateCheckDate to (current date) - (1 * days)
+		if (updateCheckVersion is "undefined") then set updateCheckVersion to ""
+	end try
+end readProperties
+
+-- WRITEPROPERTIES: write properties back to plist file
+on writeProperties()
+	tell application "System Events"
+		
+		try
+			-- create enclosing folder if needed and create empty plist file
+			do shell script "mkdir -p ~/" & (quoted form of userDataPath)
+			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:("~/" & userDataPath & "/" & userDataFile)}
+			
+			-- fill property list
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastSSBPath", value:lastSSBPath}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doRegisterBrowser", value:doRegisterBrowser}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doCustomIcon", value:doCustomIcon}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:date, name:"updateCheckDate", value:updateCheckDate}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"updateCheckVersion", value:updateCheckVersion}
+		on error errmsg number errno
+			-- ignore errors, we just won't have persistent properties
+		end try
+	end tell
+end writeProperties
+
+-- read in or initialize properties
+readProperties()
+
+
+-- QUITAPP: write out properties and quit
+on quitApp()
+	writeProperties()
+	quit
+end quitApp
+
 
 -- NUMBER OF STEPS IN THE PROCESS
-property numSteps : 7
+global numSteps
+set numSteps to 7
 global curStep
 set curStep to 1
 on step()
@@ -116,7 +190,7 @@ if updateCheckDate < curDate then
 	set updateCheckDate to (curDate + (7 * days))
 	
 	-- if updateCheckVersion isn't set, set it to the current version of Epichrome
-	if updateCheckVersion is false then
+	if updateCheckVersion is "" then
 		set updateCheckVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
 	end if
 	
@@ -162,7 +236,7 @@ repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				return
+				quitApp()
 			on error number -128
 			end try
 		end try
@@ -183,10 +257,10 @@ repeat
 			try
 				set lastSSBPath to (lastSSBPath as alias)
 			on error
-				set lastSSBPath to false
+				set lastSSBPath to ""
 			end try
 			try
-				if lastSSBPath is not false then
+				if lastSSBPath is not "" then
 					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase default location lastSSBPath) as text
 				else
 					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase) as text
@@ -200,7 +274,7 @@ repeat
 				set ssbInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of ssbPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				return
+				quitApp()
 			end try
 			
 			set ssbDir to (paragraph 1 of ssbInfo)
@@ -406,10 +480,10 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									try
 										set lastIconPath to (lastIconPath as alias)
 									on error
-										set lastIconPath to false
+										set lastIconPath to ""
 									end try
 									try
-										if lastIconPath is not false then
+										if lastIconPath is not "" then
 											
 											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPath without invisibles
 										else
@@ -427,7 +501,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set ssbInfo to do shell script pathInfoScript & " icon " & quoted form of ssbIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										return
+										quitApp()
 									end try
 									
 									set lastIconPath to (((POSIX file (paragraph 1 of ssbInfo)) as alias) as text)
@@ -545,7 +619,7 @@ Icon: "
 											if not creationSuccess then
 												try
 													display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
-													return -- Quit button
+													quitApp() -- Quit button
 												on error number -128 -- Back button
 													exit repeat
 												end try
@@ -560,7 +634,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 
 HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to the Window menu, choose Extensions and enable it manually. Once successfully enabled, its options page will open and display a welcome message." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
-											return -- "Quit" button
+											quitApp() -- "Quit" button
 										end try
 										
 										-- launch or reveal
@@ -570,7 +644,7 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 												do shell script "open " & quoted form of (POSIX path of ssbPath)
 												--tell application ssbName to activate
 											on error
-												return
+												quitApp()
 											end try
 										else
 											--if (button returned of dlgResult) is "Reveal in Finder" then
@@ -578,7 +652,7 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 											tell application "Finder" to activate
 										end if
 										
-										return -- We're done!
+										quitApp() -- We're done!
 										
 									end repeat
 									

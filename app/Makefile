@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the project.
-#  Copyright (C) 2016  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -48,7 +48,7 @@ APP_RNTM_RSRC:=${APP_RNTM}/Resources
 APP_RNTM_SCPT:=${APP_RNTM_RSRC}/Scripts
 APP_RNTM_NMHT:=${APP_RNTM_RSRC}/NativeMessagingHosts
 APP_RNTM_NMEX:=${APP_RNTM_RSRC}/External\ Extensions
-# APP_RNTM_FRUN:=${APP_RNTM_RSRC}/FirstRun
+APP_RNTM_FRUN:=${APP_RNTM_RSRC}/FirstRun
 APP_RNTM_MCOS:=${APP_RNTM}/MacOS
 
 INSTALL_PATH:=/Applications/Epichrome.app
@@ -75,12 +75,14 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_NMHT}/${HOSTID}.json \
 	${APP_RNTM_NMHT}/${HOSTID}-host.py \
 	${APP_RNTM_NMEX}/${HELPERID}.json \
+	${APP_RNTM_FRUN}/welcome.html \
+	${APP_RNTM_FRUN}/welcome.css \
+	${APP_RNTM_FRUN}/icon128.png \
+	${APP_RNTM_FRUN}/webstore.svg \
+	${APP_RNTM_FRUN}/enable.png \
+	${APP_RNTM_FRUN}/addtochrome.png \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/document.icns
-# ${APP_RNTM_FRUN}/welcome.html \
-# ${APP_RNTM_FRUN}/welcome.css \
-# ${APP_RNTM_FRUN}/welcome-chrome.css \
-# ${APP_RNTM_FRUN}/icon48.png \
 
 debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
 debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
@@ -99,13 +101,16 @@ install: ${APP}
 
 ${APP_SCPT}/main.scpt: src/main.applescript
 	@rm -rf ${APP}
-	osacompile -x -o ${APP} src/main.applescript
+	chmod 444 $<
+	osacompile -o ${APP} -x -d $<
+	chmod 644 $<
+	chmod 444 $@  # lock main.scpt so codesigning works
 	@rm -f ${APP_CTNT}/Info.plist ${APP_RSRC}/applet.icns
 	mkdir -p ${APP_RNTM_SCPT}
 	mkdir -p ${APP_RNTM_MCOS}
 	mkdir -p ${APP_RNTM_NMHT}
 	mkdir -p ${APP_RNTM_NMEX}
-#	mkdir -p ${APP_RNTM_FRUN}
+	mkdir -p ${APP_RNTM_FRUN}
 	touch ${APP}
 
 ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
@@ -145,9 +150,9 @@ ${APP_RNTM_NMEX}/${HELPERID}.json: src/install-extension.json
 	cp -p $< ${APP_RNTM_NMEX}/${HELPERID}.json
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
 
-# ${APP_RNTM_FRUN}/%: src/firstrun/%
-# 	cp -p $< ${APP_RNTM_FRUN}/
-# 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_FRUN}
+${APP_RNTM_FRUN}/%: src/firstrun/%
+	cp -p $< ${APP_RNTM_FRUN}/
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_FRUN}
 
 
 ${APP_RNTM_RSRC}/%.icns: icons/%.icns

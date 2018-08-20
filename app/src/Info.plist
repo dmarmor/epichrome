@@ -15,7 +15,7 @@
 	<key>CFBundleName</key>
 	<string>Epichrome</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.dmarmor.MakeChromeSSB</string>
+	<string>org.epichrome.Epichrome</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
