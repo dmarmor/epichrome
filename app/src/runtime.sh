@@ -575,12 +575,12 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	    mcssbPath="$1"
 	else
 	    # otherwise use spotlight to find it
-	    if [ ! -d "$mcssbPath" ] ; then
+	    if [[ ! -d "$mcssbPath" ]] ; then
 		
 		mcssbPath=
 		
-		# try new app ID first
-		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.builder'" 2> /dev/null)
+		# try app ID first
+		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" 2> /dev/null)
 		mcssbPath="${mcssbPath%%$'\n'*}"
 		
 		# new app ID failed, try old app ID
@@ -591,10 +591,10 @@ function mcssbinfo { # (optional)MCSSB-PATH
 		
 		# old app ID failed too, maybe Spotlight is off, try last-ditch
 		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath='/Applications/Epichrome.app'
+		    mcssbPath=~/'Applications/Epichrome.app'
 		fi
 		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath=~/'Applications/Epichrome.app'
+		    mcssbPath='/Applications/Epichrome.app'
 		fi
 	    fi
 	fi
@@ -1232,7 +1232,7 @@ function updatessb {
 		# CFBundleIdentifier or an old format one
 		
 		if [[ ! "$CFBundleIdentifier" || ! ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
-		    
+
 		    # create a bundle identifier
 		    local maxbidlength=$((30 - ${#idbase}))       # identifier must be 30 characters or less
 		    local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters

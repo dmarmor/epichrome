@@ -118,13 +118,6 @@ end writeProperties
 readProperties()
 
 
--- QUITAPP: write out properties and quit
-on quitApp()
-	writeProperties()
-	quit
-end quitApp
-
-
 -- NUMBER OF STEPS IN THE PROCESS
 global numSteps
 set numSteps to 7
@@ -228,7 +221,7 @@ end if
 -- BUILD THE APP
 
 repeat
-	-- FIRST STEP: SELECT APPLICATION NAME & LOCATION
+	-- STEP 1: SELECT APPLICATION NAME & LOCATION
 	repeat
 		try
 			display dialog "Click OK to select a name and location for the app." with title step() with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
@@ -236,7 +229,8 @@ repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				quitApp()
+				writeProperties()
+				return -- QUIT
 			on error number -128
 			end try
 		end try
@@ -274,7 +268,8 @@ repeat
 				set ssbInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of ssbPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				quitApp()
+				writeProperties()
+				return -- QUIT
 			end try
 			
 			set ssbDir to (paragraph 1 of ssbInfo)
@@ -314,7 +309,7 @@ repeat
 		
 		repeat
 			
-			-- NEXT STEP: SHORT APP NAME
+			-- STEP 2: SHORT APP NAME
 			
 			set ssbShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
 			
@@ -347,7 +342,7 @@ repeat
 				exit repeat
 			end if
 			
-			-- NEXT STEP: CHOOSE SSB STYLE
+			-- STEP 3: CHOOSE SSB STYLE
 			set curStep to curStep + 1
 			
 			repeat
@@ -363,7 +358,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 					exit repeat
 				end try
 				
-				-- NEXT STEP: CHOOSE URLS
+				-- STEP 4: CHOOSE URLS
 				set curStep to curStep + 1
 				
 				-- initialize URL list
@@ -449,7 +444,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						end if
 					end if
 					
-					-- NEXT STEP: REGISTER AS BROWSER?
+					-- STEP 5: REGISTER AS BROWSER?
 					set curStep to curStep + 1
 					
 					repeat
@@ -460,7 +455,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 							exit repeat
 						end try
 						
-						-- NEXT STEP: SELECT ICON FILE
+						-- STEP 6: SELECT ICON FILE
 						set curStep to curStep + 1
 						
 						repeat
@@ -501,7 +496,8 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set ssbInfo to do shell script pathInfoScript & " icon " & quoted form of ssbIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										quitApp()
+										writeProperties()
+				return -- QUIT
 									end try
 									
 									set lastIconPath to (((POSIX file (paragraph 1 of ssbInfo)) as alias) as text)
@@ -511,7 +507,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									set ssbIconSrc to ""
 								end if
 								
-								-- NEXT STEP: CREATE APPLICATION
+								-- STEP 7: CREATE APPLICATION
 								set curStep to curStep + 1
 								
 								-- create summary of the app
@@ -619,7 +615,9 @@ Icon: "
 											if not creationSuccess then
 												try
 													display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
-													quitApp() -- Quit button
+													writeProperties() -- Quit button
+				return -- QUIT
+													return
 												on error number -128 -- Back button
 													exit repeat
 												end try
@@ -634,7 +632,8 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 
 HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to the Window menu, choose Extensions and enable it manually. Once successfully enabled, its options page will open and display a welcome message." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
-											quitApp() -- "Quit" button
+											writeProperties() -- "Quit" button
+				return -- QUIT
 										end try
 										
 										-- launch or reveal
@@ -644,7 +643,8 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 												do shell script "open " & quoted form of (POSIX path of ssbPath)
 												--tell application ssbName to activate
 											on error
-												quitApp()
+												writeProperties()
+				return -- QUIT
 											end try
 										else
 											--if (button returned of dlgResult) is "Reveal in Finder" then
@@ -652,7 +652,8 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 											tell application "Finder" to activate
 										end if
 										
-										quitApp() -- We're done!
+										writeProperties() -- We're done!
+				return -- QUIT
 										
 									end repeat
 									
