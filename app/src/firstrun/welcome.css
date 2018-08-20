@@ -1,0 +1,76 @@
+/* CHROME STYLES */
+
+body {
+    font-family: 'Helvetica Neue', 'Lucida Grande', sans-serif;
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+}
+
+h3 {
+    color: black;
+    font-size: 1.2em;
+    margin-bottom: 0.8em;
+}
+h1, h2, h3 {
+    -webkit-user-select: none;
+    font-weight: normal;
+    line-height: 1;
+}
+
+#title {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    background-color: #d3d3d3;
+}
+#title img {
+    height: 64px;
+    margin: 16px 16px 16px 0px;
+}
+#title h1 {
+    font-weight: bold;
+    display: table-cell;
+    vertical-align: middle;
+}
+
+#container {
+    background-image: linear-gradient(150deg, #ffffff, #d3d3d3);
+    background-repeat: no-repeat;
+    height: calc(100% - (64px + 16px + 16px));
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+#main {
+    margin: 0 auto;
+    width: 25em;
+    text-align: justify;
+    background: none;
+    font-size: 135%;
+    padding-top: 1.5em;
+}
+#main p {
+    margin-bottom: 1.5em;
+}
+#main img {
+    margin: 0 auto;
+    display: block;
+    margin-bottom: 1.5em;
+}
+a {
+    font-weight: bold;
+}
+a:link {
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+/* a:active { */
+/*     color: blue; */
+/* } */
+/* a:visited { */
+/* } */
