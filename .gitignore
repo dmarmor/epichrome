@@ -3,6 +3,7 @@
 *.pyc
 **/boneyard/**
 /*.xlsx
+/certificates/**
 /research/**
 /app/epichrome.app/**
 /app/icons/source/**
