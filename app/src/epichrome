@@ -224,7 +224,7 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 			# replace ourself with an authenticated version
 			#of the same script running with admin privileges
 			#exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
-			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " " & (quoted form of "'"$id"'") with administrator privileges'
+			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome_admin " & (quoted form of "'"$id"'") with administrator privileges'
 			
 		    elif [[ "$nonfatal" ]] ; then
 			return 1
@@ -246,7 +246,11 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 
 # COMMAND-LINE VARIABLES
 
-isAdmin="$1"
+if [[ "$1" = "--epichrome_admin" ]] ; then
+    shift
+    isAdmin="$1"
+fi
+
 
 # BOOTSTRAP RUNTIME SCRIPT
 
@@ -458,16 +462,9 @@ fi
 # check for new version of Chrome and update
 if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
 
-    # updatemsg="New version of Google Chrome found ($chromeVersion)."
-
     # authenticate
     authenticate chromeupdate "$updatemsg" 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
-	
-	# display a Chrome update alert if we didn't just become admin
-	# if [[ "$isAdmin" != chromeupdate ]] ; then
-	#     alert "$updatemsg Updating app..." 'New Chrome Version' '|caution'
-	# fi
 	
 	# set new version number for config file
 	SSBChromeVersion="$chromeVersion"
