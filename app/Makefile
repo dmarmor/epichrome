@@ -78,9 +78,11 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_FRUN}/welcome.html \
 	${APP_RNTM_FRUN}/welcome.css \
 	${APP_RNTM_FRUN}/icon128.png \
-	${APP_RNTM_FRUN}/webstore.svg \
-	${APP_RNTM_FRUN}/enable.png \
-	${APP_RNTM_FRUN}/addtochrome.png \
+	${APP_RNTM_FRUN}/m1s1.png \
+	${APP_RNTM_FRUN}/m1s2.png \
+	${APP_RNTM_FRUN}/m2s1.png \
+	${APP_RNTM_FRUN}/m2s2.png \
+	${APP_RNTM_FRUN}/m3s1.png \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/document.icns
 

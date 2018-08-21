@@ -4,7 +4,8 @@ body {
     font-family: 'Helvetica Neue', 'Lucida Grande', sans-serif;
     padding: 0;
     margin: 0;
-    height: 100vh;
+    background-color: #d3d3d3;
+
 }
 
 h3 {
@@ -36,9 +37,8 @@ h1, h2, h3 {
 }
 
 #container {
-    background-image: linear-gradient(150deg, #ffffff, #d3d3d3);
+    background-image: linear-gradient(#ffffff, #d3d3d3);
     background-repeat: no-repeat;
-    height: calc(100% - (64px + 16px + 16px));
     margin: 0;
     padding: 0;
     border: 0;
@@ -46,20 +46,55 @@ h1, h2, h3 {
 
 #main {
     margin: 0 auto;
-    width: 25em;
+    width: 35em;
     text-align: justify;
     background: none;
     font-size: 135%;
-    padding-top: 1.5em;
+    padding-top: 1em;
 }
 #main p {
-    margin-bottom: 1.5em;
+    margin-bottom: 1em;
 }
 #main img {
     margin: 0 auto;
     display: block;
     margin-bottom: 1.5em;
 }
+
+#instructions {
+    width: 30em;
+    margin: 0 auto;
+}
+#instructions td.text {
+    padding-right: 1em;
+    text-align: right;
+    font-size: 90%;
+}
+#instructions tr.heading td {
+    padding-top: 0.5em;
+    font-weight: bold;
+    text-align: center;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+    border-bottom-color: #808080;
+}
+#instructions tr.step td {
+    padding-top: 1em;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    vertical-align: top;
+}
+#instructions td.image {
+    float: left;
+}
+#instructions td.image img {
+    border-style: solid;
+    border-width: 1px;
+    border-color: #808080;
+    align: left;
+}
+
 a {
     font-weight: bold;
 }
