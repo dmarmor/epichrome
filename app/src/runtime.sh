@@ -995,10 +995,10 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	
 	# link to this app's icons
 	if [[ "$ok" ]] ; then
-	    try /bin/ln -s "../../../../$CFBundleIconFile" \
+	    try /bin/ln -s "../../../$CFBundleIconFile" \
 		"$tmpEngineResources/$chromeBundleIconFile" \
 		"Unable to link to application icon file in Chrome engine Resources directory."
-	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
+	    try /bin/ln -s "../../../$CFBundleTypeIconFile" \
 		"$tmpEngineResources/$chromeBundleTypeIconFile" \
 		"Unable to link to document icon file in Chrome engine Resources directory."
 	fi
