@@ -98,7 +98,7 @@ clean-all: clean
 	rm icons/*.icns
 
 install: ${APP}
-	if [[ -e "${INSTALL_PATH}" ]] ; then rm -r "${INSTALL_PATH}" ; fi
+	if [[ -e "${INSTALL_PATH}" ]] ; then rm -rf "${INSTALL_PATH}" ; fi
 	cp -a ${APP} "${INSTALL_PATH}"
 
 ${APP_SCPT}/main.scpt: src/main.applescript
