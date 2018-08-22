@@ -32,9 +32,6 @@
 # app executable name
 CFBundleExecutable="Epichrome"
 
-# path to Chrome engine
-enginePath="Resources/ChromeEngine"
-
 # icon names
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
@@ -580,12 +577,16 @@ function mcssbinfo { # (optional)MCSSB-PATH
 		mcssbPath=
 		
 		# try app ID first
-		mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" 2> /dev/null)
+		mcssbPath=$(mdfind \
+				"kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" \
+				2> /dev/null)
 		mcssbPath="${mcssbPath%%$'\n'*}"
 		
 		# new app ID failed, try old app ID
 		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath=$(mdfind "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" 2> /dev/null)
+		    mcssbPath=$(mdfind \
+				    "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" \
+				    2> /dev/null)
 		    mcssbPath="${mcssbPath%%$'\n'*}"
 		fi
 		
@@ -615,6 +616,63 @@ function mcssbinfo { # (optional)MCSSB-PATH
     
     [[ "$ok" ]] && return 0
     return 1
+}
+
+
+# UPDATECHROMEENGINEPATH: check for a Chrome engine path & update based on current app name
+function updatechromeenginepath {  # $1 = path to Epichrome app
+    # RETURN: 0 if path exists & is unchanged; 1 if path has been updated/set ; 2 on error
+
+    result=0
+
+    # regex for pulling out current app name
+    local ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
+    
+    # get current name of this Epichrome app
+    local curChromeEngine=
+    if [[ "$1" =~ $ssbNameRe ]] ; then
+	curChromeEngine="Resources/ChromeEngine/${BASH_REMATCH[1]}.app"
+    else
+	errmsg="Epichrome app has an unparsable name ($1)"
+	ok=
+	return 2
+    fi
+
+    # update or set up Chrome engine app name
+    local curContents="$1/Contents"
+    if [[ ! "$SSBChromeEngine" ]] ; then
+
+	# no Chrome engine path set up, so initialize
+	SSBChromeEngine="$curChromeEngine"
+	result=1
+	
+    elif [[ "$SSBChromeEngine" != "$curChromeEngine" ]] ; then
+
+	# Chrome engine path out of date, so update
+	
+	# check if the old path already exists
+	if [[ -e "$curContents/$SSBChromeEngine" ]] ; then
+
+	    # update existing Chrome engine with new name
+	    
+	    # make sure new path doesn't already exist
+	    if [[ -e "$curContents/$curChromeEngine" ]] ; then
+		errmsg="Duplicate Chrome engines found!"
+		ok=
+		return 2
+	    fi
+	    
+	    # rename Chrome engine
+	    try /bin/mv "$curContents/$SSBChromeEngine" "$curContents/$curChromeEngine" \
+		'Unable to update Chrome engine name.'
+	fi
+	
+	# update variable
+	SSBChromeEngine="$curChromeEngine"
+	result=1
+    fi
+
+    return "$result"
 }
 
 
@@ -877,7 +935,7 @@ function linkchrome {  # $1 = destination app bundle Contents directory
     if [[ "$ok" ]]; then
 
 	# get path to Chrome engine
-	local fullEnginePath="$1/$enginePath"
+	local fullEnginePath="$1/$SSBChromeEngine"
 	
 	# find Chrome paths if necessary
 	[[ "$chromePath" ]] || chromeinfo
@@ -995,10 +1053,10 @@ function linkchrome {  # $1 = destination app bundle Contents directory
 	
 	# link to this app's icons
 	if [[ "$ok" ]] ; then
-	    try /bin/ln -s "../../../$CFBundleIconFile" \
+	    try /bin/ln -s "../../../../$CFBundleIconFile" \
 		"$tmpEngineResources/$chromeBundleIconFile" \
 		"Unable to link to application icon file in Chrome engine Resources directory."
-	    try /bin/ln -s "../../../$CFBundleTypeIconFile" \
+	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
 		"$tmpEngineResources/$chromeBundleTypeIconFile" \
 		"Unable to link to document icon file in Chrome engine Resources directory."
 	fi
@@ -1114,6 +1172,7 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 		  SSBProfilePath \
 		  SSBChromePath \
 		  SSBChromeVersion \
+		  SSBChromeEngine \
 		  SSBRegisterBrowser \
 		  SSBCustomIcon \
 		  SSBFirstRun \
@@ -1325,6 +1384,9 @@ function updatessb {
 	
 	# OPERATIONS FOR UPDATING CHROME
 	
+	# update Chrome engine path
+	updatechromeenginepath "$appPath"
+
 	# link to latest version of Chrome
 	linkchrome "$contentsTmp"
 	

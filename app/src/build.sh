@@ -87,6 +87,9 @@ shift
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
 
+# determine path to Chrome engine
+updatechromeenginepath "$appPath"
+
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 

@@ -293,6 +293,9 @@ isFirstRun="$SSBFirstRun"
 SSBFirstRun=
 [[ "$isFirstRun" ]] && updateconfig=1
 
+# update Chrome engine path
+updatechromeenginepath "$myPath" || updateconfig=1
+
 # get absolute profile path
 if [[ "$(isarray SSBProfilePath)" ]] ; then
     myProfilePath="${SSBProfilePath[0]}"
@@ -486,7 +489,7 @@ if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
 fi
 
 # paths into engine
-myEngineContents="$myContents/$enginePath/Contents"
+myEngineContents="$myContents/$SSBChromeEngine/Contents"
 myEngineExec="$myEngineContents/$engineExec"
 
 # compare engine executable to the real Chrome executable
