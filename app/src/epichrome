@@ -246,9 +246,16 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 
 # COMMAND-LINE VARIABLES
 
+#echo "----- starting run with pid $$" >> ~/Desktop/etestlog.txt # $$$$
+
 if [[ "$1" = "--epichrome_admin" ]] ; then
     shift
     isAdmin="$1"
+
+    # $$$$ this elif is temp
+# elif [[ "$1" ]] ; then
+#     echo "dying: running with unknown args: $*" >> ~/Desktop/etestlog.txt  # $$$$
+#     exit
 fi
 
 
@@ -270,7 +277,8 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 # load config.sh file
 safesource "$myContents/$appConfigScript" "config file"
 
-if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$CFBundleDisplayName" && \
+		       "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
     ok=
     errmsg='Config file is corrupt.'
 fi
@@ -287,22 +295,6 @@ fi
 
 # by default we don't need to update the config file
 updateconfig=
-
-# store & reset first-run status
-isFirstRun="$SSBFirstRun"
-SSBFirstRun=
-[[ "$isFirstRun" ]] && updateconfig=1
-
-# update Chrome engine path
-updatechromeenginepath "$myPath" || updateconfig=1
-
-# get absolute profile path
-if [[ "$(isarray SSBProfilePath)" ]] ; then
-    myProfilePath="${SSBProfilePath[0]}"
-else
-    myProfilePath="$SSBProfilePath"
-fi
-myProfilePath="${HOME}/$SSBProfilePath"
 
 
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
@@ -443,26 +435,17 @@ if [[ "$ok" ]] ; then
 fi
 
 
-# CHECK AND UPDATE CHROME LINKS
+# CHECK FOR NEW VERSION OF CHROME AND UPDATE
 
-# get Google Chrome info
+# get info on the installed Google Chrome
 chromeinfo
 
-# we've done a bunch of stuff--abort if any of it has gone wrong
-[[ "$ok" ]] || abort "$errmsg" 1
-
 # update config variable
-if [ "$SSBChromePath" != "$chromePath" ] ; then
-    
-    authenticate chromepath '' '' nonfatal
-    
-    if [[ "$?" = 0 ]] ; then
-	SSBChromePath="$chromePath"
-	updateconfig=1
-    fi
+if [[ "$SSBChromePath" != "$chromePath" ]] ; then
+    SSBChromePath="$chromePath"
+    updateconfig=1
 fi
 
-# check for new version of Chrome and update
 if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
 
     # authenticate
@@ -472,7 +455,7 @@ if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
 	# set new version number for config file
 	SSBChromeVersion="$chromeVersion"
 	
-	# use new runtime to update the SSB (and relaunch)
+	# update the SSB (and relaunch)
 	updatessb "$myPath" '' ChromeOnly
 	
     else
@@ -488,38 +471,187 @@ if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
     fi
 fi
 
-# paths into engine
-myEngineContents="$myContents/$SSBChromeEngine/Contents"
-myEngineExec="$myEngineContents/$engineExec"
 
-# compare engine executable to the real Chrome executable
-/usr/bin/cmp -s "$myEngineExec" "$chromeExec"  > /dev/null 2>&1
-engineCmpResult="$?"
+[[ "$ok" ]] || abort "$errmsg" 1
 
-# check that we're properly linked to Chrome
-if [[ ( "$engineCmpResult" = 1 ) || \
-	  ! ( "$myEngineContents/Info.plist" -ef "$chromeInfoPlist" ) ]] ; then
-    
-    # authenticate
-    authenticate relink "$updatemsg" "relink"
-    
-    # relink to Chrome engine
-    linkchrome "$myContents"
-    
-elif [[ "$engineCmpResult" != 0 ]] ; then
+# BUILD CHROME ENGINE ON THE FLY
 
-    # error running cmp
-    ok=
-    errmsg='Error comparing engine executable with Chrome executable.'
+# get important absolute paths
+myEnginePath="$myContents/$appEngine"
+myPayloadPath="$myContents/$appPayload"
+configEngineResources="$myEnginePath/$SSBChromeEngine/Resources"
+
+# if this engine is already running, die (this should never actually happen)
+/usr/bin/pgrep -fq "$$myEnginePath/$SSBChromeEngine/Contents/MacOS/$engineExec" > /dev/null 2>&1
+pgrepResult="$?"
+if [[ "$pgrepResult" = 0 ]] ; then
+    abort "This app's Chrome engine is already running!" 1
+elif [[ "$pgrepResult" != 1 ]] ; then
+    abort "Error checking for running Chrome engine." 1
 fi
 
-# abort if we failed during Chrome relink check
+# if cleanup failed last run, rescue .lproj directories & .icns links
+if [[ ( -d "$configEngineResources" ) && \
+	  ( ! -e "$myPayloadPath" ) ]] ; then
+    try /bin/mkdir -p "$myPayloadPath/Resources" 'Unable to create engine payload.'
+    try /bin/mv -f "$configEngineResources"/*.lproj "$configEngineResources"/*.icns \
+	"$myPayloadPath/Resources" \
+	'Unable to repopulate engine payload.'
+fi
+
 [[ "$ok" ]] || abort "$errmsg" 1
+
+# find out if we need to recreate the payload
+
+newPayload=
+
+# missing payload Resources directory
+if [[ ! -d "$myPayloadPath/Resources" ]] ; then
+    newPayload=1
+else
+    # check for corrupt payload Resources directory
+    payloadLproj="$(cd "$myPayloadPath/Resources" && find -L *.lproj -print 2> /dev/null)"
+    if [[ "$?" != 0 ]] ; then
+	newPayload=1
+    else
+	chromeLproj="$(cd "$chromeContents/Resources" && find -L *.lproj -print 2> /dev/null)"
+	[[ "$?" = 0 ]] || abort 'Unable to read Chrome Resources directory.' 1
+	
+	[[ "$chromeLproj" != "$payloadLproj" ]] && newPayload=1
+    fi
+fi
+
+# create a new engine payload if needed
+[[ "$newPayload" ]] && createpayload "$myContents"
+
+# create an empty Chrome engine
+try /bin/rm -rf "$myContents/$appEngine" 'Unable to clear old engine.'
+try /bin/mkdir "$myContents/$appEngine" 'Unable to create Chrome engine directory.'
+
+# update Chrome engine app name
+
+# regex for pulling out current app name
+ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
+
+# try to use current name of this Epichrome app as engine name
+if [[ "$myPath" =~ $ssbNameRe ]] ; then
+    chromeEngineName="${BASH_REMATCH[1]}.app"
+else
+    # if app name is unparsable, just use Info.plist display name
+    chromeEngineName="${CFBundleDisplayName}.app"
+fi
+
+# update config with new name
+if [[ "$SSBChromeEngine" != "$chromeEngineName" ]] ; then
+    SSBChromeEngine="$chromeEngineName"
+    updateconfig=1
+fi
+
+# create engine app bundle
+myEngineContents="$myEnginePath/$chromeEngineName/Contents"
+try /bin/mkdir -p "$myEngineContents" 'Unable to create Chrome engine.' 
+
+[[ "$ok" ]] || abort "$errmsg" 1
+
+# link Chrome contents to engine
+
+# set link style based on Chrome version --
+# Chrome versions after 68 have hardened security & sandboxing, so
+# we have to hard link everything & cannot alter Info.plist
+linkStyle=SOFT
+[[ "$chromeVersionPre69" ]] || linkStyle=HARD
+
+# link to everything except Resources, Info.plist & MacOS directory
+dirlist "$chromeContents" curdir 'Chrome' '^((Info.plist)|(Resources)|(MacOS))$'
+[[ "$ok" ]] || abort "$errmsg" 1
+linktree "$linkStyle" \
+	 "$chromeContents" "$myEngineContents" \
+	 'Chrome engine' \
+	 "${curdir[@]}"
+
+# link to everything in Resources except .lproj & .icns
+try /bin/mkdir "$myEngineContents/Resources" \
+    'Unable to create Chrome engine Resources directory.'
+dirlist "$chromeContents/Resources" curdir 'Chrome Resources' \
+	'\.((icns)|(lproj))$'
+[[ "$ok" ]] || abort "$errmsg" 1
+linktree "$linkStyle" \
+	 "$chromeContents/Resources" "$myEngineContents/Resources" \
+	 'Chrome engine' \
+	 "${curdir_filtered[@]}"
+
+if [[ ! "$chromeVersionPre69" ]] ; then
+    # Chrome 69 or later
+    
+    # copy engine executable (linking causes confusion between apps & real Chrome)
+    try /bin/cp -a "$chromeContents/MacOS" "$myEngineContents" \
+	'Unable to copy main executable to Chrome engine.'
+    
+    # hard-link Info.plist (any changes cause encrypted store problems)
+    try /bin/ln "$chromeContents/Info.plist" "$myEngineContents" \
+	'Unable to link Chrome engine to Info.plist.'
+else
+    # Chrome 68 or earlier
+    
+    # soft link engine executable
+    try /bin/mkdir "$myEngineContents/MacOS" \
+	'Unable to create Chrome engine MacOS directory.'
+    try /bin/ln -s "$chromeExec" \
+	"$myEngineContents/MacOS/$engineExec" \
+	'Unable to create first link to main executable in Chrome engine.'
+    try /bin/ln -s "$chromeExec" \
+	"$myEngineContents/MacOS/$chromeExecName" \
+	'Unable to create secondary link to main executable in Chrome engine.'
+        
+    # filter Info.plist file from Chrome into engine
+    filterchromeinfoplist "$myContents" "$myEngineContents" \
+			  DTSDKBuild '' \
+			  DTSDKName '' \
+			  DTXcode '' \
+			  DTXcodeBuild '' \
+			  KSChannelID-32bit '' \
+			  KSChannelID-32bit-full '' \
+			  KSChannelID-full '' \
+			  KSProductID '' \
+			  KSUpdateURL '' \
+			  KSVersion '' \
+			  CFBundleURLTypes '' \
+			  NSPrincipalClass '' \
+			  NSUserActivityTypes '' \
+			  NSHighResolutionCapable true
+fi
+
+# move payload into engine
+try /bin/mkdir -p "$myEngineContents/Resources" \
+    'Unable to create Chrome engine Resources directory.'
+try /bin/mv -f \
+    "$myPayloadPath/Resources"/*.lproj \
+    "$myPayloadPath/Resources"/*.icns \
+    "$myEngineContents/Resources" \
+    'Unable to move payload into Chrome engine.'
+try /bin/rm -rf "$myPayloadPath" \
+    'Unable to remove empty payload.'
+
+# abort on error
+[[ "$ok" ]] || abort "$errmsg" 1
+
+
+# SET UP USER PROFILE
+
+# get absolute profile path
+if [[ "$(isarray SSBProfilePath)" ]] ; then
+    myProfilePath="${SSBProfilePath[0]}"
+else
+    myProfilePath="$SSBProfilePath"
+fi
+myProfilePath="${HOME}/$SSBProfilePath"
+
+# by default, use existing profile
+newprofile=
 
 
 # HANDLE FIRST-RUN SETUP
 
-newprofile=
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
     # UPDATE PROFILE PATH
@@ -792,6 +924,12 @@ if [[ "$ok" ]] ; then
 fi
 
 
+# STORE & TURN OFF FIRST-RUN STATUS
+isFirstRun="$SSBFirstRun"
+SSBFirstRun=
+[[ "$isFirstRun" ]] && updateconfig=1
+
+
 # UPDATE CONFIG FILE IF NECESSARY
 
 if [[ "$SSBFirstRunSinceVersion" ]] ; then
@@ -817,6 +955,9 @@ fi
 
 # LAUNCH THE SSB
 
+# path to engine
+myEngineExec="$myEngineContents/MacOS/$engineExec"
+
 if [[ "$newprofile" ]] ; then
     # if we're creating a new profile (first run), run once with a page
     # instructing the user to enable Epichrome Helper
@@ -827,7 +968,42 @@ else
     myCommand=( "$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}" )
 fi
 
+
+
+# CLEANUP: wait for Chrome engine to die, then clean it up
+function cleanup {  # $1 = CHROME ENGINE PID
+    # $$$$ old way to get PID from Chrome engine path
+    # if pid=( $(/usr/bin/pgrep -foa "$1") )
+
+    # wait for Chrome engine to exit
+    /usr/sbin/lsof -p "$1" +r 1 &>/dev/null
+    
+    # clear out any zombie payload & recreate
+    try /bin/rm -rf "$myPayloadPath" 'Unable to clear old payload.'
+    try /bin/mkdir -p "$myPayloadPath/Resources" \
+	'Unable to create payload directory.'
+    
+    # move payload out of engine
+    try /bin/mv -f \
+	"$myEngineContents/Resources"/*.lproj \
+	"$myEngineContents/Resources"/*.icns \
+	"$myPayloadPath/Resources" \
+	'Unable to move payload out of Chrome engine.'
+    try /bin/rm -rf "$myEnginePath" 'Unable to remove Chrome engine.'
+
+    [[ "$ok" ]] || abort "$errmsg" 1
+    exit 0
+}
+
+
+# start cleanup process
+cleanup "$$" &
+
+# exec Chrome engine
+# echo "starting engine with pid $$" >> ~/Desktop/etestlog.txt  # $$$$
 if [[ "$isAdmin" ]] ; then
+    # echo "rerunning as user" >> ~/Desktop/etestlog.txt   # $$$$
+    
     # we're running as admin, so launch the SSB as the original user
     #exec sudo -u $USER "${myCommand[@]}"
     exec sudo -u $USER open "$myPath"

@@ -87,9 +87,6 @@ shift
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
 
-# determine path to Chrome engine
-updatechromeenginepath "$appPath"
-
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 
@@ -146,13 +143,16 @@ SSBFirstRun=1
 # populate the Contents directory
 updatessb "$appTmp" "$customIconDir" '' newApp
 
-if [[ "$ok" ]] ; then
-    # delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
-    [[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
-    
-    # move new app to permanent location (overwriting any old app)
-    permanent "$appTmp" "$appPath" "app bundle"
-fi
+# create the engine payload
+createpayload "$appTmp/Contents"
+
+[[ "$ok" ]] || abort "$errmsg" 1
+
+# delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
+[[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
+
+# move new app to permanent location (overwriting any old app)
+permanent "$appTmp" "$appPath" "app bundle"
 
 [[ "$ok" ]] || abort "$errmsg" 1
 

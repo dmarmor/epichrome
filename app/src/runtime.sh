@@ -36,14 +36,13 @@ CFBundleExecutable="Epichrome"
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
 
-# app paths -- relative to app Contents directory
+# important paths -- relative to app Contents directory
 appInfoPlist="Info.plist"
+appPayload="Resources/Payload"
+appEngine="Resources/ChromeEngine"
 appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
 appGetVersionScript="Resources/Scripts/getversion.py"
-
-# lproj directory regex
-lprojRegex='\.lproj$'
 
 # profile base
 appProfileBase="Library/Application Support/Epichrome/Apps"
@@ -185,7 +184,7 @@ function onerr {
 
 # ISARRAY -- echo "true" and return 0 if a named variable is an array
 function isarray {
-    if [[ "$(declare -p "$1")" =~ ^declare\ -a ]] ; then
+    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
 	echo true
 	return 0
     else
@@ -377,7 +376,7 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 	local filteredfiles=()
 	local f=
 	while read f ; do
-	    if [[ ! "$filter" || ( "$f" =~ $filter ) ]] ; then
+	    if [[ ! "$filter" || ! ( "$f" =~ $filter ) ]] ; then
 		# escape \ to \\
 		
 		# escape " to \" and <space> to \<space> and add to array
@@ -416,7 +415,7 @@ function linktree { # $1 = SOFT/HARD
 	if [[ "$linktype" = SOFT ]] ; then
 	    # symbolic link
 	    try /bin/ln -s "$sourcedir/$entry" "$destdir" \
-		"$tryid link error: Unable to create symlink to $entry."
+	    	"$tryid link error: Unable to create symlink to $entry."
 	else
 	    # hard link
 	    try /bin/pax -rwlpe "$entry" "$destdir" \
@@ -425,8 +424,9 @@ function linktree { # $1 = SOFT/HARD
     done
     
     # if hard linking, popd back from source directory
-    [[ "$linktype" != SOFT ]] && try popd \
-				     "$tryid link error: Unable to move back from $sourcedir."
+    [[ "$linktype" != SOFT ]] && \
+	try popd \
+	    "$tryid link error: Unable to move back from $sourcedir."
 }
 
 
@@ -616,63 +616,6 @@ function mcssbinfo { # (optional)MCSSB-PATH
     
     [[ "$ok" ]] && return 0
     return 1
-}
-
-
-# UPDATECHROMEENGINEPATH: check for a Chrome engine path & update based on current app name
-function updatechromeenginepath {  # $1 = path to Epichrome app
-    # RETURN: 0 if path exists & is unchanged; 1 if path has been updated/set ; 2 on error
-
-    result=0
-
-    # regex for pulling out current app name
-    local ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
-    
-    # get current name of this Epichrome app
-    local curChromeEngine=
-    if [[ "$1" =~ $ssbNameRe ]] ; then
-	curChromeEngine="Resources/ChromeEngine/${BASH_REMATCH[1]}.app"
-    else
-	errmsg="Epichrome app has an unparsable name ($1)"
-	ok=
-	return 2
-    fi
-
-    # update or set up Chrome engine app name
-    local curContents="$1/Contents"
-    if [[ ! "$SSBChromeEngine" ]] ; then
-
-	# no Chrome engine path set up, so initialize
-	SSBChromeEngine="$curChromeEngine"
-	result=1
-	
-    elif [[ "$SSBChromeEngine" != "$curChromeEngine" ]] ; then
-
-	# Chrome engine path out of date, so update
-	
-	# check if the old path already exists
-	if [[ -e "$curContents/$SSBChromeEngine" ]] ; then
-
-	    # update existing Chrome engine with new name
-	    
-	    # make sure new path doesn't already exist
-	    if [[ -e "$curContents/$curChromeEngine" ]] ; then
-		errmsg="Duplicate Chrome engines found!"
-		ok=
-		return 2
-	    fi
-	    
-	    # rename Chrome engine
-	    try /bin/mv "$curContents/$SSBChromeEngine" "$curContents/$curChromeEngine" \
-		'Unable to update Chrome engine name.'
-	fi
-	
-	# update variable
-	SSBChromeEngine="$curChromeEngine"
-	result=1
-    fi
-
-    return "$result"
 }
 
 
@@ -881,16 +824,64 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	    ( "$chromeMajorVersion" -lt 69 ) ]] ; then
 	    chromeVersionPre69=1
 	    # pre-69 we name the engine to avoid clashes with the real Chrome
-	    engineExec="MacOS/zzzzChromeEngine"
+	    engineExec="zzzzChromeEngine"
 	else
 	    # from 69 on it MUST have the same name to avoid security problems
 	    chromeVersionPre69=
-	    engineExec="MacOS/$chromeExecName"
+	    engineExec="$chromeExecName"
 	fi
     fi
     
-    [[ "$ok" ]] && return 0
-    return 1    
+    if [[ "$ok" ]] ; then
+	# set up dependant variables
+	chromeContents="$chromePath/Contents"
+	return 0
+    else
+	return 1
+    fi
+}
+
+
+# CREATEPAYLOAD: create persistent Chrome engine payload
+function createpayload { # $1 = Contents path
+
+    local payloadPath="$1/$appPayload"
+    
+    # set link style based on Chrome version
+    local linkStyle=SOFT
+    [[ "$chromeVersionPre69" ]] || linkStyle=HARD
+    
+    # clear out old payload & recreate
+    try /bin/rm -rf "$payloadPath" 'Unable to clear old payload.'
+    try /bin/mkdir -p "$payloadPath/Resources" \
+	'Unable to create Chrome engine Resources directory.'
+    
+    # link to this app's icons
+    if [[ "$ok" ]] ; then
+	try /bin/ln -s "../../../../$CFBundleIconFile" \
+	    "$payloadPath/Resources/$chromeBundleIconFile" \
+	    "Unable to link Chrome engine to application icon file. '../../../../$CFBundleIconFile'"
+	try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
+	    "$payloadPath/Resources/$chromeBundleTypeIconFile" \
+	    "Unable to link Chrome engine to document icon file."
+    fi
+    
+    # filter Chrome .lproj directories to modify InfoPlist.strings files
+    if [[ "$ok" ]] ; then
+	
+	# copy all .lproj directories from Chrome
+	try /bin/cp -a "$chromeContents/Resources/"*.lproj "$payloadPath/Resources" \
+	    'Unable to copy localizations to Chrome engine.'
+	
+	# run python script to filter the InfoPlist.strings files for the
+	# .lproj directories
+	local pyerr=
+	try 'pyerr&=' /usr/bin/python \
+	    "$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
+	    "$payloadPath/Resources/"*.lproj \
+	    'Error filtering InfoPlist.strings'
+	[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
+    fi
 }
 
 
@@ -926,185 +917,6 @@ function mcssbmakeicons {  # INPUT OUTPUT-DIR app|doc|both
 	    errmsg="${errmsg%.*}"
 	fi
     fi
-}
-
-
-# LINKCHROME: create linked copy of the full Chrome app bundle as an engine inside the app
-function linkchrome {  # $1 = destination app bundle Contents directory
-
-    if [[ "$ok" ]]; then
-
-	# get path to Chrome engine
-	local fullEnginePath="$1/$SSBChromeEngine"
-	
-	# find Chrome paths if necessary
-	[[ "$chromePath" ]] || chromeinfo
-	
-	# make the new engine app bundle in a temporary location
-	local tmpEngine=$(tempname "$fullEnginePath")
-	local tmpEngineContents="$tmpEngine/Contents"
-	local tmpEngineMacOS="$tmpEngineContents/MacOS"
-	local tmpEngineResources="$tmpEngineContents/Resources"
-	
-	# create temporary Chrome engine bundle & important directories
-	try /bin/mkdir -p "$tmpEngineResources" \
-	    'Unable to create Chrome engine Resources directory.'
-	
-	
-	# start linking up the Chrome engine
-	
-	local chromeContents="$chromePath/Contents"
-	dirlist "$chromeContents" curdir 'Chrome engine Contents'
-	
-	if [[ "$ok" ]] ; then
-	    if [[ ! "$chromeVersionPre69" ]] ; then
-		# Chrome versions after 68 have hardened security & sandboxing, so
-		# we have to hard link everything & cannot alter Info.plist
-		if [[ "$ok" ]] ; then
-		    
-		    # filter out items we don't want to link
-		    local curdir_filtered=( )
-		    for entry in "${curdir[@]}" ; do
-			[[ ( "$entry" != 'Resources' ) && \
-			       ( "$entry" != 'MacOS' ) ]] && curdir_filtered+=( "$entry" )
-		    done
-		    
-		    # make hard links (needed starting with Chrome 69)
-		    linktree HARD \
-			     "$chromeContents" "$tmpEngineContents" \
-			     'Chrome engine' \
-			     "${curdir_filtered[@]}"
-
-		    # copy engine executable (linking causes confusion between apps & real Chrome)
-		    try /bin/cp -a "$chromeContents/MacOS" "$tmpEngineContents" \
-			'Unable to copy Chrome executable to Chrome engine.'
-		fi
-	    else
-		# we're still in Chrome 68 or lower, so can soft-link & filter Info.plist
-		for entry in "${curdir[@]}" ; do
-		    if [[ ( "$entry" != 'Info.plist' ) && \
-			      ( "$entry" != 'MacOS' ) && \
-			      ( "$entry" != 'Resources' ) ]] ; then
-			try /bin/ln -s "$chromeContents/$entry" \
-			    "$tmpEngineContents" \
-			    'Unable to create link to $entry in Chrome engine.'
-		    fi
-		done
-		
-		# link engine executable
-		try /bin/mkdir "$tmpEngineContents/MacOS" \
-		    'Unable to create MacOS directory in Chrome engine.'
-		try /bin/ln -s "$chromeExec" \
-		    "$tmpEngineContents/$engineExec" \
-		    'Unable to create first link to main executable in Chrome engine.'
-		try /bin/ln -s "$chromeExec" \
-		    "$tmpEngineContents/MacOS/$chromeExecName" \
-		    'Unable to create secondary link to main executable in Chrome engine.'
-	    fi
-	fi
-	
-	
-	
-	if [[ "$chromeVersionPre69" ]] ; then
-	    
-	    # for versions of Chrome before 69, filter Info.plist
-	    
-	    # create list of keys to filter
-	    local filterkeys=(DTSDKBuild '' \
-					 DTSDKName '' \
-					 DTXcode '' \
-					 DTXcodeBuild '' \
-					 KSChannelID-32bit '' \
-					 KSChannelID-32bit-full '' \
-					 KSChannelID-full '' \
-					 KSProductID '' \
-					 KSUpdateURL '' \
-					 KSVersion '' \
-					 CFBundleURLTypes '' \
-					 NSPrincipalClass '' \
-					 NSUserActivityTypes '' \
-					 NSHighResolutionCapable true )
-	    
-	    # filter Info.plist file from Chrome
-	    filterchromeinfoplist "$1" "$tmpEngineContents" "${filterkeys[@]}"
-	fi
-	
-	# recreate Resources directory (except for .lproj directories & icons)
-	local chromeResources="$chromeContents/Resources"
-	dirlist "$chromeResources" curdir 'Chrome engine Resources'
-	if [[ "$ok" ]] ; then
-	    
-	    # filter out .lproj directories & icons
-	    curdir_filtered=( )
-	    for entry in "${curdir[@]}" ; do
-		[[ ! ( ("$entry" =~ \.icns$ ) || \
-			   ( "$entry" =~ $lprojRegex ) ) ]] && \
-		    curdir_filtered+=( "$entry" )
-	    done
-
-	    # make hard or soft links
-	    local resourcesLinkStyle=SOFT
-	    [[ "$chromeVersionPre69" ]] || resourcesLinkStyle=HARD
-	    linktree "$resourcesLinkStyle" \
-		     "$chromeResources" "$tmpEngineResources" \
-		     'Chrome engine Resources directory' \
-		     "${curdir_filtered[@]}"
-	fi
-	
-	# link to this app's icons
-	if [[ "$ok" ]] ; then
-	    try /bin/ln -s "../../../../$CFBundleIconFile" \
-		"$tmpEngineResources/$chromeBundleIconFile" \
-		"Unable to link to application icon file in Chrome engine Resources directory."
-	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
-		"$tmpEngineResources/$chromeBundleTypeIconFile" \
-		"Unable to link to document icon file in Chrome engine Resources directory."
-	fi
-	
-	# filter Chrome .lproj directories to modify InfoPlist.strings files
-	if [[ "$ok" ]] ; then
-	    
-	    # copy all .lproj directories from Chrome
-	    try /bin/cp -a "$chromeResources/"*.lproj "$tmpEngineResources" \
-		'Unable to copy localizations to Chrome engine.'
-	    
-	    # run python script to filter the InfoPlist.strings files for the
-	    # .lproj directories
-	    local pyerr=
-	    try 'pyerr&=' /usr/bin/python \
-		"$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
-		"$tmpEngineResources/"*.lproj \
-		'Error filtering InfoPlist.strings'
-	    [[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
-	fi
-	
-	# set ownership of Chrome engine
-	setowner "$1/.." "$tmpEngine" "Chrome engine"
-	
-	# overwrite permanent engine, or delete temp engine on error
-	if [[ "$ok" ]] ; then
-	    permanent "$tmpEngine" "$fullEnginePath" "Chrome engine"
-	else
-	    rmtemp "$tmpEngine" "Chrome engine"
-	fi
-
-	# get rid of legacy items from old Epichrome versions
-	if [[ "$ok" ]] ; then
-
-	    # delete legacy Chrome link (ignore failure--not that important)
-	    local oldChromeLink="$1/MacOS/Chrome"
-	    [[ -e "$oldChromeLink" ]] && /bin/rm -f "$oldChromeLink" > /dev/null 2>&1
-	    
-	    # delete legacy ChromeEngine.app bundles (ignore failure--not that important)
-	    local oldChromeEngine1="$1/Resources/ChromeEngine.app"
-	    local oldChromeEngine2="$1/Resources/zzzzChromeEngine.app"
-	    [[ -e "$oldChromeEngine1" ]] && /bin/rm -rf "$oldChromeEngine1" > /dev/null 2>&1
-	    [[ -e "$oldChromeEngine2" ]] && /bin/rm -rf "$oldChromeEngine2" > /dev/null 2>&1
-	fi
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1    
 }
 
 
@@ -1374,21 +1186,21 @@ function updatessb {
 		# clear host install error state
 		SSBHostInstallError=
 	    fi
-	elif [[ ! "$SSBVersion" ]] ; then
+	else
 
-	    # this should never be reached, but just in case, we set SSBVersion
-	    SSBVersion="$mcssbVersion"
-	    SSBUpdateCheckVersion="$mcssbVersion"
+	    # updating Chrome only; blow away Payload & engine for full relink
+	    /bin/rm -rf "$contentsTmp/$appPayload" > /dev/null 2>&1
+	    /bin/rm -rf "$contentsTmp/$appEngine" > /dev/null 2>&1
+	    
+	    if [[ ! "$SSBVersion" ]] ; then
+		
+		# this should never be reached, but just in case, we set SSBVersion
+		SSBVersion="$mcssbVersion"
+		SSBUpdateCheckVersion="$mcssbVersion"
+	    fi
 	fi
 	
-	
 	# OPERATIONS FOR UPDATING CHROME
-	
-	# update Chrome engine path
-	updatechromeenginepath "$appPath"
-
-	# link to latest version of Chrome
-	linkchrome "$contentsTmp"
 	
 	# create list of keys to filter
 	local filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
