@@ -620,6 +620,11 @@ function mcssbinfo { # (optional)MCSSB-PATH
 
 
 # CHROMEINFO: find absolute paths to and info on relevant Google Chrome items
+#             sets the following variables:
+#                chromePath, chromeContents
+#                chromeVersion, chromeMajorVersion
+#                chromeInfoPlist
+#                chromeExecName, chromeExec
 function chromeinfo {  # $1 == FALLBACKLEVEL
     
     if [[ "$ok" ]]; then
@@ -690,7 +695,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 		# NOW it's an error -- we've failed to find Chrome
 		chromePath=
 		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-		errmsg="Unable to find Google Chrome application.$errmsg"
+		errmsg="Unable to find Chrome application.$errmsg"
 		ok=
 		return 1
 	    fi
@@ -717,6 +722,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	    if [[ $? != 0 ]] ; then
 		errmsg="Unable to read Chrome Info.plist. $fallback $chromePath"
 		ok=
+		chromePath=
 		return 1
 	    fi
 	    
@@ -767,6 +773,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 		    # error -- failed to find the identifier
 		    errmsg="Unable to find Chrome identifier."
 		    ok=
+		    chromePath=
 		    return 1
 		fi
 	    fi
@@ -785,7 +792,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	if [[ ! ( -x "$chromeExec" ) || ( -d "$chromeExec" ) ]] ; then
 	    
 	    # this error is fatal
-	    errmsg='Unable to find Google Chrome executable.'
+	    errmsg='Unable to find Chrome executable.'
 	    
 	    # set error variables and quit
 	    ok=
@@ -811,6 +818,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# check for error
 	if [[ ! "$ok" || ! "$chromeVersion" ]] ; then
+	    chromePath=
 	    chromeVersion=
 	    errmsg='Unable to retrieve Chrome version.'
 	    ok=
@@ -932,8 +940,8 @@ function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEY
 	local filterkeys=("$@")    # keys to filter
 	
 	# ensure Chrome's Info.plist file is where we think it is
-	if [ ! -f "$chromeInfoPlist" ] ; then
-	    errmsg="Unable to find Google Chrome Info.plist file."
+	if [[ ! -f "$chromeInfoPlist" ]] ; then
+	    errmsg="Unable to find Chrome Info.plist file."
 	    ok=
 	    return 1
 	fi
@@ -1047,7 +1055,9 @@ function updatessb {
 	
 	# initially set this to permanent Contents directory
 	local contentsTmp="$appPath/Contents"
-	
+
+	# make sure we've got Chrome info
+	[[ "$chromePath" ]] || chromeinfo
 	
 	# FULL UPDATE OPERATION
 	
