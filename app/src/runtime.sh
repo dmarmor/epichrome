@@ -933,11 +933,16 @@ function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEY
     
     if [[ "$ok" ]]; then
 
+	# arguments
 	local pyContentsDir="$1"   # Contents directory to use as root for Info.plist-filtering Python script
 	shift
 	local destContentsDir="$1" # Contents directory to use as root for destination Info.plist
 	shift
 	local filterkeys=("$@")    # keys to filter
+
+	# makes sure we have the Chrome info we need
+	[[ "$chromeInfoPlist" ]] || chromeinfo
+	[[ "$ok" ]] || return 1
 	
 	# ensure Chrome's Info.plist file is where we think it is
 	if [[ ! -f "$chromeInfoPlist" ]] ; then
@@ -1057,7 +1062,7 @@ function updatessb {
 	local contentsTmp="$appPath/Contents"
 
 	# make sure we've got Chrome info
-	[[ "$chromePath" ]] || chromeinfo
+	[[ "$chromePath" && "$chromeVersion" ]] || chromeinfo
 	
 	# FULL UPDATE OPERATION
 	
