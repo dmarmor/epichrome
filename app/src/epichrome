@@ -246,16 +246,9 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 
 # COMMAND-LINE VARIABLES
 
-#echo "----- starting run with pid $$" >> ~/Desktop/etestlog.txt # $$$$
-
 if [[ "$1" = "--epichrome_admin" ]] ; then
     shift
     isAdmin="$1"
-
-    # $$$$ this elif is temp
-# elif [[ "$1" ]] ; then
-#     echo "dying: running with unknown args: $*" >> ~/Desktop/etestlog.txt  # $$$$
-#     exit
 fi
 
 
@@ -283,8 +276,55 @@ if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$CFBundleDisplayName" && \
     errmsg='Config file is corrupt.'
 fi
 
-# abort on error, since next command is non-fatal
+# get info on the installed Google Chrome
+chromeinfo
+
+# by default we don't need to update the config file
+updateconfig=
+
+# abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
+
+
+# SET UP USER PROFILE PATH
+
+# get absolute profile path
+if [[ "$(isarray SSBProfilePath)" ]] ; then
+    myProfilePath="${SSBProfilePath[0]}"
+else
+    myProfilePath="$SSBProfilePath"
+fi
+myProfilePath="${HOME}/$SSBProfilePath"
+
+# by default, use existing profile
+newprofile=
+
+
+# HANDLE POST-CHROME 69 DOUBLE RUN
+
+# if this engine is already running, launch vanilla Chrome engine & bring to front
+configEngineExec="$myContents/$appEngine/$SSBChromeEngine/Contents/MacOS/$engineExec"
+/usr/bin/pgrep -fq "$configEngineExec" > /dev/null 2>&1
+pgrepResult="$?"
+if [[ "$pgrepResult" = 0 ]] ; then
+    # launch Chrome engine with whatever command-line arguments
+    # have been passed to us and suppress startup window
+    # (--no-startup-window would also work for this)
+    "$configEngineExec" --silent-launch --user-data-dir="$myProfilePath" "$@"
+
+    # use Applescript to switch app to the front
+    osascript -e "tell application \"System Events\" to set frontmost of (application processes where bundle identifier is \"$CFBundleIdentifier\") to true" > /dev/null
+
+    # exit this instance
+    exit
+    
+elif [[ "$pgrepResult" != 1 ]] ; then
+    # pgrep error
+    abort "Error checking for running Chrome engine." 1
+fi
+
+
+# CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
 
 # get info on current Epichrome version
 mcssbinfo
@@ -292,12 +332,6 @@ if [[ ! "$ok" ]] ; then
     # fail silently, and we just won't check for updates
     ok=1 ; errmsg=
 fi
-
-# by default we don't need to update the config file
-updateconfig=
-
-
-# CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
 
 if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 
@@ -437,9 +471,6 @@ fi
 
 # CHECK FOR NEW VERSION OF CHROME AND UPDATE
 
-# get info on the installed Google Chrome
-chromeinfo
-
 # update config variable
 if [[ "$SSBChromePath" != "$chromePath" ]] ; then
     SSBChromePath="$chromePath"
@@ -474,21 +505,13 @@ fi
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
+
 # BUILD CHROME ENGINE ON THE FLY
 
 # get important absolute paths
 myEnginePath="$myContents/$appEngine"
 myPayloadPath="$myContents/$appPayload"
 configEngineResources="$myEnginePath/$SSBChromeEngine/Resources"
-
-# if this engine is already running, die (this should never actually happen)
-/usr/bin/pgrep -fq "$$myEnginePath/$SSBChromeEngine/Contents/MacOS/$engineExec" > /dev/null 2>&1
-pgrepResult="$?"
-if [[ "$pgrepResult" = 0 ]] ; then
-    abort "This app's Chrome engine is already running!" 1
-elif [[ "$pgrepResult" != 1 ]] ; then
-    abort "Error checking for running Chrome engine." 1
-fi
 
 # if cleanup failed last run, rescue .lproj directories & .icns links
 if [[ ( -d "$configEngineResources" ) && \
@@ -634,20 +657,6 @@ try /bin/rm -rf "$myPayloadPath" \
 
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
-
-
-# SET UP USER PROFILE
-
-# get absolute profile path
-if [[ "$(isarray SSBProfilePath)" ]] ; then
-    myProfilePath="${SSBProfilePath[0]}"
-else
-    myProfilePath="$SSBProfilePath"
-fi
-myProfilePath="${HOME}/$SSBProfilePath"
-
-# by default, use existing profile
-newprofile=
 
 
 # HANDLE FIRST-RUN SETUP
@@ -962,7 +971,7 @@ if [[ "$newprofile" ]] ; then
     # if we're creating a new profile (first run), run once with a page
     # instructing the user to enable Epichrome Helper
     myCommand=( "$myEngineExec" --user-data-dir="$myProfilePath" \
-			       "file://$myContents/Resources/FirstRun/welcome.html" )
+				"file://$myContents/Resources/FirstRun/welcome.html" )
 else
 # normal run -- use the regular command line
     myCommand=( "$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}" )
@@ -977,7 +986,14 @@ function cleanup {  # $1 = CHROME ENGINE PID
 
     # wait for Chrome engine to exit
     /usr/sbin/lsof -p "$1" +r 1 &>/dev/null
-    
+
+    # make sure we can still find Chrome engine
+    if [[ ! -d "$myEngineContents/Resources" ]] ; then
+	# abort -- something has gone wrong, maybe app renamed or moved
+	echo "Cleanup error: Can't find Chrome engine." 1>&2
+	exit 1
+    fi
+
     # clear out any zombie payload & recreate
     try /bin/rm -rf "$myPayloadPath" 'Unable to clear old payload.'
     try /bin/mkdir -p "$myPayloadPath/Resources" \
@@ -991,7 +1007,12 @@ function cleanup {  # $1 = CHROME ENGINE PID
 	'Unable to move payload out of Chrome engine.'
     try /bin/rm -rf "$myEnginePath" 'Unable to remove Chrome engine.'
 
-    [[ "$ok" ]] || abort "$errmsg" 1
+    if [[ ! "$ok" ]] ; then
+	# errors are nonfatal; report this to stderr rather than an alert
+	echo "Cleanup error: $errmsg" 1>&2
+	exit 1
+    fi
+    
     exit 0
 }
 
@@ -1000,10 +1021,7 @@ function cleanup {  # $1 = CHROME ENGINE PID
 cleanup "$$" &
 
 # exec Chrome engine
-# echo "starting engine with pid $$" >> ~/Desktop/etestlog.txt  # $$$$
-if [[ "$isAdmin" ]] ; then
-    # echo "rerunning as user" >> ~/Desktop/etestlog.txt   # $$$$
-    
+if [[ "$isAdmin" ]] ; then    
     # we're running as admin, so launch the SSB as the original user
     #exec sudo -u $USER "${myCommand[@]}"
     exec sudo -u $USER open "$myPath"

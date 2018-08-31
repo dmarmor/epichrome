@@ -832,7 +832,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	    ( "$chromeMajorVersion" -lt 69 ) ]] ; then
 	    chromeVersionPre69=1
 	    # pre-69 we name the engine to avoid clashes with the real Chrome
-	    engineExec="zzzzChromeEngine"
+	    engineExec="ChromeEngine"
 	else
 	    # from 69 on it MUST have the same name to avoid security problems
 	    chromeVersionPre69=
