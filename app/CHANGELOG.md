@@ -2,6 +2,13 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.2.0] - 2018-09-01
+### Changed
+- Added a welcome page that displays the first time a new app is run (or if the profile folder is deleted), with instructions on how to enable Epichrome Helper (which Chrome disables by default).
+- Engine now links dynamically at runtime and is deleted on quit. If the installed Chrome is version 69 or later, the engine is now hard-linked to withstand Chrome 69's much stricter security.
+- Epichrome is now properly code-signed, so should be installable without disabling GateKeeper.
+
+
 ## [2.1.20] - 2017-07-22
 ### Changed
 - Added functionality that should allow Epichrome apps to work properly with Chrome extensions that use native messaging (such as 1Password as of version 6.8). Thanks to [tamaracks](https://github.com/tamaracks "tamaracks") and [henderea](https://github.com/henderea "henderea") for catching this change and helping figure out the solution.
