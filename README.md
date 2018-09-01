@@ -17,11 +17,13 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 Version 2.2.0 changes Epichrome's underlying architecture significantly in order to allow it to work with Chrome 69, which has added much stricter security.
 
-You shouldn't actually see much change in how your apps work, but there are a couple important points to be aware of if you're running Chrome 69:
+You shouldn't see much change in how your apps work, but there are a couple **important points** to be aware of:
 
-* Your Epichrome apps must be installed on the *same* physical volume as Chrome, or the apps will at best take a very long time to start up, and at worst may not work at all.
+- Epichrome apps are now explicitly *single-user* apps. Because of the way the Chrome engine is dynamically linked at runtime, Epichrome apps cannot be run by multiple users at once. They also cannot be run by users who don't have write permission to the app itself. For this reason, Epichrome no longer allows authentication during app creation. (This means, for instance, that if you don't have an admin account, you cannot create an Epichrome app in the /Applications folder.) The architecture may evolve in future releases, but Epichrome apps will almost certainly remain single-user from now on.
 
-* You should not try to copy or archive an Epichrome app while it is running. If you do, you'll end up copying several hundred megabytes of data for no reason. When your apps are not running, they are under 3MB. (Rest assured, a running Epichrome app is not actually taking up that much space on your hard drive--unless you try to copy it.)
+- If you're running Chrome 69 or later, your Epichrome apps must be installed on the *same* physical volume as Chrome, or the apps will at best take a very long time to start up, and at worst may not work at all.
+
+- You should not try to copy or archive an Epichrome app while it is running. If you do, you may end up copying several hundred megabytes of data for no reason. When your apps are not running, they are under 3MB, but during runtime they may appear to be over 100MB. (Rest assured, a running Epichrome app is not actually taking up that much space on your hard drive--unless you try to copy it.)
 
 This version also adds a "welcome" page that displays the first time you run a new app (or if you delete your profile), with instructions on how to enable Epichrome Helper, which Chrome disables by default.
 
@@ -30,11 +32,11 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 ## Important Notes
 
-* Using the "Set Up Automatic Updates for All Users" option in Chrome could cause fatal errors in Epichrome apps when a Chrome update is applied. If your system contains the directory /Library/Google/GoogleSoftwareUpdate, then automatic updates are on. The surest way to disable it is by **first** deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ~/Library/Google/GoogleSoftwareUpdate before running the reinstalled Chrome.
+- Using the "Set Up Automatic Updates for All Users" option in Chrome could cause fatal errors in Epichrome apps when a Chrome update is applied. If your system contains the directory /Library/Google/GoogleSoftwareUpdate, then automatic updates are on. The surest way to disable it is by **first** deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ~/Library/Google/GoogleSoftwareUpdate before running the reinstalled Chrome.
 
-* Don't click the "Update Now" button on the About Chrome page in your Epichrome apps. It might not actually do anything terrible, but it also won't do anything good.
+- Don't click the "Update Now" button on the About Chrome page in your Epichrome apps. It might not actually do anything terrible, but it also won't do anything good.
 
-* It's a good idea to back up your Epichrome apps. You can right-click on an app in the Finder and select Compress. Then if anything goes wrong during an update, you can delete the app and double-click the zip archive to recreate it intact.
+- It's a good idea to back up your Epichrome apps. You can right-click on an app in the Finder and select Compress. Then if anything goes wrong during an update, you can delete the app and double-click the zip archive to recreate it intact.
 
 
 ## Technical Information/Limitations

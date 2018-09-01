@@ -80,8 +80,7 @@ on readProperties()
 			set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
 			set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
 		end tell
-	on error --errmsg number errno
-		--display alert "error: " & errno & " " & (errmsg as text)
+	on error
 		-- if anything went wrong, initialize any unset properties
 		if (lastIconPath is "undefined") then set lastIconPath to ""
 		if (lastSSBPath is "undefined") then set lastSSBPath to ""
@@ -126,9 +125,6 @@ set curStep to 1
 on step()
 	return "Step " & curStep & " of " & numSteps
 end step
-
--- HAVE WE AUTHENTICATED?
-set isAuthenticated to false
 
 -- BUILD REPRESENTATION OF BROWSER TABS
 on tablist(tabs, tabnum)
@@ -282,21 +278,29 @@ repeat
 			-- update the last path info
 			set lastSSBPath to (((POSIX file ssbDir) as alias) as text)
 			
-			-- if no ".app" extension was given, check if they accidentally chose an existing app without confirming
-			if ssbExtAdded is "TRUE" then
-				-- see if an app with the given base name exists
-				tell application "Finder"
-					set appExists to false
-					try
-						if exists ((POSIX file ssbPath) as alias) then set appExists to true
-					end try
-				end tell
-				if appExists then
-					try
-						display dialog "A file or folder named Ò" & ssbName & "Ó already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
-					on error number -128
-						set tryAgain to true
-					end try
+			
+			-- check if we have permission to write to this directory
+			if (do shell script "#!/bin/sh
+if [[ -w \"" & ssbDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
+				display dialog "You don't have permission to write to that folder. Please choose another location for your app." with title "Error" with icon stop buttons {"OK"} default button "OK"
+				set tryAgain to true
+			else
+				-- if no ".app" extension was given, check if they accidentally chose an existing app without confirming
+				if ssbExtAdded is "TRUE" then
+					-- see if an app with the given base name exists
+					tell application "Finder"
+						set appExists to false
+						try
+							if exists ((POSIX file ssbPath) as alias) then set appExists to true
+						end try
+					end tell
+					if appExists then
+						try
+							display dialog "A file or folder named \"" & ssbName & "\" already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
+						on error number -128
+							set tryAgain to true
+						end try
+					end if
 				end if
 			end if
 		end repeat
@@ -497,7 +501,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
 										writeProperties()
-				return -- QUIT
+										return -- QUIT
 									end try
 									
 									set lastIconPath to (((POSIX file (paragraph 1 of ssbInfo)) as alias) as text)
@@ -582,42 +586,16 @@ Icon: "
 											set creationSuccess to true
 										on error errStr number errNum
 											
-											-- if we couldn't create the app, try with admin privileges
+											-- unable to create app due to permissions
 											if errStr is "PERMISSION" then
-												try
-													if not isAuthenticated then
-														display dialog "Creating an app in \"" & ssbDir & "\" requires an administrator name and password." with icon myIcon buttons {"Authenticate", "Cancel"} default button "Cancel" cancel button "Cancel" with title "Authentication Required"
-														set isAuthenticated to true
-													end if
-													
-													try
-														do shell script chromeSSBScript & " " & Â
-															(quoted form of ssbPath) & " " & Â
-															(quoted form of ssbBase) & " " & Â
-															(quoted form of ssbShortName) & " " & Â
-															(quoted form of ssbIconSrc) & " " & Â
-															(quoted form of doRegisterBrowser) & " " & Â
-															ssbCmdLine with administrator privileges
-														set creationSuccess to true
-													on error errStr number errNum
-														if errNum is -128 then
-															exit repeat
-														else if errStr is "PERMISSION" then
-															set errStr to "Permission denied."
-														end if
-													end try
-												on error number -128 -- authentication Cancel button
-													exit repeat
-												end try
-												
+												set errStr to "Unable to write to \"" & ssbDir & "\"."
 											end if
 											
 											if not creationSuccess then
 												try
 													display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
 													writeProperties() -- Quit button
-				return -- QUIT
-													return
+													return -- QUIT
 												on error number -128 -- Back button
 													exit repeat
 												end try
@@ -633,7 +611,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to the Window menu, choose Extensions and enable it manually. Once successfully enabled, its options page will open and display a welcome message." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
 											writeProperties() -- "Quit" button
-				return -- QUIT
+											return -- QUIT
 										end try
 										
 										-- launch or reveal
@@ -644,7 +622,7 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 												--tell application ssbName to activate
 											on error
 												writeProperties()
-				return -- QUIT
+												return -- QUIT
 											end try
 										else
 											--if (button returned of dlgResult) is "Reveal in Finder" then
@@ -653,7 +631,7 @@ HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to th
 										end if
 										
 										writeProperties() -- We're done!
-				return -- QUIT
+										return -- QUIT
 										
 									end repeat
 									
