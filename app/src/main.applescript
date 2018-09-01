@@ -606,9 +606,7 @@ Icon: "
 										try
 											set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
 
-IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched.
-
-HOWEVER, it will almost certainly be installed DISABLED. You'll need to go to the Window menu, choose Extensions and enable it manually. Once successfully enabled, its options page will open and display a welcome message." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
+IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 										on error number -128
 											writeProperties() -- "Quit" button
 											return -- QUIT

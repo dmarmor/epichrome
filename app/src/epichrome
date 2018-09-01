@@ -307,14 +307,19 @@ configEngineExec="$myContents/$appEngine/$SSBChromeEngine/Contents/MacOS/$engine
 /usr/bin/pgrep -fq "$configEngineExec" > /dev/null 2>&1
 pgrepResult="$?"
 if [[ "$pgrepResult" = 0 ]] ; then
-    # launch Chrome engine with whatever command-line arguments
-    # have been passed to us and suppress startup window
+    # launch Chrome engine but suppress startup window
     # (--no-startup-window would also work for this)
-    "$configEngineExec" --silent-launch --user-data-dir="$myProfilePath" "$@"
+    # but do not launch if unknown args passed -- this appears
+    # to only happen as a weird duplicate launch
+    # signal in Chrome 69, so we'll ignore it (for now)
+    if [[ "${#@}" = 0 ]] ; then
+	# use Applescript to switch app to the front
+	osascript -e "tell application \"System Events\" to set frontmost of (application processes where bundle identifier is \"$CFBundleIdentifier\") to true" > /dev/null
 
-    # use Applescript to switch app to the front
-    osascript -e "tell application \"System Events\" to set frontmost of (application processes where bundle identifier is \"$CFBundleIdentifier\") to true" > /dev/null
-
+	# launch
+        "$configEngineExec" --silent-launch --user-data-dir="$myProfilePath"
+fi
+    
     # exit this instance
     exit
     

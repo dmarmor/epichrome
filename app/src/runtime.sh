@@ -418,7 +418,7 @@ function linktree { # $1 = SOFT/HARD
 	    	"$tryid link error: Unable to create symlink to $entry."
 	else
 	    # hard link
-	    try /bin/pax -rwlpe "$entry" "$destdir" \
+	    try /bin/pax -rwlpp "$entry" "$destdir" \
 		"$tryid link error: Unable to create link to $entry."
 	fi
     done
