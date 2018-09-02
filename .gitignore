@@ -6,12 +6,13 @@
 /certificates/**
 /research/**
 /app/epichrome.app/**
-/app/icons/source/**
-/app/icons/*.icns
+/app/icons/**
+/app/welcome/img/icon*.png
 /builder/**
 /helper/*.zip
 /helper/extension/**
 /helper/store/**
 /helper/src/*.png
 /helper/src/*.gif
+/images/icons/source/**
 /tests/**

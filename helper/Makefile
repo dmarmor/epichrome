@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the Epichrome Runtime extension.
-#  Copyright (C) 2017  David Marmor
+#  Copyright (C) 2018  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -21,7 +21,7 @@
 #
 
 ICON_SIZES:=16 48 128
-ICON_SOURCE:=../app/icons/app.psd
+ICON_SOURCE:=../images/icons/app.psd
 EXTVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
 ZIPPREFIX:=epichrome-runtime-
 ZIP:=${ZIPPREFIX}${EXTVERSION}.zip

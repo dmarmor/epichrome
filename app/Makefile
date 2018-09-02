@@ -22,7 +22,7 @@
 
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
-APP:=epichrome.app
+APP:=Epichrome.app
 HELPERBG:=../helper/src/background.js
 DEBUG_UPDATE_FREQ:=30
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
@@ -55,7 +55,7 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: install clean clean-all debug
 
-.PRECIOUS: icons/app.icns icons/document.icns
+.PRECIOUS: icons/app.icns icons/document.icns welcome/img/icon128.png
 
 
 ${APP}: ${APP_SCPT}/main.scpt \
@@ -77,12 +77,12 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_NMEX}/${HELPERID}.json \
 	${APP_RNTM_FRUN}/welcome.html \
 	${APP_RNTM_FRUN}/welcome.css \
-	${APP_RNTM_FRUN}/icon128.png \
-	${APP_RNTM_FRUN}/m1s1.png \
-	${APP_RNTM_FRUN}/m1s2.png \
-	${APP_RNTM_FRUN}/m2s1.png \
-	${APP_RNTM_FRUN}/m2s2.png \
-	${APP_RNTM_FRUN}/m3s1.png \
+	${APP_RNTM_FRUN}/img/icon128.png \
+	${APP_RNTM_FRUN}/img/m1s1.png \
+	${APP_RNTM_FRUN}/img/m1s2.png \
+	${APP_RNTM_FRUN}/img/m2s1.png \
+	${APP_RNTM_FRUN}/img/m2s2.png \
+	${APP_RNTM_FRUN}/img/m3s1.png \
 	${APP_RNTM_RSRC}/app.icns \
 	${APP_RNTM_RSRC}/document.icns
 
@@ -95,7 +95,8 @@ clean:
 
 clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
-	rm icons/*.icns
+	rm -rf icons
+	rm -f welcome/img/icon128.png
 
 install: ${APP}
 	if [[ -e "${INSTALL_PATH}" ]] ; then rm -rf "${INSTALL_PATH}" ; fi
@@ -123,7 +124,7 @@ ${APP_RSRC}/applet.icns: icons/epichrome.icns
 	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 
-${APP_RSRC}/docbg.png: icons/docbg.png
+${APP_RSRC}/docbg.png: ../images/icons/docbg.png
 	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 
@@ -152,14 +153,23 @@ ${APP_RNTM_NMEX}/${HELPERID}.json: src/install-extension.json
 	cp -p $< ${APP_RNTM_NMEX}/${HELPERID}.json
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
 
-${APP_RNTM_FRUN}/%: src/firstrun/%
+${APP_RNTM_FRUN}/welcome.%: welcome/welcome.%
 	cp -p $< ${APP_RNTM_FRUN}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_FRUN}
 
+${APP_RNTM_FRUN}/img/%.png: welcome/img/%.png
+	mkdir -p ${APP_RNTM_FRUN}/img
+	cp -p $< ${APP_RNTM_FRUN}/img
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_FRUN} ${APP_RNTM_FRUN}/img
+
+welcome/img/icon128.png: ../images/icons/app.psd
+	@mkdir -p icons
+	sips -s format png -z 128 128 $< --out $@
 
 ${APP_RNTM_RSRC}/%.icns: icons/%.icns
 	cp -p $< ${APP_RNTM_RSRC}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC}
 
-%.icns: %.psd
+icons/%.icns: ../images/icons/%.psd
+	@mkdir -p icons
 	src/makeicon.sh -f $< $@
