@@ -4,8 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.2.0] - 2018-09-02
 ### Changed
+- Rewrote the engine architecture so it will work with Chrome 69. The Chrome engine now links dynamically at runtime and is deleted on quit. If the installed Chrome is version 69 or later, the engine is now also hard-linked to withstand Chrome 69's much stricter security. Thanks to [webxl](https://github.com/webxl "webxl") and everyone else who reported the problem.
 - Added a welcome page that displays the first time a new app is run (or if the profile folder is deleted), with instructions on how to enable Epichrome Helper (which Chrome disables by default).
-- The Chrome engine now links dynamically at runtime and is deleted on quit. If the installed Chrome is version 69 or later, the engine is now hard-linked to withstand Chrome 69's much stricter security.
 - Epichrome is now explicitly single-user, and will not allow a user to create an Epichrome app in a folder they don't have write permission for (authentication code has been removed). This is a first step toward a possible different relationship between Epichrome apps and user profile directories.
 - Epichrome is now properly code-signed, so should be installable without disabling GateKeeper. Thanks to [henderea](https://github.com/henderea "henderea") and everyone else who asked for this, and sorry it took so long to finally happen.
 ### Fixed
