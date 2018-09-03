@@ -959,7 +959,7 @@ function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEY
 	
 	# run python script to filter Info.plist
 	local pyerr=
-	try 'pyerr&=' python "$pyContentsDir/Resources/Scripts/infoplist.py" \
+	try 'pyerr&=' /usr/bin/python "$pyContentsDir/Resources/Scripts/infoplist.py" \
 	    "$chromeInfoPlist" \
 	    "$tmpInfoPlist" \
 	    "${filterkeys[@]}" 'Error filtering Info.plist file.'

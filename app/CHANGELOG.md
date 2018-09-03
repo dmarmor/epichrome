@@ -2,12 +2,14 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.2.0] - 2018-09-01
+## [2.2.0] - 2018-09-02
 ### Changed
 - Added a welcome page that displays the first time a new app is run (or if the profile folder is deleted), with instructions on how to enable Epichrome Helper (which Chrome disables by default).
 - The Chrome engine now links dynamically at runtime and is deleted on quit. If the installed Chrome is version 69 or later, the engine is now hard-linked to withstand Chrome 69's much stricter security.
 - Epichrome is now explicitly single-user, and will not allow a user to create an Epichrome app in a folder they don't have write permission for (authentication code has been removed). This is a first step toward a possible different relationship between Epichrome apps and user profile directories.
 - Epichrome is now properly code-signed, so should be installable without disabling GateKeeper.
+### Fixed
+- Fixed relative path for python in runtime.sh. Thanks to [mattHawthorn](https://github.com/mattHawthorn "mattHawthorn") for the pull request to fix this.
 
 
 ## [2.1.20] - 2017-07-22
