@@ -11,7 +11,7 @@ Download the binary release [here](https://github.com/dmarmor/epichrome/releases
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.2.0.
+## New in version 2.2.0
 
 *Note: I'm only addressing serious bugs at the moment. I probably won't have time to work on new features or major updates for the foreseeable future.*
 
