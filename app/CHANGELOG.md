@@ -2,7 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.2.0] - 2018-09-02
+## [2.2.2] - 2018-09-03
+### Fixed
+- Fixed a permission problem that was causing Epichrome and its apps to silently fail to check github for a new version of Epichrome.
+
+
+## [2.2.1] - 2018-09-02
 ### Changed
 - Rewrote the engine architecture so it will work with Chrome 69. The Chrome engine now links dynamically at runtime and is deleted on quit. If the installed Chrome is version 69 or later, the engine is now also hard-linked to withstand Chrome 69's much stricter security. Thanks to [webxl](https://github.com/webxl "webxl") and everyone else who reported the problem.
 - Added a welcome page that displays the first time a new app is run (or if the profile folder is deleted), with instructions on how to enable Epichrome Helper (which Chrome disables by default).

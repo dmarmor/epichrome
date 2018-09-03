@@ -1,4 +1,4 @@
-# Epichrome 2.2.1
+# Epichrome 2.2.2
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -11,11 +11,11 @@ Download the binary release [here](https://github.com/dmarmor/epichrome/releases
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
 
 
-## New in version 2.2.1
+## New in version 2.2
 
 *Note: I'm only addressing serious bugs at the moment. I probably won't have time to work on new features or major updates for the foreseeable future.*
 
-Version 2.2.1 changes Epichrome's underlying architecture significantly in order to allow it to work with Chrome 69, which has added much stricter security.
+Version 2.2 changes Epichrome's underlying architecture significantly in order to allow it to work with Chrome 69, which has added much stricter security.
 
 You shouldn't see much change in how your apps work, but there are a couple **important points** to be aware of:
 

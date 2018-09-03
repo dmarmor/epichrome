@@ -884,7 +884,7 @@ function createpayload { # $1 = Contents path
 	# run python script to filter the InfoPlist.strings files for the
 	# .lproj directories
 	local pyerr=
-	try 'pyerr&=' /usr/bin/python \
+	try 'pyerr&=' \
 	    "$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
 	    "$payloadPath/Resources/"*.lproj \
 	    'Error filtering InfoPlist.strings'
@@ -959,7 +959,7 @@ function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEY
 	
 	# run python script to filter Info.plist
 	local pyerr=
-	try 'pyerr&=' /usr/bin/python "$pyContentsDir/Resources/Scripts/infoplist.py" \
+	try 'pyerr&=' "$pyContentsDir/Resources/Scripts/infoplist.py" \
 	    "$chromeInfoPlist" \
 	    "$tmpInfoPlist" \
 	    "${filterkeys[@]}" 'Error filtering Info.plist file.'
@@ -1023,7 +1023,7 @@ function checkmcssbversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
     # call Python script to check github for the latest version
     local latestVersion="$( "$1/$appGetVersionScript" 2> /dev/null )"
     if [[ "$?" != 0 ]] ; then
-	ok=0
+	ok=
 	errmsg="$latestVersion"
     fi
     
