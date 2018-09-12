@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added --debug flag to Epichrome executable so it can log debugging info to stderr.
 ### Fixed
 - Changed the method the cleanup process uses to wait for Epichrome apps to quit. /usr/sbin/lsof was eating way too much CPU. Thanks to [pedramamini](https://github.com/pedramamini "pedramamini") for first noticing this and [henderea](https://github.com/henderea "henderea") for contributing the fix.
-- Changed how Epichrome apps search for Epichrome, so they should now always find only the latest installed version. Thanks to []() for noticing this problem.
+- Changed how Epichrome apps search for Epichrome, so they should now always find only the latest installed version. Thanks to [henderea](https://github.com/henderea "henderea") for noticing this problem.
 - Fixed a bug in how Epichrome checks for new versions of itself on github. It should no longer pop up a notification about a new version that matches the current version.
 - Fixed a bug in the way Epichrome stores info from its previous run, so certain actions will no longer cause it to forget everything about its last run.
 
