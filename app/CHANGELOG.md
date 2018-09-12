@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.2.3] - 2018-XX-XX
+### Fixed
+- Changed the method the cleanup process uses to wait for Epichrome apps to quit. /usr/sbin/lsof was eating way too much CPU. Thanks to [pedramamini](https://github.com/pedramamini "pedramamini") for first noticing this and [henderea](https://github.com/henderea "henderea") for contributing the fix.
+
+
 ## [2.2.2] - 2018-09-03
 ### Fixed
 - Fixed a permission problem that was causing Epichrome and its apps to silently fail to check github for a new version of Epichrome.

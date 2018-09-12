@@ -22,6 +22,8 @@
 # 
 
 
+# FUNCTION DEFINITIONS
+
 # ABORT -- display an error alert and abort
 function abort {
     alert "$1" "Unable to Run" '|stop'
@@ -224,7 +226,12 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 			# replace ourself with an authenticated version
 			#of the same script running with admin privileges
 			#exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
-			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome_admin " & (quoted form of "'"$id"'") with administrator privileges'
+
+			# add debug flag if it was set for us
+			local debugOpt='""'
+			[[ "$debug" ]] && debugOpt='" --debug "'
+			    
+			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome_admin " & $debugOpt & (quoted form of "'"$id"'") with administrator privileges'
 			
 		    elif [[ "$nonfatal" ]] ; then
 			return 1
@@ -244,12 +251,30 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 }
 
 
-# COMMAND-LINE VARIABLES
+# MAIN BODY
 
-if [[ "$1" = "--epichrome_admin" ]] ; then
-    shift
-    isAdmin="$1"
-fi
+
+# COMMAND-LINE OPTIONS
+
+debug=
+isAdmin=
+while [[ "$#" -gt 0 ]] ; do
+    case "$1" in
+        --epichrome_admin)
+	    isAdmin="$1"
+            shift
+            ;;
+        
+        --debug)
+            debug=1
+	    shift
+            ;;
+        
+        *)
+	    # leave any unrecognized options to pass along to Chrome engine
+	    break
+    esac
+done
 
 
 # BOOTSTRAP RUNTIME SCRIPT
@@ -986,12 +1011,12 @@ fi
 
 # CLEANUP: wait for Chrome engine to die, then clean it up
 function cleanup {  # $1 = CHROME ENGINE PID
-    # $$$$ old way to get PID from Chrome engine path
-    # if pid=( $(/usr/bin/pgrep -foa "$1") )
 
     # wait for Chrome engine to exit
-    /usr/sbin/lsof -p "$1" +r 1 &>/dev/null
-
+    while /bin/kill -0 "$1" 2> /dev/null ; do
+	sleep 1
+    done
+    
     # make sure we can still find Chrome engine
     if [[ ! -d "$myEngineContents/Resources" ]] ; then
 	# abort -- something has gone wrong, maybe app renamed or moved

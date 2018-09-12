@@ -53,6 +53,9 @@ appProfileBase="Library/Application Support/Epichrome/Apps"
 #      usage:
 #        try 'varname=' cmd arg arg arg 'Error message.'
 #        try 'filename.txt<' cmd arg arg arg 'Error message.'
+#        try 'filename.txt&<' cmd arg arg arg 'Error message.'
+#        try 'filename.txt<<' cmd arg arg arg 'Error message.'
+#        try 'filename.txt&<<' cmd arg arg arg 'Error message.'
 #        try cmd arg arg arg 'Error message.'
 #
 # get first line of a variable: "${x%%$'\n'*}"
@@ -75,7 +78,7 @@ function try {
 	elif [[ "$type" = "<" ]]; then
 	    # storing in a file
 	    target="${target%<}"
-	    type=
+	    type=file
 	    if [[ "${target:${#target}-1}" = '<' ]] ; then
 		# append to file
 		target="${target%<}"
@@ -84,12 +87,12 @@ function try {
 	    shift
 	else
 	    # not storing
-	    target='/dev/null'
+	    target=
 	    type=
 	fi
 
 	# determine handling of stderr
-	if [[ "${target:${#target}-1}" = '&' ]] ; then
+	if [[ "$type" && ( "${target:${#target}-1}" = '&' ) ]] ; then
 	    # keep stderr
 	    target="${target%&}"
 	    ignorestderr=
@@ -106,10 +109,14 @@ function try {
 	# run the command
 	local result=
 	if [[ "$type" = var ]] ; then
-	    # store result in named variable
+	    # store stdout in named variable
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
-		temp="$("${args[@]}" 2> /dev/null)"
+		if [[ "$debug" ]] ; then
+		    temp="$("${args[@]}")"
+		else
+		    temp="$("${args[@]}" 2> /dev/null)"
+		fi
 		result="$?"
 	    else
 		temp="$("${args[@]}" 2>&1)"
@@ -120,22 +127,43 @@ function try {
 	    eval "${target}=$(printf '%q' "$temp")"
 	    
 	elif [[ "$type" = append ]] ; then
-	    # append result to a file or /dev/null
-	    if [[ "$ignorestderr" && ( "$target" != '/dev/null' ) ]] ; then
-		"${args[@]}" >> "$target" 2> /dev/null
-		result="$?"
+	    # append stdout to a file
+	    if [[ "$ignorestderr" ]] ; then
+		if [[ "$debug" ]] ; then
+		    "${args[@]}" >> "$target"
+		    result="$?"
+		else
+		    "${args[@]}" >> "$target" 2> /dev/null
+		    result="$?"
+		fi
 	    else
 		"${args[@]}" >> "$target" 2>&1
 		result="$?"
 	    fi
-	else
-	    # store result in a file or /dev/null
-	    if [[ "$ignorestderr" && ( "$target" != '/dev/null' ) ]] ; then
-		"${args[@]}" > "$target" 2> /dev/null
-		result="$?"
+	elif [[ "$type" = file ]] ; then
+	    # store stdout in a file
+	    if [[ "$ignorestderr" ]] ; then
+		if [[ "$debug" ]] ; then
+		    "${args[@]}" > "$target"
+		    result="$?"
+		else
+		    "${args[@]}" > "$target" 2> /dev/null
+		    result="$?"
+		fi
 	    else
 		"${args[@]}" > "$target" 2>&1
 		result="$?"
+	    fi
+	else
+	    # throw stdout away (unless in debug mode)
+	    if [[ "$ignorestderr" ]] ; then
+		if [[ "$debug" ]] ; then
+		    "${args[@]}"
+		    result="$?"
+		else
+		    "${args[@]}" > /dev/null 2>&1
+		    result="$?"
+		fi
 	    fi
 	fi
 	
