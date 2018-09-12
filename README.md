@@ -1,4 +1,4 @@
-# Epichrome 2.2.2
+# Epichrome 2.2.3
 
 **Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
 
@@ -41,7 +41,7 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 ## Technical Information/Limitations
 
-Built and tested on Mac OS X 10.13.6 with Chrome versions 68.0.3440.106 and  69.0.3497.57 beta.
+Built and tested on Mac OS X 10.13.6 with Chrome version 69.0.3497.81.
 
 Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themself. And if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
 
