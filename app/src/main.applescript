@@ -59,36 +59,60 @@ global updateCheckVersion
 -- READPROPERTIES: read properties from user data file, or initialize properties on failure
 on readProperties()
 	
-	-- blank out properties
-	set lastIconPath to "undefined"
-	set lastSSBPath to "undefined"
-	set doRegisterBrowser to "undefined"
-	set doCustomIcon to "undefined"
-	set updateCheckDate to "undefined"
-	set updateCheckVersion to "undefined"
-	
-	try
-		tell application "System Events"
-			-- read in the file
+	tell application "System Events"
+		
+		-- read in the file
+		try
 			set myProperties to property list file ("~/" & userDataPath & "/" & userDataFile)
-			
-			-- set properties from the file
+		on error
+			set myProperties to null
+		end try
+		
+		-- set properties from the file & if anything went wrong, initialize any unset properties
+		
+		-- lastIconPath
+		try
 			set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
+		on error
+			set lastIconPath to ""
+		end try
+		
+		-- lastSSBPath
+		try
 			set lastSSBPath to (value of (get property list item "lastSSBPath" of myProperties) as text)
+		on error
+			set lastSSBPath to ""
+		end try
+		
+		-- doRegisterBrowser
+		try
 			set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
+		on error
+			set doRegisterBrowser to "No"
+		end try
+		
+		-- doCustomIcon
+		try
 			set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
+		on error
+			set doCustomIcon to "Yes"
+		end try
+		
+		-- updateCheckDate
+		try
 			set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
+		on error
+			set updateCheckDate to (current date) - (1 * days)
+		end try
+		
+		-- updateCheckVersion
+		try
 			set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
-		end tell
-	on error
-		-- if anything went wrong, initialize any unset properties
-		if (lastIconPath is "undefined") then set lastIconPath to ""
-		if (lastSSBPath is "undefined") then set lastSSBPath to ""
-		if (doRegisterBrowser is "undefined") then set doRegisterBrowser to "No"
-		if (doCustomIcon is "undefined") then set doCustomIcon to "Yes"
-		if (updateCheckDate is "undefined") then set updateCheckDate to (current date) - (1 * days)
-		if (updateCheckVersion is "undefined") then set updateCheckVersion to ""
-	end try
+		on error
+			set updateCheckVersion to ""
+		end try
+		
+	end tell
 end readProperties
 
 -- WRITEPROPERTIES: write properties back to plist file
@@ -178,9 +202,14 @@ if updateCheckDate < curDate then
 	-- set next update for 1 week from now
 	set updateCheckDate to (curDate + (7 * days))
 	
-	-- if updateCheckVersion isn't set, set it to the current version of Epichrome
+	-- get current version of Epichrome
+	set curVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
+	
+	-- if updateCheckVersion isn't set, or is earlier than the current version, set it to the current version
 	if updateCheckVersion is "" then
-		set updateCheckVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
+		set updateCheckVersion to curVersion
+	else
+		set updateCheckVersion to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
 	end if
 	
 	-- run the actual update check script
@@ -245,13 +274,13 @@ repeat
 			
 			-- show file selection dialog
 			try
-				set lastSSBPath to (lastSSBPath as alias)
+				set lastSSBPathAlias to (lastSSBPath as alias)
 			on error
-				set lastSSBPath to ""
+				set lastSSBPathAlias to ""
 			end try
 			try
-				if lastSSBPath is not "" then
-					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase default location lastSSBPath) as text
+				if lastSSBPathAlias is not "" then
+					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase default location lastSSBPathAlias) as text
 				else
 					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase) as text
 				end if
@@ -477,14 +506,14 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									
 									-- show file selection dialog
 									try
-										set lastIconPath to (lastIconPath as alias)
+										set lastIconPathAlias to (lastIconPath as alias)
 									on error
-										set lastIconPath to ""
+										set lastIconPathAlias to ""
 									end try
 									try
-										if lastIconPath is not "" then
+										if lastIconPathAlias is not "" then
 											
-											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPath without invisibles
+											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPathAlias without invisibles
 										else
 											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
 										end if

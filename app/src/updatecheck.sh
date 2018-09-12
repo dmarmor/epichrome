@@ -52,6 +52,16 @@ source "${myRuntimePath}/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
 
 mcssbinfo "$myPath"
-checkmcssbversion "$myRuntimePath" "$1"
+
+if [[ "$2" ]] ; then
+    # compare two versions & echo the latest
+    if [[ $(newversion "$1" "$2") ]] ; then
+	echo "$2"
+    else
+	echo "$1"
+    fi
+else
+    checkmcssbversion "$myRuntimePath" "$1"
+fi
 
 [[ "$ok" ]] || abort "$errmsg" 1

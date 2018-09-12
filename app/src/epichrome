@@ -924,7 +924,7 @@ if [[ "$ok" ]] ; then
     chromeHostDir="${HOME}/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 
     # remove dead host links
-    try pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}."
+    try '/dev/null&<' pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}"
     hostFiles=(*)
     
     for curFile in "${hostFiles[@]}" ; do
@@ -937,9 +937,9 @@ if [[ "$ok" ]] ; then
     if [[ -d "$chromeHostDir" ]] ; then
 
 	# get a list of all Chrome hosts
-	try pushd "$chromeHostDir" "Unable to navigate to ${chromeHostDir}."
+	try '/dev/null&<' pushd "$chromeHostDir" "Unable to navigate to ${chromeHostDir}"
 	hostFiles=(*)
-	try popd "Unable to navigate away from ${chromeHostDir}."
+	try '/dev/null&<' popd "Unable to navigate away from ${chromeHostDir}"
 
 	# link to Chrome hosts
 	for curFile in "${hostFiles[@]}" ; do
@@ -952,7 +952,7 @@ if [[ "$ok" ]] ; then
 	
     fi
     
-    try popd "Unable to navigate away from ${hostInstallPath}."
+    try '/dev/null&<' popd "Unable to navigate away from ${hostInstallPath}."
     
     # errors here are non-fatal
     if [[ ! "$ok" ]] ; then

@@ -48,6 +48,12 @@ appGetVersionScript="Resources/Scripts/getversion.py"
 appProfileBase="Library/Application Support/Epichrome/Apps"
 
 
+# DEBUGLOG: log to stderr if debug is on
+function debuglog {
+    [[ "$debug" ]] && echo "${FUNCNAME[1]} (${BASH_LINENO[0]}): " "$@" 1>&2
+}
+
+
 # TRY: try to run a command, as long as no errors have already been thrown
 #
 #      usage:
@@ -435,8 +441,8 @@ function linktree { # $1 = SOFT/HARD
     shift 4
     
     # if hard linking, pushd to source directory
-    [[ "$linktype" != SOFT ]] && try pushd "$sourcedir" \
-				     "$tryid link error: Unable to move to $sourcedir."
+    [[ "$linktype" != SOFT ]] && try '/dev/null&<' pushd "$sourcedir" \
+				     "$tryid link error: Unable to move to $sourcedir"
 
     # loop through entries creating either symbolic or hard links
     for entry in "$@" ; do
@@ -453,7 +459,7 @@ function linktree { # $1 = SOFT/HARD
     
     # if hard linking, popd back from source directory
     [[ "$linktype" != SOFT ]] && \
-	try popd \
+	try '/dev/null&<' popd \
 	    "$tryid link error: Unable to move back from $sourcedir."
 }
 
@@ -592,54 +598,66 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	# default value
 	mcssbVersion="$SSBVersion"
 	mcssbPath=
-	
-	# find Epichrome
-	
+		
+	# if a path is specified, only use that path
 	if [[ "$1" ]] ; then
-	    # we've been told where it is
-	    mcssbPath="$1"
+	    mcssbPath=( "$1" )
 	else
-	    # otherwise use spotlight to find it
-	    if [[ ! -d "$mcssbPath" ]] ; then
+	    
+	    # use spotlight to find Epichrome instances
+	    mcssbPath=$(mdfind \
+			    "kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" \
+			    2> /dev/null)
+	    if [[ "$?" = 0 ]] ; then
+		# get paths to all Epichrome.app instances found
 		
-		mcssbPath=
-		
-		# try app ID first
-		mcssbPath=$(mdfind \
-				"kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" \
-				2> /dev/null)
-		mcssbPath="${mcssbPath%%$'\n'*}"
-		
-		# new app ID failed, try old app ID
-		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath=$(mdfind \
-				    "kMDItemCFBundleIdentifier == 'com.dmarmor.MakeChromeSSB'" \
-				    2> /dev/null)
-		    mcssbPath="${mcssbPath%%$'\n'*}"
-		fi
-		
-		# old app ID failed too, maybe Spotlight is off, try last-ditch
-		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath=~/'Applications/Epichrome.app'
-		fi
-		if [[ ! -d "$mcssbPath" ]]; then
-		    mcssbPath='/Applications/Epichrome.app'
-		fi
+		# break up result into array
+		local oldifs=$IFS
+		IFS=$'\n'
+		mcssbPath=($mcssbPath)
+		IFS="$oldifs"
+	    fi
+	    
+	    # if spotlight fails (or is off) try hard-coded locations
+	    if [[ ! "$mcssbPath" ]] ; then
+		mcssbPath+=( ~/'Applications/Epichrome.app' \
+			       '/Applications/Epichrome.app' )
 	    fi
 	fi
 	
+	local curPath=
+	local latestPath=
+	local latestVersion=0.0.0
+	for curPath in "${mcssbPath[@]}" ; do
+	    if [[ -d "$curPath" ]] ; then
+		debuglog "found Epichrome instance at '$curPath'"
+		
+		# get current value for mcssbVersion
+		try source "${curPath}/Contents/Resources/Scripts/version.sh" ''
+		if [[ "$ok" ]] ; then
+		    if [[ $(newversion "$latestVersion" "$mcssbVersion") ]] ; then
+			latestPath="$curPath"
+			latestVersion="$mcssbVersion"
+		    fi
+		else
+		    ok=1 ; errmsg=
+		fi
+	    fi
+	done
+	
 	# not found
-	if [[ ! -d "$mcssbPath" ]] ; then
+	if [[ "$latestPath" ]] ; then
+	    mcssbPath="$latestPath"
+	    mcssbVersion="$latestVersion"
+	    debuglog "latest Epichrome instance found: version $mcssbVersion at '$mcssbPath'"
+	else
 	    mcssbPath=
+	    mcssbVersion="0.0.0"
+	    
 	    errmsg="Unable to find Epichrome."
 	    ok=
 	    return 1
-	fi
-	
-	# get current value for mcssbVersion
-	try source "${mcssbPath}/Contents/Resources/Scripts/version.sh" \
-	    'Unable to load Epichrome version.'
-	
+	fi	
     fi
     
     [[ "$ok" ]] && return 0

@@ -5,7 +5,7 @@
 /*.xlsx
 /certificates/**
 /research/**
-/app/epichrome.app/**
+/app/*.app/**
 /app/icons/**
 /app/welcome/img/icon*.png
 /builder/**
