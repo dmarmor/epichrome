@@ -605,10 +605,10 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	else
 	    
 	    # use spotlight to find Epichrome instances
-	    mcssbPath=$(mdfind \
+	    try 'mcssbPath=' /usr/bin/mdfind \
 			    "kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" \
-			    2> /dev/null)
-	    if [[ "$?" = 0 ]] ; then
+			    'error'
+	    if [[ "$ok" ]] ; then
 		# get paths to all Epichrome.app instances found
 		
 		# break up result into array
@@ -616,6 +616,10 @@ function mcssbinfo { # (optional)MCSSB-PATH
 		IFS=$'\n'
 		mcssbPath=($mcssbPath)
 		IFS="$oldifs"
+	    else
+		# ignore mdfind errors
+		ok=1
+		errmsg=
 	    fi
 	    
 	    # if spotlight fails (or is off) try hard-coded locations
