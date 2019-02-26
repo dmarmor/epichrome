@@ -94,6 +94,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	mkdir ${APP_RAPP}
 	mv ${APP_RNTM} ${APP_RAPP_CTNT}
 	cp src/Info.plist.runtime ${APP_RAPP_CTNT}/Info.plist
+	rm -rf ${APP_RAPP_CTNT}/_CodeSignature
 	codesign -s 'David Marmor' -vv ${APP_RAPP}
 	rm ${APP_RAPP_CTNT}/Info.plist
 	mv ${APP_RAPP_CTNT} ${APP_RNTM}
