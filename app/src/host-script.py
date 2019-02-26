@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #  org.epichrome.helper-host.py: native messaging host for Epichrome Helper
-#  Copyright (C) 2018  David Marmor
+#  Copyright (C) 2019  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -75,8 +75,58 @@ def receive_message():
     return json.loads(sys.stdin.read(text_length).decode('utf-8'))
 
 
+# $$$$ DIAGNOSTIC
+def diagmsg(str):
+    diag.write(str + '\n')
+    diag.flush()
+    os.fsync(diag)
+diag = open("/Users/davidmarmor/Desktop/gmailhost.txt", "a")
+diagmsg('running now: chromespecial')
+
+
+# SPECIAL CASE -- if default browser is Chrome we need to specify that when opening links
+
+# assume Chrome isn't default
+defaultIsChrome = False
+
+# get launch services plist
+launchsvc = os.path.expanduser('~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist')
+
+# if it exists, parse it
+if os.path.isfile(launchsvc):
+
+    import plistlib
+    
+    try:
+        # parse LaunchServices plist
+        plistData = plistlib.readPlistFromString(subprocess.check_output(['/usr/bin/plutil',
+                                                                              '-convert',
+                                                                              'xml1',
+                                                                              '-o',
+                                                                              '-', launchsvc]))
+
+        diagmsg("success converting & parsing plist")  # $$$$
+        
+        # find handler for http scheme
+        httpHandler = None
+        for handler in plistData['LSHandlers']:
+            if (handler.has_key('LSHandlerURLScheme') and
+                (handler['LSHandlerURLScheme'] == 'http')):
+                httpHandler = handler['LSHandlerRoleAll']
+                diagmsg("got httphandler: '{}'".format(httpHandler))  # $$$$
+                break
+
+        # if it's Chrome, set a flag
+        if httpHandler.lower() == 'com.google.chrome':
+            diagmsg("setting chrome".format(httpHandler))  # $$$$
+            defaultIsChrome = True
+            
+    except Exception as e: # subprocess.CalledProcessError + plistlib err
+        diagmsg("error parsing plist: {}".format(e))  # $$$$
+
+    
 # MAIN LOOP -- just keep on receiving messages until stdin closes
-while 1:
+while True:
     message = receive_message()
 
     if not message:
@@ -91,20 +141,33 @@ while 1:
     if 'url' in message:
         # open the url
 
-        # work around macOS 10.2.5 python bug
-        if platform.mac_ver()[0] == '10.12.5':
-            try:
+        try:
+            # work around identifier confusion between Epichrome apps and Chrome
+            if defaultIsChrome:
+                # $$$ DIAGNOSTIC
+                diagmsg('/usr/bin/open -b {} "{}"'.format(httpHandler, message['url']))
+
+                subprocess.check_call(['/usr/bin/open', '-b', httpHandler, message['url']])
+
+            # work around macOS 10.12.5 python bug
+            elif platform.mac_ver()[0] == '10.12.5':
+                # $$$ DIAGNOSTIC
+                diagmsg('/usr/bin/open "{}"'.format(message['url']))
+                
                 subprocess.check_call(["/usr/bin/open", message['url']])
-            except subprocess.CalledProcessError:
-                send_result("error", message['url'])
+
+            # use python webbrowser module
             else:
-                send_result("success", message['url'])
-        else:
-            try:
+                # $$$ DIAGNOSTIC
+                diagmsg('webbrowser.open("{}")'.format(message['url']))
+                
                 webbrowser.open(message['url'])
-            except webbrowser.Error:
-                send_result("error", message['url'])
-            else:
-                send_result("success", message['url'])
-        
+                
+        except Exception as e:  # webbrowser.Error or subprocess.CalledProcessError
+            diagmsg("  URL open error '{}'".format(e))  # $$$$
+            send_result("error", message['url'])
+        else:
+            diagmsg("  Success!")  # $$$$
+            send_result("success", message['url'])
+            
 exit(0)
