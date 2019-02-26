@@ -40,6 +40,7 @@ EXEC_SED_COMMON:=s/SSBHOSTID/${HOSTID}/
 EXEC_SED_DEBUG:=; s/--user-data-dir/--extensions-update-frequency=${DEBUG_UPDATE_FREQ}\ --user-data-dir/
 EXEC_SED='${EXEC_SED_COMMON}'
 
+# app paths
 APP_CTNT:=${APP}/Contents
 APP_RSRC:=${APP_CTNT}/Resources
 APP_SCPT:=${APP_RSRC}/Scripts
@@ -50,6 +51,10 @@ APP_RNTM_NMHT:=${APP_RNTM_RSRC}/NativeMessagingHosts
 APP_RNTM_NMEX:=${APP_RNTM_RSRC}/External\ Extensions
 APP_RNTM_FRUN:=${APP_RNTM_RSRC}/FirstRun
 APP_RNTM_MCOS:=${APP_RNTM}/MacOS
+
+# for codesigning runtime
+APP_RAPP:=${APP_RSRC}/Runtime.app
+APP_RAPP_CTNT:=${APP_RAPP}/Contents
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
@@ -84,7 +89,15 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_FRUN}/img/m2s2.png \
 	${APP_RNTM_FRUN}/img/m3s1.png \
 	${APP_RNTM_RSRC}/app.icns \
-	${APP_RNTM_RSRC}/document.icns
+	${APP_RNTM_RSRC}/document.icns \
+	src/Info.plist.runtime
+	mkdir ${APP_RAPP}
+	mv ${APP_RNTM} ${APP_RAPP_CTNT}
+	cp src/Info.plist.runtime ${APP_RAPP_CTNT}/Info.plist
+	codesign -s 'David Marmor' -vv ${APP_RAPP}
+	rm ${APP_RAPP_CTNT}/Info.plist
+	mv ${APP_RAPP_CTNT} ${APP_RNTM}
+	rmdir ${APP_RAPP}
 
 debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
 debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
