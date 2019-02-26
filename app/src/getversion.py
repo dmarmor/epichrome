@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #  update.py: parse a JSON file for the latest Epichrome release on GitHub
-#  Copyright (C) 2018  David Marmor
+#  Copyright (C) 2019  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
