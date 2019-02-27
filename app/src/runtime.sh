@@ -571,14 +571,17 @@ function newversion {
 	fi
 	[[ "${old[$i]}" -gt "${new[$i]}" ]] && return 0
     done
-
-    # if any trailing text is updated, that counts too (so 2.1.18b > 2.1.18)
-    if [[ "${old[3]}" < "${new[3]}" ]] ; then
+    
+    # special handling for trailing text: if V1 has trailing text & V2 doesn't,
+    # V1 was pre-release & V2 is release; otherwise, if both have trailing text,
+    # just compare it
+    if [[ ( "${old[3]}" && ! "${new[3]}" ) || \
+	      ( "${old[3]}" && "${new[3]}" && ( "${old[3]}" < "${new[3]}" ) ) ]] ; then
 	echo "1"
 	return 1
-    fi
+    fi 
     
-    # if we got here, the versions are equal
+    # if we got here, the V1 >= V2
     return 0
 }
 
