@@ -99,6 +99,10 @@ ssbBG.startup = function() {
 				    undefined, ['link'], 'separator');
 	    ssbBG.contextMenuCreate('epichrome', 'windowSwitch',
 				    'Show/Hide Address Bar (⌘⇧L)');
+	    ssbBG.contextMenuCreate('epichrome', 'separator3',
+				    undefined, ['link'], 'separator');
+	    ssbBG.contextMenuCreate('epichrome', 'options',
+				    'Options...');
 	    
 	    // set initial context menu text
 	    //ssbBG.focusChangeHandler();
@@ -882,7 +886,11 @@ ssbBG.contextMenuCreate = function(parent, id, title, contexts, type) {
 // contextMenuHandler -- switch a window between app-style and tabs style
 ssbBG.contextMenuHandler = function(info, tab) {
 
-    ssbBG.actionHandler(info.menuItemId, tab, info.linkUrl);
+    if (info.menuItemId == 'options') {
+	chrome.tabs.create({ url: 'chrome-extension://' + chrome.runtime.id + '/options.html'})
+    } else {
+	ssbBG.actionHandler(info.menuItemId, tab, info.linkUrl);
+    }
 }
 
 

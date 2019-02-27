@@ -96,8 +96,8 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	cp src/Info.plist.runtime ${APP_RAPP_CTNT}/Info.plist
 	rm -rf ${APP_RAPP_CTNT}/_CodeSignature
 	codesign -s 'David Marmor' -vv ${APP_RAPP}
-        codesign --verify --deep --strict --verbose=2 ${APP_RAPP}
-        spctl --assess --type execute --verbose=4 ${APP_RAPP}
+	codesign --verify --deep --strict --verbose=2 ${APP_RAPP}
+	spctl --assess --type execute --verbose=4 ${APP_RAPP}
 	rm ${APP_RAPP_CTNT}/Info.plist
 	mv ${APP_RAPP_CTNT} ${APP_RNTM}
 	rmdir ${APP_RAPP}
