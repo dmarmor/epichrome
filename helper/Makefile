@@ -23,7 +23,6 @@
 EXTDIR:=extension
 
 ICON_SIZES:=16 48 128
-ICON_PATH:=images/icons/icon
 EXTVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
 ZIPPREFIX:=epichrome-runtime-
 ZIP:=${ZIPPREFIX}${EXTVERSION}.zip
@@ -35,40 +34,36 @@ OUT_CP:=$(subst src/,${EXTDIR}/,${SRC_CP})
 OUT_JS:=$(subst src/,${EXTDIR}/,${SRC_JS})
 
 OUT_ICONS:=$(patsubst %,${EXTDIR}/icon%.png,${ICON_SIZES})
+
 OUT_IMAGES:=${EXTDIR}/install-bg.png
 INPLACE_ICONS:=$(subst ${EXTDIR}/,src/,${OUT_ICONS})
 INPLACE_IMAGES:=$(subst ${EXTDIR}/,src/,${OUT_IMAGES})
 
-STORE_FILES:=store/icon.png
-
 .PHONY: release beta debug nocompress inplace
 .PHONY: build zip store store-dir clean clean-inplace clean-store clean-all
+.PHONY: link-icon-src
 
 UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
 UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 
 
-
-
 #.PRECIOUS: ${ICONS}
-
-.SECONDEXPANSION:
-
-
 
 release: BUILDTYPE:=release
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
-release: ${EXTDIR}/.build-release build
+release: ${EXTDIR}/.build-release link-release-icons build
 
-beta: ICON_SOURCE=${ICON_PATH}_beta
-beta: ${EXTDIR}/.build-beta build store
+beta: BUILDTYPE:=beta
+beta: ${EXTDIR}/.build-beta link-beta-icons build store
 
+debug: BUILDTYPE:=debug
 debug: ICON_SOURCE=${ICON_PATH}_debug
-debug: ${EXTDIR}/.build-debug build
+debug: ${EXTDIR}/.build-debug link-debug-icons build
 
+nocompress: BUILDTYPE:=nocompress
 nocompress: ICON_SOURCE=${ICON_PATH}_nocompress
 nocompress: NOCOMPRESS=1
-nocompress: ${EXTDIR}/.build-nocompress build
+nocompress: ${EXTDIR}/.build-nocompress link-nocompress-icons build
 
 inplace: BUILDTYPE:=inplace
 inplace: ${INPLACE_ICONS} ${INPLACE_IMAGES}
@@ -81,11 +76,12 @@ ${ZIP}: release
 	rm -f ${ZIP}
 	zip --recurse-paths $@ ${EXTDIR} --exclude '*/.*' '*~'
 
-store: store-dir ${STORE_FILES}
+store: store-dir store/icon.png
 
 clean: clean-inplace clean-store
 	rm -f ${ZIPPREFIX}*.zip
 	rm -rf ${EXTDIR}
+	rm -rf images/icons/current
 
 clean-inplace:
 	rm -f ${INPLACE_ICONS} ${INPLACE_IMAGES}
@@ -99,8 +95,8 @@ clean-all: clean
 store-dir:
 	@mkdir -p store
 
-${STORE_FILES}: $(ICON_SOURCE)
-	sips -s format png -z 122 122 -p 128 128 $(ICON_SOURCE) --out $@
+store/icon.png: images/icons/release/icon128.psd images/icons/beta/icon128.psd
+	sips -s format png -z 122 122 -p 128 128 images/icons/$(BUILDTYPE)/icon128.psd --out $@
 
 # ${EXTDIR}/%.html: src/%.html
 # 	@echo htmlminify $< $@
@@ -120,13 +116,25 @@ ${EXTDIR}/%.js: src/%.js
 	  node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
 	fi
 
-*/%.png: images/%.psd
+${OUT_IMAGES}: ${EXTDIR}/%.png: images/%.psd
+	sips -s format png $< --out $@
+${INPLACE_IMAGES}: src/%.png: images/%.psd
 	sips -s format png $< --out $@
 
-*/icon%.png: ${ICON_PATH}_$${BUILDTYPE}%.psd
+# flurf: ${ICON_PATH}_$$(BUILDTYPE)16.psd
+# 	echo $<
+
+
+link-%-icons:
+	rm -rf images/icons/current
+	ln -s $(BUILDTYPE) images/icons/current
+
+${OUT_ICONS}: ${EXTDIR}/icon%.png: images/icons/current/icon%.psd
+	sips -s format png -z $* $* $< --out $@
+${INPLACE_ICONS}: src/icon%.png: images/icons/inplace/icon%.psd
 	sips -s format png -z $* $* $< --out $@
 
 ${EXTDIR}/.build-%:
 	mkdir -p ${EXTDIR}
-	rm -f ${OUT_JS} ${EXTDIR}/.build-*
+	rm -f ${OUT_JS} ${OUT_ICONS} ${EXTDIR}/.build-*
 	touch $@
