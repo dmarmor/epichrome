@@ -15,5 +15,6 @@
 /helper/store/**
 /helper/src/*.png
 /helper/src/*.gif
+/helper/node/**
 /images/icons/source/**
 /tests/**

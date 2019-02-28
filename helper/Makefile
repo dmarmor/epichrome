@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the Epichrome Runtime extension.
-#  Copyright (C) 2018  David Marmor
+#  Copyright (C) 2019  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -20,8 +20,10 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+EXTDIR:=extension
+
 ICON_SIZES:=16 48 128
-ICON_SOURCE:=../images/icons/app.psd
+ICON_PATH:=images/icons/icon
 EXTVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
 ZIPPREFIX:=epichrome-runtime-
 ZIP:=${ZIPPREFIX}${EXTVERSION}.zip
@@ -29,33 +31,47 @@ ZIP:=${ZIPPREFIX}${EXTVERSION}.zip
 SRC_CP:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 SRC_JS:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
-OUT_CP:=$(subst src/,extension/,${SRC_CP})
-OUT_JS:=$(subst src/,extension/,${SRC_JS})
+OUT_CP:=$(subst src/,${EXTDIR}/,${SRC_CP})
+OUT_JS:=$(subst src/,${EXTDIR}/,${SRC_JS})
 
-OUT_ICONS:=$(patsubst %,extension/icon%.png,${ICON_SIZES})
-OUT_IMAGES:=extension/install-bg.png
-INPLACE_FILES:=$(subst extension/,src/,${OUT_ICONS}) $(subst extension/,src/,${OUT_IMAGES})
+OUT_ICONS:=$(patsubst %,${EXTDIR}/icon%.png,${ICON_SIZES})
+OUT_IMAGES:=${EXTDIR}/install-bg.png
+INPLACE_ICONS:=$(subst ${EXTDIR}/,src/,${OUT_ICONS})
+INPLACE_IMAGES:=$(subst ${EXTDIR}/,src/,${OUT_IMAGES})
 
 STORE_FILES:=store/icon.png
 
-.PHONY: release debug nocompress inplace build zip store store-dir clean clean-inplace clean-store clean-all
+.PHONY: release beta debug nocompress inplace
+.PHONY: build zip store store-dir clean clean-inplace clean-store clean-all
 
 UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
 UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 
 
 
+
 #.PRECIOUS: ${ICONS}
 
-release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS) 
-release: extension/.build-release build
+.SECONDEXPANSION:
 
-debug: extension/.build-debug build
 
+
+release: BUILDTYPE:=release
+release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
+release: ${EXTDIR}/.build-release build
+
+beta: ICON_SOURCE=${ICON_PATH}_beta
+beta: ${EXTDIR}/.build-beta build store
+
+debug: ICON_SOURCE=${ICON_PATH}_debug
+debug: ${EXTDIR}/.build-debug build
+
+nocompress: ICON_SOURCE=${ICON_PATH}_nocompress
 nocompress: NOCOMPRESS=1
-nocompress: extension/.build-nocompress build
+nocompress: ${EXTDIR}/.build-nocompress build
 
-inplace: ${INPLACE_FILES}
+inplace: BUILDTYPE:=inplace
+inplace: ${INPLACE_ICONS} ${INPLACE_IMAGES}
 
 build: ${OUT_CP} ${OUT_JS} ${OUT_ICONS} ${OUT_IMAGES}
 
@@ -63,16 +79,16 @@ zip: ${ZIP}
 
 ${ZIP}: release
 	rm -f ${ZIP}
-	zip --recurse-paths $@ extension --exclude '*/.*' '*~'
+	zip --recurse-paths $@ ${EXTDIR} --exclude '*/.*' '*~'
 
 store: store-dir ${STORE_FILES}
 
 clean: clean-inplace clean-store
 	rm -f ${ZIPPREFIX}*.zip
-	rm -rf extension
+	rm -rf ${EXTDIR}
 
 clean-inplace:
-	rm -f ${INPLACE_FILES}
+	rm -f ${INPLACE_ICONS} ${INPLACE_IMAGES}
 
 clean-store:
 	rm -rf store
@@ -83,55 +99,34 @@ clean-all: clean
 store-dir:
 	@mkdir -p store
 
-${STORE_FILES}: ${ICON_SOURCE}
-	sips -s format png -z 122 122 -p 128 128 $< --out $@
+${STORE_FILES}: $(ICON_SOURCE)
+	sips -s format png -z 122 122 -p 128 128 $(ICON_SOURCE) --out $@
 
-extension/%.html: src/%.html
-	@mkdir -p extension
-	@echo htmlminify $< $@
+# ${EXTDIR}/%.html: src/%.html
+# 	@echo htmlminify $< $@
 
-${OUT_CP}: extension/%: src/%
-	@mkdir -p extension
+${OUT_CP}: ${EXTDIR}/%: src/%
 	cp -p $< $@
 
-${OUT_JS}: extension/%: src/%
-	@mkdir -p extension
-	@nocompress=$(NOCOMPRESS) ; \
-	if [ \! "$$nocompress" ] ; then \
-	  uglify=$$(which uglifyjs) ; \
-	  if [ $$? != 0 ] ; then \
-	    echo ; \
-	    echo "**** WARNING: uglify not found -- JavaScript will not be minified." ; \
-	    echo "     Please install node.js (https://nodejs.org/download/) and then run" ; \
-	    echo "     > sudo npm install uglify-js --global" ; \
-	    echo ; \
-	    nocompress=1 ; \
-	  fi ; \
-	fi ; \
-	if [ "$$nocompress" ] ; then \
+# compression relies on node.js package uglify-js
+# > brew install node
+# > mkdir -p node ; cd node ; npm install uglify-js
+${EXTDIR}/%.js: src/%.js
+	@if [[ "$(NOCOMPRESS)" ]] ; then \
 	  echo cp -p $< $@ ; \
 	  cp -p $< $@ ; \
 	else \
-	  echo uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
-	  uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
+	  echo node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
+	  node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
 	fi
 
-extension/%.png: images/%.psd
-	@mkdir -p extension
+*/%.png: images/%.psd
 	sips -s format png $< --out $@
 
-extension/%.gif: images/%.gif
-	@mkdir -p extension
-	cp -p $< $@
-
-${OUT_ICONS}: extension/icon%.png: ${ICON_SOURCE}
-	@mkdir -p extension
+*/icon%.png: ${ICON_PATH}_$${BUILDTYPE}%.psd
 	sips -s format png -z $* $* $< --out $@
 
-${INPLACE_FILES}: src/%: extension/%
-	cp -p $< $@
-
-extension/.build-%:
-	rm -f ${OUT_JS} extension/.build-*
-	@mkdir -p extension
+${EXTDIR}/.build-%:
+	mkdir -p ${EXTDIR}
+	rm -f ${OUT_JS} ${EXTDIR}/.build-*
 	touch $@
