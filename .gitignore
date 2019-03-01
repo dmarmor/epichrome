@@ -12,9 +12,10 @@
 /builder/**
 /helper/*.zip
 /helper/extension/**
-/helper/store/**
+/helper/images/icons/current
+/helper/node/**
 /helper/src/*.png
 /helper/src/*.gif
-/helper/node/**
+/helper/store/**
 /images/icons/source/**
 /tests/**

@@ -23,10 +23,10 @@
 EXTDIR:=extension
 
 ICON_SIZES:=16 48 128
-EXTVERSION:=$(shell sed -En 's/^.*"version"[^0-9]*([0-9][0-9.]*[0-9]).*$$/\1/p' src/manifest.json)
-ZIPPREFIX:=epichrome-runtime-
-ZIP:=${ZIPPREFIX}${EXTVERSION}.zip
-
+EXTVERSION:=$(shell sed -En 's/^[^"]*"version"[^:]*:[^"]*"([^"]+)".*$$/\1/p' src/manifest.json)
+ZIPPREFIX:=epichrome-helper-
+ZIP_RELEASE:=${ZIPPREFIX}${EXTVERSION}.zip
+ZIP_BETA:=${ZIPPREFIX}beta-${EXTVERSION}.zip
 SRC_CP:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 SRC_JS:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
@@ -40,7 +40,7 @@ INPLACE_ICONS:=$(subst ${EXTDIR}/,src/,${OUT_ICONS})
 INPLACE_IMAGES:=$(subst ${EXTDIR}/,src/,${OUT_IMAGES})
 
 .PHONY: release beta debug nocompress inplace
-.PHONY: build zip store store-dir clean clean-inplace clean-store clean-all
+.PHONY: build store store-dir clean clean-inplace clean-store clean-all
 .PHONY: link-icon-src
 
 UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
@@ -51,10 +51,10 @@ UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 
 release: BUILDTYPE:=release
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
-release: ${EXTDIR}/.build-release link-release-icons build
+release: ${EXTDIR}/.build-release link-release-icons build ${ZIP_RELEASE}
 
 beta: BUILDTYPE:=beta
-beta: ${EXTDIR}/.build-beta link-beta-icons build store
+beta: ${EXTDIR}/.build-beta link-beta-icons build store ${ZIP_BETA}
 
 debug: BUILDTYPE:=debug
 debug: ICON_SOURCE=${ICON_PATH}_debug
@@ -70,10 +70,8 @@ inplace: ${INPLACE_ICONS} ${INPLACE_IMAGES}
 
 build: ${OUT_CP} ${OUT_JS} ${OUT_ICONS} ${OUT_IMAGES}
 
-zip: ${ZIP}
-
-${ZIP}: release
-	rm -f ${ZIP}
+%.zip:
+	rm -f $@
 	zip --recurse-paths $@ ${EXTDIR} --exclude '*/.*' '*~'
 
 store: store-dir store/icon.png
