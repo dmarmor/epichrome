@@ -104,7 +104,7 @@ ${APP}: ${APP_SCPT}/main.scpt \
 beta: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_BETA}'
 #debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_BETA}'
 beta: EXEC_SED='${EXEC_SED_COMMON}'
-beta: ${APP} ${APP_RSRC}/applet_beta.icns ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/document_beta.icns
+beta: ${APP} ${APP_RNTM_NMEX}/${HELPERID_BETA}.json ${APP_RSRC}/applet_beta.icns ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/document_beta.icns
 	mv -f ${APP_RSRC}/applet_beta.icns ${APP_RSRC}/applet.icns
 	mv -f ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/app.icns
 	mv -f ${APP_RNTM_RSRC}/document_beta.icns ${APP_RNTM_RSRC}/document.icns
@@ -171,8 +171,8 @@ ${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh
 	sed "s/SSBVERSION/${VERSION}/" $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
-${APP_RNTM_NMEX}/${HELPERID}.json: src/install-extension.json
-	cp -p $< ${APP_RNTM_NMEX}/${HELPERID}.json
+${APP_RNTM_NMEX}/${HELPERID}.json ${APP_RNTM_NMEX}/${HELPERID_BETA}.json: src/install-extension.json
+	cp -p $< "$@"
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
 
 ${APP_RNTM_FRUN}/welcome.%: welcome/welcome.%
