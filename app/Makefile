@@ -24,20 +24,20 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=Epichrome.app
 HELPERBG:=../helper/src/background.js
-DEBUG_UPDATE_FREQ:=30
+#DEBUG_UPDATE_FREQ:=30
 HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
 HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 HELPERID_INPLACE:=jpfekcccdbechegofpnjgnacicmoieoe
-HELPERID_DEBUG:=mimehlkkdehijopnahjpgcbmalichlfe
+HELPERID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
 
 HOSTMANIFEST_SED_COMMON:=s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; 
 HOSTMANIFEST_SED_RELEASE:=s/SSBHELPERID/${HELPERID}/
-HOSTMANIFEST_SED_DEBUG:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_INPLACE}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_DEBUG}\/"/
+HOSTMANIFEST_SED_BETA:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_INPLACE}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_BETA}\/"/
 
 HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_RELEASE}'
 
 EXEC_SED_COMMON:=s/SSBHOSTID/${HOSTID}/
-EXEC_SED_DEBUG:=; s/--user-data-dir/--extensions-update-frequency=${DEBUG_UPDATE_FREQ}\ --user-data-dir/
+#EXEC_SED_BETA:=; s/--user-data-dir/--extensions-update-frequency=${DEBUG_UPDATE_FREQ}\ --user-data-dir/
 EXEC_SED='${EXEC_SED_COMMON}'
 
 # app paths
@@ -61,7 +61,6 @@ INSTALL_PATH:=/Applications/Epichrome.app
 .PHONY: install clean clean-all debug
 
 .PRECIOUS: icons/app.icns icons/document.icns welcome/img/icon128.png
-
 
 ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
@@ -102,9 +101,10 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	mv ${APP_RAPP_CTNT} ${APP_RNTM}
 	rmdir ${APP_RAPP}
 
-debug: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_DEBUG}'
-debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_DEBUG}'
-debug: ${APP}
+beta: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_BETA}'
+#debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_BETA}'
+beta: EXEC_SED='${EXEC_SED_COMMON}'
+beta: ${APP}
 
 clean:
 	rm -rf ${APP}
