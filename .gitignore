@@ -10,12 +10,12 @@
 /app/icons/**
 /app/welcome/img/icon*.png
 /builder/**
-/helper/*.zip
-/helper/extension/**
+/helper/build/**
 /helper/images/icons/current
 /helper/node/**
 /helper/src/*.png
 /helper/src/*.gif
 /helper/store/**
+/helper/zip/**
 /images/icons/source/**
 /tests/**

@@ -20,69 +20,78 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-EXTDIR:=extension
 
-ICON_SIZES:=16 48 128
+EXTDIR:=build
+ZIPDIR:=zip
+
+TARGETS=release beta
+
 EXTVERSION:=$(shell sed -En 's/^[^"]*"version"[^:]*:[^"]*"([^"]+)".*$$/\1/p' src/manifest.json)
-ZIPPREFIX:=epichrome-helper-
-ZIP_RELEASE:=${ZIPPREFIX}${EXTVERSION}.zip
-ZIP_BETA:=${ZIPPREFIX}beta-${EXTVERSION}.zip
-SRC_CP:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
-SRC_JS:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
-OUT_CP:=$(subst src/,${EXTDIR}/,${SRC_CP})
-OUT_JS:=$(subst src/,${EXTDIR}/,${SRC_JS})
+ZIP_RELEASE:=${ZIPDIR}/epichrome-runtime-${EXTVERSION}.zip
+ZIP_BETA:=${ZIPDIR}/epichrome-runtime-beta-${EXTVERSION}.zip
 
-OUT_ICONS:=$(patsubst %,${EXTDIR}/icon%.png,${ICON_SIZES})
+CP_SRC:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
+JS_SRC:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
-OUT_IMAGES:=${EXTDIR}/install-bg.png
-INPLACE_ICONS:=$(subst ${EXTDIR}/,src/,${OUT_ICONS})
-INPLACE_IMAGES:=$(subst ${EXTDIR}/,src/,${OUT_IMAGES})
+CP_RELEASE:=$(CP_SRC:src/%=$(EXTDIR)/release/%)
+JS_RELEASE:=$(JS_SRC:src/%=$(EXTDIR)/release/%)
 
-.PHONY: release beta debug nocompress inplace
-.PHONY: build store store-dir clean clean-inplace clean-store clean-all
+CP_BETA:=$(CP_SRC:src/%=$(EXTDIR)/beta/%)
+JS_BETA:=$(JS_SRC:src/%=$(EXTDIR)/beta/%)
+
+ICONS:=icon16.png icon48.png icon128.png
+IMAGES:=install-bg.png
+
+ICONS_RELEASE:=$(ICONS:%=$(EXTDIR)/release/%)
+IMAGES_RELEASE:=$(IMAGES:%=$(EXTDIR)/release/%)
+
+ICONS_BETA:=$(ICONS:%=$(EXTDIR)/beta/%)
+IMAGES_BETA:=$(IMAGES:%=$(EXTDIR)/beta/%)
+
+ICONS_INPLACE:=$(ICONS:%=src/%)
+IMAGES_INPLACE:=$(IMAGES:%=src/%)
+
+.PHONY: release beta inplace build-release build-beta
+.PHONY: store store-dir clean clean-inplace clean-store clean-all
 .PHONY: link-icon-src
 
 UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
 UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 
 
-#.PRECIOUS: ${ICONS}
+# BUILD TARGETS
 
-release: BUILDTYPE:=release
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
-release: ${EXTDIR}/.build-release link-release-icons build ${ZIP_RELEASE}
+release: $(EXTDIR)/release $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
+$(CP_RELEASE) $(JS_RELEASE): $(EXTDIR)/release/%: src/%
+$(ICONS_RELEASE): ../images/icons/app.psd
+$(IMAGES_RELEASE): $(EXTDIR)/release/%.png: images/%.psd
+store/icon_release.png: ../images/icons/app.psd
+$(ZIP_RELEASE): $(EXTDIR)/release
 
-beta: BUILDTYPE:=beta
-beta: ${EXTDIR}/.build-beta link-beta-icons build store ${ZIP_BETA}
+beta: $(EXTDIR)/beta $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
+$(CP_BETA) $(JS_BETA): $(EXTDIR)/beta/%: src/%
+$(EXTDIR)/beta/icon48.png $(EXTDIR)/beta/icon128.png: ../images/icons/app_beta.psd
+$(EXTDIR)/beta/icon16.png: images/icons/beta16.psd
+$(IMAGES_BETA): $(EXTDIR)/beta/%.png: images/%.psd
+store/icon_beta.png: ../images/icons/app_beta.psd
+$(ZIP_BETA): $(EXTDIR)/beta
 
-debug: BUILDTYPE:=debug
-debug: ICON_SOURCE=${ICON_PATH}_debug
-debug: ${EXTDIR}/.build-debug link-debug-icons build
+inplace: $(ICONS_INPLACE) $(IMAGES_INPLACE)
+src/icon48.png src/icon128.png: images/icons/inplace.psd
+src/icon16.png: images/icons/inplace16.psd
+$(IMAGES_INPLACE): src/%.png: images/%.psd
 
-nocompress: BUILDTYPE:=nocompress
-nocompress: ICON_SOURCE=${ICON_PATH}_nocompress
-nocompress: NOCOMPRESS=1
-nocompress: ${EXTDIR}/.build-nocompress link-nocompress-icons build
 
-inplace: BUILDTYPE:=inplace
-inplace: ${INPLACE_ICONS} ${INPLACE_IMAGES}
-
-build: ${OUT_CP} ${OUT_JS} ${OUT_ICONS} ${OUT_IMAGES}
-
-%.zip:
-	rm -f $@
-	zip --recurse-paths $@ ${EXTDIR} --exclude '*/.*' '*~'
-
-store: store-dir store/icon.png
+# BUILD RULES
 
 clean: clean-inplace clean-store
-	rm -f ${ZIPPREFIX}*.zip
+	rm -rf zip
 	rm -rf ${EXTDIR}
-	rm -rf images/icons/current
 
 clean-inplace:
-	rm -f ${INPLACE_ICONS} ${INPLACE_IMAGES}
+	rm -f $(ICONS_INPLACE) $(IMAGES_INPLACE)
 
 clean-store:
 	rm -rf store
@@ -90,49 +99,43 @@ clean-store:
 clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 
+
+$(TARGETS:%=$(EXTDIR)/%):
+	mkdir -p $@
+
+%.zip:
+	@mkdir -p ${ZIPDIR}
+	rm -f $@
+	zip --recurse-paths $@ $< --exclude '*/.*' '*~'
+
+
+# STORE ICONS
+
+store: store-dir store/icon_release.png store/icon_beta.png
+
 store-dir:
 	@mkdir -p store
 
-store/icon.png: images/icons/release/icon128.psd images/icons/beta/icon128.psd
-	sips -s format png -z 122 122 -p 128 128 images/icons/$(BUILDTYPE)/icon128.psd --out $@
+store/icon_%.png:
+	sips -s format png -z 122 122 -p 128 128 $< --out $@
 
 # ${EXTDIR}/%.html: src/%.html
 # 	@echo htmlminify $< $@
 
-${OUT_CP}: ${EXTDIR}/%: src/%
+$(CP_RELEASE) $(CP_BETA):
 	cp -p $< $@
 
 # compression relies on node.js package uglify-js
 # > brew install node
 # > mkdir -p node ; cd node ; npm install uglify-js
-${EXTDIR}/%.js: src/%.js
-	@if [[ "$(NOCOMPRESS)" ]] ; then \
-	  echo cp -p $< $@ ; \
-	  cp -p $< $@ ; \
-	else \
-	  echo node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
-	  node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS) ; \
-	fi
+$(JS_RELEASE) $(JS_BETA):
+	node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS)
 
-${OUT_IMAGES}: ${EXTDIR}/%.png: images/%.psd
-	sips -s format png $< --out $@
-${INPLACE_IMAGES}: src/%.png: images/%.psd
+$(IMAGES_RELEASE) $(IMAGES_BETA) $(IMAGES_INPLACE):
 	sips -s format png $< --out $@
 
-# flurf: ${ICON_PATH}_$$(BUILDTYPE)16.psd
-# 	echo $<
-
-
-link-%-icons:
-	rm -rf images/icons/current
-	ln -s $(BUILDTYPE) images/icons/current
-
-${OUT_ICONS}: ${EXTDIR}/icon%.png: images/icons/current/icon%.psd
-	sips -s format png -z $* $* $< --out $@
-${INPLACE_ICONS}: src/icon%.png: images/icons/inplace/icon%.psd
-	sips -s format png -z $* $* $< --out $@
-
-${EXTDIR}/.build-%:
-	mkdir -p ${EXTDIR}
-	rm -f ${OUT_JS} ${OUT_ICONS} ${EXTDIR}/.build-*
-	touch $@
+$(ICONS_RELEASE) $(ICONS_BETA) $(ICONS_INPLACE):
+	@size="$@" ; size="$${size##*icon}" ; size="$${size%.png}" && \
+	cmd=( sips -s format png -z $$size $$size $< --out $@ ) && \
+	echo "$${cmd[*]}" && \
+	"$${cmd[@]}"
