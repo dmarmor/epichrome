@@ -60,7 +60,7 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: install clean clean-all debug
 
-.PRECIOUS: icons/app.icns icons/document.icns welcome/img/icon128.png
+.PRECIOUS: icons/app.icns icons/document.icns icons/app_beta.icns icons/document_beta.icns welcome/img/icon128.png
 
 ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
@@ -104,7 +104,10 @@ ${APP}: ${APP_SCPT}/main.scpt \
 beta: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_BETA}'
 #debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_BETA}'
 beta: EXEC_SED='${EXEC_SED_COMMON}'
-beta: ${APP}
+beta: ${APP} ${APP_RSRC}/applet_beta.icns ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/document_beta.icns
+	mv -f ${APP_RSRC}/applet_beta.icns ${APP_RSRC}/applet.icns
+	mv -f ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/app.icns
+	mv -f ${APP_RNTM_RSRC}/document_beta.icns ${APP_RNTM_RSRC}/document.icns
 
 clean:
 	rm -rf ${APP}
@@ -137,6 +140,9 @@ ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
 	@touch ${APP} ${APP_CTNT}
 
 ${APP_RSRC}/applet.icns: icons/epichrome.icns
+${APP_RSRC}/applet_beta.icns: icons/epichrome_beta.icns
+
+${APP_RSRC}/applet.icns ${APP_RSRC}/applet_beta.icns:
 	cp -p $< $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC}
 
