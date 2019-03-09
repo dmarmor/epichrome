@@ -13,7 +13,7 @@ See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELO
 
 ## New in version 2.2.4
 
-Fixed issues with macOS Mojave. Apps should now run smoothly and route links to the default browser (even if it's Chrome) correctly and without the long delay users had been seeing.
+Fixed problems with macOS Mojave. Apps should now run smoothly and route links to the default browser correctly (even if it's Chrome), without the long delay users had been seeing. Apps should also be less prone to losing their icons and dock names (though some users are still reporting seeing this).
 
 
 ## New in version 2.2
@@ -22,7 +22,7 @@ Fixed issues with macOS Mojave. Apps should now run smoothly and route links to 
 
 Version 2.2 changes Epichrome's underlying architecture significantly in order to allow it to work with Chrome 69, which has added much stricter security.
 
-You shouldn't see much change in how your apps work, but there are a couple **important points** to be aware of:
+You shouldn't see much change in how your apps work, but there are a few **important points** to be aware of:
 
 - Epichrome apps are now explicitly *single-user* apps. Because of the way the Chrome engine is dynamically linked at runtime, Epichrome apps cannot be run by multiple users at once. They also cannot be run by users who don't have write permission to the app itself. For this reason, Epichrome no longer allows authentication during app creation. (This means, for instance, that if you don't have an admin account, you cannot create an Epichrome app in the /Applications folder.) The architecture may evolve in future releases, but Epichrome apps will almost certainly remain single-user from now on.
 
