@@ -20,25 +20,27 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+BETAVERSION:=02
+
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 
 APP:=Epichrome.app
-HELPERBG:=../helper/src/background.js
+RUNTIMEBG:=../runtime/src/background.js
 #DEBUG_UPDATE_FREQ:=30
-HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${HELPERBG})
-HELPERID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
-HELPERID_INPLACE:=jpfekcccdbechegofpnjgnacicmoieoe
-HELPERID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
+HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' ${RUNTIMEBG})
+HOSTID_OLD:=org.epichrome.helper
+RUNTIMEID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
+RUNTIMEID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
+RUNTIMEID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
-HOSTMANIFEST_SED_COMMON:=s/SSBHOSTID/${HOSTID}/; s/SSBVERSION/${VERSION}/; 
-HOSTMANIFEST_SED_RELEASE:=s/SSBHELPERID/${HELPERID}/
-HOSTMANIFEST_SED_BETA:=s/("chrome-extension:\/\/)SSBHELPERID(\/")/'"$$nl"'        \1${HELPERID}\2,'"$$nl"'        "chrome-extension:\/\/${HELPERID_INPLACE}\/",'"$$nl"'        "chrome-extension:\/\/${HELPERID_BETA}\/"/
+HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(RUNTIMEID)\/",\\\n        "chrome-extension:\/\/$(RUNTIMEID_BETA)\/"
+HOSTMANIFEST_SED_RELEASE:=-e $$'s/SSBRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
+HOSTMANIFEST_SED_BETA:=-e $$'s/SSBRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
 
-HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_RELEASE}'
+HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_RELEASE)
 
-EXEC_SED_COMMON:=s/SSBHOSTID/${HOSTID}/
+EXEC_SED:=-e 's/SSBHOSTID1/$(HOSTID)/' -e 's/SSBHOSTID2/$(HOSTID_OLD)/'
 #EXEC_SED_BETA:=; s/--user-data-dir/--extensions-update-frequency=${DEBUG_UPDATE_FREQ}\ --user-data-dir/
-EXEC_SED='${EXEC_SED_COMMON}'
 
 # app paths
 APP_CTNT:=${APP}/Contents
@@ -58,11 +60,11 @@ APP_RAPP_CTNT:=${APP_RAPP}/Contents
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: install clean clean-all debug
+.PHONY: touchversion beta install clean clean-all
 
 .PRECIOUS: icons/app.icns icons/document.icns icons/app_beta.icns icons/document_beta.icns welcome/img/icon128.png
 
-${APP}: ${APP_SCPT}/main.scpt \
+${APP}: touchversion ${APP_SCPT}/main.scpt \
 	${APP_CTNT}/Info.plist \
 	${APP_RSRC}/applet.icns \
 	${APP_RSRC}/docbg.png \
@@ -76,9 +78,10 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	${APP_RNTM_SCPT}/getversion.py \
 	${APP_RNTM_SCPT}/infoplist.py \
 	${APP_RNTM_SCPT}/strings.py \
-	${APP_RNTM_NMHT}/${HOSTID}.json \
-	${APP_RNTM_NMHT}/${HOSTID}-host.py \
-	${APP_RNTM_NMEX}/${HELPERID}.json \
+	${APP_RNTM_NMHT}/$(HOSTID).json \
+	${APP_RNTM_NMHT}/$(HOSTID_OLD).json \
+	${APP_RNTM_NMHT}/epichromeruntimehost.py \
+	${APP_RNTM_NMEX}/$(RUNTIMEID).json \
 	${APP_RNTM_FRUN}/welcome.html \
 	${APP_RNTM_FRUN}/welcome.css \
 	${APP_RNTM_FRUN}/img/icon128.png \
@@ -101,13 +104,18 @@ ${APP}: ${APP_SCPT}/main.scpt \
 	mv ${APP_RAPP_CTNT} ${APP_RNTM}
 	rmdir ${APP_RAPP}
 
-beta: HOSTMANIFEST_SED='${HOSTMANIFEST_SED_COMMON}${HOSTMANIFEST_SED_BETA}'
+touchversion:
+	@touch src/version.sh
+
+beta: VERSION:=$(VERSION)b$(BETAVERSION)
+beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
 #debug: EXEC_SED='${EXEC_SED_COMMON}${EXEC_SED_BETA}'
-beta: EXEC_SED='${EXEC_SED_COMMON}'
-beta: ${APP} ${APP_RNTM_NMEX}/${HELPERID_BETA}.json ${APP_RSRC}/applet_beta.icns ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/document_beta.icns
+beta: ${APP} ${APP_RSRC}/applet_beta.icns ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/document_beta.icns
 	mv -f ${APP_RSRC}/applet_beta.icns ${APP_RSRC}/applet.icns
 	mv -f ${APP_RNTM_RSRC}/app_beta.icns ${APP_RNTM_RSRC}/app.icns
 	mv -f ${APP_RNTM_RSRC}/document_beta.icns ${APP_RNTM_RSRC}/document.icns
+	rm ${APP_SCPT}/version.sh
+	sed -E 's/^(mcssbVersion=.*)$$/\1b$(BETAVERSION)/' src/version.sh > $(APP_SCPT)/version.sh
 
 clean:
 	rm -rf ${APP}
@@ -136,7 +144,7 @@ ${APP_SCPT}/main.scpt: src/main.applescript
 	touch ${APP}
 
 ${APP_CTNT}/Info.plist: src/Info.plist src/version.sh
-	sed "s/SSBVERSION/${VERSION}/" $< > $@
+	sed "s/SSBVERSION/$(VERSION)/" $< > $@
 	@touch ${APP} ${APP_CTNT}
 
 ${APP_RSRC}/applet.icns: icons/epichrome.icns
@@ -154,7 +162,7 @@ ${APP_SCPT}/%: src/%
 	cp -p $< ${APP_SCPT}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_SCPT}
 
-${APP_RNTM_MCOS}/Epichrome: src/epichrome ${HELPERBG}
+${APP_RNTM_MCOS}/Epichrome: src/epichrome ${RUNTIMEBG}
 	sed -E $(EXEC_SED) $< > $@
 	chmod 755 $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_MCOS}
@@ -163,15 +171,20 @@ ${APP_RNTM_SCPT}/%: src/%
 	cp -p $< ${APP_RNTM_SCPT}/
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_SCPT}
 
-${APP_RNTM_NMHT}/${HOSTID}.json: src/host-manifest.json src/version.sh
-	nl=\\$$'\n' ; sed -E $(HOSTMANIFEST_SED) $< > $@
+${APP_RNTM_NMHT}/${HOSTID}.json: src/epichromeruntimehost.json src/version.sh
+	sed -E -e 's/SSBHOSTID/$(HOSTID)/' -e 's/SSBVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
-${APP_RNTM_NMHT}/${HOSTID}-host.py: src/host-script.py src/version.sh
-	sed "s/SSBVERSION/${VERSION}/" $< > $@
+# remove this after Epichrome Runtime 1.2.0 release
+${APP_RNTM_NMHT}/${HOSTID_OLD}.json: src/epichromeruntimehost.json src/version.sh
+	sed -E -e 's/SSBHOSTID/$(HOSTID_OLD)/' -e 's/SSBVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
 
-${APP_RNTM_NMEX}/${HELPERID}.json ${APP_RNTM_NMEX}/${HELPERID_BETA}.json: src/install-extension.json
+${APP_RNTM_NMHT}/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+	sed 's/SSBVERSION/${VERSION}/' $< > $@
+	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMHT}
+
+${APP_RNTM_NMEX}/${RUNTIMEID}.json: src/install-extension.json
 	cp -p $< "$@"
 	@touch ${APP} ${APP_CTNT} ${APP_RSRC} ${APP_RNTM} ${APP_RNTM_RSRC} ${APP_RNTM_NMEX}
 

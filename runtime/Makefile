@@ -21,17 +21,22 @@
 #
 
 
+# EXTENSION INFO
+EXTNAME:=Epichrome Runtime
+EXTVERSION:=1.2.0
+EXTVERSION_BETA:=1.1.99.2
+
+EXTVERSIONNAME:=$(EXTVERSION)
+
 EXTDIR:=build
 ZIPDIR:=zip
 
 TARGETS=release beta
 
-EXTVERSION:=$(shell sed -En 's/^[^"]*"version"[^:]*:[^"]*"([^"]+)".*$$/\1/p' src/manifest.json)
-
 ZIP_RELEASE:=${ZIPDIR}/epichrome-runtime-${EXTVERSION}.zip
 ZIP_BETA:=${ZIPDIR}/epichrome-runtime-beta-${EXTVERSION}.zip
 
-CP_SRC:=src/manifest.json $(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
+CP_SRC:=$(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 JS_SRC:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
 CP_RELEASE:=$(CP_SRC:src/%=$(EXTDIR)/release/%)
@@ -63,14 +68,19 @@ UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 # BUILD TARGETS
 
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
-release: $(EXTDIR)/release $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
+release: $(EXTDIR)/release $(EXTDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
+$(EXTDIR)/release/manifest.json: src/manifest.json
 $(CP_RELEASE) $(JS_RELEASE): $(EXTDIR)/release/%: src/%
 $(ICONS_RELEASE): ../images/icons/app.psd
 $(IMAGES_RELEASE): $(EXTDIR)/release/%.png: images/%.psd
 store/icon_release.png: ../images/icons/app.psd
 $(ZIP_RELEASE): $(EXTDIR)/release
 
-beta: $(EXTDIR)/beta $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
+beta: EXTVERSIONNAME:=$(EXTVERSION) beta $(shell x="$(EXTVERSION_BETA)" ; echo "$${x##*.}")
+beta: EXTVERSION:=$(EXTVERSION_BETA)
+beta: EXTNAME:=$(EXTNAME) BETA
+beta: $(EXTDIR)/beta $(EXTDIR)/beta/manifest.json $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
+$(EXTDIR)/beta/manifest.json: src/manifest.json
 $(CP_BETA) $(JS_BETA): $(EXTDIR)/beta/%: src/%
 $(EXTDIR)/beta/icon48.png $(EXTDIR)/beta/icon128.png: ../images/icons/app_beta.psd
 $(EXTDIR)/beta/icon16.png: images/icons/beta16.psd
@@ -121,6 +131,12 @@ store/icon_%.png:
 
 # ${EXTDIR}/%.html: src/%.html
 # 	@echo htmlminify $< $@
+
+%.json:
+	sed -e 's/Epichrome Runtime DEV/$(EXTNAME)/' \
+	-e 's/0\.0\.0/$(EXTVERSION)/' \
+	-e "s/src directory/$(EXTVERSIONNAME)/" \
+	$< > $@
 
 $(CP_RELEASE) $(CP_BETA):
 	cp -p $< $@

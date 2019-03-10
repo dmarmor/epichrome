@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-#  org.epichrome.helper-host.py: native messaging host for Epichrome Helper
+#  org.epichrome.runtime-host.py: native messaging host for Epichrome Runtime
 #  Copyright (C) 2019  David Marmor
 #
 #  https://github.com/dmarmor/epichrome

@@ -829,13 +829,12 @@ fi
 if [[ ! "$SSBHostInstallError" ]]; then
     
     # set up host file paths
-    hostId="SSBHOSTID"
-    hostManifest="${hostId}.json"
-    hostScript="${hostId}-host.py"
+    hostManifest=( "SSBHOSTID1.json" "SSBHOSTID2.json" )
+    hostScript="epichromeruntimehost.py"
     hostDir="NativeMessagingHosts"
     hostInstallPath="$myProfilePath/$hostDir"
     hostScriptInstalled="$hostInstallPath/$hostScript"
-    hostManifestInstalled="$hostInstallPath/$hostManifest"
+    hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
 
     # check if we need to install native messaging host
     doHostInstall=
@@ -843,7 +842,8 @@ if [[ ! "$SSBHostInstallError" ]]; then
     # do it if we just updated, or the host script or manifest don't exist
     if [[ "$SSBFirstRunSinceVersion" || \
 		( ! -x "$hostScriptInstalled" ) || \
-		( ! -e "$hostManifestInstalled" ) ]] ; then
+		( ! -e "${hostManifestInstalled[0]}" ) || \
+		( ! -e "${hostManifestInstalled[1]}" ) ]] ; then
 	doHostInstall=1
     else
 	# get installed host version if possible
@@ -859,16 +859,20 @@ if [[ ! "$SSBHostInstallError" ]]; then
     
     # make sure the manifest points to the current path of the script
     if [[ ! "$doHostInstall" ]] ; then
-	
-	# get path to script in the manifest
-	try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hostManifestInstalled" \
-	    'Unable to get current host script path'
-	
-	# on error, or if the paths don't match, reinstall
-	if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
-	    ok=1 ; errmsg=
-	    doHostInstall=1
-	fi
+
+	for hmi in "${hostManifestInstalled[@]}" ; do
+	    
+	    # get path to script in the manifest
+	    try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
+		'Unable to get current host script path'
+	    
+	    # on error, or if the paths don't match, reinstall
+	    if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
+		ok=1 ; errmsg=
+		doHostInstall=1
+	    fi
+	    
+	done
     fi
     
     # do the installation if necessary
@@ -879,11 +883,6 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	# create the install directory
 	try unsudo /bin/mkdir -p "$hostInstallPath" 'Unable to create installation folder.'
 	
-	# stream-edit the manifest file
-	hostManifestTmp=$(tempname "$hostManifestInstalled")
-	try unsudo /usr/bin/touch "${hostManifestTmp}" 'Unable to create manifest.'
-	try "${hostManifestTmp}<" sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/$hostManifest" 'Unable to copy manifest.'
-	
 	# stream-edit the host script
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
 	try unsudo /usr/bin/touch "${hostScriptTmp}" 'Unable to create script.'
@@ -891,16 +890,36 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	
 	# fix host script permissions
 	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
-	
-	# move both files to permanent homes
-	permanent "$hostManifestTmp" "$hostManifestInstalled" 'manifest'
+
+	# move script to permanent home
 	permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
+
+	# on error, remove temporary file
+	if [[ ! "$ok" ]] ; then
+	    [[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
+	fi
+
+	index=0
+	for hmi in "${hostManifestInstalled[@]}" ; do
+	    
+	    # stream-edit the manifest file
+	    hostManifestTmp=$(tempname "$hmi")
+	    try unsudo /usr/bin/touch "${hostManifestTmp}" 'Unable to create manifest.'
+	    try "${hostManifestTmp}<" sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/${hostManifest[$index]}" 'Unable to copy manifest.'
+	    
+	    # move manifest to permanent home
+	    permanent "$hostManifestTmp" "$hmi" 'manifest'
+
+	    # on error, remove temporary file
+	    if [[ ! "$ok" ]] ; then
+		[[ -e "$hostManifestTmp" ]] && rmtemp "$hostManifestTmp" 'manifest'
+	    fi
+
+	    index=$(($index + 1))
+	done
 	
 	# report error, but don't abort
 	if [[ ! "$ok" ]] ; then
-	    # remove temporary files
-	    [[ -e "$hostManifestTmp" ]] && rmtemp "$hostManifestTmp" 'manifest'
-	    [[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
 	    
 	    # set error state
 	    SSBHostInstallError=1

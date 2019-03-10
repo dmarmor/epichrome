@@ -1,7 +1,0 @@
-{
-    "name": "SSBHOSTID",  // filled in by Makefile
-    "description": "Epichrome Helper Host SSBVERSION",  // filled in by Makefile
-    "path": "SSBHOSTPATH",  // filled in by Epichrome
-    "type": "stdio",
-    "allowed_origins": [ "chrome-extension://SSBHELPERID/" ] // filled in by Makefile
-}
