@@ -47,7 +47,7 @@ ssbContent.startup = function() {
 	if (success) {
 	    
 	    // open keepalive connection to background page
-	    ssbContent.keepalive = chrome.runtime.connect();
+	    ssbContent.keepalive = chrome.runtime.connect();	    
 	    if (ssbContent.keepalive) {
 		
 		// if we lose the keepalive, shut down this content script
@@ -116,7 +116,7 @@ ssbContent.contextMenuStartHandler = function(evt) {
     window.removeEventListener('mousemove', ssbContent.contextMenuEndHandler, true);
     window.addEventListener('mousemove', ssbContent.contextMenuEndHandler, true);
     
-    // we do this just to store the class list for later retrieval by contextMenuEndHandler
+    // we do this just to store any class list for later retrieval by contextMenuEndHandler
     ssbContent.getInteractionInfo(evt.target);
 }
 ssbContent.contextMenuEndHandler = function(evt) {
@@ -132,62 +132,78 @@ ssbContent.contextMenuEndHandler = function(evt) {
 ssbContent.lastInteraction = { target: undefined,
 			       info: undefined };
 ssbContent.getInteractionInfo = function(obj) {
-
-    var info = undefined;
     
-    // determine if we should bother collecting classes
-    if (ssb.options.advancedRules) {
-	if ((typeof obj != 'object') || (obj == ssbContent.lastInteraction.target)) {
-	    // we've already collected this class list or our argument isn't an object
-	    ssb.debug('getInteractionInfo', 'using cached class list', ssbContent.lastInteraction);
-	    
-	    return ssbContent.lastInteraction.info;
-	} else {
-	    // move up the chain collecting all classes
-	    var curParent = obj;
-		//curClass,
-	    info = {
-		link: undefined,
-		classList: [],
-	    };
-	    
-	    while (curParent) {
-		// see if we're nested in a link (and there isn't already a more inner link -- illegal anyway)
-		if (!info.link &&
-		    curParent.tagName &&
-		    (typeof curParent.tagName == 'string') &&
-		    (curParent.tagName.toLowerCase() == 'a')) {
-		    info.link = curParent;
-		}
+    // determine if we should return cached interaction info
+    if ((typeof obj != 'object') || (obj == ssbContent.lastInteraction.target)) {
+	
+	// we've already gotten info on this target or our argument isn't an object
+	ssb.debug('getInteractionInfo', 'returning cached interaction', ssbContent.lastInteraction);
+	
+	return ssbContent.lastInteraction.info;
+	
+    } else {
+
+	// start by looking at the target object
+	var curParent = obj;
+
+	// initialize info object
+	var info = {
+	    link: undefined,
+	    classList: [],
+	};
+
+	// move up the chain looking for an <a> tag (and optionally collecting classes)
+	while (curParent) {
+	    // see if we're nested in a link (and there isn't already a more inner link -- illegal anyway)
+	    if (!info.link &&
+		curParent.tagName &&
+		(typeof curParent.tagName == 'string') &&
+		(curParent.tagName.toLowerCase() == 'a')) {
+		
+		info.link = curParent;
+
+		// if we're not collecting classes, we're done
+		if (!ssb.options.advancedRules) break;
+
+	    }
+
+	    // collect classes for this object
+	    if (ssb.options.advancedRules) {
 		
 		// get current parent's class list
 		info.classList = info.classList.concat(Array.from(curParent.classList));
 		// curClass = curParent.className;
 		// if (curClass) classList.push(curClass);
-		
-		// move up the parent chain
-		curParent = curParent.parentElement;
 	    }
 	    
-	    // cache for future reference
-	    ssbContent.lastInteraction = {
-		target: obj,
-		info: info
-	    };
-	    
-	    ssb.debug('getInteractionInfo', 'collected new class list', ssbContent.lastInteraction);	    
+	    // move up the parent chain
+	    curParent = curParent.parentElement;
 	}
-    } else {
-	// $$$ firewall this
-	ssb.debug('getInteractionInfo', 'not collected -- not using advanced rules');
-    }
-    
-    return info;
+
+	// log interaction
+	if (ssb.options.advancedRules) {
+	    ssb.debug('getInteractionInfo', 'collected new class list', obj, info);	    
+	} else {
+	    // $$$ firewall this
+	    ssb.debug('getInteractionInfo', 'classes not collected -- not using advanced rules', obj, info);
+	}
+	
+	// cache for future reference
+	ssbContent.lastInteraction = {
+	    target: obj,
+	    info: info
+	};
+
+	// return info
+	return info;
+    }    
 }
 
 ssbContent.interactionHandler = function(evt) {
        
     if (evt.isTrusted) {
+
+	ssb.debug('interaction', evt);
 	
 	// kill any lingering mousemove handler
 	window.removeEventListener('mousemove', ssbContent.contextMenuEndHandler, true);
@@ -223,7 +239,7 @@ ssbContent.interactionHandler = function(evt) {
 	    }
 	} else if (evt.target && (evt.type == 'click')) {
 	    info = ssbContent.getInteractionInfo(evt.target);
-	    
+	    	    
 	    if (info.link) {
 		return ssbContent.linkHandler(evt, info);
 	    }

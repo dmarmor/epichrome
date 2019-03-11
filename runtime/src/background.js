@@ -150,12 +150,21 @@ ssbBG.startup = function() {
 				
 				// not in startup, so fire up tabs
 				chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
-		    		    
+				    
 				    if (response != 'ping') {
+					
+					if (chrome.runtime.lastError) {
+					    ssb.debug('initTabs', 'ping result for tab', tab.id, ':', chrome.runtime.lastError.message);
+					} else {
+					    ssb.debug('initTabs', 'ping result for tab', tab.id, ':', response);
+					}
 					ssb.debug('initTabs', 'reloading tab', tab.id);
 					
 					// inject all content scripts
     					for(var i = 0 ; i < scripts.length; i++ ) {
+					    
+					    ssb.debug('initTabs', 'injecting', scripts[i], 'into tab', tab.id);
+					    
     					    chrome.tabs.executeScript(
 						tab.id,
 						{ file: scripts[i], allFrames: true },
@@ -171,7 +180,7 @@ ssbBG.startup = function() {
 				    }
 				});
 			    },
-			    ssb.manifest.content_scripts[0].js);
+			    ssb.manifest.content_scripts[0].js);			
 		    }, 1000);
 		} else {
 		    ssb.debug('initTabs', 'NOT reloading tabs -- in Chrome startup');
@@ -179,7 +188,7 @@ ssbBG.startup = function() {
 	    }, 500);
 	} else {
 	    ssbBG.shutdown(message);
-	}
+	}	
     });
 }
 
@@ -325,7 +334,7 @@ ssbBG.allTabs = function(action, arg, finished) {
 
 // HANDLEKEEPALIVECONNECT -- set up a keepalive connection with a page
 ssbBG.handleKeepaliveConnect = function(port) {
-    
+        
     // don't connect to any port that's not from this ID
     if (! (port.sender && (port.sender.id == chrome.runtime.id))) {
 	ssb.warn('rejecting connection attempt from',port.sender);
