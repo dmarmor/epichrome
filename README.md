@@ -30,7 +30,7 @@ You shouldn't see much change in how your apps work, but there are a few **impor
 
 - You should not try to copy or archive an Epichrome app while it is running. If you do, you may end up copying several hundred megabytes of data for no reason. When your apps are not running, they are under 3MB, but during runtime they may appear to be over 100MB. (Rest assured, a running Epichrome app is not actually taking up that much space on your hard drive--unless you try to copy it.)
 
-This version also adds a "welcome" page that displays the first time you run a new app (or if you delete your profile), with instructions on how to enable Epichrome Helper, which Chrome disables by default.
+This version also adds a "Welcome" page that displays the first time you run a new app (or if you delete your profile), with instructions on how to enable Epichrome Helper, which Chrome disables by default.
 
 See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
 
