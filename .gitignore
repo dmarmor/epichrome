@@ -11,6 +11,8 @@
 /app/icons/**
 /app/welcome/img/icon*.png
 /builder/**
+/dmg/images/*.png
+/dmg/images/*.icns
 /runtime/build/**
 /runtime/images/icons/current
 /runtime/node/**
