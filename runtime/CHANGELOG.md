@@ -1,6 +1,10 @@
 # Epichrome Helper Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.2] - 2016-07-02
+### Changed
+- Removed Command-L as a toggle for getting out of app-mode. There was a bug with detecting app mode if the page was reloaded in tab mode.
+
 ## [1.1.1] - 2015-07-23
 ### Fixed
 - Added start-up check so that app-style SSBs can properly redirect incoming URLs (to the default browser or to the main tab) on startup. This way, if another app sends a link to an SSB and the SSB wasn't running, it will still properly send that tab to its main window.

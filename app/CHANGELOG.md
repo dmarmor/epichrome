@@ -2,9 +2,10 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.2.4] - 2019-03-08
+## [2.2.4] - 2019-03-12
 ### Fixed
-- Addressed very slow opening of links in the default browser under macOS Mojave [(Issue #167)](https://github.com/dmarmor/epichrome/issues/167 "Issue #167") by adding a code signature to Epichrome apps. This also seems to help with $$$ and $$$. Thanks to [cmacminn](https://github.com/cmacminn "cmacminn"), [whatknows](https://github.com/whatknows "whatknows"), and everyone else who helped describe the problem.
+- Addressed very slow opening of links in the default browser under macOS Mojave [(Issue #167)](https://github.com/dmarmor/epichrome/issues/167 "Issue #167") by adding a code signature to Epichrome apps. Thanks to [cmacminn](https://github.com/cmacminn "cmacminn"), [whatknows](https://github.com/whatknows "whatknows"), and everyone else who helped describe the problem.
+- The same change appears to also help most users with the problem of Epichrome apps's icons and names reverting to Chrome after certain actions like downloading files [(Issue #173)](https://github.com/dmarmor/epichrome/issues/173 "Issue #173"). Thanks to [daviddumonde](https://github.com/daviddumonde "daviddumonde") and everyone who helped with this problem.
 - Addressed a problem routing links to Chrome when it's the default browser [(Issue #163)](https://github.com/dmarmor/epichrome/issues/163 "Issue #163"). The system would get confused between Chrome and any Epichrome apps that were launched before Chrome. Added a special case to the native messaging host to detect when Chrome is the default browser and send links there explicitly. Thanks to [GrogHills](https://github.com/GrogHills "GrogHills"), [heyfletch](https://github.com/heyfletch "heyfletch"), [ylluminate](https://github.com/ylluminate "ylluminate"), and everyone else who helped identify the problem.
 
 
