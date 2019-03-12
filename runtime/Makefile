@@ -28,31 +28,31 @@ EXTVERSION_BETA:=1.1.99.2
 
 EXTVERSIONNAME:=$(EXTVERSION)
 
-EXTDIR:=build
-ZIPDIR:=zip
+BUILDDIR:=build
+ZIPDIR:=$(BUILDDIR)/zip
 
 TARGETS=release beta
 
-ZIP_RELEASE:=${ZIPDIR}/epichrome-runtime-${EXTVERSION}.zip
-ZIP_BETA:=${ZIPDIR}/epichrome-runtime-beta-${EXTVERSION}.zip
+ZIP_RELEASE:=$(ZIPDIR)/epichrome-runtime-$(EXTVERSION).zip
+ZIP_BETA:=$(ZIPDIR)/epichrome-runtime-beta-$(EXTVERSION_BETA).zip
 
 CP_SRC:=$(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 JS_SRC:=$(patsubst src/jquery%,,$(wildcard src/*.js))
 
-CP_RELEASE:=$(CP_SRC:src/%=$(EXTDIR)/release/%)
-JS_RELEASE:=$(JS_SRC:src/%=$(EXTDIR)/release/%)
+CP_RELEASE:=$(CP_SRC:src/%=$(BUILDDIR)/release/%)
+JS_RELEASE:=$(JS_SRC:src/%=$(BUILDDIR)/release/%)
 
-CP_BETA:=$(CP_SRC:src/%=$(EXTDIR)/beta/%)
-JS_BETA:=$(JS_SRC:src/%=$(EXTDIR)/beta/%)
+CP_BETA:=$(CP_SRC:src/%=$(BUILDDIR)/beta/%)
+JS_BETA:=$(JS_SRC:src/%=$(BUILDDIR)/beta/%)
 
 ICONS:=icon16.png icon48.png icon128.png
 IMAGES:=install-bg.png
 
-ICONS_RELEASE:=$(ICONS:%=$(EXTDIR)/release/%)
-IMAGES_RELEASE:=$(IMAGES:%=$(EXTDIR)/release/%)
+ICONS_RELEASE:=$(ICONS:%=$(BUILDDIR)/release/%)
+IMAGES_RELEASE:=$(IMAGES:%=$(BUILDDIR)/release/%)
 
-ICONS_BETA:=$(ICONS:%=$(EXTDIR)/beta/%)
-IMAGES_BETA:=$(IMAGES:%=$(EXTDIR)/beta/%)
+ICONS_BETA:=$(ICONS:%=$(BUILDDIR)/beta/%)
+IMAGES_BETA:=$(IMAGES:%=$(BUILDDIR)/beta/%)
 
 ICONS_INPLACE:=$(ICONS:%=src/%)
 IMAGES_INPLACE:=$(IMAGES:%=src/%)
@@ -68,37 +68,36 @@ UGLIFY_RELEASE_FLAGS=--define RELEASE=true
 # BUILD TARGETS
 
 release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
-release: $(EXTDIR)/release $(EXTDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
-$(EXTDIR)/release/manifest.json: src/manifest.json
-$(CP_RELEASE) $(JS_RELEASE): $(EXTDIR)/release/%: src/%
+release: $(BUILDDIR)/release $(BUILDDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
+$(BUILDDIR)/release/manifest.json: src/manifest.json
+$(CP_RELEASE) $(JS_RELEASE): $(BUILDDIR)/release/%: src/%
 $(ICONS_RELEASE): ../images/icons/app.psd
-$(IMAGES_RELEASE): $(EXTDIR)/release/%.png: images/%.psd
+$(IMAGES_RELEASE): $(BUILDDIR)/release/%.png: images/%.psd
 store/icon_release.png: ../images/icons/app.psd
-$(ZIP_RELEASE): $(EXTDIR)/release
+$(ZIP_RELEASE): $(BUILDDIR)/release
 
 beta: EXTVERSIONNAME:=$(EXTVERSION) beta $(shell x="$(EXTVERSION_BETA)" ; echo "$${x##*.}")
 beta: EXTVERSION:=$(EXTVERSION_BETA)
 beta: EXTNAME:=$(EXTNAME) BETA
-beta: $(EXTDIR)/beta $(EXTDIR)/beta/manifest.json $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
-$(EXTDIR)/beta/manifest.json: src/manifest.json
-$(CP_BETA) $(JS_BETA): $(EXTDIR)/beta/%: src/%
-$(EXTDIR)/beta/icon48.png $(EXTDIR)/beta/icon128.png: ../images/icons/app_beta.psd
-$(EXTDIR)/beta/icon16.png: images/icons/beta16.psd
-$(IMAGES_BETA): $(EXTDIR)/beta/%.png: images/%.psd
+beta: $(BUILDDIR)/beta $(BUILDDIR)/beta/manifest.json $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
+$(BUILDDIR)/beta/manifest.json: src/manifest.json
+$(CP_BETA) $(JS_BETA): $(BUILDDIR)/beta/%: src/%
+$(BUILDDIR)/beta/icon128.png: ../images/icons/app_beta.psd
+$(BUILDDIR)/beta/icon48.png $(BUILDDIR)/beta/icon16.png: images/icons/beta16.psd
+$(IMAGES_BETA): $(BUILDDIR)/beta/%.png: images/%.psd
 store/icon_beta.png: ../images/icons/app_beta.psd
-$(ZIP_BETA): $(EXTDIR)/beta
+$(ZIP_BETA): $(BUILDDIR)/beta
 
 inplace: $(ICONS_INPLACE) $(IMAGES_INPLACE)
-src/icon48.png src/icon128.png: images/icons/inplace.psd
-src/icon16.png: images/icons/inplace16.psd
+src/icon128.png: images/icons/inplace.psd
+src/icon48.png src/icon16.png: images/icons/inplace16.psd
 $(IMAGES_INPLACE): src/%.png: images/%.psd
 
 
 # BUILD RULES
 
-clean: clean-inplace clean-store
-	rm -rf zip
-	rm -rf ${EXTDIR}
+clean:
+	rm -rf $(BUILDDIR)
 
 clean-inplace:
 	rm -f $(ICONS_INPLACE) $(IMAGES_INPLACE)
@@ -106,15 +105,15 @@ clean-inplace:
 clean-store:
 	rm -rf store
 
-clean-all: clean
+clean-all: clean clean-inplace clean-store
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 
 
-$(TARGETS:%=$(EXTDIR)/%):
+$(TARGETS:%=$(BUILDDIR)/%):
 	mkdir -p $@
 
 %.zip:
-	@mkdir -p ${ZIPDIR}
+	@mkdir -p $(ZIPDIR)
 	rm -f $@
 	zip --recurse-paths $@ $< --exclude '*/.*' '*~'
 
@@ -129,7 +128,7 @@ store-dir:
 store/icon_%.png:
 	sips -s format png -z 122 122 -p 128 128 $< --out $@
 
-# ${EXTDIR}/%.html: src/%.html
+# $(BUILDDIR)/%.html: src/%.html
 # 	@echo htmlminify $< $@
 
 %.json:
