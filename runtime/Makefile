@@ -72,7 +72,7 @@ release: $(BUILDDIR)/release $(BUILDDIR)/release/manifest.json $(CP_RELEASE) $(J
 $(BUILDDIR)/release/manifest.json: src/manifest.json
 $(CP_RELEASE) $(JS_RELEASE): $(BUILDDIR)/release/%: src/%
 $(ICONS_RELEASE): ../images/icons/app.psd
-$(IMAGES_RELEASE): $(BUILDDIR)/release/%.png: images/%.psd
+$(IMAGES_RELEASE): $(BUILDDIR)/release/%.png: images/%.png
 store/icon_release.png: ../images/icons/app.psd
 $(ZIP_RELEASE): $(BUILDDIR)/release
 
@@ -84,14 +84,14 @@ $(BUILDDIR)/beta/manifest.json: src/manifest.json
 $(CP_BETA) $(JS_BETA): $(BUILDDIR)/beta/%: src/%
 $(BUILDDIR)/beta/icon128.png: ../images/icons/app_beta.psd
 $(BUILDDIR)/beta/icon48.png $(BUILDDIR)/beta/icon16.png: images/icons/beta16.psd
-$(IMAGES_BETA): $(BUILDDIR)/beta/%.png: images/%.psd
+$(IMAGES_BETA): $(BUILDDIR)/beta/%.png: images/%.png
 store/icon_beta.png: ../images/icons/app_beta.psd
 $(ZIP_BETA): $(BUILDDIR)/beta
 
 inplace: $(ICONS_INPLACE) $(IMAGES_INPLACE)
 src/icon128.png: images/icons/inplace.psd
 src/icon48.png src/icon16.png: images/icons/inplace16.psd
-$(IMAGES_INPLACE): src/%.png: images/%.psd
+$(IMAGES_INPLACE): src/%.png: images/%.png
 
 
 # BUILD RULES
@@ -147,7 +147,8 @@ $(JS_RELEASE) $(JS_BETA):
 	node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS)
 
 $(IMAGES_RELEASE) $(IMAGES_BETA) $(IMAGES_INPLACE):
-	sips -s format png $< --out $@
+	cp -p $< $@
+#	sips -s format png $< --out $@
 
 $(ICONS_RELEASE) $(ICONS_BETA) $(ICONS_INPLACE):
 	@size="$@" ; size="$${size##*icon}" ; size="$${size%.png}" && \
