@@ -139,52 +139,58 @@ ssbBG.startup = function() {
 	    // give Chrome startup 500ms to register, then if we're not in Chrome startup,
 	    // give content scripts 1000ms to register, or reload them
 	    setTimeout(function() {
-		if (!ssbBG.isChromeStartup) {
-		    setTimeout(function() {
-			ssb.debug('initTabs', 'reloading all tabs -- not in Chrome startup');
-			
-			ssbBG.allTabs(
-			    function(tab, win, scripts) {
-				
-				ssb.debug('initTabs', 'sending ping to tab', tab.id);
-				
-				// not in startup, so fire up tabs
-				chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
+
+		// make sure the BG page is actually running
+		if (typeof ssbBG != "undefined") {
+
+		    // if we're not in Chrome startup, reload tabs
+		    if (!ssbBG.isChromeStartup) {
+			setTimeout(function() {
+			    ssb.debug('initTabs', 'reloading all tabs -- not in Chrome startup');
+			    
+			    ssbBG.allTabs(
+				function(tab, win, scripts) {
 				    
-				    if (response != 'ping') {
+				    ssb.debug('initTabs', 'sending ping to tab', tab.id);
+				    
+				    // not in startup, so fire up tabs
+				    chrome.tabs.sendMessage(tab.id, 'ping', function(response) {
 					
-					if (chrome.runtime.lastError) {
-					    ssb.debug('initTabs', 'ping result for tab', tab.id, ':', chrome.runtime.lastError.message);
+					if (response != 'ping') {
+					    
+					    if (chrome.runtime.lastError) {
+						ssb.debug('initTabs', 'ping result for tab', tab.id, ':', chrome.runtime.lastError.message);
+					    } else {
+						ssb.debug('initTabs', 'ping result for tab', tab.id, ':', response);
+					    }
+					    ssb.debug('initTabs', 'reloading tab', tab.id);
+					    
+					    // inject all content scripts
+    					    for(var i = 0 ; i < scripts.length; i++ ) {
+						
+						ssb.debug('initTabs', 'injecting', scripts[i], 'into tab', tab.id);
+						
+    						chrome.tabs.executeScript(
+						    tab.id,
+						    { file: scripts[i], allFrames: true },
+						    function () {
+							if (chrome.runtime.lastError) {
+							    ssb.warn('unable to load tab '+tab.id+': '+
+								     chrome.runtime.lastError.message);
+							}
+						    });
+    					    }
 					} else {
-					    ssb.debug('initTabs', 'ping result for tab', tab.id, ':', response);
+					    ssb.debug('initTabs', 'NOT reloading tab', tab.id,'-- got ping');
 					}
-					ssb.debug('initTabs', 'reloading tab', tab.id);
-					
-					// inject all content scripts
-    					for(var i = 0 ; i < scripts.length; i++ ) {
-					    
-					    ssb.debug('initTabs', 'injecting', scripts[i], 'into tab', tab.id);
-					    
-    					    chrome.tabs.executeScript(
-						tab.id,
-						{ file: scripts[i], allFrames: true },
-						function () {
-						    if (chrome.runtime.lastError) {
-							ssb.warn('unable to load tab '+tab.id+': '+
-								 chrome.runtime.lastError.message);
-						    }
-						});
-    					}
-				    } else {
-					ssb.debug('initTabs', 'NOT reloading tab', tab.id,'-- got ping');
-				    }
-				});
-			    },
-			    ssb.manifest.content_scripts[0].js);			
-		    }, 1000);
-		} else {
-		    ssb.debug('initTabs', 'NOT reloading tabs -- in Chrome startup');
-		}
+				    });
+				},
+				ssb.manifest.content_scripts[0].js);			
+			}, 1000);
+		    } else {
+			ssb.debug('initTabs', 'NOT reloading tabs -- in Chrome startup');
+		    }
+		} // no BG page, so do nothing
 	    }, 500);
 	} else {
 	    ssbBG.shutdown(message);
@@ -840,12 +846,16 @@ ssbBG.host.connect = function(isReconnect) {
     ssb.debug('host', (isReconnect ? 're' : '') + 'connecting...');
     
     // connect to host
-    ssbBG.host.port = chrome.runtime.connectNative('org.epichrome.runtime');
     ssbBG.host.isReconnect = isReconnect;
-
+    ssbBG.host.port = chrome.runtime.connectNative('org.epichrome.runtime');
+    
     // handle disconnect from the host
     ssbBG.host.port.onDisconnect.addListener(function () {
-
+	
+	if (chrome.runtime.lastError) {
+	    ssb.debug('host', 'disconnected with error: ' + chrome.runtime.lastError.message);
+	}
+	
 	if (ssbBG.host.isReconnect) {
 	    // second connection attempt, so disconnect is an error
 	    var message;

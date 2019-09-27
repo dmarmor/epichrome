@@ -1,0 +1,44 @@
+#!/bin/sh
+
+IFS=$'\n'
+
+jobs=( $(ps -ax | /usr/bin/egrep '/ChromeEngine/[^/]+\.app/Contents/MacOS/Google Chrome' ) )
+
+curargs=( "$@" )
+
+re='^([0-9]+) .*/ChromeEngine/([^/]+)\.app/'
+for job in "${jobs[@]}" ; do
+    if [[ "$job" =~ $re ]] ; then
+	pid="${BASH_REMATCH[1]}"
+	app="${BASH_REMATCH[2]}"
+
+	if [[ "${curargs[@]}" ]] ; then
+	    dokill=
+	    newargs=()
+	    for arg in "${curargs[@]}" ; do
+		if [[ "$app" = "$arg" ]] ; then
+		    dokill=1
+		else
+		    newargs+=( "$arg" )
+		fi
+	    done
+	    curargs=( "${newargs[@]}" )
+	else
+	    dokill=1
+	fi
+
+	if [[ "$dokill" ]] ; then
+	    echo "Killing $app [$pid]"
+	    kill "$pid"
+	fi
+    else
+	echo "Error: unexpected ps output:" 1>&2
+	echo "$job" 1>&2
+	exit 1
+    fi
+done
+
+
+for arg in "${curargs[@]}" ; do
+    echo "Warning: $arg not running" 1>&2
+done

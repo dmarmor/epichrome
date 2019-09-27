@@ -29,5 +29,7 @@
 	</dict>
 	<key>LSRequiresCarbon</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Epichrome needs this access in order to create apps, and will not work without it.</string>
 </dict>
 </plist>

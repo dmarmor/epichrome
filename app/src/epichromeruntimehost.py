@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 #
 #  org.epichrome.runtime-host.py: native messaging host for Epichrome Runtime
 #  Copyright (C) 2019  David Marmor
