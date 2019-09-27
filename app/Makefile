@@ -20,9 +20,11 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-BETAVERSION:=02
-
 VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
+BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
+
+# build differently depending if version is beta
+BUILD:=build$(BETA)
 
 APP:=Epichrome.app
 RUNTIMEBG:=../runtime/src/background.js
@@ -60,15 +62,19 @@ APP_RAPP_CTNT:=$(APP_RAPP)/Contents
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: touchversion beta install clean clean-all
+.PHONY: build build_beta install clean clean-all
 
-.PRECIOUS: icons/app.icns icons/document.icns icons/app_beta.icns icons/document_beta.icns welcome/img/icon128.png
+.PRECIOUS: icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128.png
 
-$(APP): touchversion $(APP_SCPT)/main.scpt \
+$(BUILD): $(APP)
+
+build_beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
+
+$(APP): $(APP_SCPT)/main.scpt \
+	$(APP_SCPT)/version.sh \
 	$(APP_CTNT)/Info.plist \
 	$(APP_RSRC)/applet.icns \
 	$(APP_RSRC)/docbg.png \
-	$(APP_SCPT)/version.sh \
 	$(APP_SCPT)/build.sh \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
@@ -104,18 +110,13 @@ $(APP): touchversion $(APP_SCPT)/main.scpt \
 	mv $(APP_RAPP_CTNT) $(APP_RNTM)
 	rmdir $(APP_RAPP)
 
-touchversion:
-	@touch src/version.sh
-
-beta: VERSION:=$(VERSION)b$(BETAVERSION)
-beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
 #debug: EXEC_SED='$(EXEC_SED_COMMON)$(EXEC_SED_BETA)'
-beta: $(APP) $(APP_RSRC)/applet_beta.icns $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/document_beta.icns
-	mv -f $(APP_RSRC)/applet_beta.icns $(APP_RSRC)/applet.icns
-	mv -f $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/app.icns
-	mv -f $(APP_RNTM_RSRC)/document_beta.icns $(APP_RNTM_RSRC)/document.icns
-	rm $(APP_SCPT)/version.sh
-	sed -E 's/^(mcssbVersion=.*)$$/\1b$(BETAVERSION)/' src/version.sh > $(APP_SCPT)/version.sh
+# beta: $(APP_RSRC)/applet_beta.icns $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/document_beta.icns
+# 	mv -f $(APP_RSRC)/applet_beta.icns $(APP_RSRC)/applet.icns
+# 	mv -f $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/app.icns
+# 	mv -f $(APP_RNTM_RSRC)/document_beta.icns $(APP_RNTM_RSRC)/document.icns
+#	rm $(APP_SCPT)/version.sh
+#	sed -E 's/^(mcssbVersion=.*)$$/\1b$(BETAVERSION)/' src/version.sh > $(APP_SCPT)/version.sh
 
 clean:
 	rm -rf $(APP)
@@ -147,16 +148,23 @@ $(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	sed "s/SSBVERSION/$(VERSION)/" $< > $@
 	@touch $(APP) $(APP_CTNT)
 
-$(APP_RSRC)/applet.icns: icons/epichrome.icns
-$(APP_RSRC)/applet_beta.icns: icons/epichrome_beta.icns
-
-$(APP_RSRC)/applet.icns $(APP_RSRC)/applet_beta.icns:
+$(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
 	cp -p $< $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC)
+
+$(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns
+	cp -p $< $(APP_RNTM_RSRC)/
+	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC)
+
 
 $(APP_RSRC)/docbg.png: ../images/icons/docbg.png
 	cp -p $< $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC)
+
+$(APP_SCPT)/version.sh: src/version.sh
+	touch -c icons/*
+	cp -p $< $(APP_SCPT)/
+	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
 
 $(APP_SCPT)/%: src/%
 	cp -p $< $(APP_SCPT)/
@@ -200,10 +208,6 @@ $(APP_RNTM_FRUN)/img/%.png: welcome/img/%.png
 welcome/img/icon128.png: ../images/icons/app.psd
 	@mkdir -p icons
 	sips -s format png -z 128 128 $< --out $@
-
-$(APP_RNTM_RSRC)/%.icns: icons/%.icns
-	cp -p $< $(APP_RNTM_RSRC)/
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC)
 
 icons/%.icns: ../images/icons/%.psd
 	@mkdir -p icons
