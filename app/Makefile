@@ -24,7 +24,7 @@ VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 # build differently depending if version is beta
-BUILD:=build$(BETA)
+BUILD_TYPE:=$(patsubst build,build_release,build$(BETA))
 
 APP:=Epichrome.app
 RUNTIMEBG:=../runtime/src/background.js
@@ -62,13 +62,15 @@ APP_RAPP_CTNT:=$(APP_RAPP)/Contents
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: build build_beta install clean clean-all
+.PHONY: build build_release build_beta install clean clean-all
 
 .PRECIOUS: icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128.png
 
-$(BUILD): $(APP)
+build: $(BUILD_TYPE)
 
 build_beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
+
+$(BUILD_TYPE): $(APP)
 
 $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/version.sh \
