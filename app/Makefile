@@ -153,7 +153,7 @@ $(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC)
 
 $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns
-	cp -p $< $(APP_RNTM_RSRC)/
+	cp -p $< $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC)
 
 
