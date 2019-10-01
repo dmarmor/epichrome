@@ -6,7 +6,7 @@ jobs=( $(ps -ax | /usr/bin/egrep '/ChromeEngine/[^/]+\.app/Contents/MacOS/Google
 
 curargs=( "$@" )
 
-re='^([0-9]+) .*/ChromeEngine/([^/]+)\.app/'
+re='^ *([0-9]+) .*/ChromeEngine/([^/]+)\.app/'
 for job in "${jobs[@]}" ; do
     if [[ "$job" =~ $re ]] ; then
 	pid="${BASH_REMATCH[1]}"
