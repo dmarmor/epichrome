@@ -1,2 +1,2 @@
 # Epichrome version (#.#.# = release version, #.#.#b## = beta)
-mcssbVersion=2.2.5b03
+epiVersion=2.3.0b01

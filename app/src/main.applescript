@@ -143,7 +143,7 @@ readProperties()
 
 -- NUMBER OF STEPS IN THE PROCESS
 global numSteps
-set numSteps to 7
+set numSteps to 8
 global curStep
 set curStep to 1
 on step()
@@ -203,7 +203,7 @@ if updateCheckDate < curDate then
 	set updateCheckDate to (curDate + (7 * days))
 	
 	-- get current version of Epichrome
-	set curVersion to do shell script "source " & versionScript & " ; echo $mcssbVersion"
+	set curVersion to do shell script "source " & versionScript & " ; echo $epiVersion"
 	
 	-- if updateCheckVersion isn't set, or is earlier than the current version, set it to the current version
 	if updateCheckVersion is "" then
@@ -540,11 +540,28 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									set ssbIconSrc to ""
 								end if
 								
-								-- STEP 7: CREATE APPLICATION
+								-- STEP 7: SELECT ENGINE
 								set curStep to curStep + 1
 								
-								-- create summary of the app
-								set ssbSummary to "Ready to create!
+								repeat
+									try
+										set doChromiumEngine to button returned of (display dialog "Use Chromium app engine?
+
+NOTE: If you don't know what this question means, click Yes.
+
+In almost all cases, using Chromium will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+
+The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button "Yes" cancel button "Back")
+									on error number -128 -- Back button
+										set curStep to curStep - 1
+										exit repeat
+									end try
+									
+									-- STEP 8: CREATE APPLICATION
+									set curStep to curStep + 1
+									
+									-- create summary of the app
+									set ssbSummary to "Ready to create!
 
 App: " & ssbName & "
 
@@ -553,112 +570,124 @@ Menubar Name: " & ssbShortName & "
 Path: " & ssbDir & "
 
 "
-								if ssbStyle is "App Window" then
-									set ssbSummary to ssbSummary & "Style: App Window
+									if ssbStyle is "App Window" then
+										set ssbSummary to ssbSummary & "Style: App Window
 
 URL: " & (item 1 of ssbURLs)
-								else
-									set ssbSummary to ssbSummary & "Style: Browser Tabs
+									else
+										set ssbSummary to ssbSummary & "Style: Browser Tabs
 
 Tabs: "
-									if (count of ssbURLs) is 0 then
-										set ssbSummary to ssbSummary & "<none>"
-									else
-										repeat with t in ssbURLs
-											set ssbSummary to ssbSummary & "
+										if (count of ssbURLs) is 0 then
+											set ssbSummary to ssbSummary & "<none>"
+										else
+											repeat with t in ssbURLs
+												set ssbSummary to ssbSummary & "
   -  " & t
-										end repeat
+											end repeat
+										end if
 									end if
-								end if
-								set ssbSummary to ssbSummary & "
+									set ssbSummary to ssbSummary & "
 								
 Register as Browser: " & doRegisterBrowser & "
 
 Icon: "
-								if ssbIconSrc is "" then
-									set ssbSummary to ssbSummary & "<default>"
-								else
-									set ssbSummary to ssbSummary & ssbIconName
-								end if
-								
-								-- set up Chrome command line
-								set ssbCmdLine to ""
-								if ssbStyle is "App Window" then
-									set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
-								else if (count of ssbURLs) > 0 then
-									repeat with t in ssbURLs
-										set ssbCmdLine to ssbCmdLine & " " & quoted form of t
-									end repeat
-								end if
-								
-								repeat
-									try
-										display dialog ssbSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
-									on error number -128 -- Back button
-										set curStep to curStep - 1
-										exit repeat
-									end try
+									if ssbIconSrc is "" then
+										set ssbSummary to ssbSummary & "<default>"
+									else
+										set ssbSummary to ssbSummary & ssbIconName
+									end if
 									
+									set ssbSummary to ssbSummary & "
+								
+App Engine: "
+									if doChromiumEngine is "No" then
+										set ssbSummary to ssbSummary & "Google Chrome"
+									else
+										set ssbSummary to ssbSummary & "Chromium"
+									end if
 									
-									-- CREATE THE SSB
+									-- set up Chrome command line
+									set ssbCmdLine to ""
+									if ssbStyle is "App Window" then
+										set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
+									else if (count of ssbURLs) > 0 then
+										repeat with t in ssbURLs
+											set ssbCmdLine to ssbCmdLine & " " & quoted form of t
+										end repeat
+									end if
 									
 									repeat
-										set creationSuccess to false
 										try
-											do shell script chromeSSBScript & " " & Â
-												(quoted form of ssbPath) & " " & Â
-												(quoted form of ssbBase) & " " & Â
-												(quoted form of ssbShortName) & " " & Â
-												(quoted form of ssbIconSrc) & " " & Â
-												(quoted form of doRegisterBrowser) & " " & Â
-												ssbCmdLine
-											set creationSuccess to true
-										on error errStr number errNum
-											
-											-- unable to create app due to permissions
-											if errStr is "PERMISSION" then
-												set errStr to "Unable to write to \"" & ssbDir & "\"."
-											end if
-											
-											if not creationSuccess then
-												try
-													display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
-													writeProperties() -- Quit button
-													return -- QUIT
-												on error number -128 -- Back button
-													exit repeat
-												end try
-											end if
+											display dialog ssbSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
+										on error number -128 -- Back button
+											set curStep to curStep - 1
+											exit repeat
 										end try
 										
-										-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
-										try
-											set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
+										
+										-- CREATE THE SSB
+										
+										repeat
+											set creationSuccess to false
+											try
+												do shell script chromeSSBScript & " " & Â
+													(quoted form of ssbPath) & " " & Â
+													(quoted form of ssbBase) & " " & Â
+													(quoted form of ssbShortName) & " " & Â
+													(quoted form of ssbIconSrc) & " " & Â
+													(quoted form of doRegisterBrowser) & " " & Â
+													(quoted form of doChromiumEngine) & " " & Â
+													ssbCmdLine
+												set creationSuccess to true
+											on error errStr number errNum
+												
+												-- unable to create app due to permissions
+												if errStr is "PERMISSION" then
+													set errStr to "Unable to write to \"" & ssbDir & "\"."
+												end if
+												
+												if not creationSuccess then
+													try
+														display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
+														writeProperties() -- Quit button
+														return -- QUIT
+													on error number -128 -- Back button
+														exit repeat
+													end try
+												end if
+											end try
+											
+											-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
+											try
+												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
-										on error number -128
-											writeProperties() -- "Quit" button
-											return -- QUIT
-										end try
-										
-										-- launch or reveal
-										if dlgResult is "Launch Now" then
-											delay 1
-											try
-												do shell script "open " & quoted form of (POSIX path of ssbPath)
-												--tell application ssbName to activate
-											on error
-												writeProperties()
+											on error number -128
+												writeProperties() -- "Quit" button
 												return -- QUIT
 											end try
-										else
-											--if (button returned of dlgResult) is "Reveal in Finder" then
-											tell application "Finder" to reveal ((POSIX file ssbPath) as alias)
-											tell application "Finder" to activate
-										end if
-										
-										writeProperties() -- We're done!
-										return -- QUIT
+											
+											-- launch or reveal
+											if dlgResult is "Launch Now" then
+												delay 1
+												try
+													do shell script "open " & quoted form of (POSIX path of ssbPath)
+													--tell application ssbName to activate
+												on error
+													writeProperties()
+													return -- QUIT
+												end try
+											else
+												--if (button returned of dlgResult) is "Reveal in Finder" then
+												tell application "Finder" to reveal ((POSIX file ssbPath) as alias)
+												tell application "Finder" to activate
+											end if
+											
+											writeProperties() -- We're done!
+											return -- QUIT
+											
+										end repeat
 										
 									end repeat
 									

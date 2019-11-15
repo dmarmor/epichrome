@@ -51,7 +51,7 @@ myRuntimePath="${myPath}/Contents/Resources/Runtime"
 source "${myRuntimePath}/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
 
-mcssbinfo "$myPath"
+epichromeinfo "$myPath"
 
 if [[ "$2" ]] ; then
     # compare two versions & echo the latest
@@ -61,7 +61,7 @@ if [[ "$2" ]] ; then
 	echo "$1"
     fi
 else
-    checkmcssbversion "$myRuntimePath" "$1"
+    checkepichromeversion "$myRuntimePath" "$1"
 fi
 
 [[ "$ok" ]] || abort "$errmsg" 1

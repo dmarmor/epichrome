@@ -21,6 +21,9 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# shell options
+shopt -s nullglob
+
 
 # NOTE: the "try" function and many other functions in this system clear
 #       the "ok" global variable on error, set a message in "errmsg",
@@ -36,10 +39,18 @@ CFBundleExecutable="Epichrome"
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
 
+# bundle IDs
+appIDRoot="org.epichrome"
+appIDBase="$appIDRoot.app"
+appEngineIDBase="$appIDRoot.eng"
+
+# Google Chrome ID
+googleChromeID='com.google.Chrome'
+
 # important paths -- relative to app Contents directory
 appInfoPlist="Info.plist"
-appPayload="Resources/Payload"
-appEngine="Resources/ChromeEngine"
+appEngine="Resources/Engine"
+appPayload="$appEngine/Payload"
 appConfigScript="Resources/Scripts/config.sh"
 appStringsScript="Resources/Scripts/strings.py"
 appGetVersionScript="Resources/Scripts/getversion.py"
@@ -427,40 +438,40 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 }
 
 
-# LINKTREE: hard or symbolic link to a directory or file
-function linktree { # $1 = SOFT/HARD
-    #                 $2 = sourcedir (absolute)
-    #                 $3 = destdir (absolute)
-    #                 $4 = try error identifier $@ = <files>
+# LINKTREE: hard link to a directory or file
+function linktree { # $1 = sourcedir (absolute)
+    #                 $2 = destdir (absolute)
+    #                 $3 = try error identifier
+    #                 $@ = <files>
 
     # read arguments
-    local linktype="$1"
-    local sourcedir="$2"  # could absolutize: echo "$(cd "$foo" 2> /dev/null && pwd)"
-    local destdir="$3"
-    local tryid="$4"
-    shift 4
+    local sourcedir="$1"  # could absolutize: echo "$(cd "$foo" 2> /dev/null && pwd)"
+    local destdir="$2"
+    local tryid="$3"
+    shift 3
     
-    # if hard linking, pushd to source directory
-    [[ "$linktype" != SOFT ]] && try '/dev/null&<' pushd "$sourcedir" \
-				     "$tryid link error: Unable to move to $sourcedir"
+    # pushd to source directory
+    try '/dev/null&<' pushd "$sourcedir" \
+	"$tryid link error: Unable to move to $sourcedir"
 
-    # loop through entries creating either symbolic or hard links
-    for entry in "$@" ; do
-	if [[ "$linktype" = SOFT ]] ; then
-	    # symbolic link
-	    try /bin/ln -s "$sourcedir/$entry" "$destdir" \
-	    	"$tryid link error: Unable to create symlink to $entry."
-	else
-	    # hard link
-	    try /bin/pax -rwlpp "$entry" "$destdir" \
-		"$tryid link error: Unable to create link to $entry."
-	fi
+    local files=
+    if [[ "$@" ]] ; then
+	files=( "$@" )
+    else
+	# no items specified, so link all non-dot items
+	files=( * )
+    fi
+    
+    # loop through entries creating hard links
+    for entry in "${files[@]}" ; do
+	# hard link
+	try /bin/pax -rwlpp "$entry" "$destdir" \
+	    "$tryid link error: Unable to create link to $entry."
     done
     
-    # if hard linking, popd back from source directory
-    [[ "$linktype" != SOFT ]] && \
-	try '/dev/null&<' popd \
-	    "$tryid link error: Unable to move back from $sourcedir."
+    # popd back from source directory
+    try '/dev/null&<' popd \
+	"$tryid link error: Unable to move back from $sourcedir."
 }
 
 
@@ -586,6 +597,49 @@ function newversion {
 }
 
 
+# FILTERPLIST: write out a new plist file by filtering an input file with PlistBuddy
+function filterplist {  # SRC-FILE DEST-FILE TRY-ERROR-ID PLISTBUDDY-COMMANDS
+    
+    if [[ "$ok" ]]; then
+	
+	# source & dest files
+	local srcFile="$1"
+	local destFile="$2"
+
+	# ID of this plist file for messaging
+	local tryErrorID="$3"
+	
+	# command list, appended with save & exit commands
+	local plistbuddyCommands="$4
+Save
+Exit"	
+
+	
+	# create name for temp destination file
+	local destFileTmp="$(tempname "$destFile")"
+
+	# copy source file to temp
+	try cp "$srcFile" "$destFile" "Unable to create temporary $tryErrorID."
+
+	# use PlistBuddy to filter temp plist
+	echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy > /dev/null
+	if [[ "$?" = 0 ]] ; then
+	    # move temp file to permanent location
+	    permanent "$destFileTmp" "$destFile" "$tryErrorID"
+	else
+	    ok=
+	    errmsg="Error filtering $tryErrorID."
+	    
+	    # delete the temp file
+	    rmtemp "$destFileTmp" "$tryErrorID"
+	fi
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1    
+}
+
+
 # RELAUNCH -- relaunch this app after a delay
 function relaunch { # APP-PATH DELAY-SECONDS
     [[ "$2" ]] && sleep "$2"
@@ -593,23 +647,27 @@ function relaunch { # APP-PATH DELAY-SECONDS
 }
 
 
-# MCSSBINFO: get absolute path and version info for Epichrome
-function mcssbinfo { # (optional)MCSSB-PATH
+# EPICHROMEINFO: get absolute path and version info for Epichrome
+function epichromeinfo { # (optional)EPICHROME-PATH
+    #                         sets the following globals:
+    #                             epiPath, epiVersion,
+    #                             epiContents,
+    #                             epiEngine, epiEngineRuntime, epiPayload
     
     if [[ "$ok" ]]; then
 	
 	# default value
-	mcssbVersion="$SSBVersion"
-	mcssbPath=
+	epiVersion="$SSBVersion"
+	epiPath=
 		
 	# if a path is specified, only use that path
 	if [[ "$1" ]] ; then
-	    mcssbPath=( "$1" )
+	    epiPath=( "$1" )
 	else
 	    
 	    # use spotlight to find Epichrome instances
-	    try 'mcssbPath=' /usr/bin/mdfind \
-			    "kMDItemCFBundleIdentifier == 'org.epichrome.Epichrome'" \
+	    try 'epiPath=' /usr/bin/mdfind \
+			    "kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
 			    'error'
 	    if [[ "$ok" ]] ; then
 		# get paths to all Epichrome.app instances found
@@ -617,7 +675,7 @@ function mcssbinfo { # (optional)MCSSB-PATH
 		# break up result into array
 		local oldifs=$IFS
 		IFS=$'\n'
-		mcssbPath=($mcssbPath)
+		epiPath=($epiPath)
 		IFS="$oldifs"
 	    else
 		# ignore mdfind errors
@@ -626,25 +684,26 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	    fi
 	    
 	    # if spotlight fails (or is off) try hard-coded locations
-	    if [[ ! "$mcssbPath" ]] ; then
-		mcssbPath+=( ~/'Applications/Epichrome.app' \
+	    if [[ ! "$epiPath" ]] ; then
+		epiPath+=( ~/'Applications/Epichrome.app' \
 			       '/Applications/Epichrome.app' )
 	    fi
 	fi
-	
+
+	# find all instances of Epichrome on the system
 	local curPath=
 	local latestPath=
 	local latestVersion=0.0.0
-	for curPath in "${mcssbPath[@]}" ; do
+	for curPath in "${epiPath[@]}" ; do
 	    if [[ -d "$curPath" ]] ; then
 		debuglog "found Epichrome instance at '$curPath'"
 		
-		# get current value for mcssbVersion
+		# get current value for epiVersion
 		try source "${curPath}/Contents/Resources/Scripts/version.sh" ''
 		if [[ "$ok" ]] ; then
-		    if [[ $(newversion "$latestVersion" "$mcssbVersion") ]] ; then
+		    if [[ $(newversion "$latestVersion" "$epiVersion") ]] ; then
 			latestPath="$curPath"
-			latestVersion="$mcssbVersion"
+			latestVersion="$epiVersion"
 		    fi
 		else
 		    ok=1 ; errmsg=
@@ -652,39 +711,40 @@ function mcssbinfo { # (optional)MCSSB-PATH
 	    fi
 	done
 	
-	# not found
 	if [[ "$latestPath" ]] ; then
-	    mcssbPath="$latestPath"
-	    mcssbVersion="$latestVersion"
-	    debuglog "latest Epichrome instance found: version $mcssbVersion at '$mcssbPath'"
+	    # use the latest version
+	    epiPath="$latestPath"
+	    epiVersion="$latestVersion"
+	    debuglog "latest Epichrome instance found: version $epiVersion at '$epiPath'"
 	else
-	    mcssbPath=
-	    mcssbVersion="0.0.0"
+	    # not found
+	    epiPath=
+	    epiVersion="0.0.0"
 	    
 	    errmsg="Unable to find Epichrome."
 	    ok=
 	    return 1
-	fi	
+	fi
     fi
+
+    # set useful globals
+    epiContents="$epiPath/Contents"
+    epiEngine="$epiContents/Resources/Engine"
+    epiEngineRuntime="$epiContents/Resources/Engine/Chromium"
+    epiPayload="$epiContents/Resources/Engine/Payload"
     
     [[ "$ok" ]] && return 0
     return 1
 }
 
 
-# CHROMEINFO: find absolute paths to and info on relevant Google Chrome items
-#             sets the following variables:
-#                chromePath, chromeContents
-#                chromeVersion, chromeMajorVersion
-#                chromeInfoPlist
-#                chromeExecName, chromeExec
-function chromeinfo {  # $1 == FALLBACKLEVEL
+# GOOGLECHROMEINFO: find absolute paths to and info on relevant Google Chrome items
+#                   sets the following variables:
+#                      SSBGoogleChromePath, SSBGoogleChromeVersion, googleChromeContents
+function googlechromeinfo {  # $1 == FALLBACKLEVEL
     
     if [[ "$ok" ]]; then
 	
-	# Chrome identifier
-	local CFBundleIdentifier='com.google.Chrome'
-
 	# holder for Info.plist file
 	local infoplist=
 
@@ -696,17 +756,16 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	if [[ ! "$fallback" ]] ; then
 
-	    # this is our first try finding Chrome -- use the config value,
-	    # if any, or default location
-	    chromePath="$SSBChromePath"
-
+	    # this is our first try finding Chrome -- use the value already
+	    # in SSBGoogleChromePath
+	    
 	    # next option is try the default install locations
 	    fallback=DEFAULT1
 	    
 	elif [[ "$fallback" = DEFAULT1 ]] ; then
 
 	    # try the first default install locations	    
-	    chromePath="$HOME/Applications/Google Chrome.app"
+	    SSBGoogleChromePath="$HOME/Applications/Google Chrome.app"
 	    
 	    # we need to check the app's ID
 	    checkid=1
@@ -717,7 +776,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	elif [[ "$fallback" = DEFAULT2 ]] ; then
 	    
 	    # try the first default install locations	    
-	    chromePath='/Applications/Google Chrome.app'
+	    SSBGoogleChromePath='/Applications/Google Chrome.app'
 	    
 	    # we need to check the app's ID
 	    checkid=1
@@ -728,10 +787,10 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	elif [[ "$fallback" = SPOTLIGHT ]] ; then
 	    
 	    # try using Spotlight to find Chrome
-	    chromePath=$(mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" 2> /dev/null)
+	    SSBGoogleChromePath=$(mdfind "kMDItemCFBundleIdentifier == '$googleChromeID'" 2> /dev/null)
 	    
 	    # find first instance
-	    chromePath="${chromePath%%$'\n'*}"
+	    SSBGoogleChromePath="${SSBGoogleChromePath%%$'\n'*}"
 	    
 	    # if this fails, the final stop is manual selection
 	    fallback=MANUAL
@@ -739,14 +798,14 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	else # "$fallback" = MANUAL
 	    
 	    # last-ditch - ask the user to locate it
-	    try 'chromePath=' osascript -e \
-		'return POSIX path of (choose application with title "Locate Chrome" with prompt "Please locate Google Chrome" as alias)' ''
-	    chromePath="${chromePath%/}"
+	    try 'SSBGoogleChromePath=' osascript -e \
+		'return POSIX path of (choose application with title "Locate Google Chrome" with prompt "Please locate Google Chrome" as alias)' ''
+	    SSBGoogleChromePath="${SSBGoogleChromePath%/}"
 	    
-	    if [[ ! "$ok" || ! -d "$chromePath" ]] ; then
+	    if [[ ! "$ok" || ! -d "$SSBGoogleChromePath" ]] ; then
 		
 		# NOW it's an error -- we've failed to find Chrome
-		chromePath=
+		SSBGoogleChromePath=
 		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
 		errmsg="Unable to find Chrome application.$errmsg"
 		ok=
@@ -758,24 +817,21 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	    
 	    # don't change the fallback -- we'll just keep doing this
 	fi
-	
-	# create path to Info.plist
-	chromeInfoPlist="${chromePath}/Contents/Info.plist"
-	
+		
 	# check that Info.plist exists
 	local fail=
-	if [[ ! -e "$chromeInfoPlist" ]] ; then
+	if [[ ! -e "${SSBGoogleChromePath}/Contents/Info.plist" ]] ; then
 	    fail=1
 	else
 	    
 	    # parse Info.plist
 	    
 	    # read in Info.plist
-	    infoplist=$(/bin/cat "${chromePath}/Contents/Info.plist" 2> /dev/null)
+	    infoplist=$(/bin/cat "${SSBGoogleChromePath}/Contents/Info.plist" 2> /dev/null)
 	    if [[ $? != 0 ]] ; then
-		errmsg="Unable to read Chrome Info.plist. $fallback $chromePath"
+		errmsg="Unable to read Chrome Info.plist. $fallback $SSBGoogleChromePath"
 		ok=
-		chromePath=
+		SSBGoogleChromePath=
 		return 1
 	    fi
 	    
@@ -809,7 +865,7 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	    re='<key>CFBundleExecutable</key>[
  	]*<string>([^<]*)</string>'
 	    if [[ "$infoplist" =~ $re ]] ; then
-		chromeExecName="${BASH_REMATCH[1]}"
+		local chromeExecPath="${SSBGoogleChromePath}/Contents/MacOS/${BASH_REMATCH[1]}"
 	    fi
 	    	    
 	    # check app ID if necessary
@@ -821,12 +877,12 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 		# check the app bundle's identifier against Chrome's
 		if [[ "$infoplist" =~ $re ]] ; then
 		    # wrong identifier, so we need to try again
-		    [[ "${BASH_REMATCH[1]}" != "$CFBundleIdentifier" ]] && fail=1
+		    [[ "${BASH_REMATCH[1]}" != "$googleChromeID" ]] && fail=1
 		else
 		    # error -- failed to find the identifier
 		    errmsg="Unable to find Chrome identifier."
 		    ok=
-		    chromePath=
+		    SSBGoogleChromePath=
 		    return 1
 		fi
 	    fi
@@ -834,24 +890,19 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# if any of this parsing failed, fall back to another method of finding Chrome
 	if [[ "$fail" ]] ; then
-	    chromeinfo "$fallback"
+	    googlechromeinfo "$fallback"
 	    return $?
 	fi
 	
-	# create path to Chrome executable
-	chromeExec="${chromePath}/Contents/MacOS/$chromeExecName"
-	
 	# make sure the executable is in place and is not a directory
-	if [[ ! ( -x "$chromeExec" ) || ( -d "$chromeExec" ) ]] ; then
+	if [[ ( ! -x "$chromeExecPath" ) || ( -d "$chromeExecPath" ) ]] ; then
 	    
 	    # this error is fatal
 	    errmsg='Unable to find Chrome executable.'
 	    
 	    # set error variables and quit
 	    ok=
-	    chromePath=
-	    chromeExec=
-	    chromeInfoPlist=
+	    SSBGoogleChromePath=
 	    return 1
 	fi
 	
@@ -859,43 +910,29 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# try to get it via Spotlight
 	local re='^kMDItemVersion = "(.*)"$'
-	try 'chromeVersion=' mdls -name kMDItemVersion "$chromePath" ''
-	if [[ "$ok" && ( "$chromeVersion" =~ $re ) ]] ; then
-	    chromeVersion="${BASH_REMATCH[1]}"
+	try 'SSBGoogleChromeVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
+	if [[ "$ok" && ( "$SSBGoogleChromeVersion" =~ $re ) ]] ; then
+	    SSBGoogleChromeVersion="${BASH_REMATCH[1]}"
 	else
 	    # Spotlight failed -- use version from Info.plist
 	    ok=1
 	    errmsg=
-	    chromeVersion="$infoplistChromeVersion"
+	    SSBGoogleChromeVersion="$infoplistChromeVersion"
 	fi
 	
 	# check for error
-	if [[ ! "$ok" || ! "$chromeVersion" ]] ; then
-	    chromePath=
-	    chromeVersion=
+	if [[ ! "$ok" || ! "$SSBGoogleChromeVersion" ]] ; then
+	    SSBGoogleChromePath=
+	    SSBGoogleChromeVersion=
 	    errmsg='Unable to retrieve Chrome version.'
 	    ok=
 	    return 1
-	fi
-	
-	# set up variables depending which version of Chrome we're running
-	
-	local chromeMajorVersion="${chromeVersion%%.*}"
-	if [[ ( "$chromeMajorVersion" =~ ^[1-9][0-9]*$ ) && \
-	    ( "$chromeMajorVersion" -lt 69 ) ]] ; then
-	    chromeVersionPre69=1
-	    # pre-69 we name the engine to avoid clashes with the real Chrome
-	    engineExec="ChromeEngine"
-	else
-	    # from 69 on it MUST have the same name to avoid security problems
-	    chromeVersionPre69=
-	    engineExec="$chromeExecName"
 	fi
     fi
     
     if [[ "$ok" ]] ; then
 	# set up dependant variables
-	chromeContents="$chromePath/Contents"
+	googleChromeContents="$SSBGoogleChromePath/Contents"
 	return 0
     else
 	return 1
@@ -903,60 +940,110 @@ function chromeinfo {  # $1 == FALLBACKLEVEL
 }
 
 
-# CREATEPAYLOAD: create persistent Chrome engine payload
-function createpayload { # $1 = Contents path
-
-    local payloadPath="$1/$appPayload"
+# CREATEENGINEPAYLOAD: create persistent engine payload
+function createenginepayload { # $1 = Contents path
     
-    # set link style based on Chrome version
-    local linkStyle=SOFT
-    [[ "$chromeVersionPre69" ]] || linkStyle=HARD
+    local enginePath="$1/$appEngine"
+    local payloadContents="$1/$appPayload/Contents"
     
-    # clear out old payload & recreate
-    try /bin/rm -rf "$payloadPath" 'Unable to clear old payload.'
-    try /bin/mkdir -p "$payloadPath/Resources" \
-	'Unable to create Chrome engine Resources directory.'
+    # clear out old engine & recreate
+    try /bin/rm -rf "$enginePath" 'Unable to clear old engine.'
+    try /bin/mkdir -p "$payloadContents/Resources" \
+	'Unable to create app engine Resources directory.'
     
     # link to this app's icons
     if [[ "$ok" ]] ; then
 	try /bin/ln -s "../../../../$CFBundleIconFile" \
-	    "$payloadPath/Resources/$chromeBundleIconFile" \
-	    "Unable to link Chrome engine to application icon file. '../../../../$CFBundleIconFile'"
+	    "$payloadContents/Resources/$chromeBundleIconFile" \
+	    "Unable to link app engine to application icon file. '../../../../$CFBundleIconFile'"
 	try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
-	    "$payloadPath/Resources/$chromeBundleTypeIconFile" \
-	    "Unable to link Chrome engine to document icon file."
+	    "$payloadContents/Resources/$chromeBundleTypeIconFile" \
+	    "Unable to link app engine to document icon file."
     fi
     
-    # filter Chrome .lproj directories to modify InfoPlist.strings files
+    # create persistent payload
     if [[ "$ok" ]] ; then
 	
-	# copy all .lproj directories from Chrome
-	try /bin/cp -a "$chromeContents/Resources/"*.lproj "$payloadPath/Resources" \
-	    'Unable to copy localizations to Chrome engine.'
+	if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+
+	    # CHROMIUM PAYLOAD
+	    
+	    # copy payload items from Epichrome
+	    try /bin/cp -a "$epiPayload" "$payloadContents" \
+		'Unable to copy items to app engine payload.'
+	    
+	    # filter Info.plist with app info
+	    filterplist "$payloadContents/Info.plist.in" \
+			"$payloadContents/Info.plist.off" \
+			"app engine Info.plist" \
+			"
+set :CFBundleDisplayName $CFBundleDisplayName
+set :CFBundleName $CFBundleName
+set :CFBundleIdentifier MYNEWID
+set :CFBundleShortVersionString $epiVersion
+set :CFBundleVersion MYMACHINEVERSION
+Delete :CFBundleDocumentTypes
+Delete :CFBundleURLTypes"
+	    
+	    # filter InfoPlist.strings files	    
+	    for lprojdir in "$payloadContents/Resources/"*.lproj ; do
+		
+		# get paths for current in & out files
+		local curstringsin="$lprojdir/InfoPlist.strings.in"
+		
+		if [[ -f "$curstringsin" ]] ; then
+		    # filter current localization
+		    try "$lprojdir/InfoPlist.strings<" /usr/bin/sed -E \
+			-e "s/EPIDISPLAYNAME/$CFBundleDisplayName/" \
+			-e "s/EPIBUNDLENAME/$CFBundleName/" \
+			"$curstringsin" \
+			'Unable to create app engine localizations.'
+		    
+		    # remove .in file
+		    try rm -f "$curstringsin" \
+			'Unable to remove app engine localization source file.'
+		fi
+	    done
+	else
+
+	    # GOOGLE CHROME PAYLOAD
+	    
+	    # copy engine executable (linking causes confusion between apps & real Chrome)
+	    try /bin/cp -a "$googleChromeContents/MacOS" "$payloadContents" \
+		'Unable to copy Google Chrome executable to app engine payload.'
+
+	    # filter InfoPlist.strings files
+	    local chromeLproj=( "$googleChromeContents/Resources/"*.lproj )
+	    if [[ "${#chromeLproj[@]}" ]] ; then
+		try /bin/cp -a "${chromeLproj[@]}" "$payloadContents/Resources" \
+		    'Unable to copy Google Chrome localizations to app engine payload.'
+		
+		# run python script to filter the InfoPlist.strings files for the
+		# .lproj directories
+		local pyerr=
+		try 'pyerr&=' \
+		    "$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
+		    "$payloadContents/Resources/"*.lproj \
+		    'Error filtering InfoPlist.strings'
+		[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
+	    fi
+	fi
 	
-	# run python script to filter the InfoPlist.strings files for the
-	# .lproj directories
-	local pyerr=
-	try 'pyerr&=' \
-	    "$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
-	    "$payloadPath/Resources/"*.lproj \
-	    'Error filtering InfoPlist.strings'
-	[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
     fi
 }
 
 
-# MCSSBMAKEICONS: wrapper for makeicon.sh
-function mcssbmakeicons {  # INPUT OUTPUT-DIR app|doc|both
+# MAKEAPPICONS: wrapper for makeicon.sh
+function makeappicons {  # INPUT OUTPUT-DIR app|doc|both
     if [[ "$ok" ]] ; then
 
 	# find makeicon.sh
-	local makeIconScript="${mcssbPath}/Contents/Resources/Scripts/makeicon.sh"
+	local makeIconScript="$epiContents/Resources/Scripts/makeicon.sh"
 	[[ -e "$makeIconScript" ]] || abort "Unable to locate makeicon.sh." 1
 	
 	# build command-line
 	local args=
-	local docargs=(-c "$mcssbPath/Contents/Resources/docbg.png" 256 286 512 "$1" "$2/$CFBundleTypeIconFile")
+	local docargs=(-c "$epiContents/Resources/docbg.png" 256 286 512 "$1" "$2/$CFBundleTypeIconFile")
 	case "$3" in
 	    app)
 		args=(-f "$1" "$2/$CFBundleIconFile")
@@ -981,85 +1068,134 @@ function mcssbmakeicons {  # INPUT OUTPUT-DIR app|doc|both
 }
 
 
-# FILTERCHROMEINFOPLIST: write out new Info.plist file
-function filterchromeinfoplist {  # PY-CONTENTS-DIR DEST-CONTENTS-DIR FILTER-KEYS...
+# CONFIGVARS: list of variables in config.sh
+myConfigVars=( SSBIdentifier \
+		   SSBCommandLine \
+		   CFBundleDisplayName \
+		   CFBundleName \
+		   SSBVersion \
+		   SSBUpdateCheckDate \
+		   SSBUpdateCheckVersion \
+		   SSBEngineName \
+		   SSBEngineType \
+		   SSBProfilePath \
+		   SSBCustomIcon \
+		   SSBFirstRun \
+		   SSBFirstRunSinceVersion \
+		   SSBHostInstallError )
+myConfigVarsGoogleChrome=( "${myConfigVars[@]}" \
+			       SSBGoogleChromePath \
+			       SSBGoogleChromeVersion )
+
+
+# READCONFIG: read in config.sh file & save config versions to track changes
+function readconfig {
     
-    if [[ "$ok" ]]; then
-
-	# arguments
-	local pyContentsDir="$1"   # Contents directory to use as root for Info.plist-filtering Python script
-	shift
-	local destContentsDir="$1" # Contents directory to use as root for destination Info.plist
-	shift
-	local filterkeys=("$@")    # keys to filter
-
-	# makes sure we have the Chrome info we need
-	[[ "$chromeInfoPlist" ]] || chromeinfo
-	[[ "$ok" ]] || return 1
-	
-	# ensure Chrome's Info.plist file is where we think it is
-	if [[ ! -f "$chromeInfoPlist" ]] ; then
-	    errmsg="Unable to find Chrome Info.plist file."
-	    ok=
-	    return 1
-	fi
-	
-	# full path to Info.plist file
-	local fullInfoPlist="$destContentsDir/$appInfoPlist"
-	
-	# create name for temp Info.plist file
-	local tmpInfoPlist="$(tempname "$fullInfoPlist")"
-	
-	# run python script to filter Info.plist
-	local pyerr=
-	try 'pyerr&=' "$pyContentsDir/Resources/Scripts/infoplist.py" \
-	    "$chromeInfoPlist" \
-	    "$tmpInfoPlist" \
-	    "${filterkeys[@]}" 'Error filtering Info.plist file.'
-	if [[ ! "$ok" ]] ; then
-	    errmsg="$errmsg ($pyerr)"
-	    
-	    # delete the temp file
-	    rmtemp "$tmpInfoPlist" "Info.plist"
-	    return 1
-	else
-	    # move temp file to permanent location
-	    permanent "$tmpInfoPlist" "$fullInfoPlist" "Info.plist"
-	fi
+    safesource "$myContents/$appConfigScript" "config file"
+    
+    if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
+			   "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+	ok=
+	errmsg='Config file is corrupt.'
     fi
-    
-    [[ "$ok" ]] && return 0
-    return 1    
+
+    if [[ "$ok" ]] ; then
+
+	# if we're using a Google Chrome engine, we need to include extra keys
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    myConfigVars=( "${myConfigVarsGoogleChrome[@]}" )
+	fi
+	
+	# save all relevant config variables prefixed with "config"
+	
+	for varname in "${myConfigVars}" ; do
+	    
+	    if [[ "$(isarray "$varname")" ]]; then
+		# copy array value
+		eval "config$varname=(\"\${$varname[@]}\")"
+	    else
+		
+		# copy scalar value
+		eval "config$varname=\"\${$varname}\""
+	    fi
+	done
+    fi
 }
 
 
 # WRITECONFIG: write out config.sh file
-function writeconfig {  # $1 = destination app bundle Contents directory
+function writeconfig {  # DEST-CONTENTS-DIR FORCE
+
+    local destContents="$1"
+    local force="$2"
     
     if [[ "$ok" ]] ; then
 
-	local configScript="$1/$appConfigScript"
-	# write out the config file
-	writevars "$configScript" \
-		  CFBundleDisplayName \
-		  CFBundleName \
-		  CFBundleIdentifier \
-		  SSBVersion \
-		  SSBUpdateCheckDate \
-		  SSBUpdateCheckVersion \
-		  SSBProfilePath \
-		  SSBChromePath \
-		  SSBChromeVersion \
-		  SSBChromeEngine \
-		  SSBRegisterBrowser \
-		  SSBCustomIcon \
-		  SSBFirstRun \
-		  SSBFirstRunSinceVersion \
-		  SSBHostInstallError \
-		  SSBCommandLine
+	# determine if we need to write the config file
+
+	# we're being told to write no matter what
+	local dowrite="$force"
 	
-	# set ownership of config file
-	setowner "$1/.." "$configScript" "config file"
+	# not being forced, so compare all config variables for changes
+	if [[ ! "$dowrite" ]] ; then
+	    local varname=
+	    local configname=
+	    for varname in "${myConfigVars[@]}" ; do
+		configname="config${varname}"
+
+		local varisarray="$(isarray "$varname")"
+
+		# if variables are not the same type
+		if [[ "$varisarray" != "$(isarray "$configname")" ]] ; then
+		    dowrite=1
+		    break
+		fi
+
+		if [[ "$varisarray" ]] ; then
+		    
+		    # variables are arrays, so compare part by part
+		    
+		    # check for the same length
+		    local varlength="$(eval "echo \${#$varname[@]}")"
+		    if [[ "$varlength" \
+			      -ne "$(eval "echo \${#$configname[@]}")" ]] ; then
+			dowrite=1
+			break
+		    fi
+
+		    # compare each element in both arrays
+		    local i=0
+		    while [[ "$i" -lt "$varlength" ]] ; do
+			if [[ "$(eval "echo \${$varname[$i]}")" \
+				  != "$(eval "echo \${$configname[$i]}")" ]] ; then
+			    dowrite=1
+			    break
+			i=$(($i + 1))
+		    done
+
+		    # if we had a mismatch, break out of the outer loop
+		    [[ "$dowrite" ]] && break
+		else
+
+		    # variables are scalar, simple compare
+		    if [[ "$(eval "echo \${$varname}")" \
+			      != "$(eval "echo \${$configname}")" ]] ; then
+			dowrite=1
+			break
+		    fi
+	    done
+	fi
+
+	# if we need to, write out the file
+	if [[ "$dowrite" ]] ; then
+	    local configScript="$destContents/$appConfigScript"
+	    
+	    # write out the config file
+	    writevars "$configScript" "${myConfigVars[@]}"
+	    
+	    # set ownership of config file
+	    setowner "$destContents/.." "$configScript" "config file"
+	fi
     fi
     
     [[ "$ok" ]] && return 0
@@ -1067,8 +1203,8 @@ function writeconfig {  # $1 = destination app bundle Contents directory
 }
 
 
-# CHECKMCSSBVERSION: function that checks for a new version of Epichrome on github
-function checkmcssbversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
+# CHECKEPICHROMEVERSION: function that checks for a new version of Epichrome on github
+function checkepichromeversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
 
     # URL for the latest Epichrome release
     local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
@@ -1081,7 +1217,7 @@ function checkmcssbversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
     fi
     
     # set current version to compare against
-    local curVersion="$mcssbVersion"
+    local curVersion="$epiVersion"
     [[ "$2" ]] && curVersion="$2"
     
     # compare versions
@@ -1105,7 +1241,7 @@ function updatessb {
     
     if [[ "$ok" ]] ; then
 	
-	# command-line arguments
+	# arguments
 	local appPath="$1"        # path to the app bundle
 	local customIconDir="$2"  # path to custom icon directory
 	local chromeOnly="$3"     # if non-empty, we're ONLY updating Chrome stuff
@@ -1113,9 +1249,9 @@ function updatessb {
 	
 	# initially set this to permanent Contents directory
 	local contentsTmp="$appPath/Contents"
-
+	
 	# make sure we've got Chrome info
-	[[ "$chromePath" && "$chromeVersion" ]] || chromeinfo
+	[[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
 	
 	# FULL UPDATE OPERATION
 	
@@ -1125,7 +1261,7 @@ function updatessb {
 	    local contentsTmp="$(tempname "$appPath/Contents")"
 	    
 	    # copy in the boilerplate for the app
-	    try /bin/cp -a "$mcssbPath/Contents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
+	    try /bin/cp -a "$epiContents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
 	    [[ "$ok" ]] || return 1
 	    
 	    # place custom icon, if any
@@ -1150,7 +1286,7 @@ function updatessb {
 	    # either copy or remake the doc icon
 	    if [[ "$remakeDocIcon" ]] ; then
 		# remake doc icon now that we can customize that
-		mcssbmakeicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
+		makeappicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
 		if [[ ! "$ok" ]] ; then
 		    errmsg="Unable to update doc icon ($errmsg)."
 		fi
@@ -1162,61 +1298,91 @@ function updatessb {
 	    
 	    if [[ "$ok" ]] ; then
 		
-		# create a bundle identifier if necessary
-		local idbase="org.epichrome.app."
-		local idre="^${idbase//./\\.}"
+		# make sure we have a unique identifier for our app & engine
 		
-		# make a new identifier if: either we're making a new SSB, or
-		# updating an old enough version that there's either no
-		# CFBundleIdentifier or an old format one
-		
-		if [[ ! "$CFBundleIdentifier" || ! ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
+		if [[ ! "$SSBIdentifier" ]] ; then
 
-		    # create a bundle identifier
-		    local maxbidlength=$((30 - ${#idbase}))       # identifier must be 30 characters or less
-		    local bid="${CFBundleName//[^-a-zA-Z0-9_]/}"  # remove all undesirable characters
-		    [ ! "$bid" ] && bid="generic"                 # if trimmed away to nothing, use a default name
-		    bid="${bid::$maxbidlength}"
-		    local bidbase="${bid::$(($maxbidlength - 3))}"
-		    bidbase="${#bidbase}"                         # length of the ID's base if using uniquifying numbers
-		    CFBundleIdentifier="${idbase}$bid"            # set initial identifier
-		    
-		    # if this identifier already exists on the system, create a unique one
-		    local idfound=0
-		    local randext="000"
+		    # no ID found
 
-		    # determine if Spotlight is enabled for the root volume
-		    local spotlight=$(mdutil -s / 2> /dev/null)
-		    if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
-			spotlight=1
+		    local idre="^${appIDBase//./\\.}"		    
+		    if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
+
+			# pull ID from our CFBundleIdentifier
+			SSBIdentifier="${CFBundleIdentifier##*.}"
 		    else
-			spotlight=
-		    fi
-		    
-		    while [[ 1 ]] ; do
+			
+			# no CFBundleIdentifier, so create a new ID
 
-			if [[ "$spotlight" ]] ; then
-			    try 'idfound=' mdfind "kMDItemCFBundleIdentifier == '$CFBundleIdentifier'" \
-				'Unable to search system for bundle identifier.'
-			    
-			    # exit loop on error, or on not finding this ID
-			    [[ "$ok" && "$idfound" ]] || break
+			# get max length for SSBIdentifier, given that CFBundleIdentifier
+			# must be 30 characters or less (the extra 1 accounts for the .
+			# we will need to add to the base
+			
+			local maxidlength=$((30 - \
+						((${#appIDBase} > ${#appEngineIDBase} ? \
+								${#appIDBase} : \
+								${#appEngineIDBase} ) + 1) ))
+			
+			# first attempt is to just use the bundle name with
+			# illegal characters removed
+			SSBIdentifier="${CFBundleName//[^-a-zA-Z0-9_]/}"
+			
+			# if trimmed away to nothing, use a default name
+			[ ! "$SSBIdentifier" ] && SSBIdentifier="generic"
+			
+			# trim down to max length
+			SSBIdentifier="${SSBIdentifier::$maxidlength}"
+			
+			# check for any apps that already have this ID
+
+			# get a length that's the smaller of the length of the
+			# full ID or the max allowed length - 3 to accommodate
+			# adding random digits at the end
+			local idbaselength="${SSBIdentifier::$(($maxidlength - 3))}"
+			idbaselength="${#idbaselength}"
+			
+			# initialize status variables
+			local appidfound=
+			local engineidfound=
+			local randext=
+			
+			# determine if Spotlight is enabled for the root volume
+			local spotlight=$(mdutil -s / 2> /dev/null)
+			if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
+			    spotlight=1
+			else
+			    spotlight=
 			fi
+
+			# loop until we randomly hit a unique ID
+			while [[ 1 ]] ; do
+
+			    if [[ "$spotlight" ]] ; then
+				try 'appidfound=' mdfind \
+				    "kMDItemCFBundleIdentifier == '$appIDBase.$SSBIdentifier'" \
+				    'Unable to search system for app bundle identifier.'
+				try 'engineidfound=' mdfind \
+				    "kMDItemCFBundleIdentifier == '$appEngineIDBase.$SSBIdentifier'" \
+				    'Unable to search system for engine bundle identifier.'
+				
+				# exit loop on error, or on not finding this ID
+				[[ "$ok" && ( "$appidfound" || "$engineidfound" ) ]] || break
+			    fi
+			    
+			    # try to create a new unique ID
+			    randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
+
+			    SSBIdentifier="${SSBIdentifier::$idbaselength}${randext:1:3}"
+			    
+			    # if we don't have spotlight we'll just use the first randomly-generated ID
+			    [[ ! "$spotlight" ]] && break
+			    
+			done
 			
-			# try to create a new unique ID
-			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-			bid="${bid::$bidbase}${randext:1:3}"
-			CFBundleIdentifier="${idbase}$bid"
-			
-			# if we don't have spotlight we'll just use the first randomly-generated ID
-			[[ ! "$spotlight" ]] && break
-			
-		    done
-		    
-		    # if we got out of the loop, we have a unique-ish ID (or we got an error)
+			# if we got out of the loop, we have a unique-ish ID (or we got an error)
+		    fi
 		fi
 	    fi
-
+	    
 	    if [[ "$ok" ]] ; then
 		
 		# set profile path
@@ -1248,8 +1414,8 @@ function updatessb {
 		fi
 		
 		# update SSBVersion & SSBUpdateCheckVersion
-		SSBVersion="$mcssbVersion"
-		SSBUpdateCheckVersion="$mcssbVersion"
+		SSBVersion="$epiVersion"
+		SSBUpdateCheckVersion="$epiVersion"
 		
 		# clear host install error state
 		SSBHostInstallError=
@@ -1263,49 +1429,12 @@ function updatessb {
 	    if [[ ! "$SSBVersion" ]] ; then
 		
 		# this should never be reached, but just in case, we set SSBVersion
-		SSBVersion="$mcssbVersion"
-		SSBUpdateCheckVersion="$mcssbVersion"
+		SSBVersion="$epiVersion"
+		SSBUpdateCheckVersion="$epiVersion"
 	    fi
 	fi
 	
 	# OPERATIONS FOR UPDATING CHROME
-	
-	# create list of keys to filter
-	local filterkeys=(CFBundleDisplayName string "$CFBundleDisplayName" \
-					      CFBundleExecutable string "$CFBundleExecutable" \
-					      CFBundleIconFile string "$CFBundleIconFile" \
-					      CFBundleIdentifier string "$CFBundleIdentifier" \
-					      CFBundleName string "$CFBundleName" \
-					      CFBundleShortVersionString string "$SSBVersion" \
-					      CFBundleVersion string "$SSBVersion" \
-					      CFBundleTypeIconFile string "$CFBundleTypeIconFile" \
-					      CFBundleSignature string '????' \
-					      BuildMachineOSBuild '' \
-					      OSAScriptingDefinition '' \
-					      LSHasLocalizedDisplayName '' \
-					      UTExportedTypeDeclarations '' \
-					      SCMRevision '' \
-					      DTSDKBuild '' \
-					      DTSDKName '' \
-					      DTXcode '' \
-					      DTXcodeBuild '' \
-					      KSChannelID-32bit '' \
-					      KSChannelID-32bit-full '' \
-					      KSChannelID-full '' \
-					      KSProductID '' \
-					      KSUpdateURL '' \
-					      KSVersion '' \
-					      NSHighResolutionCapable true )
-	
-	# if we're not registering as a browser, delete these keys too
-	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
-	    filterkeys+=( CFBundleURLTypes '' \
-					   NSPrincipalClass '' \
-					   NSUserActivityTypes '' )
-	fi
-	
-	# write out Info.plist
-	filterchromeinfoplist "$contentsTmp" "$contentsTmp" "${filterkeys[@]}"
 	
 	
 	# WRITE OUT CONFIG FILE
@@ -1316,7 +1445,7 @@ function updatessb {
 	    SSBChromeVersion="$chromeVersion"
 	fi
 	
-	writeconfig "$contentsTmp"
+	writeconfig "$contentsTmp" force
 	
 	# set ownership of app bundle to this user (only necessary if running as admin)
 	setowner "$appPath" "$contentsTmp" "app bundle Contents directory"

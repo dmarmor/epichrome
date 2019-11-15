@@ -20,7 +20,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-VERSION:=$(shell source src/version.sh ; echo "$$mcssbVersion")
+VERSION:=$(shell source src/version.sh ; echo "$$epiVersion")
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 # build differently depending if version is beta
@@ -55,10 +55,6 @@ APP_RNTM_NMHT:=$(APP_RNTM_RSRC)/NativeMessagingHosts
 APP_RNTM_NMEX:=$(APP_RNTM_RSRC)/External\ Extensions
 APP_RNTM_FRUN:=$(APP_RNTM_RSRC)/FirstRun
 APP_RNTM_MCOS:=$(APP_RNTM)/MacOS
-
-# for codesigning runtime
-APP_RAPP:=$(APP_RSRC)/Runtime.app
-APP_RAPP_CTNT:=$(APP_RAPP)/Contents
 
 INSTALL_PATH:=/Applications/Epichrome.app
 
@@ -101,16 +97,6 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_RSRC)/app.icns \
 	$(APP_RNTM_RSRC)/document.icns \
 	src/Info.plist.runtime
-	mkdir $(APP_RAPP)
-	mv $(APP_RNTM) $(APP_RAPP_CTNT)
-	cp src/Info.plist.runtime $(APP_RAPP_CTNT)/Info.plist
-	rm -rf $(APP_RAPP_CTNT)/_CodeSignature
-	codesign -s 'David Marmor' -vv $(APP_RAPP)
-	codesign --verify --deep --strict --verbose=2 $(APP_RAPP)
-	spctl --assess --type execute --verbose=4 $(APP_RAPP)
-	rm $(APP_RAPP_CTNT)/Info.plist
-	mv $(APP_RAPP_CTNT) $(APP_RNTM)
-	rmdir $(APP_RAPP)
 
 #debug: EXEC_SED='$(EXEC_SED_COMMON)$(EXEC_SED_BETA)'
 # beta: $(APP_RSRC)/applet_beta.icns $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/document_beta.icns
@@ -118,7 +104,7 @@ $(APP): $(APP_SCPT)/main.scpt \
 # 	mv -f $(APP_RNTM_RSRC)/app_beta.icns $(APP_RNTM_RSRC)/app.icns
 # 	mv -f $(APP_RNTM_RSRC)/document_beta.icns $(APP_RNTM_RSRC)/document.icns
 #	rm $(APP_SCPT)/version.sh
-#	sed -E 's/^(mcssbVersion=.*)$$/\1b$(BETAVERSION)/' src/version.sh > $(APP_SCPT)/version.sh
+#	sed -E 's/^(epiVersion=.*)$$/\1b$(BETAVERSION)/' src/version.sh > $(APP_SCPT)/version.sh
 
 clean:
 	rm -rf $(APP)
@@ -137,7 +123,7 @@ $(APP_SCPT)/main.scpt: src/main.applescript
 	chmod 444 $<
 	osacompile -o $(APP) -x -d $<
 	chmod 644 $<
-	chmod 444 $@  # lock main.scpt so codesigning works
+	chmod 444 $@  # lock main.scpt so codesigning works (no longer used)
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
 	mkdir -p $(APP_RNTM_SCPT)
 	mkdir -p $(APP_RNTM_MCOS)

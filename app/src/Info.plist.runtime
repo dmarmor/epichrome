@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Epichrome App</string>
+	<string>EPIDISPLAYNAME</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -273,17 +273,17 @@
 	<key>CFBundleIconFile</key>
 	<string>app.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.epichrome.app.Gmail</string>
+	<string>org.epichrome.EPIAPPID</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>EpiApp</string>
+	<string>EPIBUNDLENAME</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.2z</string>
+	<string>EPIVERSION</string>
 	<key>CFBundleSignature</key>
-	<string>????</string>
+	<string>Cr24</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -313,33 +313,16 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>2.2.2z</string>
-	<key>DTCompiler</key>
-	<string>com.apple.compilers.llvm.clang.1_0</string>
-	<key>LSEnvironment</key>
-	<dict>
-		<key>MallocNanoZone</key>
-		<string>0</string>
-	</dict>
-	<key>LSFileQuarantineEnabled</key>
-	<true/>
+	<string>EPIVERSIONBASE</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>10.10.0</string>
-	<key>NSAppleScriptEnabled</key>
+	<key>LSUIElement</key>
 	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2019 David Marmor</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
-	<string>BrowserCrApplication</string>
-	<key>NSRequiresAquaSystemAppearance</key>
-	<true/>
-	<key>NSSupportsAutomaticGraphicsSwitching</key>
-	<true/>
-	<key>NSUserActivityTypes</key>
-	<array>
-		<string>NSUserActivityTypeBrowsingWeb</string>
-	</array>
-	<key>NSUserNotificationAlertStyle</key>
-	<string>banner</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	</dict>
+	<string>NSApplication</string>
+</dict>
 </plist>

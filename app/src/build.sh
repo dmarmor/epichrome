@@ -50,8 +50,8 @@ myPath=$(cd "$(dirname "$0")/../../.."; pwd)
 source "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
 
-# get important MCSSB info
-mcssbinfo "$myPath"
+# get important Epichrome info
+epichromeinfo "$myPath"
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED
@@ -82,6 +82,14 @@ SSBRegisterBrowser="$1"
 [ "$SSBRegisterBrowser" != "Yes" ] && SSBRegisterBrowser="No"
 shift
 
+# specify app engine
+if [[ "$1" = "No" ]] ; then
+    SSBEngineType="Google Chrome"
+else
+    SSBEngineType="Chromium"
+fi
+shift
+
 # profile path may eventually come here as a command-line argument
 
 # the rest is the command line maybe --app + URLs
@@ -109,8 +117,10 @@ try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.
 
 # GET INFO NECESSARY TO RUN THE UPDATE
 
-# get info about Google Chrome
-chromeinfo
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    # get info about Google Chrome
+    googlechromeinfo
+fi
 
 
 # PREPARE CUSTOM ICON IF WE'RE USING ONE
@@ -125,7 +135,7 @@ if [[ "$iconSource" ]] ; then
     [[ "$?" != 0 ]] && abort "$errmsg" 1
     
     # convert image into an ICNS
-    mcssbmakeicons "$iconSource" "$customIconDir" both
+    makeappicons "$iconSource" "$customIconDir" both
     
     # handle results
     if [[ ! "$ok" ]] ; then
@@ -144,7 +154,7 @@ SSBFirstRun=1
 updatessb "$appTmp" "$customIconDir" '' newApp
 
 # create the engine payload
-createpayload "$appTmp/Contents"
+createenginepayload "$appTmp/Contents"
 
 [[ "$ok" ]] || abort "$errmsg" 1
 

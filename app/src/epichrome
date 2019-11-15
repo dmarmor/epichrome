@@ -293,19 +293,12 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 # GET BASIC APP INFORMATION
 
 # load config.sh file
-safesource "$myContents/$appConfigScript" "config file"
+readconfig
 
-if [[ "$ok" && ! ( "$CFBundleIdentifier" && "$CFBundleDisplayName" && \
-		       "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
-    ok=
-    errmsg='Config file is corrupt.'
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    # get info on the installed Google Chrome
+    googlechromeinfo
 fi
-
-# get info on the installed Google Chrome
-chromeinfo
-
-# by default we don't need to update the config file
-updateconfig=
 
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
@@ -325,7 +318,7 @@ myProfilePath="${HOME}/$SSBProfilePath"
 newprofile=
 
 
-# HANDLE POST-CHROME 69 DOUBLE RUN
+# HANDLE POST-CHROME 69 DOUBLE RUN  $$$ DELETE THIS I THINK
 
 # if this engine is already running, launch vanilla Chrome engine & bring to front
 configEngineExec="$myContents/$appEngine/$SSBChromeEngine/Contents/MacOS/$engineExec"
@@ -343,7 +336,7 @@ if [[ "$pgrepResult" = 0 ]] ; then
 
 	# launch
         "$configEngineExec" --silent-launch --user-data-dir="$myProfilePath"
-fi
+    fi
     
     # exit this instance
     exit
@@ -357,32 +350,32 @@ fi
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
 
 # get info on current Epichrome version
-mcssbinfo
+epichromeinfo
 if [[ ! "$ok" ]] ; then
     # fail silently, and we just won't check for updates
     ok=1 ; errmsg=
 fi
 
-if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
+if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 
     # update message
-    updatemsg="A new version of the Epichrome runtime was found ($mcssbVersion)."
+    updatemsg="A new version of the Epichrome runtime was found ($epiVersion)."
     
     # authenticate
-    authenticate mcssbupdate "$updatemsg" 'update' nonfatal
+    authenticate epichromeupdate "$updatemsg" 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
 	
 	# Ask about updating (unless we asked with the authentication dialog)
-	if [[ "$isAdmin" != mcssbupdate ]] ; then
+	if [[ "$isAdmin" != epichromeupdate ]] ; then
 	    dialog doUpdate \
-		   "A new version of the Epichrome runtime was found ($mcssbVersion). Would you like to update now?" \
+		   "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
 		   "Update" \
 		   "|caution" \
 		   "+Update" \
 		   "-Later" \
 		   "Don't Ask Again For This Version"
 	    if [[ ! "$ok" ]] ; then
-		alert "A new version of the Epichrome runtime was found ($mcssbVersion) but update dialog failed. Attempting to update now." 'Update' '|caution'
+		alert "A new version of the Epichrome runtime was found ($epiVersion) but update dialog failed. Attempting to update now." 'Update' '|caution'
 		doUpdate="Update"
 		ok=1
 		errmsg=
@@ -398,7 +391,7 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 		Update)
 
 		    # read in the new runtime
-		    safesource "${mcssbPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
+		    safesource "$epiContents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
 		    
 		    # use new runtime to update the SSB (and relaunch)
 		    updatessb "$myPath"
@@ -410,8 +403,7 @@ if [[ "$(newversion "$SSBVersion" "$mcssbVersion")" ]] ; then
 		    ;;
 		*)
 		    # pretend we're already at the new version
-		    SSBVersion="$mcssbVersion"
-		    updateconfig=1
+		    SSBVersion="$epiVersion"
 		    ;;
 	    esac
 	fi
@@ -436,13 +428,12 @@ if [[ "$ok" ]] ; then
 
 	# set next update for 7 days from now
 	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
-	updateconfig=1
 	
 	# if we haven't set a version to check against, use the current version
-	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$mcssbVersion"
+	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiVersion"
 
 	# check if there's a new version on Github
-	try 'updateResult=' checkmcssbversion "$myContents" "$SSBUpdateCheckVersion" 'Unable to check for a new version of Epichrome on Github.'
+	try 'updateResult=' checkepichromeversion "$myContents" "$SSBUpdateCheckVersion" 'Unable to check for a new version of Epichrome on Github.'
 	if [[ ! "$ok" ]] ; then
 	    alert "Warning: $errmsg" 'Checking For Update' '|caution'
 	    ok=1
@@ -499,197 +490,139 @@ if [[ "$ok" ]] ; then
 fi
 
 
-# CHECK FOR NEW VERSION OF CHROME AND UPDATE
+# IF USING GOOGLE CHROME ENGINE, CHECK FOR NEW VERSION AND UPDATE
 
-# update config variable
-if [[ "$SSBChromePath" != "$chromePath" ]] ; then
-    SSBChromePath="$chromePath"
-    updateconfig=1
-fi
-
-if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
-
-    # authenticate
-    authenticate chromeupdate "$updatemsg" 'update' nonfatal
-    if [[ "$?" = 0 ]] ; then
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    
+    if [[ "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ]] ; then
 	
-	# set new version number for config file
-	SSBChromeVersion="$chromeVersion"
+	# authenticate
+	authenticate chromeupdate "$updatemsg" 'update' nonfatal
+	if [[ "$?" = 0 ]] ; then
+	    
+	    # create a new engine payload from the new version
+	    createenginepayload "$myContents"
+	else
+	    ok=
+	    errmsg="Permission denied."
+	fi
 	
-	# update the SSB (and relaunch)
-	updatessb "$myPath" '' ChromeOnly
-	
-    else
-	ok=
-	errmsg="Permission denied."
-    fi
-
-    # failure is non-fatal
-    if [[ ! "$ok" ]] ; then
-	alert "Unable to update app to new version of Google Chrome. ($errmsg) It may or may not run properly." 'Warning' '|caution'
-	ok=
-	errmsg=
+	# failure is non-fatal
+	if [[ ! "$ok" ]] ; then
+	    abort "Unable to update app to new version of Google Chrome. ($errmsg)" 1
+	fi
     fi
 fi
-
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
-# BUILD CHROME ENGINE ON THE FLY
+# BUILD ENGINE ON THE FLY
 
 # get important absolute paths
 myEnginePath="$myContents/$appEngine"
 myPayloadPath="$myContents/$appPayload"
-configEngineResources="$myEnginePath/$SSBChromeEngine/Resources"
+myPayloadContents="$myPayloadPath/Contents"
 
-# if cleanup failed last run, rescue .lproj directories & .icns links
-if [[ ( -d "$configEngineResources" ) && \
-	  ( ! -e "$myPayloadPath" ) ]] ; then
-    try /bin/mkdir -p "$myPayloadPath/Resources" 'Unable to create engine payload.'
-    try /bin/mv -f "$configEngineResources"/*.lproj "$configEngineResources"/*.icns \
-	"$myPayloadPath/Resources" \
-	'Unable to repopulate engine payload.'
-fi
+# RECREATE PAYLOAD IF NECESSARY
 
-[[ "$ok" ]] || abort "$errmsg" 1
-
-# find out if we need to recreate the payload
-
+# status variable to decide if we need to recreate the payload
 newPayload=
 
-# missing payload Resources directory
-if [[ ! -d "$myPayloadPath/Resources" ]] ; then
+# no payload directory found or missing key items
+if [[ ( ! -d "$myPayloadPath" ) || ( ! -d "$myPayloadPath/Resources" ) ]] ; then
     newPayload=1
 else
-    # check for corrupt payload Resources directory
-    payloadLproj="$(cd "$myPayloadPath/Resources" && find -L *.lproj -print 2> /dev/null)"
+    # check for corrupt Payload directory
+
+    # get manifest of current Payload directory
+    payloadManifest="$(cd "$myPayloadPath" && /usr/bin/find -L . -print | /usr/bin/sort)"
     if [[ "$?" != 0 ]] ; then
+	debuglog "Failed to get manifest of payload directory."
 	newPayload=1
     else
-	chromeLproj="$(cd "$chromeContents/Resources" && find -L *.lproj -print 2> /dev/null)"
-	[[ "$?" = 0 ]] || abort 'Unable to read Chrome Resources directory.' 1
-	
-	[[ "$chromeLproj" != "$payloadLproj" ]] && newPayload=1
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    # get Google Chrome payload manifest
+	    engineManifest="$(cd "$SSBGoogleChromePath" && /usr/bin/find -L . -path '.' -print -or -path './Contents' -print -or -path './Contents/Resources' -print -or -path './Contents/Resources*' -path '*.lproj*' -not -path './Contents/*/Contents/*' -print -or -path './Contents/Resources/*.icns' -print | /usr/bin/sort)"
+	    if [[ "$?" != 0 ]] ; then
+		debuglog "Failed to get manifest of Google Chrome directory."
+		newPayload=1
+	    fi
+	else
+	    # get Epichrome Chromium payload manifest
+	    engineManifest="$(cd "$epiPayload" && (echo './Contents/Resources/app.icns' && echo './Contents/Resources/document.icns' && /usr/bin/find -L . -print) | /usr/bin/sed -E -e 's/InfoPlist\.strings.in/InfoPlist.strings/' -e 's/Info.plist.in/Info.plist.off/' | /usr/bin/sort)"
+	    if [[ "$?" != 0 ]] ; then
+		debuglog "Failed to get manifest of Epichrome payload directory."
+		newPayload=1
+	    fi
+	fi
+
+	if [[ "$payloadManifest" != "$engineManifest" ]] ; then
+	    debuglog "App payload doesn't match engine source payload."
+	    newPayload=1
+	fi	
     fi
 fi
 
 # create a new engine payload if needed
-[[ "$newPayload" ]] && createpayload "$myContents"
+[[ "$newPayload" ]] && createenginepayload "$myContents"
 
-# create an empty Chrome engine
-try /bin/rm -rf "$myContents/$appEngine" 'Unable to clear old engine.'
-try /bin/mkdir "$myContents/$appEngine" 'Unable to create Chrome engine directory.'
 
-# update Chrome engine app name
+# UPDATE ENGINE APP NAME
 
 # regex for pulling out current app name
 ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
 
 # try to use current name of this Epichrome app as engine name
 if [[ "$myPath" =~ $ssbNameRe ]] ; then
-    chromeEngineName="${BASH_REMATCH[1]}.app"
+    SSBEngineName="${BASH_REMATCH[1]}.app"
 else
     # if app name is unparsable, just use Info.plist display name
-    chromeEngineName="${CFBundleDisplayName}.app"
+    SSBEngineName="${CFBundleDisplayName}.app"
 fi
 
-# update config with new name
-if [[ "$SSBChromeEngine" != "$chromeEngineName" ]] ; then
-    SSBChromeEngine="$chromeEngineName"
-    updateconfig=1
-fi
+# get paths for engine app bundle
+myEngineAppPath="$myEnginePath/$SSBEngineName"
+myEngineAppContents="$myEngineAppPath/Contents"
 
-# create engine app bundle
-myEngineContents="$myEnginePath/$chromeEngineName/Contents"
-try /bin/mkdir -p "$myEngineContents" 'Unable to create Chrome engine.' 
+# BUILD ENGINE OUT OF PAYLOAD
+
+# rename Payload to engine app name
+try /bin/mv "$myPayloadPath" "$myEngineAppPath" 'Unable to create app engine from payload.'
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
-# link Chrome contents to engine
-
-# set link style based on Chrome version --
-# Chrome versions after 68 have hardened security & sandboxing, so
-# we have to hard link everything & cannot alter Info.plist
-linkStyle=SOFT
-[[ "$chromeVersionPre69" ]] || linkStyle=HARD
-
-# link to everything except Resources, Info.plist & MacOS directory
-dirlist "$chromeContents" curdir 'Chrome' '^((Info.plist)|(Resources)|(MacOS))$'
-[[ "$ok" ]] || abort "$errmsg" 1
-linktree "$linkStyle" \
-	 "$chromeContents" "$myEngineContents" \
-	 'Chrome engine' \
-	 "${curdir[@]}"
-
-# link to everything in Resources except .lproj & .icns
-try /bin/mkdir "$myEngineContents/Resources" \
-    'Unable to create Chrome engine Resources directory.'
-dirlist "$chromeContents/Resources" curdir 'Chrome Resources' \
-	'\.((icns)|(lproj))$'
-[[ "$ok" ]] || abort "$errmsg" 1
-linktree "$linkStyle" \
-	 "$chromeContents/Resources" "$myEngineContents/Resources" \
-	 'Chrome engine' \
-	 "${curdir_filtered[@]}"
-
-if [[ ! "$chromeVersionPre69" ]] ; then
-    # Chrome 69 or later
+if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
     
-    # copy engine executable (linking causes confusion between apps & real Chrome)
-    try /bin/cp -a "$chromeContents/MacOS" "$myEngineContents" \
-	'Unable to copy main executable to Chrome engine.'
+    # EPICHROME CHROMIUM ENGINE
+
+    linktree "$epiEngineRuntime" "$myEngineAppContents" \
+	     'Epichrome app engine'
     
-    # hard-link Info.plist (any changes cause encrypted store problems)
-    try /bin/ln "$chromeContents/Info.plist" "$myEngineContents" \
-	'Unable to link Chrome engine to Info.plist.'
 else
-    # Chrome 68 or earlier
+    # GOOGLE CHROME ENGINE
     
-    # soft link engine executable
-    try /bin/mkdir "$myEngineContents/MacOS" \
-	'Unable to create Chrome engine MacOS directory.'
-    try /bin/ln -s "$chromeExec" \
-	"$myEngineContents/MacOS/$engineExec" \
-	'Unable to create first link to main executable in Chrome engine.'
-    try /bin/ln -s "$chromeExec" \
-	"$myEngineContents/MacOS/$chromeExecName" \
-	'Unable to create secondary link to main executable in Chrome engine.'
-        
-    # filter Info.plist file from Chrome into engine
-    filterchromeinfoplist "$myContents" "$myEngineContents" \
-			  DTSDKBuild '' \
-			  DTSDKName '' \
-			  DTXcode '' \
-			  DTXcodeBuild '' \
-			  KSChannelID-32bit '' \
-			  KSChannelID-32bit-full '' \
-			  KSChannelID-full '' \
-			  KSProductID '' \
-			  KSUpdateURL '' \
-			  KSVersion '' \
-			  CFBundleURLTypes '' \
-			  NSPrincipalClass '' \
-			  NSUserActivityTypes '' \
-			  NSHighResolutionCapable true
+    # link to everything except Resources & MacOS directories
+    dirlist "$googleChromeContents" curdir 'Google Chrome' '^((Resources)|(MacOS))$'
+    [[ "$ok" ]] || abort "$errmsg" 1
+    linktree "$googleChromeContents" "$myEngineAppContents" \
+	     'Google Chrome app engine' \
+	     "${curdir[@]}"
+    
+    # link to everything in Resources except .lproj & .icns
+    dirlist "$googleChromeContents/Resources" curdir 'Google Chrome Resources' \
+	    '\.((icns)|(lproj))$'
+    [[ "$ok" ]] || abort "$errmsg" 1
+    linktree "$googleChromeContents/Resources" "$myEngineAppContents/Resources" \
+	     'Google Chrome app engine' \
+	     "${curdir_filtered[@]}"    
 fi
-
-# move payload into engine
-try /bin/mkdir -p "$myEngineContents/Resources" \
-    'Unable to create Chrome engine Resources directory.'
-try /bin/mv -f \
-    "$myPayloadPath/Resources"/*.lproj \
-    "$myPayloadPath/Resources"/*.icns \
-    "$myEngineContents/Resources" \
-    'Unable to move payload into Chrome engine.'
-try /bin/rm -rf "$myPayloadPath" \
-    'Unable to remove empty payload.'
-
+    
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
-# HANDLE FIRST-RUN SETUP
+# HANDLE FIRST-RUN SETUP   $$$ I AM HERE $$$$
 
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
@@ -740,7 +673,6 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 	tempProfilePath="${SSBProfilePath[0]}"
 	unset SSBProfilePath
 	SSBProfilePath="$tempProfilePath"
-	updateconfig=1
     fi
 fi
 
@@ -854,7 +786,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	fi
 	
 	# if installed host is old, we'll update it
-	[[ $(newversion "$hostVersion" "$mcssbVersion") ]] && doHostInstall=1
+	[[ $(newversion "$hostVersion" "$epiVersion") ]] && doHostInstall=1
     fi
     
     # make sure the manifest points to the current path of the script
@@ -886,7 +818,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	# stream-edit the host script
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
 	try unsudo /usr/bin/touch "${hostScriptTmp}" 'Unable to create script.'
-	try "${hostScriptTmp}<" sed "s/SSBID/$CFBundleIdentifier/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" "$hostSourcePath/$hostScript" 'Unable to copy script.'
+	try "${hostScriptTmp}<" sed "s/SSBID/${$appIDBase}.${SSBIdentifier}/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" "$hostSourcePath/$hostScript" 'Unable to copy script.'
 	
 	# fix host script permissions
 	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
@@ -923,7 +855,6 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    
 	    # set error state
 	    SSBHostInstallError=1
-	    updateconfig=1
 	    
 	    # show an alert
 	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' '|caution'
@@ -985,7 +916,6 @@ fi
 # STORE & TURN OFF FIRST-RUN STATUS
 isFirstRun="$SSBFirstRun"
 SSBFirstRun=
-[[ "$isFirstRun" ]] && updateconfig=1
 
 
 # UPDATE CONFIG FILE IF NECESSARY
@@ -997,24 +927,21 @@ if [[ "$SSBFirstRunSinceVersion" ]] ; then
     
     # update config file to signal no longer first run
     SSBFirstRunSinceVersion=
-    updateconfig=1
 fi
 
-if [[ "$updateconfig" ]] ; then
+# $$$$ DELETE THIS AND ALL AUTHENTICATE CODE failsafe -- we should never get here without already authenticating
+authenticate updateconfig '' 'update configuration'
 
-    # failsafe -- we should never get here without already authenticating
-    authenticate updateconfig '' 'update configuration'
-    
-    writeconfig "$myContents"
-    
-    [[ "$ok" ]] || abort "$errmsg" 1
-fi
+# write out config file if anything has changed
+writeconfig "$myContents"
+
+[[ "$ok" ]] || abort "$errmsg" 1
 
 
 # LAUNCH THE SSB
 
 # path to engine
-myEngineExec="$myEngineContents/MacOS/$engineExec"
+myEngineExec="$myEngineAppContents/MacOS/$engineExec"
 
 if [[ "$newprofile" ]] ; then
     # if we're creating a new profile (first run), run once with a page
@@ -1037,7 +964,7 @@ function cleanup {  # $1 = CHROME ENGINE PID
     done
     
     # make sure we can still find Chrome engine
-    if [[ ! -d "$myEngineContents/Resources" ]] ; then
+    if [[ ! -d "$myEngineAppContents/Resources" ]] ; then
 	# abort -- something has gone wrong, maybe app renamed or moved
 	echo "Cleanup error: Can't find Chrome engine." 1>&2
 	exit 1
@@ -1050,8 +977,8 @@ function cleanup {  # $1 = CHROME ENGINE PID
     
     # move payload out of engine
     try /bin/mv -f \
-	"$myEngineContents/Resources"/*.lproj \
-	"$myEngineContents/Resources"/*.icns \
+	"$myEngineAppContents/Resources"/*.lproj \
+	"$myEngineAppContents/Resources"/*.icns \
 	"$myPayloadPath/Resources" \
 	'Unable to move payload out of Chrome engine.'
     try /bin/rm -rf "$myEnginePath" 'Unable to remove Chrome engine.'
