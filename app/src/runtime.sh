@@ -52,7 +52,6 @@ appInfoPlist="Info.plist"
 appEngine="Resources/Engine"
 appPayload="$appEngine/Payload"
 appConfigScript="Resources/Scripts/config.sh"
-appStringsScript="Resources/Scripts/strings.py"
 appGetVersionScript="Resources/Scripts/getversion.py"
 
 # profile base
@@ -68,12 +67,14 @@ function debuglog {
 # TRY: try to run a command, as long as no errors have already been thrown
 #
 #      usage:
-#        try 'varname=' cmd arg arg arg 'Error message.'
-#        try 'filename.txt<' cmd arg arg arg 'Error message.'
-#        try 'filename.txt&<' cmd arg arg arg 'Error message.'
-#        try 'filename.txt<<' cmd arg arg arg 'Error message.'
-#        try 'filename.txt&<<' cmd arg arg arg 'Error message.'
-#        try cmd arg arg arg 'Error message.'
+#        try 'varname=' cmd args ... 'Error message.'        [scalar var]
+#        try 'varname=()' cmd args ... 'Error message.'      [array var]
+#        try 'varname+=()' cmd args ... 'Error message.'     [append array]
+#        try 'filename.txt<' cmd args ... 'Error message.'   [overwrite file]
+#        try 'filename.txt<<' cmd args ... 'Error message.'  [append file]
+#            for any of the above put & before the specifier to
+#            also capture stderr
+#        try cmd args ... 'Error message.'
 #
 # get first line of a variable: "${x%%$'\n'*}"
 #
@@ -85,33 +86,44 @@ function try {
 	
 	# see if we're storing output
 	local target="$1"
-	local type="${target:${#target}-1}"
+	local type=
 	local ignorestderr=1
-	if [[ "$type" = "=" ]]; then
-	    # storing in a variable
-	    target="${target%=}"
-	    type=var
+
+	# figure out which type of storage to do
+	if [[ "${target:${#target}-1}" = '=' ]]; then
+	    # storing in a variable as a string
+	    target="${target::${#target}-1}"
+	    type=scalar
 	    shift
-	elif [[ "$type" = "<" ]]; then
-	    # storing in a file
-	    target="${target%<}"
+	elif [[ "${target:${#target}-4}" = '+=()' ]] ; then
+	    # append to array
+	    target="${target::${#target}-4}"
+	    type=array_append
+	    shift
+	elif [[ "${target:${#target}-3}" = '=()' ]] ; then
+	    # store as array
+	    target="${target::${#target}-3}"
+	    type=array
+	    shift
+	elif [[ "${target:${#target}-2}" = '<''<' ]]; then
+	    # append to file
+	    target="${target::${#target}-2}"
+	    type=file_append
+	    shift
+	elif [[ "${target:${#target}-1}" = '<' ]] ; then
+	    # append to file
+	    target="${target::${#target}-1}"
 	    type=file
-	    if [[ "${target:${#target}-1}" = '<' ]] ; then
-		# append to file
-		target="${target%<}"
-		type=append
-	    fi
 	    shift
 	else
 	    # not storing
 	    target=
-	    type=
 	fi
-
+	
 	# determine handling of stderr
 	if [[ "$type" && ( "${target:${#target}-1}" = '&' ) ]] ; then
 	    # keep stderr
-	    target="${target%&}"
+	    target="${target::${#target}-1}"
 	    ignorestderr=
 	fi
 	
@@ -121,12 +133,14 @@ function try {
 	# last arg is error message
 	local last=$((${#args[@]} - 1))
 	local myerrmsg="${args[$last]}"
-	unset args[$last]
+	unset "args[$last]"
 	
 	# run the command
 	local result=
-	if [[ "$type" = var ]] ; then
-	    # store stdout in named variable
+	if [[ "$type" = scalar ]] ; then
+	    
+	    # store output as string in named variable
+	    
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
@@ -140,10 +154,34 @@ function try {
 		result="$?"
 	    fi
 	    
-	    # escape special characters
+	    # assign to target variable with special characters escaped
 	    eval "${target}=$(printf '%q' "$temp")"
+
+	elif [[ "${type::5}" = array ]] ; then
 	    
-	elif [[ "$type" = append ]] ; then
+	    # output to array
+	    
+	    local temp=
+	    if [[ "$ignorestderr" ]] ; then
+		if [[ "$debug" ]] ; then
+		    temp=( $( "${args[@]}" ) )
+		else
+		    temp=( $( "${args[@]}" 2> /dev/null ) )
+		fi
+		result="$?"
+	    else
+		temp=( $( "${args[@]}" 2>&1 ) )
+		result="$?"
+	    fi
+
+	    # assign to target variable with special characters escaped
+	    [[ "$type" = array ]] && eval "${target}=()"
+	    local t
+	    for t in "${temp[@]}" ; do
+		eval "${target}+=( $(printf '%q' "$t") )"
+	    done
+	    
+	elif [[ "$type" = file_append ]] ; then
 	    # append stdout to a file
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
@@ -438,43 +476,6 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 }
 
 
-# LINKTREE: hard link to a directory or file
-function linktree { # $1 = sourcedir (absolute)
-    #                 $2 = destdir (absolute)
-    #                 $3 = try error identifier
-    #                 $@ = <files>
-
-    # read arguments
-    local sourcedir="$1"  # could absolutize: echo "$(cd "$foo" 2> /dev/null && pwd)"
-    local destdir="$2"
-    local tryid="$3"
-    shift 3
-    
-    # pushd to source directory
-    try '/dev/null&<' pushd "$sourcedir" \
-	"$tryid link error: Unable to move to $sourcedir"
-
-    local files=
-    if [[ "$@" ]] ; then
-	files=( "$@" )
-    else
-	# no items specified, so link all non-dot items
-	files=( * )
-    fi
-    
-    # loop through entries creating hard links
-    for entry in "${files[@]}" ; do
-	# hard link
-	try /bin/pax -rwlpp "$entry" "$destdir" \
-	    "$tryid link error: Unable to create link to $entry."
-    done
-    
-    # popd back from source directory
-    try '/dev/null&<' popd \
-	"$tryid link error: Unable to move back from $sourcedir."
-}
-
-
 # WRITEVARS: write out a set of arbitrary bash variables to a file
 function writevars {  # $1 = destination file
     #                   $@ = list of vars
@@ -640,10 +641,57 @@ Exit"
 }
 
 
-# RELAUNCH -- relaunch this app after a delay
-function relaunch { # APP-PATH DELAY-SECONDS
-    [[ "$2" ]] && sleep "$2"
-    open "$1"
+# LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
+function lprojescape { # string
+    s="${1/\\/\\\\\\\\}"  # escape backslashes for both sed & .strings file
+    s="${s//\//\\/}"  # escape forward slashes for sed only
+    echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
+}
+
+
+# FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
+function filterlproj {  # BASE-PATH SEARCH-NAME MESSAGE-INFO
+    
+    # path to folder containing .lproj folders
+    local basePath="$1" ; shift
+
+    # name to search for in access strings
+    local searchString="$1" ; shift
+
+    # info about this filtering for error messages
+    local messageInfo="$1" ; shift
+    
+    # escape bundle name strings
+    local displayName="$(lprojescape $CFBundleDisplayName)"
+    local bundleName="$(lprojescape $CFBundleName)"
+    
+    # filter InfoPlist.strings files
+    local curLproj=
+    for curLproj in "$basePath/"*.lproj ; do
+	
+	# get paths for current in & out files
+	local curStringsIn="$curLproj/InfoPlist.strings"
+	local curStringsOutTmp="$(tempname "${curStringsIn}")"
+
+	if [[ -f "$curStringsIn" ]] ; then
+	    # filter current localization
+	    try "$curStringsOutTmp<" /usr/bin/sed -E \
+		-e 's/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$searchString"'(.*"; *)$/\1'"$displayName"'\3/' \
+		-e 's/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/' \
+		"$curStringsIn" \
+		"Unable to filter $messageInfo localization strings."
+
+	    # move file to permanent home
+	    permanent "$curStringsOutTmp" "$curStringsIn" "$messageInfo localization strings"
+
+	    # on any error, abort
+	    if [[ ! "$ok" ]] ; then
+		# remove temp output file on error
+		rmtemp "$curStringsOutTmp" "$messageInfo localization strings"
+		break
+	    fi
+	fi
+    done
 }
 
 
@@ -979,31 +1027,15 @@ function createenginepayload { # $1 = Contents path
 			"
 set :CFBundleDisplayName $CFBundleDisplayName
 set :CFBundleName $CFBundleName
-set :CFBundleIdentifier MYNEWID
+set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
 set :CFBundleShortVersionString $epiVersion
-set :CFBundleVersion MYMACHINEVERSION
+set :CFBundleVersion $$$$MYMACHINEVERSION
 Delete :CFBundleDocumentTypes
 Delete :CFBundleURLTypes"
+
+	    # filter localization strings
+	    filterlproj "$payloadContents/Resources" Chromium 'app engine'
 	    
-	    # filter InfoPlist.strings files	    
-	    for lprojdir in "$payloadContents/Resources/"*.lproj ; do
-		
-		# get paths for current in & out files
-		local curstringsin="$lprojdir/InfoPlist.strings.in"
-		
-		if [[ -f "$curstringsin" ]] ; then
-		    # filter current localization
-		    try "$lprojdir/InfoPlist.strings<" /usr/bin/sed -E \
-			-e "s/EPIDISPLAYNAME/$CFBundleDisplayName/" \
-			-e "s/EPIBUNDLENAME/$CFBundleName/" \
-			"$curstringsin" \
-			'Unable to create app engine localizations.'
-		    
-		    # remove .in file
-		    try rm -f "$curstringsin" \
-			'Unable to remove app engine localization source file.'
-		fi
-	    done
 	else
 
 	    # GOOGLE CHROME PAYLOAD
@@ -1011,21 +1043,14 @@ Delete :CFBundleURLTypes"
 	    # copy engine executable (linking causes confusion between apps & real Chrome)
 	    try /bin/cp -a "$googleChromeContents/MacOS" "$payloadContents" \
 		'Unable to copy Google Chrome executable to app engine payload.'
-
-	    # filter InfoPlist.strings files
+	    
+	    # filter localization files
 	    local chromeLproj=( "$googleChromeContents/Resources/"*.lproj )
 	    if [[ "${#chromeLproj[@]}" ]] ; then
 		try /bin/cp -a "${chromeLproj[@]}" "$payloadContents/Resources" \
 		    'Unable to copy Google Chrome localizations to app engine payload.'
-		
-		# run python script to filter the InfoPlist.strings files for the
-		# .lproj directories
-		local pyerr=
-		try 'pyerr&=' \
-		    "$1/$appStringsScript" "$CFBundleDisplayName" "$CFBundleName" \
-		    "$payloadContents/Resources/"*.lproj \
-		    'Error filtering InfoPlist.strings'
-		[[ "$ok" ]] || errmsg="$errmsg ($pyerr)"
+
+		filterlproj "$payloadContents/Resources" Chrome 'Google Chrome app engine'
 	    fi
 	fi
 	
@@ -1076,8 +1101,9 @@ myConfigVars=( SSBIdentifier \
 		   SSBVersion \
 		   SSBUpdateCheckDate \
 		   SSBUpdateCheckVersion \
-		   SSBEngineName \
 		   SSBEngineType \
+		   SSBEngineAppName \
+		   SSBEngineAppPath
 		   SSBProfilePath \
 		   SSBCustomIcon \
 		   SSBFirstRun \
@@ -1236,217 +1262,209 @@ function checkepichromeversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
 }
 
 
-# UPDATESSB: function that actually populates an app bundle with the SSB
-function updatessb {
+# UPDATEAPP: function that populates an app bundle
+function updateapp {
     
     if [[ "$ok" ]] ; then
 	
 	# arguments
 	local appPath="$1"        # path to the app bundle
 	local customIconDir="$2"  # path to custom icon directory
-	local chromeOnly="$3"     # if non-empty, we're ONLY updating Chrome stuff
-	local newApp="$4"         # if non-empty, we're creating a new app
 	
-	# initially set this to permanent Contents directory
-	local contentsTmp="$appPath/Contents"
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    # make sure we've got Chrome info
+	    [[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
+	fi
+
 	
-	# make sure we've got Chrome info
-	[[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
+	# PERFORM UPDATE
 	
-	# FULL UPDATE OPERATION
+	# put updated bundle in temporary Contents directory
+	local contentsTmp="$(tempname "$appPath/Contents")"
 	
-	if [[ ! "$chromeOnly" ]] ; then
+	# copy in the boilerplate for the app
+	try /bin/cp -a "$epiContents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
+	[[ "$ok" ]] || return 1
+	
+	# place custom icon, if any
+	
+	# check if we are copying from an old version of a custom icon
+	local remakeDocIcon=
+	if [[ ( ! "$customIconDir" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
+	    customIconDir="$appPath/Contents/Resources"
 	    
-	    # we need an actual temporary Contents directory
-	    local contentsTmp="$(tempname "$appPath/Contents")"
-	    
-	    # copy in the boilerplate for the app
-	    try /bin/cp -a "$epiContents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
-	    [[ "$ok" ]] || return 1
-	    
-	    # place custom icon, if any
-	    
-	    # check if we are copying from an old version of a custom icon
-	    local remakeDocIcon=
-	    if [[ ( ! "$customIconDir" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
-		customIconDir="$appPath/Contents/Resources"
-		
-		# starting in 2.1.14 we can customize the document icon too
-		if [[ $(newversion "$SSBVersion" "2.1.14") ]] ; then
-		    remakeDocIcon=1
-		fi
-	    fi
-	    
-	    # if there's a custom app icon, copy it in
-	    if [[ -e "$customIconDir/$CFBundleIconFile" ]] ; then
-		# copy in custom icon
-		safecopy "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources/$CFBundleIconFile" "custom icon"
-	    fi
-
-	    # either copy or remake the doc icon
-	    if [[ "$remakeDocIcon" ]] ; then
-		# remake doc icon now that we can customize that
-		makeappicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
-		if [[ ! "$ok" ]] ; then
-		    errmsg="Unable to update doc icon ($errmsg)."
-		fi
-		
-	    elif [[ -e "$customIconDir/$CFBundleTypeIconFile" ]] ; then
-		# copy in existing custom doc icon
-		safecopy "$customIconDir/$CFBundleTypeIconFile" "${contentsTmp}/Resources/$CFBundleTypeIconFile" "custom icon"
-	    fi
-	    
-	    if [[ "$ok" ]] ; then
-		
-		# make sure we have a unique identifier for our app & engine
-		
-		if [[ ! "$SSBIdentifier" ]] ; then
-
-		    # no ID found
-
-		    local idre="^${appIDBase//./\\.}"		    
-		    if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
-
-			# pull ID from our CFBundleIdentifier
-			SSBIdentifier="${CFBundleIdentifier##*.}"
-		    else
-			
-			# no CFBundleIdentifier, so create a new ID
-
-			# get max length for SSBIdentifier, given that CFBundleIdentifier
-			# must be 30 characters or less (the extra 1 accounts for the .
-			# we will need to add to the base
-			
-			local maxidlength=$((30 - \
-						((${#appIDBase} > ${#appEngineIDBase} ? \
-								${#appIDBase} : \
-								${#appEngineIDBase} ) + 1) ))
-			
-			# first attempt is to just use the bundle name with
-			# illegal characters removed
-			SSBIdentifier="${CFBundleName//[^-a-zA-Z0-9_]/}"
-			
-			# if trimmed away to nothing, use a default name
-			[ ! "$SSBIdentifier" ] && SSBIdentifier="generic"
-			
-			# trim down to max length
-			SSBIdentifier="${SSBIdentifier::$maxidlength}"
-			
-			# check for any apps that already have this ID
-
-			# get a length that's the smaller of the length of the
-			# full ID or the max allowed length - 3 to accommodate
-			# adding random digits at the end
-			local idbaselength="${SSBIdentifier::$(($maxidlength - 3))}"
-			idbaselength="${#idbaselength}"
-			
-			# initialize status variables
-			local appidfound=
-			local engineidfound=
-			local randext=
-			
-			# determine if Spotlight is enabled for the root volume
-			local spotlight=$(mdutil -s / 2> /dev/null)
-			if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
-			    spotlight=1
-			else
-			    spotlight=
-			fi
-
-			# loop until we randomly hit a unique ID
-			while [[ 1 ]] ; do
-
-			    if [[ "$spotlight" ]] ; then
-				try 'appidfound=' mdfind \
-				    "kMDItemCFBundleIdentifier == '$appIDBase.$SSBIdentifier'" \
-				    'Unable to search system for app bundle identifier.'
-				try 'engineidfound=' mdfind \
-				    "kMDItemCFBundleIdentifier == '$appEngineIDBase.$SSBIdentifier'" \
-				    'Unable to search system for engine bundle identifier.'
-				
-				# exit loop on error, or on not finding this ID
-				[[ "$ok" && ( "$appidfound" || "$engineidfound" ) ]] || break
-			    fi
-			    
-			    # try to create a new unique ID
-			    randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-
-			    SSBIdentifier="${SSBIdentifier::$idbaselength}${randext:1:3}"
-			    
-			    # if we don't have spotlight we'll just use the first randomly-generated ID
-			    [[ ! "$spotlight" ]] && break
-			    
-			done
-			
-			# if we got out of the loop, we have a unique-ish ID (or we got an error)
-		    fi
-		fi
-	    fi
-	    
-	    if [[ "$ok" ]] ; then
-		
-		# set profile path
-		local appProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
-		
-		# get the old profile path, if any
-		local oldProfilePath=
-		if [[ "$SSBProfilePath" ]] ; then
-		    if [[ "$(isarray SSBProfilePath)" ]] ; then
-			oldProfilePath="${SSBProfilePath[0]}"
-		    fi
-		elif [[ ! "$newApp" ]] ; then
-		    # this is the old-style profile path, from before it got saved
-		    oldProfilePath="Library/Application Support/Chrome SSB/${CFBundleDisplayName}"
-		fi
-		
-		# if old path exists and is different, save it in an array for migration on first run
-		if [[ "$oldProfilePath" && ( "$oldProfilePath" != "$appProfilePath" ) ]] ; then
-		    SSBProfilePath=("$appProfilePath" "$oldProfilePath")
-		else
-		    SSBProfilePath="$appProfilePath"
-		fi
-		
-		# set up first-run notification
-		if [[ "$SSBVersion" ]] ; then
-		    SSBFirstRunSinceVersion="$SSBVersion"
-		else
-		    SSBFirstRunSinceVersion="0.0.0"
-		fi
-		
-		# update SSBVersion & SSBUpdateCheckVersion
-		SSBVersion="$epiVersion"
-		SSBUpdateCheckVersion="$epiVersion"
-		
-		# clear host install error state
-		SSBHostInstallError=
-	    fi
-	else
-
-	    # updating Chrome only; blow away Payload & engine for full relink
-	    /bin/rm -rf "$contentsTmp/$appPayload" > /dev/null 2>&1
-	    /bin/rm -rf "$contentsTmp/$appEngine" > /dev/null 2>&1
-	    
-	    if [[ ! "$SSBVersion" ]] ; then
-		
-		# this should never be reached, but just in case, we set SSBVersion
-		SSBVersion="$epiVersion"
-		SSBUpdateCheckVersion="$epiVersion"
+	    # starting in 2.1.14 we can customize the document icon too
+	    if [[ $(newversion "$SSBVersion" "2.1.14") ]] ; then
+		remakeDocIcon=1
 	    fi
 	fi
 	
-	# OPERATIONS FOR UPDATING CHROME
+	# if there's a custom app icon, copy it in
+	if [[ -e "$customIconDir/$CFBundleIconFile" ]] ; then
+	    # copy in custom icon
+	    safecopy "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources/$CFBundleIconFile" "custom icon"
+	fi
+	
+	# either copy or remake the doc icon
+	if [[ "$remakeDocIcon" ]] ; then
+	    # remake doc icon now that we can customize that
+	    makeappicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
+	    if [[ ! "$ok" ]] ; then
+		errmsg="Unable to update doc icon ($errmsg)."
+	    fi
+	    
+	elif [[ -e "$customIconDir/$CFBundleTypeIconFile" ]] ; then
+	    # copy in existing custom doc icon
+	    safecopy "$customIconDir/$CFBundleTypeIconFile" "${contentsTmp}/Resources/$CFBundleTypeIconFile" "custom icon"
+	fi
+	
+	if [[ "$ok" ]] ; then
+	    
+	    # make sure we have a unique identifier for our app & engine
+	    
+	    if [[ ! "$SSBIdentifier" ]] ; then
+		
+		# no ID found
+		
+		local idre="^${appIDBase//./\\.}"		    
+		if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
+		    
+		    # pull ID from our CFBundleIdentifier
+		    SSBIdentifier="${CFBundleIdentifier##*.}"
+		else
+		    
+		    # no CFBundleIdentifier, so create a new ID
+		    
+		    # get max length for SSBIdentifier, given that CFBundleIdentifier
+		    # must be 30 characters or less (the extra 1 accounts for the .
+		    # we will need to add to the base
+		    
+		    local maxidlength=$((30 - \
+					    ((${#appIDBase} > ${#appEngineIDBase} ? \
+							    ${#appIDBase} : \
+							    ${#appEngineIDBase} ) + 1) ))
+		    
+		    # first attempt is to just use the bundle name with
+		    # illegal characters removed
+		    SSBIdentifier="${CFBundleName//[^-a-zA-Z0-9_]/}"
+		    
+		    # if trimmed away to nothing, use a default name
+		    [ ! "$SSBIdentifier" ] && SSBIdentifier="generic"
+		    
+		    # trim down to max length
+		    SSBIdentifier="${SSBIdentifier::$maxidlength}"
+		    
+		    # check for any apps that already have this ID
+		    
+		    # get a length that's the smaller of the length of the
+		    # full ID or the max allowed length - 3 to accommodate
+		    # adding random digits at the end
+		    local idbaselength="${SSBIdentifier::$(($maxidlength - 3))}"
+		    idbaselength="${#idbaselength}"
+		    
+		    # initialize status variables
+		    local appidfound=
+		    local engineidfound=
+		    local randext=
+		    
+		    # determine if Spotlight is enabled for the root volume
+		    local spotlight=$(mdutil -s / 2> /dev/null)
+		    if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
+			spotlight=1
+		    else
+			spotlight=
+		    fi
+		    
+		    # loop until we randomly hit a unique ID
+		    while [[ 1 ]] ; do
+			
+			if [[ "$spotlight" ]] ; then
+			    try 'appidfound=' mdfind \
+				"kMDItemCFBundleIdentifier == '$appIDBase.$SSBIdentifier'" \
+				'Unable to search system for app bundle identifier.'
+			    try 'engineidfound=' mdfind \
+				"kMDItemCFBundleIdentifier == '$appEngineIDBase.$SSBIdentifier'" \
+				'Unable to search system for engine bundle identifier.'
+			    
+			    # exit loop on error, or on not finding this ID
+			    [[ "$ok" && ( "$appidfound" || "$engineidfound" ) ]] || break
+			fi
+			
+			# try to create a new unique ID
+			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
+			
+			SSBIdentifier="${SSBIdentifier::$idbaselength}${randext:1:3}"
+			
+			# if we don't have spotlight we'll just use the first randomly-generated ID
+			[[ ! "$spotlight" ]] && break
+			
+		    done
+		    
+		    # if we got out of the loop, we have a unique-ish ID (or we got an error)
+		fi
+	    fi
+	fi
+	
+	if [[ "$ok" ]] ; then
+	    
+	    # set profile path
+	    SSBProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
+	    
+	    # set up first-run notification
+	    if [[ "$SSBVersion" ]] ; then
+		SSBFirstRunSinceVersion="$SSBVersion"
+	    else
+		SSBFirstRunSinceVersion="0.0.0"
+	    fi
+	    
+	    # update SSBVersion & SSBUpdateCheckVersion
+	    SSBVersion="$epiVersion"
+	    SSBUpdateCheckVersion="$epiVersion"
+	    
+	    # clear host install error state
+	    SSBHostInstallError=
+	fi
+	
+
+	# FILTER BOILERPLATE INFO.PLIST WITH APP INFO
+
+	# set up default PlistBuddy commands
+	local filterCommands="
+set :CFBundleDisplayName $CFBundleDisplayName
+set :CFBundleName $CFBundleName
+set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier
+set :CFBundleShortVersionString $epiVersion
+set :CFBundleVersion $$$$MYMACHINEVERSION"
+
+	# if not registering as browser, delete URI handlers
+	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
+	    filterCommands="$filterCommands
+Delete :CFBundleURLTypes"
+	fi
+	
+	# filter boilerplate Info.plist with info for this app
+	filterplist "$contentsTmp/Info.plist.in" \
+		    "$contentsTmp/Info.plist" \
+		    "app Info.plist" \
+		    "$filterCommands"
+
+	# remove boilerplate input file
+	if [[ "$ok" ]] ; then
+	    try /bin/rm -f "$contentsTmp/Info.plist.in" \
+		'Unable to remove boilerplate Info.plist.'
+	fi
+	
+	
+	# UPDATE ENGINE PAYLOAD
+	
+	createenginepayload "$contentsTmp"
 	
 	
 	# WRITE OUT CONFIG FILE
 	
-	if [[ "$ok" ]] ; then
-	    # set up output versions of Chrome variables
-	    SSBChromePath="$chromePath"    
-	    SSBChromeVersion="$chromeVersion"
-	fi
-	
 	writeconfig "$contentsTmp" force
-	
+
+	# $$$ REMOVE THIS WITH AUTH CODE
 	# set ownership of app bundle to this user (only necessary if running as admin)
 	setowner "$appPath" "$contentsTmp" "app bundle Contents directory"
 	
@@ -1460,16 +1478,8 @@ function updatessb {
 		rmtemp "$contentsTmp" 'Contents folder'
 	    fi
 	fi
-	
-
-	# IF UPDATING (NOT CREATING A NEW APP), RELAUNCH AFTER A DELAY
-	if [[ "$ok" && ! "$newApp" ]] ; then
-	    relaunch "$appPath" 1 &
-	    disown -ar
-	    exit 0
-	fi
     fi
-
+    
     [[ "$ok" ]] && return 0
     return 1    
 }

@@ -54,7 +54,7 @@ source "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh"
 epichromeinfo "$myPath"
 
 
-# COMMAND LINE ARGUMENTS - ALL ARE REQUIRED
+# COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
 
 # path where the app should be created
 appPath="$1"
@@ -150,11 +150,8 @@ fi
 # mark this as the first ever run
 SSBFirstRun=1
 
-# populate the Contents directory
-updatessb "$appTmp" "$customIconDir" '' newApp
-
-# create the engine payload
-createenginepayload "$appTmp/Contents"
+# populate the app bundle
+updateapp "$appTmp" "$customIconDir"
 
 [[ "$ok" ]] || abort "$errmsg" 1
 

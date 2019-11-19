@@ -170,6 +170,13 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 }
 
 
+# RELAUNCH -- relaunch this app after a delay
+function relaunch { # APP-PATH DELAY-SECONDS
+    [[ "$2" ]] && sleep "$2"
+    open "$1"
+}
+
+
 # AUTHENTICATE -- relaunch authenticated if necessary
 isAuthenticated=
 function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, return 1 on auth fail)
@@ -231,7 +238,7 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 			local debugOpt='""'
 			[[ "$debug" ]] && debugOpt='" --debug "'
 			    
-			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome_admin " & $debugOpt & (quoted form of "'"$id"'") with administrator privileges'
+			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome-admin " & $debugOpt & (quoted form of "'"$id"'") with administrator privileges'
 			
 		    elif [[ "$nonfatal" ]] ; then
 			return 1
@@ -251,29 +258,235 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 }
 
 
+# LINKTREE: hard link to a directory or file
+function linktree { # $1 = sourcedir (absolute)
+    #                 $2 = destdir (absolute)
+    #                 $3 = try error identifier
+    #                 $@ = <files>
+
+    if [[ "$ok" ]]; then
+	
+	# read arguments
+	local sourcedir="$1"  # could absolutize: echo "$(cd "$foo" 2> /dev/null && pwd)"
+	local destdir="$2"
+	local tryid="$3"
+	shift 3
+
+	# make sure both directories are on the same filesystem
+	local sourceDevice=
+	try 'sourceDevice=' /usr/bin/stat -f '%d' "$sourcedir" \
+	    "Unable to get info on $sourcedir."
+	local destDevice=
+	try 'destDevice=' /usr/bin/stat -f '%d' "$destdir" \
+	    "Unable to get info on $destdir."
+	
+	if [[ "$ok" ]] ; then
+	    if [[ "$sourceDevice" != "$destDevice" ]]; then
+		ok=
+		errmsg="$entry must be on the same drive as this app."
+	    fi
+	fi
+
+	if [[ "$ok" ]] ; then
+	    # pushd to source directory
+	    try '/dev/null&<' pushd "$sourcedir" \
+		"$tryid link error: Unable to move to $sourcedir"
+
+	    local files=
+	    if [[ "$@" ]] ; then
+		files=( "$@" )
+	    else
+		# no items specified, so link all non-dot items
+		files=( * )
+	    fi
+	    
+	    # loop through entries creating hard links
+	    for entry in "${files[@]}" ; do
+		# hard link
+		try /bin/pax -rwlpp "$entry" "$destdir" \
+		    "$tryid link error: Unable to create link to $entry."
+	    done
+	    
+	    # popd back from source directory
+	    try '/dev/null&<' popd \
+		"$tryid link error: Unable to move back from $sourcedir."
+	fi
+    fi
+}
+
+
+# GETENGINEPID: get the PID of the running engine
+enginePID=
+function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
+
+    # assume no PID
+    enginePID=
+    
+    # args
+    local id="$1"
+    local path="$2"
+    
+    # get all ASNs associated with the engine's bundle ID
+    local asns=
+    try 'asns=()' /usr/bin/lsappinfo find "bundleid=$id" \
+	'Error while attempting to find running engine.'
+
+    # no engine found
+    if [[ "$ok" && ( "${#asns[@]}" = 0 ) ]] ; then
+	ok=
+	errmsg='Unable to find running engine.'
+    fi
+
+    # search for PID
+    if [[ "$ok" ]] ; then
+
+	local info=
+	
+	local a=
+	for a in "${asns[@]}" ; do
+
+	    # get info on an ASN (we use try for the debugging output)
+	    try 'info=' /usr/bin/lsappinfo info "$a" ''
+	    ok=1 ; errmsg=
+	    
+	    # if this ASN matches our bundle, grab the PID
+	    re='bundle path *= *"([^'$'\n'']+)".*pid *= *([0-9]+)'
+	    if [[ ( "$info" =~ $re ) && ( "${BASH_REMATCH[1]}" = "$path" ) ]] ; then
+		enginePID="${BASH_REMATCH[2]}"
+		break
+	    fi
+
+	    # not found, so reset info
+	    info=
+	done
+    fi
+
+    # errors in this function are nonfatal; just return the error message
+    ok=1
+    
+    # return result
+    [[ "$enginePID" ]] && return 0
+    return 1
+}
+
+
+# CLEANUP: wait for app engine to die, then clean it up
+function cleanup {  # $1 = ENGINE-PID
+    
+    # wait for app to exit
+    while /bin/kill -0 "$1" 2> /dev/null ; do
+	sleep 1
+    done
+    
+    # make sure we can still find engine
+    if [[ ! -d "$myEngineAppContents" ]] ; then
+	# abort -- something has gone wrong, maybe app was renamed or moved
+	echo "Cleanup error: Can't find app engine." 1>&2
+	exit 1
+    fi
+    
+    # build list of runtime elements to delete
+
+    local deletelist=()
+    local curdir=
+    local i=
+
+    # all items in engine root except Contents
+    dirlist "$SSBEngineAppPath" curdir 'app engine' '^Contents$'
+    for i in "${curdir[@]}" ; do
+	deletelist+=( "$SSBEngineAppPath/$i" )
+    done
+    
+    if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
+	# all items in Contents except Info.plist, MacOS & Resources
+	dirlist "$myEngineAppContents" curdir \
+		'Epichrome app engine Contents' \
+		'^((Info.plist)|(MacOS)|(Resources))$'
+    else
+	# all items in Contents except MacOS & Resources
+	dirlist "$myEngineAppContents" curdir \
+		'Google Chrome app engine Contents' \
+		'^((MacOS)|(Resources))$'
+    fi
+    for i in "${curdir[@]}" ; do
+	deletelist+=( "$myEngineAppContents/$i" )
+    done
+
+    # all items in Resources except .lproj & .icns
+    dirlist "$myEngineAppContents/Resources" curdir \
+	    'app engine Resources' '\.((icns)|(lproj))$'
+    for i in "${curdir[@]}" ; do
+	deletelist+=( "$myEngineAppContents/Resources/$i" )
+    done
+
+    # delete items
+    if [[ "${deletelist[*]}" ]] ; then
+	try /bin/rm -f "${deletelist[@]}" \
+	    'Unable to clean up app engine.'
+    fi
+
+    # report any errors with the deletion process
+    if [[ ! "$ok" ]] ; then
+	ok=1
+	echo "Cleanup error: $errmsg" 1>&2
+    fi
+    
+    # Chromium engine: rename Info.plist Info.plist.off
+    if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+	try /bin/mv -f "$myEngineAppContents/Info.plist" \
+	    "$myEngineAppContents/Info.plist.off" \
+	    'Unable to deactivate payload Info.plist.'
+	if [[ ! "$ok" ]] ; then
+	    ok=1
+	    echo "Cleanup error: $errmsg" 1>&2
+	fi
+    fi
+    
+    # rename engine back to Payload
+    try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
+	'Unable to restore Payload directory.'
+
+    # report any final error
+    if [[ ! "$ok" ]] ; then
+	echo "Cleanup error: $errmsg" 1>&2
+	exit 1
+    fi
+    
+    exit 0
+}
+
+
 # MAIN BODY
 
 
-# COMMAND-LINE OPTIONS
+# PARSE COMMAND-LINE OPTIONS
 
 debug=
 isAdmin=
+argsURIs=()
+argsOptions=()
 while [[ "$#" -gt 0 ]] ; do
     case "$1" in
-        --epichrome_admin)
+        --epichrome-admin)
 	    isAdmin="$1"
-            shift
             ;;
         
-        --debug)
+        --epichrome-debug)
             debug=1
-	    shift
             ;;
-        
-        *)
-	    # leave any unrecognized options to pass along to Chrome engine
-	    break
+	
+	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
+	    # this should be sent to the open command
+	    argsURIs+=( "$1" )
+	    ;;
+	
+	*)
+	    # pass any other options along to the engine
+	    argsOptions+=( "$1" )
     esac
+
+    # get next arg
+    shift
 done
 
 
@@ -313,37 +526,33 @@ else
     myProfilePath="$SSBProfilePath"
 fi
 myProfilePath="${HOME}/$SSBProfilePath"
+myProfileArg="--user-data-dir=$myProfilePath"
 
 # by default, use existing profile
 newprofile=
 
 
-# HANDLE POST-CHROME 69 DOUBLE RUN  $$$ DELETE THIS I THINK
+# IF THE ENGINE IS ALREADY RUNNING, SEND ANY ARGS TO RUNNING ENGINE & QUIT
 
-# if this engine is already running, launch vanilla Chrome engine & bring to front
-configEngineExec="$myContents/$appEngine/$SSBChromeEngine/Contents/MacOS/$engineExec"
-/usr/bin/pgrep -fq "$configEngineExec" > /dev/null 2>&1
-pgrepResult="$?"
-if [[ "$pgrepResult" = 0 ]] ; then
-    # launch Chrome engine but suppress startup window
-    # (--no-startup-window would also work for this)
-    # but do not launch if unknown args passed -- this appears
-    # to only happen as a weird duplicate launch
-    # signal in Chrome 69, so we'll ignore it (for now)
-    if [[ "${#@}" = 0 ]] ; then
-	# use Applescript to switch app to the front
-	osascript -e "tell application \"System Events\" to set frontmost of (application processes where bundle identifier is \"$CFBundleIdentifier\") to true" > /dev/null
+# get the ID of the engine app
+myEngineID="${appEngineIDBase}.${SSBIdentifier}"
 
-	# launch
-        "$configEngineExec" --silent-launch --user-data-dir="$myProfilePath"
-    fi
+# determine if the engine is running
+getenginepid "$myEngineID" "$SSBEngineAppPath"
+if [[ "$?" != 0 ]] ; then
+    debuglog 'Unable to determine if app engine is running: $errmsg'
+fi
+
+if [[ "$enginePID" ]] ; then
     
-    # exit this instance
-    exit
-    
-elif [[ "$pgrepResult" != 1 ]] ; then
-    # pgrep error
-    abort "Error checking for running Chrome engine." 1
+    # engine is already running, so just send any files or URLs to it &
+    # don't run the usual command-line
+    try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" \
+	'Unable to connect to app engine.'
+
+    # we're done, so exit
+    [[ "$ok" ]] && exit 0
+    exit 1
 fi
 
 
@@ -394,13 +603,21 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 		    safesource "$epiContents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
 		    
 		    # use new runtime to update the SSB (and relaunch)
-		    updatessb "$myPath"
+		    updateapp "$myPath"
 		    
+		    # relaunch after a delay
+		    if [[ "$ok" ]] ; then
+			relaunch "$myPath" 1 &
+			disown -ar
+			exit 0
+		    fi
 		    ;;
+		
 		Later)
 		    # don't update
 		    doUpdate=
 		    ;;
+		
 		*)
 		    # pretend we're already at the new version
 		    SSBVersion="$epiVersion"
@@ -568,27 +785,27 @@ fi
 [[ "$newPayload" ]] && createenginepayload "$myContents"
 
 
-# UPDATE ENGINE APP NAME
+# UPDATE ENGINE APP NAME & PATH
 
 # regex for pulling out current app name
 ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
 
 # try to use current name of this Epichrome app as engine name
 if [[ "$myPath" =~ $ssbNameRe ]] ; then
-    SSBEngineName="${BASH_REMATCH[1]}.app"
+    SSBEngineAppName="${BASH_REMATCH[1]}.app"
 else
     # if app name is unparsable, just use Info.plist display name
-    SSBEngineName="${CFBundleDisplayName}.app"
+    SSBEngineAppName="${CFBundleDisplayName}.app"
 fi
 
 # get paths for engine app bundle
-myEngineAppPath="$myEnginePath/$SSBEngineName"
-myEngineAppContents="$myEngineAppPath/Contents"
+SSBEngineAppPath="$myEnginePath/$SSBEngineAppName"
+myEngineAppContents="$SSBEngineAppPath/Contents"
 
 # BUILD ENGINE OUT OF PAYLOAD
 
 # rename Payload to engine app name
-try /bin/mv "$myPayloadPath" "$myEngineAppPath" 'Unable to create app engine from payload.'
+try /bin/mv "$myPayloadPath" "$SSBEngineAppPath" 'Unable to create app engine from payload.'
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
@@ -596,33 +813,36 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
     
     # EPICHROME CHROMIUM ENGINE
 
+    # link to everything except Resources directory
+    dirlist "$epiEngineRuntime" curdir 'Epichrome app engine' '^Resources$'
     linktree "$epiEngineRuntime" "$myEngineAppContents" \
-	     'Epichrome app engine'
+	     'Epichrome app engine' "${curdir[@]}"
     
+    # link to everything in Resources
+    linktree "$epiEngineRuntime/Resources" "$myEngineAppContents/Resources" \
+	     'Epichrome app engine Resources'
 else
     # GOOGLE CHROME ENGINE
     
     # link to everything except Resources & MacOS directories
-    dirlist "$googleChromeContents" curdir 'Google Chrome' '^((Resources)|(MacOS))$'
-    [[ "$ok" ]] || abort "$errmsg" 1
+    dirlist "$googleChromeContents" curdir \
+	    'Google Chrome app engine' '^((Resources)|(MacOS))$'
     linktree "$googleChromeContents" "$myEngineAppContents" \
-	     'Google Chrome app engine' \
-	     "${curdir[@]}"
+	     'Google Chrome app engine' "${curdir[@]}"
     
     # link to everything in Resources except .lproj & .icns
-    dirlist "$googleChromeContents/Resources" curdir 'Google Chrome Resources' \
-	    '\.((icns)|(lproj))$'
-    [[ "$ok" ]] || abort "$errmsg" 1
+    dirlist "$googleChromeContents/Resources" curdir \
+	    'Google Chrome app engine Resources' '\.((icns)|(lproj))$'
     linktree "$googleChromeContents/Resources" "$myEngineAppContents/Resources" \
-	     'Google Chrome app engine' \
-	     "${curdir_filtered[@]}"    
+	     'Google Chrome app engine Resources' \
+	     "${curdir[@]}"    
 fi
     
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
-# HANDLE FIRST-RUN SETUP   $$$ I AM HERE $$$$
+# HANDLE FIRST-RUN SETUP
 
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
@@ -652,11 +872,15 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 		
 		# old profile exists, new one doesn't, so create it
 		newprofile=1
-		try 'profileBase=' dirname "$myProfilePath" 'Unable to get path to profile folder.'
-		try unsudo mkdir -p "$profileBase" 'Unable to create profile folder.'
-		try mv -f "$oldProfilePath" "$myProfilePath" 'Unable to move profile folder from old location.'
+		try 'profileBase=' dirname "$myProfilePath" \
+		    'Unable to get path to profile folder.'
+		try unsudo mkdir -p "$profileBase" \
+		    'Unable to create profile folder.'
+		try mv -f "$oldProfilePath" "$myProfilePath" \
+		    'Unable to move profile folder from old location.'
 		if [[ ! "$ok" ]] ; then
-		    alert "Warning: $errmsg You may lose your settings." 'Updating Profile' '|caution'
+		    alert "Warning: $errmsg You may lose your settings." \
+			  'Updating Profile' '|caution'
 		    ok=1
 		fi
 	    else
@@ -679,13 +903,14 @@ fi
 
 # CREATE PROFILE FOLDER IF IT DOESN'T ALREADY EXIST
 
-# create profile folder
+# create profile folder   $$$ REMOVE UNSUDO ON DEAUTH PASS??
 if [[ ! -d "$myProfilePath" ]]; then
     newprofile=1
     try unsudo mkdir -p "$myProfilePath" 'Unable to create profile folder.'
     [[ "$ok" ]] || abort "$errmsg" 1
 fi
 
+# $$$ GET RID OF THIS AND USE MASTER PREFS?? OR REMOVE UNSUDO
 # set First Run file so Chrome doesn't think it's new (fail silently)
 firstrunfile="${myProfilePath}/First Run"
 [[ -e "$firstrunfile" ]] || unsudo touch "$firstrunfile" > /dev/null 2>&1
@@ -737,6 +962,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
 	fi
     fi
     
+    # $$$$ REMOVE UNSUDO??
     # if for any reason we need to copy the install directory, do it now
     if [[ "$ok" && "$extDoCopy" ]] ; then
 	unsudo safecopy "$extSourcePath" "$extDestPath" 'installation directory'
@@ -755,7 +981,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     fi
 fi
 
-	
+
 # MAKE SURE NATIVE HOST IS INSTALLED
 
 if [[ ! "$SSBHostInstallError" ]]; then
@@ -767,15 +993,15 @@ if [[ ! "$SSBHostInstallError" ]]; then
     hostInstallPath="$myProfilePath/$hostDir"
     hostScriptInstalled="$hostInstallPath/$hostScript"
     hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
-
+    
     # check if we need to install native messaging host
     doHostInstall=
-        
+    
     # do it if we just updated, or the host script or manifest don't exist
     if [[ "$SSBFirstRunSinceVersion" || \
-		( ! -x "$hostScriptInstalled" ) || \
-		( ! -e "${hostManifestInstalled[0]}" ) || \
-		( ! -e "${hostManifestInstalled[1]}" ) ]] ; then
+	      ( ! -x "$hostScriptInstalled" ) || \
+	      ( ! -e "${hostManifestInstalled[0]}" ) || \
+	      ( ! -e "${hostManifestInstalled[1]}" ) ]] ; then
 	doHostInstall=1
     else
 	# get installed host version if possible
@@ -791,15 +1017,17 @@ if [[ ! "$SSBHostInstallError" ]]; then
     
     # make sure the manifest points to the current path of the script
     if [[ ! "$doHostInstall" ]] ; then
-
+	
 	for hmi in "${hostManifestInstalled[@]}" ; do
 	    
 	    # get path to script in the manifest
-	    try 'oldHostScriptInstalled=' sed -En 's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
+	    try 'oldHostScriptInstalled=' sed -En \
+		's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
 		'Unable to get current host script path'
 	    
 	    # on error, or if the paths don't match, reinstall
-	    if [[ ! "$ok" || ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
+	    if [[ ! "$ok" || \
+		      ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
 		ok=1 ; errmsg=
 		doHostInstall=1
 	    fi
@@ -813,16 +1041,20 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	hostSourcePath="$myContents/Resources/$hostDir"
 	
 	# create the install directory
-	try unsudo /bin/mkdir -p "$hostInstallPath" 'Unable to create installation folder.'
+	try unsudo /bin/mkdir -p "$hostInstallPath" \
+	    'Unable to create installation folder.'
 	
-	# stream-edit the host script
+	# stream-edit the host script  $$$ UNSUDO
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
-	try unsudo /usr/bin/touch "${hostScriptTmp}" 'Unable to create script.'
-	try "${hostScriptTmp}<" sed "s/SSBID/${$appIDBase}.${SSBIdentifier}/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" "$hostSourcePath/$hostScript" 'Unable to copy script.'
+	try unsudo /usr/bin/touch "${hostScriptTmp}" \
+	    'Unable to create script.'
+	try "${hostScriptTmp}<" sed \
+	    "s/SSBID/${appIDBase}.${SSBIdentifier}/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" \
+	    "$hostSourcePath/$hostScript" 'Unable to copy script.'
 	
 	# fix host script permissions
 	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
-
+	
 	# move script to permanent home
 	permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
 
@@ -836,17 +1068,22 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    
 	    # stream-edit the manifest file
 	    hostManifestTmp=$(tempname "$hmi")
-	    try unsudo /usr/bin/touch "${hostManifestTmp}" 'Unable to create manifest.'
-	    try "${hostManifestTmp}<" sed "s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" "$hostSourcePath/${hostManifest[$index]}" 'Unable to copy manifest.'
+	    try unsudo /usr/bin/touch "${hostManifestTmp}" \
+		'Unable to create manifest.'
+	    try "${hostManifestTmp}<" sed \
+		"s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" \
+		"$hostSourcePath/${hostManifest[$index]}" \
+		'Unable to copy manifest.'
 	    
 	    # move manifest to permanent home
 	    permanent "$hostManifestTmp" "$hmi" 'manifest'
-
+	    
 	    # on error, remove temporary file
 	    if [[ ! "$ok" ]] ; then
-		[[ -e "$hostManifestTmp" ]] && rmtemp "$hostManifestTmp" 'manifest'
+		[[ -e "$hostManifestTmp" ]] && \
+		    rmtemp "$hostManifestTmp" 'manifest'
 	    fi
-
+	    
 	    index=$(($index + 1))
 	done
 	
@@ -870,43 +1107,61 @@ fi
 # UPDATE LINKS TO CHROME NATIVE MESSAGING HOSTS
 
 if [[ "$ok" ]] ; then
-    
-    chromeHostDir="${HOME}/Library/Application Support/Google/Chrome/NativeMessagingHosts"
 
-    # remove dead host links
-    try '/dev/null&<' pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}"
-    hostFiles=(*)
+    # link to hosts for both Chrome and Chromium
+    googleChromeHostDir="${HOME}/Library/Application Support/Google/Chrome/NativeMessagingHosts"
+    chromiumHostDir="${HOME}/Library/Application Support/Chromium/NativeMessagingHosts"
+
+    # favor hosts from whichever browser our engine is using
+    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	hostDirs=( "$chromiumHostDir" "$googleChromeHostDir" )
+    else
+	hostDirs=( "$googleChromeHostDir" "$chromiumHostDir" )
+    fi
     
+    # navigate to our host directory
+    try '/dev/null&<' pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}"
+    
+    # get list of host files currently installed
+    hostFiles=( * )	
+    
+    # remove dead host links    
     for curFile in "${hostFiles[@]}" ; do
 	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
 	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
 	fi
     done
-    
-    # if there's no directory for Chrome hosts, we're done
-    if [[ -d "$chromeHostDir" ]] ; then
 
-	# get a list of all Chrome hosts
-	try '/dev/null&<' pushd "$chromeHostDir" "Unable to navigate to ${chromeHostDir}"
-	hostFiles=(*)
-	try '/dev/null&<' popd "Unable to navigate away from ${chromeHostDir}"
-
-	# link to Chrome hosts
-	for curFile in "${hostFiles[@]}" ; do
-	    if [[ ( ! -e "$curFile" ) || \
-		      ( -L "$curFile" && \
-			    ! "$curFile" -ef "${chromeHostDir}/$curFile" ) ]] ; then
-		try ln -sf "${chromeHostDir}/$curFile" "$curFile" "Unable to link to Chrome host ${curFile}."
-	    fi
-	done
+    # link to hosts from both directories
+    for curHostDir in "${hostDirs[@]}" ; do
 	
-    fi
+	if [[ -d "$curHostDir" ]] ; then
+	    
+	    # get a list of all hosts in this directory
+	    try '/dev/null&<' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
+	    hostFiles=( * )
+	    try '/dev/null&<' popd "Unable to navigate away from ${curHostDir}"
+	    
+	    # link to any hosts that are not already in our directory
+	    # or are links to a different file -- this way if a given
+	    # host is in both the Chrome & Chromium directories, whichever
+	    # we hit second will win
+	    for curFile in "${hostFiles[@]}" ; do
+		if [[ ( ! -e "$curFile" ) || \
+			  ( -L "$curFile" && \
+				! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
+		    try ln -sf "${curHostDir}/$curFile" "$curFile" \
+			"Unable to link to native messaging host ${curFile}."
+		fi
+	    done
+	fi
+    done
     
     try '/dev/null&<' popd "Unable to navigate away from ${hostInstallPath}."
     
     # errors here are non-fatal
     if [[ ! "$ok" ]] ; then
-	alert "Warning: ${errmsg}." 'Unable to Link to Chrome Hosts' '|caution'
+	alert "Warning: ${errmsg}." 'Unable to Link to Native Messaging Hosts' '|caution'
 	ok=1
 	errmsg=
     fi
@@ -914,11 +1169,9 @@ fi
 
 
 # STORE & TURN OFF FIRST-RUN STATUS
+
 isFirstRun="$SSBFirstRun"
 SSBFirstRun=
-
-
-# UPDATE CONFIG FILE IF NECESSARY
 
 if [[ "$SSBFirstRunSinceVersion" ]] ; then
 
@@ -929,6 +1182,9 @@ if [[ "$SSBFirstRunSinceVersion" ]] ; then
     SSBFirstRunSinceVersion=
 fi
 
+
+# UPDATE CONFIG FILE IF NECESSARY
+
 # $$$$ DELETE THIS AND ALL AUTHENTICATE CODE failsafe -- we should never get here without already authenticating
 authenticate updateconfig '' 'update configuration'
 
@@ -938,69 +1194,42 @@ writeconfig "$myContents"
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
-# LAUNCH THE SSB
+# LAUNCH APP ENGINE
 
-# path to engine
-myEngineExec="$myEngineAppContents/MacOS/$engineExec"
+# export Google API keys for Chromium engine only
+if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+    export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
+    export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
+    export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
+fi
 
+# build command line
 if [[ "$newprofile" ]] ; then
     # if we're creating a new profile (first run), run once with a page
-    # instructing the user to enable Epichrome Helper
-    myCommand=( "$myEngineExec" --user-data-dir="$myProfilePath" \
-				"file://$myContents/Resources/FirstRun/welcome.html" )
+    # instructing the user to enable the Epichrome extension
+    myArgs=( "${argsOptions[@]}" "file://$myContents/Resources/FirstRun/welcome.html" )
 else
-# normal run -- use the regular command line
-    myCommand=( "$myEngineExec" --user-data-dir="$myProfilePath" "${SSBCommandLine[@]}" )
+    # normal run -- use the regular command line
+    myArgs=( "${argsOptions[@]}" "${SSBCommandLine[@]}" )
 fi
 
+# engine is not running, so launch as usual (still sending
+/usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+	      'Unable to launch app engine.'
 
 
-# CLEANUP: wait for Chrome engine to die, then clean it up
-function cleanup {  # $1 = CHROME ENGINE PID
+# LAUNCH CLEANUP PROCESS
 
-    # wait for Chrome engine to exit
-    while /bin/kill -0 "$1" 2> /dev/null ; do
-	sleep 1
-    done
+getenginepid "$myEngineID" "$SSBEngineAppPath"
+
+if [[ "$enginePID" ]] ; then
     
-    # make sure we can still find Chrome engine
-    if [[ ! -d "$myEngineAppContents/Resources" ]] ; then
-	# abort -- something has gone wrong, maybe app renamed or moved
-	echo "Cleanup error: Can't find Chrome engine." 1>&2
-	exit 1
-    fi
-
-    # clear out any zombie payload & recreate
-    try /bin/rm -rf "$myPayloadPath" 'Unable to clear old payload.'
-    try /bin/mkdir -p "$myPayloadPath/Resources" \
-	'Unable to create payload directory.'
+    # PID found, so launch cleanup daemon
+    cleanup "$enginePID" &
     
-    # move payload out of engine
-    try /bin/mv -f \
-	"$myEngineAppContents/Resources"/*.lproj \
-	"$myEngineAppContents/Resources"/*.icns \
-	"$myPayloadPath/Resources" \
-	'Unable to move payload out of Chrome engine.'
-    try /bin/rm -rf "$myEnginePath" 'Unable to remove Chrome engine.'
-
-    if [[ ! "$ok" ]] ; then
-	# errors are nonfatal; report this to stderr rather than an alert
-	echo "Cleanup error: $errmsg" 1>&2
-	exit 1
-    fi
-    
-    exit 0
-}
-
-
-# start cleanup process
-cleanup "$$" &
-
-# exec Chrome engine
-if [[ "$isAdmin" ]] ; then    
-    # we're running as admin, so launch the SSB as the original user
-    #exec sudo -u $USER "${myCommand[@]}"
-    exec sudo -u $USER open "$myPath"
 else
-    exec "${myCommand[@]}"
-fi
+    
+    # PID not found, display error message and quit
+    [[ "$errmsg" ]] && errmsg="$errmsg "
+    alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
+fi  
