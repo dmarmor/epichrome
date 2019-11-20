@@ -1149,7 +1149,7 @@ function readconfig {
 
 # WRITECONFIG: write out config.sh file
 function writeconfig {  # DEST-CONTENTS-DIR FORCE
-
+    
     local destContents="$1"
     local force="$2"
     
@@ -1166,15 +1166,15 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	    local configname=
 	    for varname in "${myConfigVars[@]}" ; do
 		configname="config${varname}"
-
+		
 		local varisarray="$(isarray "$varname")"
-
+		
 		# if variables are not the same type
 		if [[ "$varisarray" != "$(isarray "$configname")" ]] ; then
 		    dowrite=1
 		    break
 		fi
-
+		
 		if [[ "$varisarray" ]] ; then
 		    
 		    # variables are arrays, so compare part by part
@@ -1186,7 +1186,7 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 			dowrite=1
 			break
 		    fi
-
+		    
 		    # compare each element in both arrays
 		    local i=0
 		    while [[ "$i" -lt "$varlength" ]] ; do
@@ -1194,22 +1194,24 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 				  != "$(eval "echo \${$configname[$i]}")" ]] ; then
 			    dowrite=1
 			    break
+			fi
 			i=$(($i + 1))
 		    done
-
+		    
 		    # if we had a mismatch, break out of the outer loop
 		    [[ "$dowrite" ]] && break
 		else
-
+		    
 		    # variables are scalar, simple compare
 		    if [[ "$(eval "echo \${$varname}")" \
 			      != "$(eval "echo \${$configname}")" ]] ; then
 			dowrite=1
 			break
 		    fi
+		fi
 	    done
 	fi
-
+	
 	# if we need to, write out the file
 	if [[ "$dowrite" ]] ; then
 	    local configScript="$destContents/$appConfigScript"
