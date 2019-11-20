@@ -1,9 +1,9 @@
 {
-    "name": "SSBHOSTID",  // filled in by Makefile
-    "description": "Epichrome Runtime Host SSBVERSION",  // filled in by Makefile
-    "path": "SSBHOSTPATH",  // filled in by Epichrome
+    "name": "EPIHOSTID",  // filled in by Makefile
+    "description": "Epichrome Runtime Host EPIVERSION",  // filled in by Makefile
+    "path": "APPHOSTPATH",  // filled in by Epichrome
     "type": "stdio",
     "allowed_origins": [
-        SSBRUNTIMEIDS
+        EPIRUNTIMEIDS
     ] // filled in by Makefile
 }

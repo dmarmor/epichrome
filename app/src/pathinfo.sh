@@ -31,57 +31,57 @@ function abort {
 mode="$1"
 shift
 
-# ssbDir: directory where SSB will be created
-# ssbBase: basename of SSB (without extension)
+# appDir: directory where app will be created
+# appBase: basename of app (without extension)
 # the argument should always be a fully-qualified path
-ssbDir= ; ssbBase=
+appDir= ; appBase=
 if [[ "$1" =~ ^/((([^/]+/+)*[^/]+)/+)?([^/]+)/*$ ]] ; then
     # directory and base
-    ssbDir="/${BASH_REMATCH[2]}"
-    ssbBase="${BASH_REMATCH[4]}"
+    appDir="/${BASH_REMATCH[2]}"
+    appBase="${BASH_REMATCH[4]}"
 fi
 
 if [ "$mode" = "app" ] ; then
     # remove any .app extension
-    if [[ "$ssbBase" =~ (^.*[^.])\.[aA][pP]{2}$ ]] ; then
-	ssbBase="${BASH_REMATCH[1]}"
-	ssbExtAdded="FALSE"
+    if [[ "$appBase" =~ (^.*[^.])\.[aA][pP]{2}$ ]] ; then
+	appBase="${BASH_REMATCH[1]}"
+	appExtAdded="FALSE"
     else
-	ssbExtAdded="TRUE"
+	appExtAdded="TRUE"
     fi
     
     # make sure we have an app path!
-    [ ! \( "$ssbDir" -a "$ssbBase" \) ] && abort "Unable to determine app path." 1
+    [ ! \( "$appDir" -a "$appBase" \) ] && abort "Unable to determine app path." 1
     
-    # ssbShortName: default short name for the menubar
-    ssbShortName="${ssbBase}"
-    [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName//[^a-zA-Z0-9]/}" # too long - remove all non-alphanumerics
-    [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName//[aeiou]/}" # still too long - remove all lowercase vowels
-    [ ! "${ssbShortName}" ] && ssbShortName="Epichrome App" # we removed everything!
+    # appShortName: default short name for the menubar
+    appShortName="${appBase}"
+    [ "${#appShortName}" -ge 16 ] && appShortName="${appShortName//[^a-zA-Z0-9]/}" # too long - remove all non-alphanumerics
+    [ "${#appShortName}" -ge 16 ] && appShortName="${appShortName//[aeiou]/}" # still too long - remove all lowercase vowels
+    [ ! "${appShortName}" ] && appShortName="Epichrome App" # we removed everything!
     
     # truncate name if still too long
-    [ "${#ssbShortName}" -ge 16 ] && ssbShortName="${ssbShortName::16}"
+    [ "${#appShortName}" -ge 16 ] && appShortName="${appShortName::16}"
     
-    # ssbName: add canonical .app extension to base name
-    ssbName="${ssbBase}.app"
+    # appName: add canonical .app extension to base name
+    appName="${appBase}.app"
     
-    # ssbPath: full path of SSB
-    if [[ "$ssbDir" =~ /$ ]]; then
-	ssbPath="${ssbDir}${ssbName}"
+    # appPath: full path of app
+    if [[ "$appDir" =~ /$ ]]; then
+	appPath="${appDir}${appName}"
     else
-	ssbPath="${ssbDir}/${ssbName}"
+	appPath="${appDir}/${appName}"
     fi
     
     # echo the five items on five lines
-    echo "$ssbDir"
-    echo "$ssbBase"
-    echo "$ssbShortName"
-    echo "$ssbName"
-    echo "$ssbPath"
-    echo "$ssbExtAdded"
+    echo "$appDir"
+    echo "$appBase"
+    echo "$appShortName"
+    echo "$appName"
+    echo "$appPath"
+    echo "$appExtAdded"
 else
-    echo "$ssbDir"
-    echo "$ssbBase"
+    echo "$appDir"
+    echo "$appBase"
 fi
 
 exit 0

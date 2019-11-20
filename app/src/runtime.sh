@@ -1028,8 +1028,6 @@ function createenginepayload { # $1 = Contents path
 set :CFBundleDisplayName $CFBundleDisplayName
 set :CFBundleName $CFBundleName
 set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
-set :CFBundleShortVersionString $epiVersion
-set :CFBundleVersion $$$$MYMACHINEVERSION
 Delete :CFBundleDocumentTypes
 Delete :CFBundleURLTypes"
 

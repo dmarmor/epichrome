@@ -21,7 +21,8 @@
 #
 
 # version info
-VERSION:=$(shell source src/version.sh ; echo "$$epiVersion")
+VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
+VERSIONCODE:=$(shell if [[ "$(VERSION)" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(b([0-9][0-9]))?$$ ]] ; then if [[ "$${BASH_REMATCH[2]}" ]] ; then printf '%s0%02d' "$${BASH_REMATCH[1]}" "$${BASH_REMATCH[3]}" ; else printf '%s100' "$${BASH_REMATCH[1]}" ; fi ; else printf '%s' "VERSIONCODE_FAIL" ; fi)
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 CHROMIUM:=Chromium/Chromium.78.0.3904.97.sync.app.zip
 
@@ -38,12 +39,12 @@ RUNTIMEID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
 RUNTIMEID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
 HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(RUNTIMEID)\/",\\\n        "chrome-extension:\/\/$(RUNTIMEID_BETA)\/"
-HOSTMANIFEST_SED_RELEASE:=-e $$'s/SSBRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
-HOSTMANIFEST_SED_BETA:=-e $$'s/SSBRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
+HOSTMANIFEST_SED_RELEASE:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
+HOSTMANIFEST_SED_BETA:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
 
 HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_RELEASE)
 
-EXEC_SED:=-e 's/SSBHOSTID1/$(HOSTID)/' -e 's/SSBHOSTID2/$(HOSTID_OLD)/'
+EXEC_SED:=-e 's/EPIHOSTID1/$(HOSTID)/' -e 's/EPIHOSTID2/$(HOSTID_OLD)/'
 #EXEC_SED_BETA:=; s/--user-data-dir/--extensions-update-frequency=$(DEBUG_UPDATE_FREQ)\ --user-data-dir/
 
 # app paths
@@ -81,6 +82,7 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
 	$(APP_SCPT)/makeicon.sh \
+	$(APP_RNTM)/Info.plist.in \
 	$(APP_RNTM_MCOS)/Epichrome \
 	$(APP_RNTM_SCPT)/runtime.sh \
 	$(APP_RNTM_SCPT)/getversion.py \
@@ -98,7 +100,6 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_FRUN)/img/m3s1.png \
 	$(APP_RNTM_RSRC)/app.icns \
 	$(APP_RNTM_RSRC)/document.icns \
-	src/Info.plist.runtime \
 	| $(APP_ENGN)
 
 clean:
@@ -132,7 +133,8 @@ $(APP_SCPT)/main.scpt: src/main.applescript
 	touch $(APP)
 
 $(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
-	sed "s/SSBVERSION/$(VERSION)/" $< > $@
+	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 	@touch $(APP) $(APP_CTNT)
 
 $(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
@@ -151,6 +153,10 @@ $(APP_SCPT)/version.sh: src/version.sh
 $(APP_SCPT)/%: src/%
 	cp -p $< $(APP_SCPT)/
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
+
+$(APP_RNTM)/Info.plist.in: src/Info.plist.runtime src/version.sh
+	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
 .DELETE_ON_ERROR: $(APP_ENGN)
 
@@ -179,16 +185,16 @@ $(APP_RNTM_SCPT)/%: src/%
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_SCPT)
 
 $(APP_RNTM_NMHT)/$(HOSTID).json: src/epichromeruntimehost.json src/version.sh
-	sed -E -e 's/SSBHOSTID/$(HOSTID)/' -e 's/SSBVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
+	sed -E -e 's/EPIHOSTID/$(HOSTID)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
 # remove this after Epichrome Runtime 1.2.0 release
 $(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/epichromeruntimehost.json src/version.sh
-	sed -E -e 's/SSBHOSTID/$(HOSTID_OLD)/' -e 's/SSBVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
+	sed -E -e 's/EPIHOSTID/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
-	sed 's/SSBVERSION/$(VERSION)/' $< > $@
+	sed 's/EPIVERSION/$(VERSION)/' $< > $@
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
 $(APP_RNTM_NMEX)/$(RUNTIMEID).json: src/install-extension.json

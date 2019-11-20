@@ -12,6 +12,8 @@
 	<string>applet</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Epichrome</string>
 	<key>CFBundleName</key>
 	<string>Epichrome</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +21,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>SSBVERSION</string>
+	<string>EPIVERSION</string>
+	<key>CFBundleVersion</key>
+	<string>EPIVERSIONCODE</string>
 	<key>CFBundleSignature</key>
 	<string>aplt</string>
 	<key>LSMinimumSystemVersionByArchitecture</key>
@@ -31,5 +35,7 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Epichrome needs this access in order to create apps, and will not work without it.</string>
+	<key>NSSystemAdministrationUsageDescription</key>
+        <string>Epichrome needs administrator privileges to create an app in the requested location.</string>
 </dict>
 </plist>

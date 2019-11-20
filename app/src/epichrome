@@ -788,10 +788,10 @@ fi
 # UPDATE ENGINE APP NAME & PATH
 
 # regex for pulling out current app name
-ssbNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
+appNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
 
 # try to use current name of this Epichrome app as engine name
-if [[ "$myPath" =~ $ssbNameRe ]] ; then
+if [[ "$myPath" =~ $appNameRe ]] ; then
     SSBEngineAppName="${BASH_REMATCH[1]}.app"
 else
     # if app name is unparsable, just use Info.plist display name
@@ -987,7 +987,7 @@ fi
 if [[ ! "$SSBHostInstallError" ]]; then
     
     # set up host file paths
-    hostManifest=( "SSBHOSTID1.json" "SSBHOSTID2.json" )
+    hostManifest=( "EPIHOSTID1.json" "EPIHOSTID2.json" )
     hostScript="epichromeruntimehost.py"
     hostDir="NativeMessagingHosts"
     hostInstallPath="$myProfilePath/$hostDir"
@@ -1049,7 +1049,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	try unsudo /usr/bin/touch "${hostScriptTmp}" \
 	    'Unable to create script.'
 	try "${hostScriptTmp}<" sed \
-	    "s/SSBID/${appIDBase}.${SSBIdentifier}/; s/SSBNAME/$CFBundleDisplayName/; s/SSBSHORTNAME/$CFBundleName/;" \
+	    "s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/; s/APPDISPLAYNAME/$CFBundleDisplayName/; s/APPBUNDLENAME/$CFBundleName/;" \
 	    "$hostSourcePath/$hostScript" 'Unable to copy script.'
 	
 	# fix host script permissions
@@ -1071,7 +1071,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    try unsudo /usr/bin/touch "${hostManifestTmp}" \
 		'Unable to create manifest.'
 	    try "${hostManifestTmp}<" sed \
-		"s/SSBHOSTPATH/${hostScriptInstalled//\//\\/}/" \
+		"s/APPHOSTPATH/${hostScriptInstalled//\//\\/}/" \
 		"$hostSourcePath/${hostManifest[$index]}" \
 		'Unable to copy manifest.'
 	    

@@ -32,14 +32,14 @@ import platform
 
 
 # info specific to this host (filled in on install)
-version = 'SSBVERSION'  # filled in by Makefile
-ssbid   = 'SSBID'  # filled in by Epichrome
-ssbname = 'SSBNAME'  # filled in by Epichrome
-ssbshortname = 'SSBSHORTNAME'  # filled in by Epichrome
+appVersion     = 'EPIVERSION'  # filled in by Makefile
+appBundleID    = 'APPBUNDLEID'  # filled in by Epichrome
+appDisplayName = 'APPDISPLAYNAME'  # filled in by Epichrome
+appBundleName  = 'APPBUNDLENAME'  # filled in by Epichrome
 
-# special mode for communicating version to parent SSB
+# special mode for communicating version to parent app
 if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
-    print version
+    print appVersion
     exit(0)
 
 
@@ -124,7 +124,7 @@ while True:
         send_message(('{ "version": "%s", '+
                      '"ssbID": "%s", '+
                      '"ssbName": "%s", '+
-                     '"ssbShortName": "%s" }') % (version, ssbid, ssbname, ssbshortname))
+                     '"ssbShortName": "%s" }') % (appVersion, appBundleID, appDisplayName, appBundleName))
     
     if 'url' in message:
         # open the url

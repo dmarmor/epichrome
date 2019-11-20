@@ -24,8 +24,8 @@
 
 
 -- MISC CONSTANTS
-set ssbPrompt to "Select name and location for the app."
-set ssbDefaultURL to "https://www.google.com/mail/"
+set promptNameLoc to "Select name and location for the app."
+set appDefaultURL to "https://www.google.com/mail/"
 set iconPrompt to "Select an image to use as an icon."
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
@@ -41,7 +41,7 @@ set userDataFile to "epichrome.plist"
 set myIcon to path to resource "applet.icns"
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
-set chromeSSBScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
+set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
 set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
@@ -50,7 +50,7 @@ set versionScript to quoted form of (POSIX path of (path to resource "version.sh
 -- PERSISTENT PROPERTIES
 
 global lastIconPath
-global lastSSBPath
+global lastAppPath
 global doRegisterBrowser
 global doCustomIcon
 global updateCheckDate
@@ -77,11 +77,11 @@ on readProperties()
 			set lastIconPath to ""
 		end try
 		
-		-- lastSSBPath
+		-- lastAppPath
 		try
-			set lastSSBPath to (value of (get property list item "lastSSBPath" of myProperties) as text)
+			set lastAppPath to (value of (get property list item "lastAppPath" of myProperties) as text)
 		on error
-			set lastSSBPath to ""
+			set lastAppPath to ""
 		end try
 		
 		-- doRegisterBrowser
@@ -126,7 +126,7 @@ on writeProperties()
 			
 			-- fill property list
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastSSBPath", value:lastSSBPath}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastAppPath", value:lastAppPath}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doRegisterBrowser", value:doRegisterBrowser}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doCustomIcon", value:doCustomIcon}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:date, name:"updateCheckDate", value:updateCheckDate}
@@ -191,8 +191,8 @@ end tablist
 
 
 -- INITIALIZE IMPORTANT VARIABLES
-set ssbBase to "My Epichrome App"
-set ssbURLs to {}
+set appNameBase to "My Epichrome App"
+set appURLs to {}
 
 
 -- CHECK FOR UPDATES TO EPICHROME
@@ -264,9 +264,9 @@ repeat
 	
 	-- APPLICATION FILE SAVE DIALOGUE
 	repeat
-		-- CHOOSE WHERE TO SAVE THE SSB
+		-- CHOOSE WHERE TO SAVE THE APP
 		
-		set ssbPath to false
+		set appPath to false
 		set tryAgain to true
 		
 		repeat while tryAgain
@@ -274,15 +274,15 @@ repeat
 			
 			-- show file selection dialog
 			try
-				set lastSSBPathAlias to (lastSSBPath as alias)
+				set lastAppPathAlias to (lastAppPath as alias)
 			on error
-				set lastSSBPathAlias to ""
+				set lastAppPathAlias to ""
 			end try
 			try
-				if lastSSBPathAlias is not "" then
-					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase default location lastSSBPathAlias) as text
+				if lastAppPathAlias is not "" then
+					set appPath to (choose file name with prompt promptNameLoc default name appNameBase default location lastAppPathAlias) as text
 				else
-					set ssbPath to (choose file name with prompt ssbPrompt default name ssbBase) as text
+					set appPath to (choose file name with prompt promptNameLoc default name appNameBase) as text
 				end if
 			on error number -128
 				exit repeat
@@ -290,42 +290,42 @@ repeat
 			
 			-- break down the path & canonicalize app name
 			try
-				set ssbInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of ssbPath)
+				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
 				writeProperties()
 				return -- QUIT
 			end try
 			
-			set ssbDir to (paragraph 1 of ssbInfo)
-			set ssbBase to (paragraph 2 of ssbInfo)
-			set ssbShortName to (paragraph 3 of ssbInfo)
-			set ssbName to (paragraph 4 of ssbInfo)
-			set ssbPath to (paragraph 5 of ssbInfo)
-			set ssbExtAdded to (paragraph 6 of ssbInfo)
+			set appDir to (paragraph 1 of appInfo)
+			set appNameBase to (paragraph 2 of appInfo)
+			set appShortName to (paragraph 3 of appInfo)
+			set appName to (paragraph 4 of appInfo)
+			set appPath to (paragraph 5 of appInfo)
+			set appExtAdded to (paragraph 6 of appInfo)
 			
 			-- update the last path info
-			set lastSSBPath to (((POSIX file ssbDir) as alias) as text)
+			set lastAppPath to (((POSIX file appDir) as alias) as text)
 			
 			
 			-- check if we have permission to write to this directory
 			if (do shell script "#!/bin/sh
-if [[ -w \"" & ssbDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
+if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
 				display dialog "You don't have permission to write to that folder. Please choose another location for your app." with title "Error" with icon stop buttons {"OK"} default button "OK"
 				set tryAgain to true
 			else
 				-- if no ".app" extension was given, check if they accidentally chose an existing app without confirming
-				if ssbExtAdded is "TRUE" then
+				if appExtAdded is "TRUE" then
 					-- see if an app with the given base name exists
 					tell application "Finder"
 						set appExists to false
 						try
-							if exists ((POSIX file ssbPath) as alias) then set appExists to true
+							if exists ((POSIX file appPath) as alias) then set appExists to true
 						end try
 					end tell
 					if appExists then
 						try
-							display dialog "A file or folder named \"" & ssbName & "\" already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
+							display dialog "A file or folder named \"" & appName & "\" already exists. Do you want to replace it?" with icon caution buttons {"Cancel", "Replace"} default button "Cancel" cancel button "Cancel" with title "File Exists"
 						on error number -128
 							set tryAgain to true
 						end try
@@ -334,7 +334,7 @@ if [[ -w \"" & ssbDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 			end if
 		end repeat
 		
-		if ssbPath is false then
+		if appPath is false then
 			exit repeat
 		end if
 		
@@ -344,43 +344,43 @@ if [[ -w \"" & ssbDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 			
 			-- STEP 2: SHORT APP NAME
 			
-			set ssbShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
+			set appShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
 			
 			set tryAgain to true
 			
 			repeat while tryAgain
 				set tryAgain to false
-				set ssbShortNameCanceled to false
-				set ssbShortNamePrev to ssbShortName
+				set appShortNameCanceled to false
+				set appShortNamePrev to appShortName
 				try
-					set ssbShortName to text returned of (display dialog ssbShortNamePrompt with title step() with icon myIcon default answer ssbShortName buttons {"OK", "Back"} default button "OK" cancel button "Back")
+					set appShortName to text returned of (display dialog appShortNamePrompt with title step() with icon myIcon default answer appShortName buttons {"OK", "Back"} default button "OK" cancel button "Back")
 				on error number -128 -- Back button
-					set ssbShortNameCanceled to true
+					set appShortNameCanceled to true
 					set curStep to curStep - 1
 					exit repeat
 				end try
 				
-				if (count of ssbShortName) > 16 then
+				if (count of appShortName) > 16 then
 					set tryAgain to true
-					set ssbShortNamePrompt to "That name is too long. Please limit the name to 16 characters or less."
-					set ssbShortName to ((characters 1 thru 16 of ssbShortName) as text)
-				else if (count of ssbShortName) < 1 then
+					set appShortNamePrompt to "That name is too long. Please limit the name to 16 characters or less."
+					set appShortName to ((characters 1 thru 16 of appShortName) as text)
+				else if (count of appShortName) < 1 then
 					set tryAgain to true
-					set ssbShortNamePrompt to "No name entered. Please try again."
-					set ssbShortName to ssbShortNamePrev
+					set appShortNamePrompt to "No name entered. Please try again."
+					set appShortName to appShortNamePrev
 				end if
 			end repeat
 			
-			if ssbShortNameCanceled then
+			if appShortNameCanceled then
 				exit repeat
 			end if
 			
-			-- STEP 3: CHOOSE SSB STYLE
+			-- STEP 3: CHOOSE APP STYLE
 			set curStep to curStep + 1
 			
 			repeat
 				try
-					set ssbStyle to button returned of (display dialog "Choose App Style:
+					set appStyle to button returned of (display dialog "Choose App Style:
 
 APP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)
 
@@ -395,15 +395,15 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 				set curStep to curStep + 1
 				
 				-- initialize URL list
-				if (ssbURLs is {}) and (ssbStyle is "App Window") then
-					set ssbURLs to {ssbDefaultURL}
+				if (appURLs is {}) and (appStyle is "App Window") then
+					set appURLs to {appDefaultURL}
 				end if
 				
 				repeat
-					if ssbStyle is "App Window" then
+					if appStyle is "App Window" then
 						-- APP WINDOW STYLE
 						try
-							set (item 1 of ssbURLs) to text returned of (display dialog "Choose URL:" with title step() with icon myIcon default answer (item 1 of ssbURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
+							set (item 1 of appURLs) to text returned of (display dialog "Choose URL:" with title step() with icon myIcon default answer (item 1 of appURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -412,9 +412,9 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						-- BROWSER TABS
 						set curTab to 1
 						repeat
-							if curTab > (count of ssbURLs) then
+							if curTab > (count of appURLs) then
 								try
-									set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer ssbDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
+									set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer appDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
 								on error number -128 -- Back button
 									set dlgResult to "Back"
 								end try
@@ -428,7 +428,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									end if
 								else if (button returned of dlgResult) is "Add" then
 									-- add the current text to the end of the list of URLs
-									set (end of ssbURLs) to text returned of dlgResult
+									set (end of appURLs) to text returned of dlgResult
 									set curTab to curTab + 1
 								else -- "Done (Don't Add)"
 									-- we're done, don't add the current text to the list
@@ -438,12 +438,12 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								set backButton to 0
 								if curTab is 1 then
 									try
-										set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer (item curTab of ssbURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
+										set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
 									on error number -128
 										set backButton to 1
 									end try
 								else
-									set dlgResult to display dialog tablist(ssbURLs, curTab) with title step() with icon myIcon default answer (item curTab of ssbURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
+									set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
 								end if
 								
 								if (backButton is 1) or ((button returned of dlgResult) is "Previous") then
@@ -451,20 +451,20 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set curTab to 0
 										exit repeat
 									else
-										set (item curTab of ssbURLs) to text returned of dlgResult
+										set (item curTab of appURLs) to text returned of dlgResult
 										set curTab to curTab - 1
 									end if
 								else if (button returned of dlgResult) is "Next" then
-									set (item curTab of ssbURLs) to text returned of dlgResult
+									set (item curTab of appURLs) to text returned of dlgResult
 									set curTab to curTab + 1
 								else -- "Remove"
 									if curTab is 1 then
-										set ssbURLs to rest of ssbURLs
-									else if curTab is (count of ssbURLs) then
-										set ssbURLs to (items 1 thru -2 of ssbURLs)
+										set appURLs to rest of appURLs
+									else if curTab is (count of appURLs) then
+										set appURLs to (items 1 thru -2 of appURLs)
 										set curTab to curTab - 1
 									else
-										set ssbURLs to ((items 1 thru (curTab - 1) of ssbURLs)) & ((items (curTab + 1) thru -1 of ssbURLs))
+										set appURLs to ((items 1 thru (curTab - 1) of appURLs)) & ((items (curTab + 1) thru -1 of appURLs))
 									end if
 								end if
 							end if
@@ -513,9 +513,9 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									try
 										if lastIconPathAlias is not "" then
 											
-											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPathAlias without invisibles
+											set appIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPathAlias without invisibles
 										else
-											set ssbIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
+											set appIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
 										end if
 										
 									on error number -128
@@ -523,21 +523,21 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									end try
 									
 									-- get icon path info
-									set ssbIconSrc to (POSIX path of ssbIconSrc)
+									set appIconSrc to (POSIX path of appIconSrc)
 									-- break down the path & canonicalize icon name
 									try
-										set ssbInfo to do shell script pathInfoScript & " icon " & quoted form of ssbIconSrc
+										set appInfo to do shell script pathInfoScript & " icon " & quoted form of appIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
 										writeProperties()
 										return -- QUIT
 									end try
 									
-									set lastIconPath to (((POSIX file (paragraph 1 of ssbInfo)) as alias) as text)
-									set ssbIconName to (paragraph 2 of ssbInfo)
+									set lastIconPath to (((POSIX file (paragraph 1 of appInfo)) as alias) as text)
+									set appIconName to (paragraph 2 of appInfo)
 									
 								else
-									set ssbIconSrc to ""
+									set appIconSrc to ""
 								end if
 								
 								-- STEP 7: SELECT ENGINE
@@ -561,90 +561,90 @@ The only reason to click No is if your app must run on a signed browser (mainly 
 									set curStep to curStep + 1
 									
 									-- create summary of the app
-									set ssbSummary to "Ready to create!
+									set appSummary to "Ready to create!
 
-App: " & ssbName & "
+App: " & appName & "
 
-Menubar Name: " & ssbShortName & "
+Menubar Name: " & appShortName & "
 
-Path: " & ssbDir & "
+Path: " & appDir & "
 
 "
-									if ssbStyle is "App Window" then
-										set ssbSummary to ssbSummary & "Style: App Window
+									if appStyle is "App Window" then
+										set appSummary to appSummary & "Style: App Window
 
-URL: " & (item 1 of ssbURLs)
+URL: " & (item 1 of appURLs)
 									else
-										set ssbSummary to ssbSummary & "Style: Browser Tabs
+										set appSummary to appSummary & "Style: Browser Tabs
 
 Tabs: "
-										if (count of ssbURLs) is 0 then
-											set ssbSummary to ssbSummary & "<none>"
+										if (count of appURLs) is 0 then
+											set appSummary to appSummary & "<none>"
 										else
-											repeat with t in ssbURLs
-												set ssbSummary to ssbSummary & "
+											repeat with t in appURLs
+												set appSummary to appSummary & "
   -  " & t
 											end repeat
 										end if
 									end if
-									set ssbSummary to ssbSummary & "
+									set appSummary to appSummary & "
 								
 Register as Browser: " & doRegisterBrowser & "
 
 Icon: "
-									if ssbIconSrc is "" then
-										set ssbSummary to ssbSummary & "<default>"
+									if appIconSrc is "" then
+										set appSummary to appSummary & "<default>"
 									else
-										set ssbSummary to ssbSummary & ssbIconName
+										set appSummary to appSummary & appIconName
 									end if
 									
-									set ssbSummary to ssbSummary & "
+									set appSummary to appSummary & "
 								
 App Engine: "
 									if doChromiumEngine is "No" then
-										set ssbSummary to ssbSummary & "Google Chrome"
+										set appSummary to appSummary & "Google Chrome"
 									else
-										set ssbSummary to ssbSummary & "Chromium"
+										set appSummary to appSummary & "Chromium"
 									end if
 									
 									-- set up Chrome command line
-									set ssbCmdLine to ""
-									if ssbStyle is "App Window" then
-										set ssbCmdLine to quoted form of ("--app=" & (item 1 of ssbURLs))
-									else if (count of ssbURLs) > 0 then
-										repeat with t in ssbURLs
-											set ssbCmdLine to ssbCmdLine & " " & quoted form of t
+									set appCmdLine to ""
+									if appStyle is "App Window" then
+										set appCmdLine to quoted form of ("--app=" & (item 1 of appURLs))
+									else if (count of appURLs) > 0 then
+										repeat with t in appURLs
+											set appCmdLine to appCmdLine & " " & quoted form of t
 										end repeat
 									end if
 									
 									repeat
 										try
-											display dialog ssbSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
+											display dialog appSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
 										on error number -128 -- Back button
 											set curStep to curStep - 1
 											exit repeat
 										end try
 										
 										
-										-- CREATE THE SSB
+										-- CREATE THE APP
 										
 										repeat
 											set creationSuccess to false
 											try
-												do shell script chromeSSBScript & " " & Â
-													(quoted form of ssbPath) & " " & Â
-													(quoted form of ssbBase) & " " & Â
-													(quoted form of ssbShortName) & " " & Â
-													(quoted form of ssbIconSrc) & " " & Â
+												do shell script buildScript & " " & Â
+													(quoted form of appPath) & " " & Â
+													(quoted form of appNameBase) & " " & Â
+													(quoted form of appShortName) & " " & Â
+													(quoted form of appIconSrc) & " " & Â
 													(quoted form of doRegisterBrowser) & " " & Â
 													(quoted form of doChromiumEngine) & " " & Â
-													ssbCmdLine
+													appCmdLine
 												set creationSuccess to true
 											on error errStr number errNum
 												
 												-- unable to create app due to permissions
 												if errStr is "PERMISSION" then
-													set errStr to "Unable to write to \"" & ssbDir & "\"."
+													set errStr to "Unable to write to \"" & appDir & "\"."
 												end if
 												
 												if not creationSuccess then
@@ -660,7 +660,7 @@ App Engine: "
 											
 											-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 											try
-												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & ssbBase & "\".
+												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & appNameBase & "\".
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 											on error number -128
@@ -672,15 +672,15 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 											if dlgResult is "Launch Now" then
 												delay 1
 												try
-													do shell script "open " & quoted form of (POSIX path of ssbPath)
-													--tell application ssbName to activate
+													do shell script "open " & quoted form of (POSIX path of appPath)
+													--tell application appName to activate
 												on error
 													writeProperties()
 													return -- QUIT
 												end try
 											else
 												--if (button returned of dlgResult) is "Reveal in Finder" then
-												tell application "Finder" to reveal ((POSIX file ssbPath) as alias)
+												tell application "Finder" to reveal ((POSIX file appPath) as alias)
 												tell application "Finder" to activate
 											end if
 											
