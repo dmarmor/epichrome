@@ -22,6 +22,11 @@
 # 
 
 
+# DEBUG FLAG
+
+debug=
+
+
 # ABORT -- exit cleanly on error
 
 function abort {

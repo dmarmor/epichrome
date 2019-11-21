@@ -22,6 +22,11 @@
 # 
 
 
+# DEBUG FLAG
+
+debug=
+
+
 # FUNCTION DEFINITIONS
 
 # ABORT -- display an error alert and abort
@@ -461,7 +466,6 @@ function cleanup {  # $1 = ENGINE-PID
 
 # PARSE COMMAND-LINE OPTIONS
 
-debug=
 isAdmin=
 argsURIs=()
 argsOptions=()

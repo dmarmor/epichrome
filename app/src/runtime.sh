@@ -83,7 +83,7 @@ errmsg=
 function try {
     # only run if no prior error
     if [[ "$ok" ]]; then
-	
+	    
 	# see if we're storing output
 	local target="$1"
 	local type=
@@ -619,20 +619,31 @@ Exit"
 	# create name for temp destination file
 	local destFileTmp="$(tempname "$destFile")"
 
+	echo "copying $srcFile to $destFileTmp" 1>&2
+	echo 1>&2
+	
 	# copy source file to temp
-	try cp "$srcFile" "$destFile" "Unable to create temporary $tryErrorID."
-
-	# use PlistBuddy to filter temp plist
-	echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy > /dev/null
-	if [[ "$?" = 0 ]] ; then
-	    # move temp file to permanent location
-	    permanent "$destFileTmp" "$destFile" "$tryErrorID"
-	else
-	    ok=
-	    errmsg="Error filtering $tryErrorID."
+	try cp "$srcFile" "$destFileTmp" "Unable to create temporary $tryErrorID."
+	
+	if [[ "$ok" ]] ; then
 	    
-	    # delete the temp file
-	    rmtemp "$destFileTmp" "$tryErrorID"
+	    # use PlistBuddy to filter temp plist
+	    if [[ "$debug" ]] ; then
+		echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy "$destFileTmp" 1>&2
+	    else
+		echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy "$destFileTmp" > /dev/null 2>&1
+	    fi
+	    
+	    if [[ "$?" = 0 ]] ; then
+		# move temp file to permanent location
+		permanent "$destFileTmp" "$destFile" "$tryErrorID"
+	    else
+		ok=
+		errmsg="Error filtering $tryErrorID."
+		
+		# delete the temp file
+		rmtemp "$destFileTmp" "$tryErrorID"
+	    fi
 	fi
     fi
     
@@ -651,47 +662,50 @@ function lprojescape { # string
 
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
 function filterlproj {  # BASE-PATH SEARCH-NAME MESSAGE-INFO
-    
-    # path to folder containing .lproj folders
-    local basePath="$1" ; shift
 
-    # name to search for in access strings
-    local searchString="$1" ; shift
-
-    # info about this filtering for error messages
-    local messageInfo="$1" ; shift
-    
-    # escape bundle name strings
-    local displayName="$(lprojescape $CFBundleDisplayName)"
-    local bundleName="$(lprojescape $CFBundleName)"
-    
-    # filter InfoPlist.strings files
-    local curLproj=
-    for curLproj in "$basePath/"*.lproj ; do
+    if [[ "$ok" ]] ; then
 	
-	# get paths for current in & out files
-	local curStringsIn="$curLproj/InfoPlist.strings"
-	local curStringsOutTmp="$(tempname "${curStringsIn}")"
+	# path to folder containing .lproj folders
+	local basePath="$1" ; shift
 
-	if [[ -f "$curStringsIn" ]] ; then
-	    # filter current localization
-	    try "$curStringsOutTmp<" /usr/bin/sed -E \
-		-e 's/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$searchString"'(.*"; *)$/\1'"$displayName"'\3/' \
-		-e 's/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/' \
-		"$curStringsIn" \
-		"Unable to filter $messageInfo localization strings."
+	# name to search for in access strings
+	local searchString="$1" ; shift
 
-	    # move file to permanent home
-	    permanent "$curStringsOutTmp" "$curStringsIn" "$messageInfo localization strings"
+	# info about this filtering for error messages
+	local messageInfo="$1" ; shift
+	
+	# escape bundle name strings
+	local displayName="$(lprojescape "$CFBundleDisplayName")"
+	local bundleName="$(lprojescape "$CFBundleName")"
 
-	    # on any error, abort
-	    if [[ ! "$ok" ]] ; then
-		# remove temp output file on error
-		rmtemp "$curStringsOutTmp" "$messageInfo localization strings"
-		break
+	# filter InfoPlist.strings files
+	local curLproj=
+	for curLproj in "$basePath/"*.lproj ; do
+	    
+	    # get paths for current in & out files
+	    local curStringsIn="$curLproj/InfoPlist.strings"
+	    local curStringsOutTmp="$(tempname "${curStringsIn}")"
+
+	    if [[ -f "$curStringsIn" ]] ; then
+		# filter current localization
+		try "$curStringsOutTmp<" /usr/bin/sed -E \
+		    -e 's/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$searchString"'(.*"; *)$/\1'"$displayName"'\3/' \
+		    -e 's/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/' \
+		    "$curStringsIn" \
+		    "Unable to filter $messageInfo localization strings."
+
+		# move file to permanent home
+		permanent "$curStringsOutTmp" "$curStringsIn" "$messageInfo localization strings"
+
+		# on any error, abort
+		if [[ ! "$ok" ]] ; then
+		    # remove temp output file on error
+		    rmtemp "$curStringsOutTmp" "$messageInfo localization strings"
+		    break
+		fi
 	    fi
-	fi
-    done
+	done
+    fi
 }
 
 
@@ -993,21 +1007,9 @@ function createenginepayload { # $1 = Contents path
     
     local enginePath="$1/$appEngine"
     local payloadContents="$1/$appPayload/Contents"
-    
-    # clear out old engine & recreate
+
+    # clear out old engine
     try /bin/rm -rf "$enginePath" 'Unable to clear old engine.'
-    try /bin/mkdir -p "$payloadContents/Resources" \
-	'Unable to create app engine Resources directory.'
-    
-    # link to this app's icons
-    if [[ "$ok" ]] ; then
-	try /bin/ln -s "../../../../$CFBundleIconFile" \
-	    "$payloadContents/Resources/$chromeBundleIconFile" \
-	    "Unable to link app engine to application icon file. '../../../../$CFBundleIconFile'"
-	try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
-	    "$payloadContents/Resources/$chromeBundleTypeIconFile" \
-	    "Unable to link app engine to document icon file."
-    fi
     
     # create persistent payload
     if [[ "$ok" ]] ; then
@@ -1015,9 +1017,13 @@ function createenginepayload { # $1 = Contents path
 	if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 
 	    # CHROMIUM PAYLOAD
-	    
+
+	    # create engine directory
+	    try /bin/mkdir -p "$enginePath" \
+		'Unable to create app engine directory.'
+
 	    # copy payload items from Epichrome
-	    try /bin/cp -a "$epiPayload" "$payloadContents" \
+	    try /bin/cp -a "$epiPayload" "$enginePath" \
 		'Unable to copy items to app engine payload.'
 	    
 	    # filter Info.plist with app info
@@ -1031,6 +1037,11 @@ set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
 Delete :CFBundleDocumentTypes
 Delete :CFBundleURLTypes"
 
+	    if [[ "$ok" ]] ; then
+		try /bin/rm -f "$payloadContents/Info.plist.in" \
+		    'Unable to remove app engine Info.plist template.'
+	    fi
+	    
 	    # filter localization strings
 	    filterlproj "$payloadContents/Resources" Chromium 'app engine'
 	    
@@ -1038,20 +1049,30 @@ Delete :CFBundleURLTypes"
 
 	    # GOOGLE CHROME PAYLOAD
 	    
+	    try /bin/mkdir -p "$payloadContents/Resources" \
+		'Unable to create Google Chrome app engine Resources directory.'
+	    
 	    # copy engine executable (linking causes confusion between apps & real Chrome)
 	    try /bin/cp -a "$googleChromeContents/MacOS" "$payloadContents" \
 		'Unable to copy Google Chrome executable to app engine payload.'
+
+	    # copy .lproj directories
+	    try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$payloadContents/Resources" \
+		'Unable to copy Google Chrome localizations to app engine payload.'
 	    
 	    # filter localization files
-	    local chromeLproj=( "$googleChromeContents/Resources/"*.lproj )
-	    if [[ "${#chromeLproj[@]}" ]] ; then
-		try /bin/cp -a "${chromeLproj[@]}" "$payloadContents/Resources" \
-		    'Unable to copy Google Chrome localizations to app engine payload.'
-
-		filterlproj "$payloadContents/Resources" Chrome 'Google Chrome app engine'
-	    fi
-	fi
+	    filterlproj "$payloadContents/Resources" Chrome 'Google Chrome app engine'
+	fi	
 	
+	# link to this app's icons
+	if [[ "$ok" ]] ; then
+	    try /bin/ln -s "../../../../$CFBundleIconFile" \
+		"$payloadContents/Resources/$chromeBundleIconFile" \
+		"Unable to link app engine to application icon file. '../../../../$CFBundleIconFile'"
+	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
+		"$payloadContents/Resources/$chromeBundleTypeIconFile" \
+		"Unable to link app engine to document icon file."
+	fi
     fi
 }
 
@@ -1092,24 +1113,23 @@ function makeappicons {  # INPUT OUTPUT-DIR app|doc|both
 
 
 # CONFIGVARS: list of variables in config.sh
-myConfigVars=( SSBIdentifier \
-		   SSBCommandLine \
-		   CFBundleDisplayName \
-		   CFBundleName \
-		   SSBVersion \
-		   SSBUpdateCheckDate \
-		   SSBUpdateCheckVersion \
-		   SSBEngineType \
-		   SSBEngineAppName \
-		   SSBEngineAppPath
-		   SSBProfilePath \
-		   SSBCustomIcon \
-		   SSBFirstRun \
-		   SSBFirstRunSinceVersion \
-		   SSBHostInstallError )
-myConfigVarsGoogleChrome=( "${myConfigVars[@]}" \
-			       SSBGoogleChromePath \
-			       SSBGoogleChromeVersion )
+appConfigVarsCommon=( SSBIdentifier \
+			  SSBCommandLine \
+			  CFBundleDisplayName \
+			  CFBundleName \
+			  SSBVersion \
+			  SSBUpdateCheckDate \
+			  SSBUpdateCheckVersion \
+			  SSBEngineType \
+			  SSBEngineAppName \
+			  SSBEngineAppPath \
+			  SSBProfilePath \
+			  SSBCustomIcon \
+			  SSBFirstRun \
+			  SSBFirstRunSinceVersion \
+			  SSBHostInstallError )
+appConfigVarsGoogleChrome=( SSBGoogleChromePath \
+				SSBGoogleChromeVersion )
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes
@@ -1125,9 +1145,10 @@ function readconfig {
 
     if [[ "$ok" ]] ; then
 
-	# if we're using a Google Chrome engine, we need to include extra keys
+	# create full list of config vars based on engine type
+	local myConfigVars=( "${appConfigVarsCommon[@]}" )
 	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    myConfigVars=( "${myConfigVarsGoogleChrome[@]}" )
+	    myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
 	fi
 	
 	# save all relevant config variables prefixed with "config"
@@ -1154,7 +1175,13 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
     local force="$2"
     
     if [[ "$ok" ]] ; then
-
+	
+	# create full list of config vars based on engine type
+	local myConfigVars=( "${appConfigVarsCommon[@]}" )
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
+	fi
+	
 	# determine if we need to write the config file
 
 	# we're being told to write no matter what
@@ -1214,6 +1241,7 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	
 	# if we need to, write out the file
 	if [[ "$dowrite" ]] ; then
+	    
 	    local configScript="$destContents/$appConfigScript"
 	    
 	    # write out the config file
@@ -1432,9 +1460,7 @@ function updateapp {
 	local filterCommands="
 set :CFBundleDisplayName $CFBundleDisplayName
 set :CFBundleName $CFBundleName
-set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier
-set :CFBundleShortVersionString $epiVersion
-set :CFBundleVersion $$$$MYMACHINEVERSION"
+set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier"
 
 	# if not registering as browser, delete URI handlers
 	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then

@@ -41,11 +41,12 @@ RUNTIMEID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
 HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(RUNTIMEID)\/",\\\n        "chrome-extension:\/\/$(RUNTIMEID_BETA)\/"
 HOSTMANIFEST_SED_RELEASE:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
 HOSTMANIFEST_SED_BETA:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
-
 HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_RELEASE)
 
-EXEC_SED:=-e 's/EPIHOSTID1/$(HOSTID)/' -e 's/EPIHOSTID2/$(HOSTID_OLD)/'
-#EXEC_SED_BETA:=; s/--user-data-dir/--extensions-update-frequency=$(DEBUG_UPDATE_FREQ)\ --user-data-dir/
+EXEC_SED_RELEASE:=-e 's/EPIHOSTID1/$(HOSTID)/' -e 's/EPIHOSTID2/$(HOSTID_OLD)/'
+EXEC_SED_BETA:=$(EXEC_SED_RELEASE) -e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
+EXEC_SED:=$(EXEC_SED_RELEASE)
+
 
 # app paths
 APP_CTNT:=$(APP)/Contents
@@ -70,6 +71,8 @@ INSTALL_PATH:=/Applications/Epichrome.app
 build: $(BUILD_TYPE)
 
 build_beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
+
+build_beta: EXEC_SED:=$(EXEC_SED_BETA)
 
 $(BUILD_TYPE): $(APP)
 
@@ -150,6 +153,11 @@ $(APP_SCPT)/version.sh: src/version.sh
 	cp -p $< $(APP_SCPT)/
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
 
+$(APP_SCPT)/build.sh: src/build.sh
+	if [[ "$(BETA)" ]] ; then sed -E 's/^debug=$$/debug=1  # DEBUG ON FOR BETA/' $< > $@ ; else cp -p $< $(APP_SCPT)/ ; fi
+	chmod 755 $@
+	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
+
 $(APP_SCPT)/%: src/%
 	cp -p $< $(APP_SCPT)/
 	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
@@ -171,6 +179,7 @@ $(APP_ENGN): $(CHROMIUM)
 	mv $(APP_ENGN)/Runtime/Resources/*.lproj $(APP_ENGN)/Payload/Contents/Resources
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
+# $$$ I AM HERE, ADD TO SED
 $(APP_RNTM_MCOS)/Epichrome: src/epichrome $(RUNTIMEBG)
 	sed -E $(EXEC_SED) $< > $@
 	chmod 755 $@
