@@ -179,7 +179,6 @@ $(APP_ENGN): $(CHROMIUM)
 	mv $(APP_ENGN)/Runtime/Resources/*.lproj $(APP_ENGN)/Payload/Contents/Resources
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
-# $$$ I AM HERE, ADD TO SED
 $(APP_RNTM_MCOS)/Epichrome: src/epichrome $(RUNTIMEBG)
 	sed -E $(EXEC_SED) $< > $@
 	chmod 755 $@

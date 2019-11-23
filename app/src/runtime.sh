@@ -476,6 +476,132 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 }
 
 
+# DIALOG -- display a dialog and return the button pressed
+function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
+
+    if [[ "$ok" ]] ; then
+
+	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
+	local msg="${1//\"/\\\"}" ; shift
+	local title="${1//\"/\\\"}" ; shift
+	local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
+	
+	# build icon code
+	local icon="$1" ; shift
+	local icon_set=
+	local icon_code=
+	if [ "${icon::1}" = "|" ] ; then
+	    icon="${icon:1}"
+	    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
+	    icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
+tell application \"Finder\"
+    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
+        set myIcon to $icon
+    end if
+end tell"
+	else
+	    [[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
+	fi
+	[[ "$icon_set" ]] && icon_code='with icon myIcon'
+	
+	# build button list
+	local buttonlist=
+	local button=
+	local button_default=
+	local button_cancel=
+	local try_start=
+	local try_end=
+	local numbuttons=0
+	
+	for button in "$@" ; do
+	    # increment button count
+	    numbuttons=$((${numbuttons} + 1))
+	    
+	    # identify default and cancel buttons
+	    if [[ "${button::1}" = "+" ]] ; then
+		button="${button:1}"
+		button_default="default button \"$button\""
+	    elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
+		button="${button#-}"
+		button_cancel="cancel button \"$button\""
+		try_start="try"
+		try_end="on error number -128
+    \"$button\"
+end try"
+	    fi
+	    
+	    # add to button list
+	    buttonlist="$buttonlist, \"$button\""
+	done
+	
+	# if no buttons specified, make one default OK button
+	if [[ "$numbuttons" -eq 0 ]]; then
+	    numbuttons=1
+	    button='OK'
+	    button_default="default button \"$button\""
+	    buttonlist=", \"$button\""
+	fi
+	
+	# close button list
+	buttonlist="{ ${buttonlist:2} }"
+
+	# run the dialog
+	
+	try "${var}=" osascript -e "$icon_set
+$try_start
+    button returned of (display dialog \"$msg\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
+$try_end" 'Unable to display dialog box!'
+
+	# dialog failure -- if this is an alert, fallback to basic alert
+	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
+	    # dialog failed, try an alert
+	    ok=1
+	    
+	    # display simple alert with fallback icon
+	    [[ "$icon" ]] && icon="with icon $icon"
+	    osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
+	    
+	    if [[ "$?" != 0 ]] ; then
+		# alert failed too!
+		echo "Unable to display alert with message: $msg" 1>&2
+		ok=
+	    fi
+	fi
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+}
+
+
+# ALERT -- display a simple alert dialog box (whether ok or not)
+function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
+    local result=
+    
+    # save ok state
+    local oldok="$ok"
+    local olderrmsg="$errmsg"
+    ok=1
+    errmsg=
+
+    # show the alert
+    dialog '' "$1" "$2" "$3"
+    result="$?"
+    
+    # add new error message or restore old one
+    if [[ "$olderrmsg" && "$errmsg" ]] ; then
+	errmsg="$olderrmsg Also: ${errmsg}."
+    elif [[ "$olderrmsg" ]] ; then
+	errmsg="$olderrmsg"
+    fi
+    
+    # if ok was off or we turned it off, turn it off
+    [[ "$oldok" ]] || ok="$oldok"
+    
+    return "$result"
+}
+
+
 # WRITEVARS: write out a set of arbitrary bash variables to a file
 function writevars {  # $1 = destination file
     #                   $@ = list of vars
@@ -1009,7 +1135,9 @@ function createenginepayload { # $1 = Contents path
     local payloadContents="$1/$appPayload/Contents"
 
     # clear out old engine
-    try /bin/rm -rf "$enginePath" 'Unable to clear old engine.'
+    if [[ -d "$enginePath" ]] ; then
+	try /bin/rm -rf "$enginePath"/* "$enginePath"/.[^.]* 'Unable to clear old engine.'
+    fi
     
     # create persistent payload
     if [[ "$ok" ]] ; then
@@ -1144,7 +1272,7 @@ function readconfig {
     fi
 
     if [[ "$ok" ]] ; then
-
+	
 	# create full list of config vars based on engine type
 	local myConfigVars=( "${appConfigVarsCommon[@]}" )
 	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
@@ -1153,15 +1281,17 @@ function readconfig {
 	
 	# save all relevant config variables prefixed with "config"
 	
-	for varname in "${myConfigVars}" ; do
+	for varname in "${myConfigVars[@]}" ; do
 	    
 	    if [[ "$(isarray "$varname")" ]]; then
 		# copy array value
 		eval "config$varname=(\"\${$varname[@]}\")"
+		[[ "$debug" ]] && eval "debuglog \"$varname=( \${config$varname[*]} )\""
 	    else
 		
 		# copy scalar value
 		eval "config$varname=\"\${$varname}\""
+		[[ "$debug" ]] && eval "debuglog \"$varname=\$config$varname\""
 	    fi
 	done
     fi
@@ -1299,12 +1429,37 @@ function updateapp {
 	local appPath="$1"        # path to the app bundle
 	local customIconDir="$2"  # path to custom icon directory
 	
+	if [[ ! "$SSBEngineType" ]] ; then
+	    
+	    # No engine type in config, so we're updating from an old Google Chrome app
+
+	    # Allow the user to choose which engine to use (Chromium is the default)
+	    dialog useChromium \
+		   "SOME TEXT ABOUT CHROMIUM ENGINE." \
+		   "Choose App Engine" \
+		   "|caution" \
+		   "+Yes" \
+		   "-No"
+	    if [[ ! "$ok" ]] ; then
+		alert "CHROMIUM ENGINE TEXT but the update dialog failed. Attempting to update with Chromium engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+		doUpdate="Update"
+		ok=1
+		errmsg=
+	    fi
+	    
+	    if [[ "$useChromium" = No ]] ; then
+		SSBEngineType="Google Chrome"
+	    else
+		SSBEngineType="Chromium"
+	    fi
+	fi
+
 	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    # make sure we've got Chrome info
+	    # Google Chrome engine: make sure we've got Chrome info
 	    [[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
 	fi
 
-	
+
 	# PERFORM UPDATE
 	
 	# put updated bundle in temporary Contents directory
@@ -1466,6 +1621,13 @@ set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier"
 	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
 	    filterCommands="$filterCommands
 Delete :CFBundleURLTypes"
+	fi
+
+	# if using Google Chrome engine, do not register as a background app
+	# (to prevent losing custom icon)
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    filterCommands="$filterCommands
+Delete :LSUIElement"
 	fi
 	
 	# filter boilerplate Info.plist with info for this app

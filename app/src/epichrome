@@ -49,132 +49,6 @@ function unsudo {
 }
 
 
-# DIALOG -- display a dialog and return the button pressed
-function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
-
-    if [[ "$ok" ]] ; then
-
-	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
-	local msg="${1//\"/\\\"}" ; shift
-	local title="${1//\"/\\\"}" ; shift
-	local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
-	
-	# build icon code
-	local icon="$1" ; shift
-	local icon_set=
-	local icon_code=
-	if [ "${icon::1}" = "|" ] ; then
-	    icon="${icon:1}"
-	    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
-	    icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
-tell application \"Finder\"
-    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
-        set myIcon to $icon
-    end if
-end tell"
-	else
-	    [[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
-	fi
-	[[ "$icon_set" ]] && icon_code='with icon myIcon'
-	
-	# build button list
-	local buttonlist=
-	local button=
-	local button_default=
-	local button_cancel=
-	local try_start=
-	local try_end=
-	local numbuttons=0
-	
-	for button in "$@" ; do
-	    # increment button count
-	    numbuttons=$((${numbuttons} + 1))
-	    
-	    # identify default and cancel buttons
-	    if [[ "${button::1}" = "+" ]] ; then
-		button="${button:1}"
-		button_default="default button \"$button\""
-	    elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
-		button="${button#-}"
-		button_cancel="cancel button \"$button\""
-		try_start="try"
-		try_end="on error number -128
-    \"$button\"
-end try"
-	    fi
-	    
-	    # add to button list
-	    buttonlist="$buttonlist, \"$button\""
-	done
-	
-	# if no buttons specified, make one default OK button
-	if [[ "$numbuttons" -eq 0 ]]; then
-	    numbuttons=1
-	    button='OK'
-	    button_default="default button \"$button\""
-	    buttonlist=", \"$button\""
-	fi
-	
-	# close button list
-	buttonlist="{ ${buttonlist:2} }"
-
-	# run the dialog
-	
-	try "${var}=" osascript -e "$icon_set
-$try_start
-    button returned of (display dialog \"$msg\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
-$try_end" 'Unable to display dialog box!'
-
-	# dialog failure -- if this is an alert, fallback to basic alert
-	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
-	    # dialog failed, try an alert
-	    ok=1
-	    
-	    # display simple alert with fallback icon
-	    [[ "$icon" ]] && icon="with icon $icon"
-	    osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
-	    
-	    if [[ "$?" != 0 ]] ; then
-		# alert failed too!
-		echo "Unable to display alert with message: $msg" 1>&2
-		ok=
-	    fi
-	fi
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-}
-
-
-# ALERT -- display a simple alert dialog box (whether ok or not)
-function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
-    local result=
-    
-    # save ok state
-    local oldok="$ok"
-    local olderrmsg="$errmsg"
-    ok=1
-    errmsg=
-
-    # show the alert
-    dialog '' "$1" "$2" "$3"
-    result="$?"
-    
-    # add new error message or restore old one
-    if [[ "$olderrmsg" && "$errmsg" ]] ; then
-	errmsg="$olderrmsg Also: ${errmsg}."
-    elif [[ "$olderrmsg" ]] ; then
-	errmsg="$olderrmsg"
-    fi
-    
-    # if ok was off or we turned it off, turn it off
-    [[ "$oldok" ]] || ok="$oldok"
-    
-    return "$result"
-}
-
-
 # RELAUNCH -- relaunch this app after a delay
 function relaunch { # APP-PATH DELAY-SECONDS
     [[ "$2" ]] && sleep "$2"
@@ -335,13 +209,12 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
     local asns=
     try 'asns=()' /usr/bin/lsappinfo find "bundleid=$id" \
 	'Error while attempting to find running engine.'
-
-    # no engine found
+    
+    # no engine found, just don't return a PID
     if [[ "$ok" && ( "${#asns[@]}" = 0 ) ]] ; then
-	ok=
-	errmsg='Unable to find running engine.'
+	return 0
     fi
-
+    
     # search for PID
     if [[ "$ok" ]] ; then
 
@@ -366,12 +239,17 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 	done
     fi
 
-    # errors in this function are nonfatal; just return the error message
-    ok=1
-    
     # return result
-    [[ "$enginePID" ]] && return 0
-    return 1
+    if [[ "$enginePID" ]] ; then
+	ok=1 ; errmsg=
+	return 0
+    elif [[ "$ok" ]] ; then
+	return 0
+    else
+	# errors in this function are nonfatal; just return the error message
+	ok=1
+	return 1
+    fi
 }
 
 
@@ -426,7 +304,7 @@ function cleanup {  # $1 = ENGINE-PID
 
     # delete items
     if [[ "${deletelist[*]}" ]] ; then
-	try /bin/rm -f "${deletelist[@]}" \
+	try /bin/rm -rf "${deletelist[@]}" \
 	    'Unable to clean up app engine.'
     fi
 
@@ -512,7 +390,49 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 # load config.sh file
 readconfig
 
+
+# IF THE ENGINE IS ALREADY RUNNING, SEND ANY ARGS TO RUNNING ENGINE & QUIT
+
+# get the ID of the engine app
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    myEngineID="$googleChromeID"
+else
+    myEngineID="${appEngineIDBase}.${SSBIdentifier}"
+fi
+
+# determine if the engine is running
+getenginepid "$myEngineID" "$SSBEngineAppPath"
+if [[ "$?" != 0 ]] ; then
+    debuglog "Unable to determine if app engine is running: $errmsg"
+fi
+
+if [[ "$enginePID" ]] ; then
+    
+    # engine is already running, so just send any files or URLs to it &
+    # don't run the usual command-line
+
+    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+
+	# Google Chrome engine, open by engine path
+	try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" \
+	    'Unable to connect to Google Chrome app engine.'
+    else
+	
+	# Chromium engine, open by engine ID
+	try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" \
+	    'Unable to connect to app engine.'
+    fi
+    
+    # we're done, so exit
+    [[ "$ok" ]] && exit 0
+    exit 1
+fi
+
+
+# ENGINE IS NOT RUNNING, SO GATHER MORE INFO
+
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+
     # get info on the installed Google Chrome
     googlechromeinfo
 fi
@@ -536,30 +456,6 @@ myProfileArg="--user-data-dir=$myProfilePath"
 newprofile=
 
 
-# IF THE ENGINE IS ALREADY RUNNING, SEND ANY ARGS TO RUNNING ENGINE & QUIT
-
-# get the ID of the engine app
-myEngineID="${appEngineIDBase}.${SSBIdentifier}"
-
-# determine if the engine is running
-getenginepid "$myEngineID" "$SSBEngineAppPath"
-if [[ "$?" != 0 ]] ; then
-    debuglog 'Unable to determine if app engine is running: $errmsg'
-fi
-
-if [[ "$enginePID" ]] ; then
-    
-    # engine is already running, so just send any files or URLs to it &
-    # don't run the usual command-line
-    try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" \
-	'Unable to connect to app engine.'
-
-    # we're done, so exit
-    [[ "$ok" ]] && exit 0
-    exit 1
-fi
-
-
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
 
 # get info on current Epichrome version
@@ -571,11 +467,9 @@ fi
 
 if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 
-    # update message
-    updatemsg="A new version of the Epichrome runtime was found ($epiVersion)."
-    
     # authenticate
-    authenticate epichromeupdate "$updatemsg" 'update' nonfatal
+    authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiVersion)." \
+		 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
 	
 	# Ask about updating (unless we asked with the authentication dialog)
@@ -588,7 +482,7 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 		   "-Later" \
 		   "Don't Ask Again For This Version"
 	    if [[ ! "$ok" ]] ; then
-		alert "A new version of the Epichrome runtime was found ($epiVersion) but update dialog failed. Attempting to update now." 'Update' '|caution'
+		alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
 		doUpdate="Update"
 		ok=1
 		errmsg=
@@ -602,7 +496,7 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 	    # act based on dialog
 	    case "$doUpdate" in
 		Update)
-
+		    
 		    # read in the new runtime
 		    safesource "$epiContents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
 		    
@@ -718,7 +612,8 @@ if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
     if [[ "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ]] ; then
 	
 	# authenticate
-	authenticate chromeupdate "$updatemsg" 'update' nonfatal
+	authenticate chromeupdate "A new version of Google Chrome was found ($SSBGoogleChromeVersion)." \
+		     'update' nonfatal
 	if [[ "$?" = 0 ]] ; then
 	    
 	    # create a new engine payload from the new version
@@ -1217,23 +1112,36 @@ else
     myArgs=( "${argsOptions[@]}" "${SSBCommandLine[@]}" )
 fi
 
-# engine is not running, so launch as usual (still sending
-/usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
-	      'Unable to launch app engine.'
+# engine is not running, so launch as usual (still sending URIs to engine)
 
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
-# LAUNCH CLEANUP PROCESS
-
-getenginepid "$myEngineID" "$SSBEngineAppPath"
-
-if [[ "$enginePID" ]] ; then
-    
-    # PID found, so launch cleanup daemon
-    cleanup "$enginePID" &
+    # Google Chrome engine, launch cleanup & use exec (to preserve custom icon)
+    cleanup "$$" &    
+    exec "$myEngineAppContents/MacOS/$SSBEngineType" "$myProfileArg" "${myArgs[@]}"
     
 else
+
+    # Chromium engine, use open to launch engine
     
-    # PID not found, display error message and quit
-    [[ "$errmsg" ]] && errmsg="$errmsg "
-    alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
-fi  
+    try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+	'Unable to launch app engine.'
+    
+    [[ "$ok" ]] || abort "$errmsg" 1
+    
+    # find PID & launch cleanup process
+    
+    getenginepid "$myEngineID" "$SSBEngineAppPath"
+    
+    if [[ "$enginePID" ]] ; then
+	
+	# PID found, so launch cleanup daemon
+	cleanup "$enginePID" &
+	
+    else
+	
+	# PID not found, display error message and quit
+	[[ "$errmsg" ]] && errmsg="$errmsg "
+	alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
+    fi
+fi
