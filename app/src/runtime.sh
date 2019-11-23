@@ -1508,7 +1508,8 @@ function updateapp {
 	    if [[ ! "$SSBIdentifier" ]] ; then
 		
 		# no ID found
-		
+
+		# if we're coming from an old version, try pulling from CFBundleIdentifier
 		local idre="^${appIDBase//./\\.}"		    
 		if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
 		    
@@ -1591,7 +1592,7 @@ function updateapp {
 	if [[ "$ok" ]] ; then
 	    
 	    # set profile path
-	    SSBProfilePath="${appProfileBase}/${CFBundleIdentifier##*.}"
+	    SSBProfilePath="${appProfileBase}/$SSBIdentifier"
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then
@@ -1623,12 +1624,13 @@ set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier"
 Delete :CFBundleURLTypes"
 	fi
 
+	# $$$ CLEAN THIS UP
 	# if using Google Chrome engine, do not register as a background app
 	# (to prevent losing custom icon)
-	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    filterCommands="$filterCommands
-Delete :LSUIElement"
-	fi
+# 	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+# 	    filterCommands="$filterCommands
+# Delete :LSUIElement"
+# 	fi
 	
 	# filter boilerplate Info.plist with info for this app
 	filterplist "$contentsTmp/Info.plist.in" \

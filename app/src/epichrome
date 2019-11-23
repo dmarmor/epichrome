@@ -444,11 +444,6 @@ fi
 # SET UP USER PROFILE PATH
 
 # get absolute profile path
-if [[ "$(isarray SSBProfilePath)" ]] ; then
-    myProfilePath="${SSBProfilePath[0]}"
-else
-    myProfilePath="$SSBProfilePath"
-fi
 myProfilePath="${HOME}/$SSBProfilePath"
 myProfileArg="--user-data-dir=$myProfilePath"
 

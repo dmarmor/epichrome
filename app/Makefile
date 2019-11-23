@@ -66,7 +66,9 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: build build_release build_beta install clean clean-all
 
-.PRECIOUS: icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128.png
+.PRECIOUS: runtime icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128$(BETA).png
+
+.DELETE_ON_ERROR: $(APP_ENGN) Engine runtime.app fake.icns fake.sh
 
 build: $(BUILD_TYPE)
 
@@ -86,7 +88,9 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/updatecheck.sh \
 	$(APP_SCPT)/makeicon.sh \
 	$(APP_RNTM)/Info.plist.in \
-	$(APP_RNTM_MCOS)/Epichrome \
+	$(APP_RNTM_RSRC)/script \
+	$(APP_RNTM_RSRC)/app.icns \
+	$(APP_RNTM_RSRC)/document.icns \
 	$(APP_RNTM_SCPT)/runtime.sh \
 	$(APP_RNTM_SCPT)/getversion.py \
 	$(APP_RNTM_NMHT)/$(HOSTID).json \
@@ -101,13 +105,12 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_FRUN)/img/m2s1.png \
 	$(APP_RNTM_FRUN)/img/m2s2.png \
 	$(APP_RNTM_FRUN)/img/m3s1.png \
-	$(APP_RNTM_RSRC)/app.icns \
-	$(APP_RNTM_RSRC)/document.icns \
 	| $(APP_ENGN)
 
 clean:
 	rm -rf $(APP)
 	rm -rf Engine
+	rm -rf runtime
 
 clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
@@ -127,46 +130,51 @@ $(APP_SCPT)/main.scpt: src/main.applescript
 	chmod 644 $<
 	chmod 444 $@  # lock main.scpt so codesigning works (no longer used)
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
-	mkdir -p $(APP_RNTM_SCPT)
-	mkdir -p $(APP_RNTM_MCOS)
-	mkdir -p $(APP_RNTM_NMHT)
-	mkdir -p $(APP_RNTM_NMEX)
-	mkdir -p $(APP_RNTM_FRUN)
 	if [[ -d Engine ]] ; then mv -f Engine $(APP_ENGN) ; fi
-	touch $(APP)
+	@touch $(APP)
 
 $(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
-	@touch $(APP) $(APP_CTNT)
 
 $(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
-	cp -p $< $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC)
+	cp $< $@
 
 $(APP_RSRC)/docbg.png: ../images/icons/docbg.png
-	cp -p $< $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC)
+	cp $< $@
 
 $(APP_SCPT)/version.sh: src/version.sh
 	touch -c icons/*
-	cp -p $< $(APP_SCPT)/
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
+	cp $< $(APP_SCPT)/
 
 $(APP_SCPT)/build.sh: src/build.sh
-	if [[ "$(BETA)" ]] ; then sed -E 's/^debug=$$/debug=1  # DEBUG ON FOR BETA/' $< > $@ ; else cp -p $< $(APP_SCPT)/ ; fi
+	if [[ "$(BETA)" ]] ; then sed -E 's/^debug=$$/debug=1  # DEBUG ON FOR BETA/' $< > $@ ; else cp $< $(APP_SCPT)/ ; fi
 	chmod 755 $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
 
 $(APP_SCPT)/%: src/%
-	cp -p $< $(APP_SCPT)/
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_SCPT)
+	cp $< $(APP_SCPT)/
 
-$(APP_RNTM)/Info.plist.in: src/Info.plist.runtime src/version.sh
+$(APP_RNTM): runtime
+	rm -rf $@
+	cp -R $< $@
+	mkdir -p $(APP_RNTM_SCPT)
+	mkdir -p $(APP_RNTM_NMHT)
+	mkdir -p $(APP_RNTM_NMEX)
+	mkdir -p $(APP_RNTM_FRUN)
+
+runtime:
+	rm -rf runtime
+	echo > fake.icns
+	echo > fake.sh
+	platypus --name Epichrome --interface-type None --app-icon fake.icns --document-icon fake.icns --interpreter /bin/sh --app-version $(VERSION) --author 'David Marmor' --bundle-identifier org.epichrome.APPBUNDLEID --droppable --background --quit-after-execution  --uniform-type-identifiers 'com.compuserve.gif|public.html|public.jpeg|com.netscape.javascript-source|com.microsoft.word.mhtml|org.videolan.ogg-audio|org.videolan.ogg-audio|org.xiph.ogg-video|com.adobe.pdf|public.png|public.svg-image|public.plain-text|org.videolan.webm|public.webp|public.xhtml' --uri-schemes 'http|https|ftp|file' --optimize-nib fake.sh runtime.app
+	rm fake.icns fake.sh
+	mv runtime.app/Contents $@
+	rm -rf runtime.app
+	rm runtime/Info.plist runtime/Resources/*.icns runtime/Resources/script
+
+$(APP_RNTM)/Info.plist.in: src/Info.plist.runtime src/version.sh $(APP_RNTM)
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
-
-.DELETE_ON_ERROR: $(APP_ENGN)
 
 $(APP_ENGN): $(CHROMIUM)
 	@rm -rf $(APP_ENGN)
@@ -179,46 +187,41 @@ $(APP_ENGN): $(CHROMIUM)
 	mv $(APP_ENGN)/Runtime/Resources/*.lproj $(APP_ENGN)/Payload/Contents/Resources
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
-$(APP_RNTM_MCOS)/Epichrome: src/epichrome $(RUNTIMEBG)
+$(APP_RNTM_RSRC)/script: src/epichrome $(RUNTIMEBG) $(APP_RNTM)
 	sed -E $(EXEC_SED) $< > $@
 	chmod 755 $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_MCOS)
 
-$(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns
-	cp -p $< $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC)
+$(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
+	cp $< $@
 
-$(APP_RNTM_SCPT)/%: src/%
-	cp -p $< $(APP_RNTM_SCPT)/
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_SCPT)
+$(APP_RNTM_SCPT)/%: src/% $(APP_RNTM)
+	cp $< $(APP_RNTM_SCPT)/
 
-$(APP_RNTM_NMHT)/$(HOSTID).json: src/epichromeruntimehost.json src/version.sh
+$(APP_RNTM_NMHT)/$(HOSTID).json: src/epichromeruntimehost.json src/version.sh $(APP_RNTM)
 	sed -E -e 's/EPIHOSTID/$(HOSTID)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
 # remove this after Epichrome Runtime 1.2.0 release
-$(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/epichromeruntimehost.json src/version.sh
+$(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/epichromeruntimehost.json src/version.sh $(APP_RNTM)
 	sed -E -e 's/EPIHOSTID/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
-$(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+$(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
 	sed 's/EPIVERSION/$(VERSION)/' $< > $@
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMHT)
 
-$(APP_RNTM_NMEX)/$(RUNTIMEID).json: src/install-extension.json
-	cp -p $< "$@"
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_NMEX)
+$(APP_RNTM_NMEX)/$(RUNTIMEID).json: src/install-extension.json $(APP_RNTM)
+	cp $< "$@"
 
-$(APP_RNTM_FRUN)/welcome.%: welcome/welcome.%
-	cp -p $< $(APP_RNTM_FRUN)/
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_FRUN)
+$(APP_RNTM_FRUN)/welcome.%: welcome/welcome.% $(APP_RNTM)
+	cp $< $(APP_RNTM_FRUN)/
 
-$(APP_RNTM_FRUN)/img/%.png: welcome/img/%.png
+$(APP_RNTM_FRUN)/img/icon128.png: welcome/img/icon128$(BETA).png $(APP_RNTM)
 	mkdir -p $(APP_RNTM_FRUN)/img
-	cp -p $< $(APP_RNTM_FRUN)/img
-	@touch $(APP) $(APP_CTNT) $(APP_RSRC) $(APP_RNTM) $(APP_RNTM_RSRC) $(APP_RNTM_FRUN) $(APP_RNTM_FRUN)/img
+	cp $< $@
 
-welcome/img/icon128.png: ../images/icons/app$(BETA).psd
+$(APP_RNTM_FRUN)/img/%.png: welcome/img/%.png $(APP_RNTM)
+	mkdir -p $(APP_RNTM_FRUN)/img
+	cp $< $(APP_RNTM_FRUN)/img
+
+welcome/img/icon128$(BETA).png: ../images/icons/app$(BETA).psd
 	@mkdir -p icons
 	sips -s format png -z 128 128 $< --out $@
 

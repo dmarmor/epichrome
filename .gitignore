@@ -11,6 +11,7 @@
 /app/*.app/**
 /app/Chromium/**
 /app/icons/**
+/app/runtime/**
 /app/welcome/img/icon*.png
 /builder/**
 /dmg/images/*.png
