@@ -25,7 +25,7 @@
 	<key>CFBundleVersion</key>
 	<string>EPIVERSIONCODE</string>
 	<key>CFBundleSignature</key>
-	<string>aplt</string>
+	<string>????</string>
 	<key>LSMinimumSystemVersionByArchitecture</key>
 	<dict>
 		<key>x86_64</key>

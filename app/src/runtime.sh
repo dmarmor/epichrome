@@ -928,7 +928,7 @@ function epichromeinfo { # (optional)EPICHROME-PATH
 
 # GOOGLECHROMEINFO: find absolute paths to and info on relevant Google Chrome items
 #                   sets the following variables:
-#                      SSBGoogleChromePath, SSBGoogleChromeVersion, googleChromeContents
+#                      SSBGoogleChromePath, SSBGoogleChromeVersion, SSBGoogleChromeExec, googleChromeContents
 function googlechromeinfo {  # $1 == FALLBACKLEVEL
     
     if [[ "$ok" ]]; then
@@ -1049,11 +1049,12 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 		infoplistChromeVersion="${BASH_REMATCH[1]}"
 	    fi
 
-	    # get executable name
+	    # get executable name & path
 	    re='<key>CFBundleExecutable</key>[
  	]*<string>([^<]*)</string>'
 	    if [[ "$infoplist" =~ $re ]] ; then
-		local chromeExecPath="${SSBGoogleChromePath}/Contents/MacOS/${BASH_REMATCH[1]}"
+		SSBGoogleChromeExec="${BASH_REMATCH[1]}"
+		local chromeExecPath="${SSBGoogleChromePath}/Contents/MacOS/$SSBGoogleChromeExec"
 	    fi
 	    	    
 	    # check app ID if necessary
@@ -1257,7 +1258,8 @@ appConfigVarsCommon=( SSBIdentifier \
 			  SSBFirstRunSinceVersion \
 			  SSBHostInstallError )
 appConfigVarsGoogleChrome=( SSBGoogleChromePath \
-				SSBGoogleChromeVersion )
+				SSBGoogleChromeVersion \
+				SSBGoogleChromeExec )
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes

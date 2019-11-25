@@ -32,7 +32,8 @@ debug=
 # ABORT -- display an error alert and abort
 function abort {
     alert "$1" "Unable to Run" '|stop'
-    exit $2
+    [[ "$2" ]] && exit $2
+    exit 1
 }
 
 # UNSUDO -- run a command as the original user
@@ -391,7 +392,17 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 readconfig
 
 
-# IF THE ENGINE IS ALREADY RUNNING, SEND ANY ARGS TO RUNNING ENGINE & QUIT
+# SET UP USER PROFILE PATH
+
+# get absolute profile path
+myProfilePath="${HOME}/$SSBProfilePath"
+myProfileArg="--user-data-dir=$myProfilePath"
+
+# by default, use existing profile
+newprofile=
+
+
+# IF THE ENGINE IS ALREADY RUNNING, SEND ANY FILES TO RUNNING ENGINE & QUIT
 
 # get the ID of the engine app
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
@@ -414,8 +425,8 @@ if [[ "$enginePID" ]] ; then
     if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
 	# Google Chrome engine, open by engine path
-	try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" \
-	    'Unable to connect to Google Chrome app engine.'
+	try "$SSBEngineAppPath/Contents/MacOS/$SSBGoogleChromeExec" "$myProfileArg" "${argsURIs[@]}" \
+	    'Unable to connect to running Google Chrome app engine.'
     else
 	
 	# Chromium engine, open by engine ID
@@ -439,16 +450,6 @@ fi
 
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
-
-
-# SET UP USER PROFILE PATH
-
-# get absolute profile path
-myProfilePath="${HOME}/$SSBProfilePath"
-myProfileArg="--user-data-dir=$myProfilePath"
-
-# by default, use existing profile
-newprofile=
 
 
 # CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
@@ -696,6 +697,7 @@ fi
 SSBEngineAppPath="$myEnginePath/$SSBEngineAppName"
 myEngineAppContents="$SSBEngineAppPath/Contents"
 
+
 # BUILD ENGINE OUT OF PAYLOAD
 
 # rename Payload to engine app name
@@ -881,7 +883,7 @@ fi
 if [[ ! "$SSBHostInstallError" ]]; then
     
     # set up host file paths
-    hostManifest=( "EPIHOSTID1.json" "EPIHOSTID2.json" )
+    hostManifest=( "org.epichrome.runtime.json" "org.epichrome.helper.json" )
     hostScript="epichromeruntimehost.py"
     hostDir="NativeMessagingHosts"
     hostInstallPath="$myProfilePath/$hostDir"
@@ -1111,9 +1113,9 @@ fi
 
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
-    # Google Chrome engine, launch cleanup & use exec (to preserve custom icon)
-    cleanup "$$" &    
-    exec "$myEngineAppContents/MacOS/$SSBEngineType" "$myProfileArg" "${myArgs[@]}"
+    # Google Chrome engine, launch by engine app path
+    try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+	'Unable to launch Google Chrome app engine.'
     
 else
 
@@ -1121,22 +1123,26 @@ else
     
     try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch app engine.'
+fi
+
+[[ "$ok" ]] || abort "$errmsg" 1
+
+# find PID & launch cleanup process
+
+#sleep 0.5
+getenginepid "$myEngineID" "$SSBEngineAppPath"
+
+if [[ "$enginePID" ]] ; then
     
-    [[ "$ok" ]] || abort "$errmsg" 1
+    # PID found, so launch cleanup daemon
+    try /usr/bin/open -b "$appCleanupID" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$myPayloadPath" \
+	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
+
+    [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
     
-    # find PID & launch cleanup process
+else
     
-    getenginepid "$myEngineID" "$SSBEngineAppPath"
-    
-    if [[ "$enginePID" ]] ; then
-	
-	# PID found, so launch cleanup daemon
-	cleanup "$enginePID" &
-	
-    else
-	
-	# PID not found, display error message and quit
-	[[ "$errmsg" ]] && errmsg="$errmsg "
-	alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
-    fi
+    # PID not found, display error message and quit
+    [[ "$errmsg" ]] && errmsg="$errmsg "
+    alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
 fi

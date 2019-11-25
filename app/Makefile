@@ -30,9 +30,7 @@ CHROMIUM:=Chromium/Chromium.78.0.3904.97.sync.app.zip
 BUILD_TYPE:=$(patsubst build,build_release,build$(BETA))
 
 APP:=Epichrome.app
-RUNTIMEBG:=../runtime/src/background.js
-#DEBUG_UPDATE_FREQ:=30
-HOSTID:=$(shell sed -En 's/^.*chrome\.runtime\.connectNative[^a-zA-Z]+([a-zA-Z]([a-zA-Z0-9._-]*[a-zA-Z])?).*$$/\1/p' $(RUNTIMEBG))
+HOSTID:=org.epichrome.runtime
 HOSTID_OLD:=org.epichrome.helper
 RUNTIMEID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 RUNTIMEID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
@@ -43,15 +41,14 @@ HOSTMANIFEST_SED_RELEASE:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
 HOSTMANIFEST_SED_BETA:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
 HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_RELEASE)
 
-EXEC_SED_RELEASE:=-e 's/EPIHOSTID1/$(HOSTID)/' -e 's/EPIHOSTID2/$(HOSTID_OLD)/'
-EXEC_SED_BETA:=$(EXEC_SED_RELEASE) -e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
-EXEC_SED:=$(EXEC_SED_RELEASE)
+EXEC_SED_BETA:=-e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
 
 
 # app paths
 APP_CTNT:=$(APP)/Contents
 APP_RSRC:=$(APP_CTNT)/Resources
 APP_SCPT:=$(APP_RSRC)/Scripts
+APP_CLNP:=$(APP_RSRC)/EpichromeCleanup.app/Contents
 APP_ENGN:=$(APP_RSRC)/Engine
 APP_ENGN_PYLD:=$(APP_ENGN)/Payload
 APP_ENGN_RNTM:=$(APP_ENGN)/Runtime
@@ -74,11 +71,12 @@ build: $(BUILD_TYPE)
 
 build_beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
 
-build_beta: EXEC_SED:=$(EXEC_SED_BETA)
-
 $(BUILD_TYPE): $(APP)
 
 $(APP): $(APP_SCPT)/main.scpt \
+	$(APP_CTNT)/MacOS/applet \
+	$(APP_CTNT)/PkgInfo \
+	$(APP_RSRC)/applet.rsrc \
 	$(APP_SCPT)/version.sh \
 	$(APP_CTNT)/Info.plist \
 	$(APP_RSRC)/applet.icns \
@@ -87,6 +85,9 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
 	$(APP_SCPT)/makeicon.sh \
+	$(APP_CLNP)/Info.plist \
+	$(APP_CLNP)/MacOS/EpichromeCleanup \
+	$(APP_CLNP)/Resources/Scripts/runtime.sh \
 	$(APP_RNTM)/Info.plist.in \
 	$(APP_RNTM_RSRC)/script \
 	$(APP_RNTM_RSRC)/app.icns \
@@ -121,14 +122,15 @@ install: $(APP)
 	if [[ -e "$(INSTALL_PATH)" ]] ; then rm -rf "$(INSTALL_PATH)" ; fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
-$(APP_SCPT)/main.scpt: src/main.applescript
+$(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_SCPT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
 	@if [[ -d Engine ]] ; then echo "Temp Engine directory left over from previous run" ; false ; fi
 	if [[ -d $(APP_ENGN) ]] ; then mv -n $(APP_ENGN) Engine ; fi
 	@rm -rf $(APP)
 	chmod 444 $<
 	osacompile -o $(APP) -x -d $<
+	@touch $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_SCPT)/PkgInfo $(APP_RSRC)/applet.rsrc
 	chmod 644 $<
-	chmod 444 $@  # lock main.scpt so codesigning works (no longer used)
+	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works (no longer used)
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
 	if [[ -d Engine ]] ; then mv -f Engine $(APP_ENGN) ; fi
 	@touch $(APP)
@@ -153,6 +155,20 @@ $(APP_SCPT)/build.sh: src/build.sh
 
 $(APP_SCPT)/%: src/%
 	cp $< $(APP_SCPT)/
+
+$(APP_CLNP)/Info.plist: src/cleanup/Info.plist src/version.sh
+	@mkdir -p $(APP_CLNP)
+	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
+
+$(APP_CLNP)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup
+	@mkdir -p $(APP_CLNP)/MacOS
+	if [[ "$(BETA)" ]] ; then sed -E $(EXEC_SED_BETA) $< > $@ ; else cp $< $@ ; fi
+	chmod 755 $@
+
+$(APP_CLNP)/Resources/Scripts/runtime.sh: src/runtime.sh
+	@mkdir -p $(APP_CLNP)/Resources/Scripts
+	cp $< $@
 
 $(APP_RNTM): runtime
 	rm -rf $@
@@ -187,8 +203,8 @@ $(APP_ENGN): $(CHROMIUM)
 	mv $(APP_ENGN)/Runtime/Resources/*.lproj $(APP_ENGN)/Payload/Contents/Resources
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
-$(APP_RNTM_RSRC)/script: src/epichrome $(RUNTIMEBG) $(APP_RNTM)
-	sed -E $(EXEC_SED) $< > $@
+$(APP_RNTM_RSRC)/script: src/epichrome $(APP_RNTM)
+	if [[ "$(BETA)" ]] ; then sed -E $(EXEC_SED_BETA) $< > $@ ; else cp $< $@ ; fi
 	chmod 755 $@
 
 $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
@@ -197,12 +213,12 @@ $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
 $(APP_RNTM_SCPT)/%: src/% $(APP_RNTM)
 	cp $< $(APP_RNTM_SCPT)/
 
-$(APP_RNTM_NMHT)/$(HOSTID).json: src/epichromeruntimehost.json src/version.sh $(APP_RNTM)
-	sed -E -e 's/EPIHOSTID/$(HOSTID)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
+$(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM)
+	sed -E -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
 # remove this after Epichrome Runtime 1.2.0 release
-$(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/epichromeruntimehost.json src/version.sh $(APP_RNTM)
-	sed -E -e 's/EPIHOSTID/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
+$(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/$(HOSTID).json src/version.sh $(APP_RNTM)
+	sed -E -e 's/$(HOSTID)/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
 	sed 's/EPIVERSION/$(VERSION)/' $< > $@

@@ -1,0 +1,182 @@
+#!/bin/sh
+#
+#  EpichromeCleanup: Process that waits for an Epichrome app to quit, then
+#                    cleans up the app engine
+#
+#  Copyright (C) 2019  David Marmor
+#
+#  https://github.com/dmarmor/epichrome
+#
+#  Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+
+
+# IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
+
+if [[ "$1" != daemon ]] ; then
+    "$0" daemon "$@" &
+    exit 0
+else
+    shift
+fi
+
+
+# DEBUG FLAG
+
+debug=
+
+
+# FUNCTION DEFINITIONS
+
+# ECHOLOG: log to syslog & stderr
+function echolog {
+    local levelarg=
+    local levelmsg=
+    if [[ "$1" =~ ^[0-7]$ ]] ; then
+	levelmsg=( Emergency Alert Critical Error Warning Notice Info Debug )
+	levelmsg=" <${levelmsg[$1]}>:"
+	level=( -p "$1" )
+	shift
+    fi
+    
+    /usr/bin/logger -s "${level[@]}" "EpichromeCleanup[$$|${SSBEngineAppPath##*/}/$enginePID]${levelmsg}" "$@"
+}
+
+
+# DEBUGLOG: log to stderr if debug is on
+function debuglog {
+    [[ "$debug" ]] && echolog 5 "$@"
+}
+
+
+# ABORT -- display an error alert and abort
+function abort {
+    echolog 3 "$1"
+    [[ "$2" ]] && exit $2
+    exit 1
+}
+
+
+# MAIN BODY
+
+
+# BOOTSTRAP RUNTIME SCRIPT
+
+# determine location of runtime script
+myPath=$(cd "$(dirname "$0")/../.."; pwd)
+myContents="$myPath/Contents"
+[[ $? != 0 ]] && abort 'Unable to determine app path.' 1
+[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort 'Unexpected app path.'
+
+# load main runtime functions
+source "${myContents}/Resources/Scripts/runtime.sh"
+[[ $? != 0 ]] && abort 'Unable to load runtime script.' 1
+
+
+# COMMAND-LINE OPTIONS -- ALL ARE MANDATORY
+
+SSBEngineType="$1" ; shift
+enginePID="$1" ; shift
+SSBEngineAppPath="$1" ; shift
+
+[[ ( "$SSBEngineType" = 'Google Chrome' ) || ( "$SSBEngineType" = 'Chromium' ) ]] || \
+    abort "Bad engine type '$SSBEngineType'"
+
+[[ "$enginePID" =~ ^[0-9]+$ ]] || abort "Bad engine PID '$enginePID'"
+
+[[ -d "$SSBEngineAppPath" ]] || abort "Bad app engine path '$SSBEngineAppPath'"
+
+myPayloadPath="${SSBEngineAppPath%/Contents/Resources/Engine/*}/Contents/Resources/Engine/Payload"
+
+
+# WAIT FOR APP ENGINE TO DIE, THEN CONVERT ENGINE BACK TO PAYLOAD
+
+# wait for app to exit
+while /bin/kill -0 "$enginePID" 2> /dev/null ; do
+    sleep 1
+done
+
+# make sure we can still find engine
+if [[ ! -d "$SSBEngineAppPath/Contents" ]] ; then
+    # abort -- something has gone wrong, maybe app was renamed or moved
+    abort "Cleanup error -- Can't find app engine."
+fi
+
+# build list of runtime elements to delete
+
+deletelist=()
+curdir=
+i=
+
+# all items in engine root except Contents
+dirlist "$SSBEngineAppPath" curdir 'app engine' '^Contents$'
+for i in "${curdir[@]}" ; do
+    deletelist+=( "$SSBEngineAppPath/$i" )
+done
+
+if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
+    # all items in Contents except Info.plist, MacOS & Resources
+    dirlist "$SSBEngineAppPath/Contents" curdir \
+	    'Epichrome app engine Contents' \
+	    '^((Info.plist)|(MacOS)|(Resources))$'
+else
+    # all items in Contents except MacOS & Resources
+    dirlist "$SSBEngineAppPath/Contents" curdir \
+	    'Google Chrome app engine Contents' \
+	    '^((MacOS)|(Resources))$'
+fi
+for i in "${curdir[@]}" ; do
+    deletelist+=( "$SSBEngineAppPath/Contents/$i" )
+done
+
+# all items in Resources except .lproj & .icns
+dirlist "$SSBEngineAppPath/Contents/Resources" curdir \
+	'app engine Resources' '\.((icns)|(lproj))$'
+for i in "${curdir[@]}" ; do
+    deletelist+=( "$SSBEngineAppPath/Contents/Resources/$i" )
+done
+
+# delete items
+if [[ "${deletelist[*]}" ]] ; then
+    try /bin/rm -rf "${deletelist[@]}" \
+	'Unable to clean up app engine.'
+fi
+
+# report any errors with the deletion process
+if [[ ! "$ok" ]] ; then
+    ok=1
+    echolog 3 "Cleanup error -- $errmsg"
+fi
+
+# Chromium engine: rename Info.plist Info.plist.off
+if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+    try /bin/mv -f "$SSBEngineAppPath/Contents/Info.plist" \
+	"$SSBEngineAppPath/Contents/Info.plist.off" \
+	'Unable to deactivate payload Info.plist.'
+    if [[ ! "$ok" ]] ; then
+	ok=1
+	echolog 3 "Cleanup error -- $errmsg"
+    fi
+fi
+
+# rename engine back to Payload
+try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
+    'Unable to restore Payload directory.'
+
+# report any final error
+if [[ ! "$ok" ]] ; then
+    abort "Cleanup error -- $errmsg"
+fi

@@ -1,5 +1,5 @@
 {
-    "name": "EPIHOSTID",  // filled in by Makefile
+    "name": "org.epichrome.runtime",  // filled in by Makefile
     "description": "Epichrome Runtime Host EPIVERSION",  // filled in by Makefile
     "path": "APPHOSTPATH",  // filled in by Epichrome
     "type": "stdio",

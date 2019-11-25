@@ -285,7 +285,7 @@
 	<key>CFBundleVersion</key>
 	<string>EPIVERSIONCODE</string>
 	<key>CFBundleSignature</key>
-	<string>Cr24</string>
+	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
