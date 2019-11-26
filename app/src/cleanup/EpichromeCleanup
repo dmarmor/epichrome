@@ -24,16 +24,6 @@
 # 
 
 
-# IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
-
-if [[ "$1" != daemon ]] ; then
-    "$0" daemon "$@" &
-    exit 0
-else
-    shift
-fi
-
-
 # DEBUG FLAG
 
 debug=
@@ -41,8 +31,10 @@ debug=
 
 # FUNCTION DEFINITIONS
 
-# ECHOLOG: log to syslog & stderr
-function echolog {
+# ECLOG: log to syslog & stderr
+function eclog {
+
+    # handle log level
     local levelarg=
     local levelmsg=
     if [[ "$1" =~ ^[0-7]$ ]] ; then
@@ -51,23 +43,53 @@ function echolog {
 	level=( -p "$1" )
 	shift
     fi
-    
-    /usr/bin/logger -s "${level[@]}" "EpichromeCleanup[$$|${SSBEngineAppPath##*/}/$enginePID]${levelmsg}" "$@"
+
+    # build ID string
+    local id="$$"
+    if [[ "$SSBEngineAppPath" && "$enginePID" ]] ; then
+	id="$id|${SSBEngineAppPath##*/}/$enginePID"
+    elif [[ "$SSBEngineAppPath" ]] ; then
+	id="$id|${SSBEngineAppPath##*/}"
+    elif [[ "$enginePID" ]] ; then
+	id="$id|$enginePID"
+    else
+	id="$id"
+    fi
+
+    # log message to syslog & stderr
+    /usr/bin/logger "${level[@]}" -s "EpichromeCleanup[$id]$levelmsg" "$@"
+
+    echo "EpichromeCleanup[$id]$levelmsg" "$@" >> ~/Scratch/t07log.txt
 }
 
 
-# DEBUGLOG: log to stderr if debug is on
-function debuglog {
-    [[ "$debug" ]] && echolog 5 "$@"
+# ECDEBUGLOG: log to stderr if debug is on
+function ecdebuglog {
+    [[ "$debug" ]] && eclog 5 "$@"
 }
 
 
 # ABORT -- display an error alert and abort
 function abort {
-    echolog 3 "$1"
+    eclog 3 "$1"
     [[ "$2" ]] && exit $2
     exit 1
 }
+
+
+# IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
+
+ecdebuglog "RUNNING"
+
+
+if [[ "$1" != daemon ]] ; then
+    "$0" daemon "$@" &
+    ecdebuglog "Parent process forked daemon"
+    exit 0
+else
+    shift
+    ecdebuglog "Child process now running"
+fi
 
 
 # MAIN BODY
@@ -108,6 +130,8 @@ myPayloadPath="${SSBEngineAppPath%/Contents/Resources/Engine/*}/Contents/Resourc
 while /bin/kill -0 "$enginePID" 2> /dev/null ; do
     sleep 1
 done
+
+ecdebuglog "Engine has quit, beginning cleanup"
 
 # make sure we can still find engine
 if [[ ! -d "$SSBEngineAppPath/Contents" ]] ; then
@@ -158,7 +182,7 @@ fi
 # report any errors with the deletion process
 if [[ ! "$ok" ]] ; then
     ok=1
-    echolog 3 "Cleanup error -- $errmsg"
+    eclog 3 "Cleanup error -- $errmsg"
 fi
 
 # Chromium engine: rename Info.plist Info.plist.off
@@ -168,7 +192,7 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 	'Unable to deactivate payload Info.plist.'
     if [[ ! "$ok" ]] ; then
 	ok=1
-	echolog 3 "Cleanup error -- $errmsg"
+	eclog 3 "Cleanup error -- $errmsg"
     fi
 fi
 

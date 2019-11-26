@@ -1135,7 +1135,7 @@ getenginepid "$myEngineID" "$SSBEngineAppPath"
 if [[ "$enginePID" ]] ; then
     
     # PID found, so launch cleanup daemon
-    try /usr/bin/open -a "$epiCleanup" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$myPayloadPath" \
+    try /usr/bin/open "$epiCleanup" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" \
 	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
     
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
