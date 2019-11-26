@@ -122,13 +122,13 @@ install: $(APP)
 	if [[ -e "$(INSTALL_PATH)" ]] ; then rm -rf "$(INSTALL_PATH)" ; fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
-$(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_SCPT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
+$(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
 	@if [[ -d Engine ]] ; then echo "Temp Engine directory left over from previous run" ; false ; fi
 	if [[ -d $(APP_ENGN) ]] ; then mv -n $(APP_ENGN) Engine ; fi
 	@rm -rf $(APP)
 	chmod 444 $<
 	osacompile -o $(APP) -x -d $<
-	@touch $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_SCPT)/PkgInfo $(APP_RSRC)/applet.rsrc
+	@touch $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc
 	chmod 644 $<
 	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works (no longer used)
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
