@@ -841,6 +841,7 @@ function epichromeinfo { # (optional)EPICHROME-PATH
     #                             epiPath, epiVersion,
     #                             epiContents,
     #                             epiEngine, epiEngineRuntime, epiPayload
+    #                             epiCleanup
     
     if [[ "$ok" ]]; then
 	
@@ -918,8 +919,9 @@ function epichromeinfo { # (optional)EPICHROME-PATH
     # set useful globals
     epiContents="$epiPath/Contents"
     epiEngine="$epiContents/Resources/Engine"
-    epiEngineRuntime="$epiContents/Resources/Engine/Chromium"
+    epiEngineRuntime="$epiContents/Resources/Engine/Runtime"
     epiPayload="$epiContents/Resources/Engine/Payload"
+    epiCleanup="$epiContents/Resources/EpichromeCleanup.app"
     
     [[ "$ok" ]] && return 0
     return 1
