@@ -58,8 +58,8 @@ function eclog {
 
     # log message to syslog & stderr
     /usr/bin/logger "${level[@]}" -s "EpichromeCleanup[$id]$levelmsg" "$@"
-
-    echo "EpichromeCleanup[$id]$levelmsg" "$@" >> ~/Scratch/t07log.txt
+    
+    echo "EpichromeCleanup[$id]$levelmsg" "$@" >> ~/Scratch/t07log.txt  # $$$$ DELETE
 }
 
 

@@ -48,7 +48,8 @@ EXEC_SED_BETA:=-e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
 APP_CTNT:=$(APP)/Contents
 APP_RSRC:=$(APP_CTNT)/Resources
 APP_SCPT:=$(APP_RSRC)/Scripts
-APP_CLNP:=$(APP_RSRC)/EpichromeCleanup.app/Contents
+APP_CLNP:=$(APP_RSRC)/EpichromeCleanup.app
+APP_CLNP_CTNT:=$(APP_CLNP)/Contents
 APP_ENGN:=$(APP_RSRC)/Engine
 APP_ENGN_PYLD:=$(APP_ENGN)/Payload
 APP_ENGN_RNTM:=$(APP_ENGN)/Runtime
@@ -61,7 +62,7 @@ APP_RNTM_NMEX:=$(APP_RNTM_RSRC)/External\ Extensions
 APP_RNTM_FRUN:=$(APP_RNTM_RSRC)/FirstRun
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: build build_release build_beta install clean clean-all
+.PHONY: build build_release build_beta install clean clean-all unsign_app unsign_cleanup
 
 .PRECIOUS: runtime icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128$(BETA).png
 
@@ -85,9 +86,9 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
 	$(APP_SCPT)/makeicon.sh \
-	$(APP_CLNP)/Info.plist \
-	$(APP_CLNP)/MacOS/EpichromeCleanup \
-	$(APP_CLNP)/Resources/Scripts/runtime.sh \
+	$(APP_CLNP_CTNT)/Info.plist \
+	$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup \
+	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh \
 	$(APP_RNTM)/Info.plist.in \
 	$(APP_RNTM_RSRC)/script \
 	$(APP_RNTM_RSRC)/app.icns \
@@ -106,6 +107,8 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_FRUN)/img/m2s1.png \
 	$(APP_RNTM_FRUN)/img/m2s2.png \
 	$(APP_RNTM_FRUN)/img/m3s1.png \
+	$(APP_CLNP_CTNT)/_CodeSignature \
+	$(APP_CTNT)/_CodeSignature \
 	| $(APP_ENGN)
 
 clean:
@@ -122,6 +125,14 @@ install: $(APP)
 	if [[ -e "$(INSTALL_PATH)" ]] ; then rm -rf "$(INSTALL_PATH)" ; fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
+unsign_app:
+	codesign --remove-signature $(APP)
+	rm -rf $(APP_CTNT)/_CodeSignature
+
+unsign_cleanup:
+	codesign --remove-signature $(APP_CLNP)
+	rm -rf $(APP_CLNP_CTNT)/_CodeSignature
+
 $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
 	@if [[ -d Engine ]] ; then echo "Temp Engine directory left over from previous run" ; false ; fi
 	if [[ -d $(APP_ENGN) ]] ; then mv -n $(APP_ENGN) Engine ; fi
@@ -130,44 +141,45 @@ $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/a
 	osacompile -o $(APP) -x -d $<
 	@touch $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc
 	chmod 644 $<
-	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works (no longer used)
+	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
 	if [[ -d Engine ]] ; then mv -f Engine $(APP_ENGN) ; fi
 	@touch $(APP)
 
-$(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
+$(APP_CTNT)/Info.plist: src/Info.plist src/version.sh unsign_app
+	rm -rf $(APP_CTNT)/_CodeSignature
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
-$(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
+$(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns unsign_app
 	cp $< $@
 
-$(APP_RSRC)/docbg.png: ../images/icons/docbg.png
+$(APP_RSRC)/docbg.png: ../images/icons/docbg.png unsign_app
 	cp $< $@
 
-$(APP_SCPT)/version.sh: src/version.sh
+$(APP_SCPT)/version.sh: src/version.sh unsign_app
 	touch -c icons/*
 	cp $< $(APP_SCPT)/
 
-$(APP_SCPT)/build.sh: src/build.sh
+$(APP_SCPT)/build.sh: src/build.sh unsign_app
 	if [[ "$(BETA)" ]] ; then sed -E 's/^debug=$$/debug=1  # DEBUG ON FOR BETA/' $< > $@ ; else cp $< $(APP_SCPT)/ ; fi
 	chmod 755 $@
 
-$(APP_SCPT)/%: src/%
+$(APP_SCPT)/%: src/% unsign_app
 	cp $< $(APP_SCPT)/
 
-$(APP_CLNP)/Info.plist: src/cleanup/Info.plist src/version.sh
-	@mkdir -p $(APP_CLNP)
+$(APP_CLNP_CTNT)/Info.plist: src/cleanup/Info.plist src/version.sh unsign_cleanup
+	@mkdir -p $(APP_CLNP_CTNT)
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
-$(APP_CLNP)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup
-	@mkdir -p $(APP_CLNP)/MacOS
+$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup unsign_cleanup
+	@mkdir -p $(APP_CLNP_CTNT)/MacOS
 	if [[ "$(BETA)" ]] ; then sed -E $(EXEC_SED_BETA) $< > $@ ; else cp $< $@ ; fi
 	chmod 755 $@
 
-$(APP_CLNP)/Resources/Scripts/runtime.sh: src/runtime.sh
-	@mkdir -p $(APP_CLNP)/Resources/Scripts
+$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: src/runtime.sh unsign_cleanup
+	@mkdir -p $(APP_CLNP_CTNT)/Resources/Scripts
 	cp $< $@
 
 $(APP_RNTM): runtime
@@ -244,3 +256,13 @@ welcome/img/icon128$(BETA).png: ../images/icons/app$(BETA).psd
 icons/%.icns: ../images/icons/%.psd
 	@mkdir -p icons
 	src/makeicon.sh -f $< $@
+
+%/Contents/_CodeSignature:
+	codesign -s 'David Marmor' -vv $*
+	codesign --verify --deep --strict --verbose=2 $*
+	spctl --assess --type execute --verbose=4 $*
+
+# $(APP_CLNP_CTNT)/_CodeSignature:
+# 	codesign -s 'David Marmor' -vv $(APP_CLNP)
+# 	codesign --verify --deep --strict --verbose=2 $(APP_CLNP)
+# 	spctl --assess --type execute --verbose=4 $(APP)
