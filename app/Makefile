@@ -30,16 +30,17 @@ CHROMIUM:=Chromium/Chromium.78.0.3904.97.sync.app.zip
 BUILD_TYPE:=$(patsubst build,build_release,build$(BETA))
 
 APP:=Epichrome.app
+
 HOSTID:=org.epichrome.runtime
 HOSTID_OLD:=org.epichrome.helper
-RUNTIMEID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
-RUNTIMEID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
-RUNTIMEID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
-HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(RUNTIMEID)\/",\\\n        "chrome-extension:\/\/$(RUNTIMEID_BETA)\/"
-HOSTMANIFEST_SED_RELEASE:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
-HOSTMANIFEST_SED_BETA:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(RUNTIMEID_INPLACE)\/"/'
-HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_RELEASE)
+EXTENSION_ID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
+EXTENSION_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
+EXTENSION_ID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
+
+HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(EXTENSION_ID)\/",\\\n        "chrome-extension:\/\/$(EXTENSION_ID_BETA)\/"
+HOSTMANIFEST_SED:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
+HOSTMANIFEST_SED_INTERNAL:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(EXTENSION_ID_INPLACE)\/"/'
 
 EXEC_SED_BETA:=-e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
 
@@ -48,8 +49,6 @@ EXEC_SED_BETA:=-e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
 APP_CTNT:=$(APP)/Contents
 APP_RSRC:=$(APP_CTNT)/Resources
 APP_SCPT:=$(APP_RSRC)/Scripts
-APP_CLNP:=$(APP_RSRC)/EpichromeCleanup.app
-APP_CLNP_CTNT:=$(APP_CLNP)/Contents
 APP_ENGN:=$(APP_RSRC)/Engine
 APP_ENGN_PYLD:=$(APP_ENGN)/Payload
 APP_ENGN_RNTM:=$(APP_ENGN)/Runtime
@@ -60,19 +59,21 @@ APP_RNTM_SCPT:=$(APP_RNTM_RSRC)/Scripts
 APP_RNTM_NMHT:=$(APP_RNTM_RSRC)/NativeMessagingHosts
 APP_RNTM_NMEX:=$(APP_RNTM_RSRC)/External\ Extensions
 APP_RNTM_FRUN:=$(APP_RNTM_RSRC)/FirstRun
+APP_CLNP:=$(APP_RNTM_RSRC)/EpichromeCleanup.app
+APP_CLNP_CTNT:=$(APP_CLNP)/Contents
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: build build_release build_beta install clean clean-all unsign_app unsign_cleanup
+.PHONY: build internal install clean clean-all
 
 .PRECIOUS: runtime icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128$(BETA).png
 
 .DELETE_ON_ERROR: $(APP_ENGN) Engine runtime.app fake.icns fake.sh
 
-build: $(BUILD_TYPE)
+internal: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_INTERNAL)
 
-build_beta: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_BETA)
+internal: $(APP)
 
-$(BUILD_TYPE): $(APP)
+package: $(APP)
 
 $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_CTNT)/MacOS/applet \
@@ -86,9 +87,6 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
 	$(APP_SCPT)/makeicon.sh \
-	$(APP_CLNP_CTNT)/Info.plist \
-	$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup \
-	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh \
 	$(APP_RNTM)/Info.plist.in \
 	$(APP_RNTM_RSRC)/script \
 	$(APP_RNTM_RSRC)/app.icns \
@@ -98,7 +96,7 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_NMHT)/$(HOSTID).json \
 	$(APP_RNTM_NMHT)/$(HOSTID_OLD).json \
 	$(APP_RNTM_NMHT)/epichromeruntimehost.py \
-	$(APP_RNTM_NMEX)/$(RUNTIMEID).json \
+	$(APP_RNTM_NMEX)/$(EXTENSION_ID).json \
 	$(APP_RNTM_FRUN)/welcome.html \
 	$(APP_RNTM_FRUN)/welcome.css \
 	$(APP_RNTM_FRUN)/img/icon128.png \
@@ -107,9 +105,20 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_FRUN)/img/m2s1.png \
 	$(APP_RNTM_FRUN)/img/m2s2.png \
 	$(APP_RNTM_FRUN)/img/m3s1.png \
-	$(APP_CLNP_CTNT)/_CodeSignature \
-	$(APP_CTNT)/_CodeSignature \
+	$(APP_CLNP) \
 	| $(APP_ENGN)
+
+$(APP_CLNP): $(APP_CLNP_CTNT)/Info.plist \
+	$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup \
+	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh
+
+$(APP) $(APP_CLNP):
+	codesign --remove-signature $@
+	rm -rf $@/Contents/_CodeSignature
+	codesign -s 'David Marmor' -vv $@
+	codesign --verify --deep --strict --verbose=2 $@
+	spctl --assess --type execute --verbose=4 $@
+	touch $@
 
 clean:
 	rm -rf $(APP)
@@ -125,14 +134,6 @@ install: $(APP)
 	if [[ -e "$(INSTALL_PATH)" ]] ; then rm -rf "$(INSTALL_PATH)" ; fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
-unsign_app:
-	codesign --remove-signature $(APP)
-	rm -rf $(APP_CTNT)/_CodeSignature
-
-unsign_cleanup:
-	codesign --remove-signature $(APP_CLNP)
-	rm -rf $(APP_CLNP_CTNT)/_CodeSignature
-
 $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
 	@if [[ -d Engine ]] ; then echo "Temp Engine directory left over from previous run" ; false ; fi
 	if [[ -d $(APP_ENGN) ]] ; then mv -n $(APP_ENGN) Engine ; fi
@@ -146,49 +147,52 @@ $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/a
 	if [[ -d Engine ]] ; then mv -f Engine $(APP_ENGN) ; fi
 	@touch $(APP)
 
-$(APP_CTNT)/Info.plist: src/Info.plist src/version.sh unsign_app
-	rm -rf $(APP_CTNT)/_CodeSignature
+$(APP_SCPT)/build.sh $(APP_CLNP_CTNT)/MacOS/EpichromeCleanup $(APP_RNTM_RSRC)/script:
+	@mkdir -p $(dir $@)
+	@if [[ "$(BETA)" ]] ; then \
+	  echo "sed -E $(EXEC_SED_BETA) $< > $@" ; \
+	  sed -E $(EXEC_SED_BETA) $< > $@ ; \
+	else \
+	  echo "cp $< $@" ; \
+	  cp $< $@ ; \
+	fi
+	chmod 755 $@
+
+$(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
-$(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns unsign_app
+$(APP_RSRC)/applet.icns: icons/epichrome$(BETA).icns
 	cp $< $@
 
-$(APP_RSRC)/docbg.png: ../images/icons/docbg.png unsign_app
+$(APP_RSRC)/docbg.png: ../images/icons/docbg.png
 	cp $< $@
 
-$(APP_SCPT)/version.sh: src/version.sh unsign_app
+$(APP_SCPT)/version.sh: src/version.sh
 	touch -c icons/*
 	cp $< $(APP_SCPT)/
 
-$(APP_SCPT)/build.sh: src/build.sh unsign_app
-	if [[ "$(BETA)" ]] ; then sed -E 's/^debug=$$/debug=1  # DEBUG ON FOR BETA/' $< > $@ ; else cp $< $(APP_SCPT)/ ; fi
-	chmod 755 $@
+$(APP_SCPT)/build.sh: src/build.sh
 
-$(APP_SCPT)/%: src/% unsign_app
+$(APP_SCPT)/%: src/%
 	cp $< $(APP_SCPT)/
 
-$(APP_CLNP_CTNT)/Info.plist: src/cleanup/Info.plist src/version.sh unsign_cleanup
+$(APP_CLNP_CTNT)/Info.plist: src/cleanup/Info.plist src/version.sh
 	@mkdir -p $(APP_CLNP_CTNT)
-	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
+	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then \
+	  echo "Bad version number in src/version.sh" ; false ; \
+	fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
-$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup unsign_cleanup
-	@mkdir -p $(APP_CLNP_CTNT)/MacOS
-	if [[ "$(BETA)" ]] ; then sed -E $(EXEC_SED_BETA) $< > $@ ; else cp $< $@ ; fi
-	chmod 755 $@
+$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup
 
-$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: src/runtime.sh unsign_cleanup
+$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: src/runtime.sh
 	@mkdir -p $(APP_CLNP_CTNT)/Resources/Scripts
 	cp $< $@
 
 $(APP_RNTM): runtime
 	rm -rf $@
 	cp -R $< $@
-	mkdir -p $(APP_RNTM_SCPT)
-	mkdir -p $(APP_RNTM_NMHT)
-	mkdir -p $(APP_RNTM_NMEX)
-	mkdir -p $(APP_RNTM_FRUN)
 
 runtime:
 	rm -rf runtime
@@ -201,7 +205,9 @@ runtime:
 	rm runtime/Info.plist runtime/Resources/*.icns runtime/Resources/script
 
 $(APP_RNTM)/Info.plist.in: src/Info.plist.runtime src/version.sh $(APP_RNTM)
-	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
+	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then \
+	  echo "Bad version number in src/version.sh" ; false ; \
+	fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
 $(APP_ENGN): $(CHROMIUM)
@@ -216,16 +222,20 @@ $(APP_ENGN): $(CHROMIUM)
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
 $(APP_RNTM_RSRC)/script: src/epichrome $(APP_RNTM)
-	if [[ "$(BETA)" ]] ; then sed -E $(EXEC_SED_BETA) $< > $@ ; else cp $< $@ ; fi
-	chmod 755 $@
 
 $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
 	cp $< $@
 
-$(APP_RNTM_SCPT)/%: src/% $(APP_RNTM)
+$(APP_RNTM_SCPT):
+	mkdir -p $(APP_RNTM_SCPT)
+
+$(APP_RNTM_SCPT)/%: src/% $(APP_RNTM) | $(APP_RNTM_SCPT)
 	cp $< $(APP_RNTM_SCPT)/
 
-$(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM)
+$(APP_RNTM_NMHT):
+	mkdir -p $(APP_RNTM_NMHT)
+
+$(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM) | $(APP_RNTM_NMHT)
 	sed -E -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
 # remove this after Epichrome Runtime 1.2.0 release
@@ -236,16 +246,20 @@ $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/versio
 	sed 's/EPIVERSION/$(VERSION)/' $< > $@
 
 $(APP_RNTM_NMEX)/$(RUNTIMEID).json: src/install-extension.json $(APP_RNTM)
+	mkdir -p $(APP_RNTM_NMEX)
 	cp $< "$@"
 
-$(APP_RNTM_FRUN)/welcome.%: welcome/welcome.% $(APP_RNTM)
+$(APP_RNTM_FRUN):
+	mkdir -p $(APP_RNTM_FRUN)
+
+$(APP_RNTM_FRUN)/welcome.%: welcome/welcome.% $(APP_RNTM) | $(APP_RNTM_FRUN)
 	cp $< $(APP_RNTM_FRUN)/
 
-$(APP_RNTM_FRUN)/img/icon128.png: welcome/img/icon128$(BETA).png $(APP_RNTM)
+$(APP_RNTM_FRUN)/img/icon128.png: welcome/img/icon128$(BETA).png $(APP_RNTM) | $(APP_RNTM_FRUN)
 	mkdir -p $(APP_RNTM_FRUN)/img
 	cp $< $@
 
-$(APP_RNTM_FRUN)/img/%.png: welcome/img/%.png $(APP_RNTM)
+$(APP_RNTM_FRUN)/img/%.png: welcome/img/%.png $(APP_RNTM) | $(APP_RNTM_FRUN)
 	mkdir -p $(APP_RNTM_FRUN)/img
 	cp $< $(APP_RNTM_FRUN)/img
 
@@ -256,13 +270,3 @@ welcome/img/icon128$(BETA).png: ../images/icons/app$(BETA).psd
 icons/%.icns: ../images/icons/%.psd
 	@mkdir -p icons
 	src/makeicon.sh -f $< $@
-
-%/Contents/_CodeSignature:
-	codesign -s 'David Marmor' -vv $*
-	codesign --verify --deep --strict --verbose=2 $*
-	spctl --assess --type execute --verbose=4 $*
-
-# $(APP_CLNP_CTNT)/_CodeSignature:
-# 	codesign -s 'David Marmor' -vv $(APP_CLNP)
-# 	codesign --verify --deep --strict --verbose=2 $(APP_CLNP)
-# 	spctl --assess --type execute --verbose=4 $(APP)

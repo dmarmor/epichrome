@@ -53,6 +53,8 @@ appEngine="Resources/Engine"
 appPayload="$appEngine/Payload"
 appConfigScript="Resources/Scripts/config.sh"
 appGetVersionScript="Resources/Scripts/getversion.py"
+appCleanup="Resources/EpichromeCleanup.app"
+
 
 # profile base
 appProfileBase="Library/Application Support/Epichrome/Apps"
@@ -841,7 +843,6 @@ function epichromeinfo { # (optional)EPICHROME-PATH
     #                             epiPath, epiVersion,
     #                             epiContents,
     #                             epiEngine, epiEngineRuntime, epiPayload
-    #                             epiCleanup
     
     if [[ "$ok" ]]; then
 	
@@ -921,7 +922,6 @@ function epichromeinfo { # (optional)EPICHROME-PATH
     epiEngine="$epiContents/Resources/Engine"
     epiEngineRuntime="$epiContents/Resources/Engine/Runtime"
     epiPayload="$epiContents/Resources/Engine/Payload"
-    epiCleanup="$epiContents/Resources/EpichromeCleanup.app"
     
     [[ "$ok" ]] && return 0
     return 1
