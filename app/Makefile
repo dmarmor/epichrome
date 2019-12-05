@@ -245,7 +245,7 @@ $(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/$(HOSTID).json src/version.sh $(APP_RNT
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
 	sed 's/EPIVERSION/$(VERSION)/' $< > $@
 
-$(APP_RNTM_NMEX)/$(RUNTIMEID).json: src/install-extension.json $(APP_RNTM)
+$(APP_RNTM_NMEX)/$(EXTENSION_ID).json: src/install-extension.json $(APP_RNTM)
 	mkdir -p $(APP_RNTM_NMEX)
 	cp $< "$@"
 

@@ -55,14 +55,57 @@ appConfigScript="Resources/Scripts/config.sh"
 appGetVersionScript="Resources/Scripts/getversion.py"
 appCleanup="Resources/EpichromeCleanup.app"
 
-
 # profile base
-appProfileBase="Library/Application Support/Epichrome/Apps"
+appProfileBase="Library/Application Support/Epichrome"
+
+# get name of innermost app for debug logs
+debugLogApp="${BASH_SOURCE[0]##*.[aA][pP][pP]}"
+debugLogApp="${BASH_SOURCE[0]%$debugLogApp}"
+[[ "$debugLogApp" ]] || debugLogApp="${BASH_SOURCE[0]}"
+debugLogApp="${debugLogApp##*/}"
+debugLogApp="${debugLogApp%.[aA][pP][pP]}"
+
+# set general debug log path (overridden by individual apps)
+debugLogPath="$appProfileBase/debug_log.txt"
 
 
-# DEBUGLOG: log to stderr if debug is on
+# JOIN_ARRAY: join a bash array into a string with an arbitrary delimiter
+function join_array { # (DELIMITER)
+    local delim=$1; shift
+    
+    echo -n "$1"
+    shift
+    printf "%s" "${@/#/$delim}"
+}
+
+# DEBUGLOG: log to stderr & a log file if debug is on
 function debuglog {
-    [[ "$debug" ]] && echo "${FUNCNAME[1]} (${BASH_LINENO[0]}): " "$@" 1>&2
+    if [[ "$debug" ]] ; then
+	local trace=()
+	local src=( "$debugLogApp" )
+	local i=1
+	while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
+	    if [[ "${FUNCNAME[$i]}" = source ]] ; then
+	     	src+=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" )
+		break
+	    else
+		trace=( "${FUNCNAME[$i]}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+	    fi
+	    i=$(( $i + 1 ))
+	done
+
+	local prefix="$(join_array '/' "${trace[@]}")"
+	src="$(join_array '|' "${src[@]}")"
+	[[ "$src" ]] && prefix="$src [$prefix]"
+	
+	debuglog_raw "$prefix:" "$@"
+    fi
+}
+function debuglog_raw {
+    if [[ "$debug" ]] ; then
+	echo "$@" 1>&2
+	[[ -f "$debugLogPath" ]] && echo "$@" >> "$debugLogPath"
+    fi
 }
 
 
@@ -83,9 +126,10 @@ function debuglog {
 ok=1
 errmsg=
 function try {
+    
     # only run if no prior error
     if [[ "$ok" ]]; then
-	    
+
 	# see if we're storing output
 	local target="$1"
 	local type=
@@ -139,6 +183,7 @@ function try {
 	
 	# run the command
 	local result=
+	local try_stderr=
 	if [[ "$type" = scalar ]] ; then
 	    
 	    # store output as string in named variable
@@ -146,7 +191,12 @@ function try {
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
-		    temp="$("${args[@]}")"
+		    #temp="$("${args[@]}")"
+		    #result="$?"
+		    eval "$( "${args[@]}" \
+		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
+		    	     > >(temp=$(cat); declare -p temp); \
+			     result=$?; declare -p result )"
 		else
 		    temp="$("${args[@]}" 2> /dev/null)"
 		fi
@@ -166,29 +216,38 @@ function try {
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
-		    temp=( $( "${args[@]}" ) )
+		    #temp=( $( "${args[@]}" ) )
+		    #result="$?"
+		    eval "$( "${args[@]}" \
+		            2> >(try_stderr=$(cat); declare -p try_stderr) \
+		            > >(declare -a temp="( $(cat) )"; declare -p temp); \
+		    	     result=$?; declare -p result )"
 		else
 		    temp=( $( "${args[@]}" 2> /dev/null ) )
+		    result="$?"
 		fi
-		result="$?"
 	    else
 		temp=( $( "${args[@]}" 2>&1 ) )
 		result="$?"
 	    fi
-
-	    # assign to target variable with special characters escaped
+	    
+	    # # assign to target variable with special characters escaped
 	    [[ "$type" = array ]] && eval "${target}=()"
 	    local t
 	    for t in "${temp[@]}" ; do
-		eval "${target}+=( $(printf '%q' "$t") )"
+	    	eval "${target}+=( $(printf '%q' "$t") )"
 	    done
 	    
 	elif [[ "$type" = file_append ]] ; then
 	    # append stdout to a file
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
-		    "${args[@]}" >> "$target"
-		    result="$?"
+		    #"${args[@]}" >> "$target"
+		    #result="$?"
+		    eval "$( "${args[@]}" \
+		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
+		    	     >> "$target"; \
+			     result=$?; declare -p result )"
 		else
 		    "${args[@]}" >> "$target" 2> /dev/null
 		    result="$?"
@@ -201,8 +260,12 @@ function try {
 	    # store stdout in a file
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
-		    "${args[@]}" > "$target"
-		    result="$?"
+		    #"${args[@]}" > "$target"
+		    #result="$?"
+		    eval "$( "${args[@]}" \
+		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
+		    	     > "$target"; \
+			     result=$?; declare -p result )"
 		else
 		    "${args[@]}" > "$target" 2> /dev/null
 		    result="$?"
@@ -215,13 +278,17 @@ function try {
 	    # throw stdout away (unless in debug mode)
 	    if [[ "$ignorestderr" ]] ; then
 		if [[ "$debug" ]] ; then
-		    "${args[@]}"
+		    try_stderr="$( "${args[@]}" 2>&1 )"
 		    result="$?"
 		else
 		    "${args[@]}" > /dev/null 2>&1
 		    result="$?"
 		fi
 	    fi
+	fi
+	
+	if [[ "$try_stderr" ]] ; then
+	    debuglog "$try_stderr"
 	fi
 	
 	# check result
@@ -231,7 +298,7 @@ function try {
 	    return "$result"
 	fi
     fi
-    
+        
     return 0
 }
 
@@ -1596,7 +1663,7 @@ function updateapp {
 	if [[ "$ok" ]] ; then
 	    
 	    # set profile path
-	    SSBProfilePath="${appProfileBase}/$SSBIdentifier"
+	    SSBProfilePath="${appProfileBase}/Apps/$SSBIdentifier"
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then
@@ -1676,4 +1743,10 @@ Delete :CFBundleURLTypes"
     
     [[ "$ok" ]] && return 0
     return 1    
+}
+
+
+# $$$ REMOVE THIS IN FUTURE VERSIONS
+function updatessb {
+    updateapp "$@"
 }

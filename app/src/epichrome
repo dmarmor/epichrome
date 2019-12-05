@@ -398,6 +398,10 @@ readconfig
 myProfilePath="${HOME}/$SSBProfilePath"
 myProfileArg="--user-data-dir=$myProfilePath"
 
+# override runtime.sh debug log path & start fresh
+debugLogPath="$myProfilePath/_epichrome_log.txt"
+/bin/rm -f "$debugLogPath"
+
 # by default, use existing profile
 newprofile=
 

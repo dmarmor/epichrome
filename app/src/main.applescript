@@ -41,6 +41,7 @@ set userDataFile to "epichrome.plist"
 set myIcon to path to resource "applet.icns"
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
+set runtimeScript to quoted form of (POSIX path of (path to resource "runtime.sh" in directory "Runtime/Resources/Scripts"))
 set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
@@ -194,6 +195,12 @@ end tablist
 set appNameBase to "My Epichrome App"
 set appURLs to {}
 
+
+-- RESET THE LOG FILE
+set logDeleteOutput to do shell script "source " & runtimeScript & " ; /bin/rm -f \"$HOME/$debugLogPath\""
+if logDeleteOutput is not "" then
+	display dialog "Unexpected output while clearing log file: " & logDeleteOutput with title "Warning" with icon caution buttons {"OK"} default button "OK"
+end if
 
 -- CHECK FOR UPDATES TO EPICHROME
 
