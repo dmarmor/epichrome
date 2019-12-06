@@ -24,54 +24,16 @@
 # 
 
 
-# DEBUG FLAG
+# DEBUG FLAG (CAN BE OVERRIDDEN BY RUNTIME.SH)
 
 debug=
 
 
 # FUNCTION DEFINITIONS
 
-# ECLOG: log to syslog & stderr
-function eclog {
-
-    # handle log level
-    local levelarg=
-    local levelmsg=
-    if [[ "$1" =~ ^[0-7]$ ]] ; then
-	levelmsg=( Emergency Alert Critical Error Warning Notice Info Debug )
-	levelmsg=" <${levelmsg[$1]}>:"
-	level=( -p "$1" )
-	shift
-    fi
-
-    # build ID string
-    local id="$$"
-    if [[ "$SSBEngineAppPath" && "$enginePID" ]] ; then
-	id="$id|${SSBEngineAppPath##*/}/$enginePID"
-    elif [[ "$SSBEngineAppPath" ]] ; then
-	id="$id|${SSBEngineAppPath##*/}"
-    elif [[ "$enginePID" ]] ; then
-	id="$id|$enginePID"
-    else
-	id="$id"
-    fi
-
-    # log message to syslog & stderr
-    /usr/bin/logger "${level[@]}" -s "EpichromeCleanup[$id]$levelmsg" "$@"
-    
-    echo "EpichromeCleanup[$id]$levelmsg" "$@" >> ~/Scratch/t07log.txt  # $$$$ DELETE
-}
-
-
-# ECDEBUGLOG: log to stderr if debug is on
-function ecdebuglog {
-    [[ "$debug" ]] && eclog 5 "$@"
-}
-
-
 # ABORT -- display an error alert and abort
 function abort {
-    eclog 3 "$1"
+    errlog "$1"
     [[ "$2" ]] && exit $2
     exit 1
 }
@@ -79,16 +41,14 @@ function abort {
 
 # IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
 
-ecdebuglog "RUNNING"
-
 
 if [[ "$1" != daemon ]] ; then
     "$0" daemon "$@" &
-    ecdebuglog "Parent process forked daemon"
+    debuglog "Parent process forked daemon"
     exit 0
 else
     shift
-    ecdebuglog "Child process now running"
+    debuglog "Child process now running"
 fi
 
 
@@ -108,11 +68,18 @@ source "${myContents}/Resources/Scripts/runtime.sh"
 [[ $? != 0 ]] && abort 'Unable to load runtime script.' 1
 
 
-# COMMAND-LINE OPTIONS -- ALL ARE MANDATORY
+# COMMAND-LINE OPTIONS -- ALL ARE MANDATORY & OVERRIDE RUNTIME.SH VALUES
 
 SSBEngineType="$1" ; shift
 enginePID="$1" ; shift
 SSBEngineAppPath="$1" ; shift
+logPath="$1" ; shift
+stderrTempFile="$1" ; shift
+
+# override log info
+logApp="Cleanup[$$/$enginePID]"
+
+# quality-check arguments
 
 [[ ( "$SSBEngineType" = 'Google Chrome' ) || ( "$SSBEngineType" = 'Chromium' ) ]] || \
     abort "Bad engine type '$SSBEngineType'"
@@ -121,7 +88,16 @@ SSBEngineAppPath="$1" ; shift
 
 [[ -d "$SSBEngineAppPath" ]] || abort "Bad app engine path '$SSBEngineAppPath'"
 
+/usr/bin/touch "$logPath" > /dev/null 2>&1 || abort "Bad log file path '$logPath'"
+
+/usr/bin/touch "$stderrTempFile" > /dev/null 2>&1 || abort "Bad stderr temp file path '$stderrTempFile'"
+
+# set up payload path
+
 myPayloadPath="${SSBEngineAppPath%/Contents/Resources/Engine/*}/Contents/Resources/Engine/Payload"
+
+
+debuglog "RUNNING"  # $$$$
 
 
 # WAIT FOR APP ENGINE TO DIE, THEN CONVERT ENGINE BACK TO PAYLOAD
@@ -131,7 +107,7 @@ while /bin/kill -0 "$enginePID" 2> /dev/null ; do
     sleep 1
 done
 
-ecdebuglog "Engine has quit, beginning cleanup"
+debuglog "Engine has quit, beginning cleanup"
 
 # make sure we can still find engine
 if [[ ! -d "$SSBEngineAppPath/Contents" ]] ; then
@@ -182,7 +158,7 @@ fi
 # report any errors with the deletion process
 if [[ ! "$ok" ]] ; then
     ok=1
-    eclog 3 "Cleanup error -- $errmsg"
+    errlog "Cleanup error -- $errmsg"
 fi
 
 # Chromium engine: rename Info.plist Info.plist.off
@@ -192,7 +168,7 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 	'Unable to deactivate payload Info.plist.'
     if [[ ! "$ok" ]] ; then
 	ok=1
-	eclog 3 "Cleanup error -- $errmsg"
+	errlog "Cleanup error -- $errmsg"
     fi
 fi
 
@@ -204,3 +180,5 @@ try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
 if [[ ! "$ok" ]] ; then
     abort "Cleanup error -- $errmsg"
 fi
+
+debuglog "Cleanup completed successfully"

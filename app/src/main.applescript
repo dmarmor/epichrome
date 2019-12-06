@@ -122,7 +122,7 @@ on writeProperties()
 		
 		try
 			-- create enclosing folder if needed and create empty plist file
-			do shell script "mkdir -p ~/" & (quoted form of userDataPath)
+			do shell script "/bin/mkdir -p ~/" & (quoted form of userDataPath)
 			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:("~/" & userDataPath & "/" & userDataFile)}
 			
 			-- fill property list
@@ -197,10 +197,12 @@ set appURLs to {}
 
 
 -- RESET THE LOG FILE
-set logDeleteOutput to do shell script "source " & runtimeScript & " ; /bin/rm -f \"$HOME/$debugLogPath\""
-if logDeleteOutput is not "" then
-	display dialog "Unexpected output while clearing log file: " & logDeleteOutput with title "Warning" with icon caution buttons {"OK"} default button "OK"
-end if
+try
+	set logPath to do shell script "source " & runtimeScript & " && /bin/rm -f \"$logPath\" && echo \"$logPath\""
+on error errStr number errNum
+	display dialog "Non-fatal error clearing log file: " & errStr with title "Error" with icon caution buttons {"OK"} default button "OK"
+	set logPath to false
+end try
 
 -- CHECK FOR UPDATES TO EPICHROME
 
@@ -656,7 +658,16 @@ App Engine: "
 												
 												if not creationSuccess then
 													try
-														display dialog "Creation failed: " & errStr with icon stop buttons {"Quit", "Back"} default button "Quit" cancel button "Back" with title "Application Not Created"
+														set dlgButtons to {"Quit", "Back"}
+														try
+															((POSIX file logPath) as alias)
+															copy "View Log & Quit" to end of dlgButtons
+														end try
+														set dlgResult to button returned of (display dialog "Creation failed: " & errStr with icon stop buttons dlgButtons default button "Quit" cancel button "Back" with title "Application Not Created")
+														if dlgResult is "View Log & Quit" then
+															tell application "Finder" to reveal ((POSIX file logPath) as alias)
+															tell application "Finder" to activate
+														end if
 														writeProperties() -- Quit button
 														return -- QUIT
 													on error number -128 -- Back button

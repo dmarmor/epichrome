@@ -131,12 +131,20 @@ clean-all: clean
 	rm -f welcome/img/icon128.png
 
 install: $(APP)
-	if [[ -e "$(INSTALL_PATH)" ]] ; then rm -rf "$(INSTALL_PATH)" ; fi
+	@if [[ -e "$(INSTALL_PATH)" ]] ; then \
+		echo 'rm -rf "$(INSTALL_PATH)"' ; \
+		rm -rf "$(INSTALL_PATH)" ; \
+	fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
 $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
-	@if [[ -d Engine ]] ; then echo "Temp Engine directory left over from previous run" ; false ; fi
-	if [[ -d $(APP_ENGN) ]] ; then mv -n $(APP_ENGN) Engine ; fi
+	@if [[ -d Engine ]] ; then \
+		echo "Temp Engine directory left over from previous run" ; false ; \
+	fi
+	@if [[ -d $(APP_ENGN) ]] ; then \
+		echo 'mv -n $(APP_ENGN) Engine' ; \
+		mv -n $(APP_ENGN) Engine ; \
+	fi
 	@rm -rf $(APP)
 	chmod 444 $<
 	osacompile -o $(APP) -x -d $<
@@ -144,10 +152,13 @@ $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/a
 	chmod 644 $<
 	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works
 	@rm -f $(APP_CTNT)/Info.plist $(APP_RSRC)/applet.icns
-	if [[ -d Engine ]] ; then mv -f Engine $(APP_ENGN) ; fi
+	@if [[ -d Engine ]] ; then \
+		echo 'mv -f Engine $(APP_ENGN)' ; \
+		mv -f Engine $(APP_ENGN) ; \
+	fi
 	@touch $(APP)
 
-$(APP_SCPT)/build.sh $(APP_CLNP_CTNT)/MacOS/EpichromeCleanup $(APP_RNTM_RSRC)/script:
+$(APP_RNTM_SCPT)/runtime.sh: src/runtime.sh
 	@mkdir -p $(dir $@)
 	@if [[ "$(BETA)" ]] ; then \
 	  echo "sed -E $(EXEC_SED_BETA) $< > $@" ; \
@@ -156,7 +167,6 @@ $(APP_SCPT)/build.sh $(APP_CLNP_CTNT)/MacOS/EpichromeCleanup $(APP_RNTM_RSRC)/sc
 	  echo "cp $< $@" ; \
 	  cp $< $@ ; \
 	fi
-	chmod 755 $@
 
 $(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
@@ -172,8 +182,6 @@ $(APP_SCPT)/version.sh: src/version.sh
 	touch -c icons/*
 	cp $< $(APP_SCPT)/
 
-$(APP_SCPT)/build.sh: src/build.sh
-
 $(APP_SCPT)/%: src/%
 	cp $< $(APP_SCPT)/
 
@@ -185,8 +193,10 @@ $(APP_CLNP_CTNT)/Info.plist: src/cleanup/Info.plist src/version.sh
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
 
 $(APP_CLNP_CTNT)/MacOS/EpichromeCleanup: src/cleanup/EpichromeCleanup
+	@mkdir -p $(APP_CLNP_CTNT)/MacOS
+	cp $< $@
 
-$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: src/runtime.sh
+$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: $(APP_RNTM_SCPT)/runtime.sh
 	@mkdir -p $(APP_CLNP_CTNT)/Resources/Scripts
 	cp $< $@
 
@@ -222,6 +232,7 @@ $(APP_ENGN): $(CHROMIUM)
 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
 
 $(APP_RNTM_RSRC)/script: src/epichrome $(APP_RNTM)
+	cp $< $@
 
 $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
 	cp $< $@

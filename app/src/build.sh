@@ -19,10 +19,10 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-# 
+#
 
 
-# DEBUG FLAG
+# DEBUG FLAG (CAN BE OVERRIDDEN BY RUNTIME.SH)
 
 debug=
 
@@ -31,11 +31,12 @@ debug=
 
 function abort {
     [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
-    
+
     [[ "$1" ]] && echo "$1" 1>&2
-    
-    local result="$2" ; [ "$result" ] || result=1
-    exit "$result"
+
+    # quit with error code
+    [[ "$2" ]] && exit $2
+    exit 1
 }
 
 
@@ -54,6 +55,9 @@ myPath=$(cd "$(dirname "$0")/../../.."; pwd)
 # load main runtime functions
 source "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
+
+# set logging parameters so all stderr output goes to log only
+logToStderr=
 
 # get important Epichrome info
 epichromeinfo "$myPath"
@@ -76,7 +80,7 @@ shift
 # icon file
 iconSource="$1"
 shift
-if [ "$iconSource" ] ; then
+if [[ "$iconSource" ]] ; then
     SSBCustomIcon="Yes"
 else
     SSBCustomIcon="No"
@@ -84,7 +88,7 @@ fi
 
 # register as browser ("Yes" or "No")
 SSBRegisterBrowser="$1"
-[ "$SSBRegisterBrowser" != "Yes" ] && SSBRegisterBrowser="No"
+[[ "$SSBRegisterBrowser" != "Yes" ]] && SSBRegisterBrowser="No"
 shift
 
 # specify app engine
@@ -110,7 +114,7 @@ if [[ "$?" != 0 ]] ; then
     # if we don't have permission, let the app know to try for admin privileges
     errre='Permission denied$'
     [[ "$cmdtext" =~ $errre ]] && abort 'PERMISSION' 2
-    
+
     # regular error
     abort 'Unable to create temporary app bundle.' 1
 fi
@@ -118,7 +122,6 @@ fi
 # set ownership of app bundle to this user (only necessary if running as admin)
 try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
 
-#abort "The user is $USER" 1
 
 # GET INFO NECESSARY TO RUN THE UPDATE
 
@@ -133,19 +136,19 @@ fi
 customIconDir=
 
 if [[ "$iconSource" ]] ; then
-    
+
     # get name for temporary icon directory
     customIconDir=$(tempname "${appTmp}/icons")
     try /bin/mkdir -p "$customIconDir" 'Unable to create temporary icon directory.'
-    [[ "$?" != 0 ]] && abort "$errmsg" 1
+    [[ "$ok" ]] || abort "$errmsg"
     
     # convert image into an ICNS
     makeappicons "$iconSource" "$customIconDir" both
-    
+
     # handle results
     if [[ ! "$ok" ]] ; then
 	[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-	abort "Unable to create icon${errmsg}." 1
+	abort "Unable to create icon${errmsg}."
     fi
 fi
 
@@ -158,7 +161,8 @@ SSBFirstRun=1
 # populate the app bundle
 updateapp "$appTmp" "$customIconDir"
 
-[[ "$ok" ]] || abort "$errmsg" 1
+[[ "$ok" ]] || abort "$errmsg"
+
 
 # delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
 [[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
@@ -166,6 +170,6 @@ updateapp "$appTmp" "$customIconDir"
 # move new app to permanent location (overwriting any old app)
 permanent "$appTmp" "$appPath" "app bundle"
 
-[[ "$ok" ]] || abort "$errmsg" 1
+[[ "$ok" ]] || abort "$errmsg"
 
 exit 0

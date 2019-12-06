@@ -21,6 +21,11 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# DEBUG FLAG
+
+debug=
+
+
 # shell options
 shopt -s nullglob
 
@@ -58,54 +63,71 @@ appCleanup="Resources/EpichromeCleanup.app"
 # profile base
 appProfileBase="Library/Application Support/Epichrome"
 
-# get name of innermost app for debug logs
-debugLogApp="${BASH_SOURCE[0]##*.[aA][pP][pP]}"
-debugLogApp="${BASH_SOURCE[0]%$debugLogApp}"
-[[ "$debugLogApp" ]] || debugLogApp="${BASH_SOURCE[0]}"
-debugLogApp="${debugLogApp##*/}"
-debugLogApp="${debugLogApp%.[aA][pP][pP]}"
-
-# set general debug log path (overridden by individual apps)
-debugLogPath="$appProfileBase/debug_log.txt"
+# logging info (can be overridden by individual apps)
+logApp="Epichrome"
+logPath="$HOME/$appProfileBase/log.txt"
+logToStderr=1
+logToFile=1
+stderrTempFile="$HOME/$appProfileBase/stderr.txt"
 
 
 # JOIN_ARRAY: join a bash array into a string with an arbitrary delimiter
 function join_array { # (DELIMITER)
     local delim=$1; shift
     
-    echo -n "$1"
+    printf "$1"
     shift
     printf "%s" "${@/#/$delim}"
 }
 
-# DEBUGLOG: log to stderr & a log file if debug is on
-function debuglog {
-    if [[ "$debug" ]] ; then
+# LOGGING: log to stderr & a log file
+function errlog {
 	local trace=()
-	local src=( "$debugLogApp" )
+	local src=( "$logApp" )
 	local i=1
+	local curfunc=
 	while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
-	    if [[ "${FUNCNAME[$i]}" = source ]] ; then
+	    curfunc="${FUNCNAME[$i]}"
+	    if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
 	     	src+=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" )
 		break
+	    elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
+		: # skip these functions
 	    else
-		trace=( "${FUNCNAME[$i]}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+		trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    fi
 	    i=$(( $i + 1 ))
 	done
 
 	local prefix="$(join_array '/' "${trace[@]}")"
 	src="$(join_array '|' "${src[@]}")"
-	[[ "$src" ]] && prefix="$src [$prefix]"
+	if [[ "$src" && "$prefix" ]] ; then
+	    prefix="$src [$prefix]: "
+	elif [[ "$src" ]] ; then
+	    prefix="$src: "
+	elif [[ "$prefix" ]] ; then
+	    prefix="$prefix: "
+	fi
 	
-	debuglog_raw "$prefix:" "$@"
+	errlog_raw "$prefix$@"
+ }
+function errlog_raw {
+    # if we're logging to stderr, do it
+    [[ "$logToStderr" ]] && echo "$@" 1>&2
+
+    # if we're logging to file & either the file exists & is writeable, or
+    # the file doesn't exist and its parent directory is writeable, do it
+    if [[ "$logToFile" && \
+	      ( ( ( -f "$logPath" ) && ( -w "$logPath" ) ) || \
+		    ( ( ! -e "$logPath" ) && ( -w "${logPath%/*}" ) ) ) ]] ; then
+	echo "$@" >> "$logPath"
     fi
 }
+function debuglog {
+    [[ "$debug" ]] && errlog "$@"
+}
 function debuglog_raw {
-    if [[ "$debug" ]] ; then
-	echo "$@" 1>&2
-	[[ -f "$debugLogPath" ]] && echo "$@" >> "$debugLogPath"
-    fi
+    [[ "$debug" ]] && errlog_raw "$@"
 }
 
 
@@ -113,8 +135,9 @@ function debuglog_raw {
 #
 #      usage:
 #        try 'varname=' cmd args ... 'Error message.'        [scalar var]
-#        try 'varname=()' cmd args ... 'Error message.'      [array var]
-#        try 'varname+=()' cmd args ... 'Error message.'     [append array]
+#        try 'varname+=' cmd args ... 'Error message.'        [append scalar]
+#        try 'varname=([tn]|anything)' cmd args ... 'Error message.'      [array var]
+#        try 'varname+=([tn]|anything)' cmd args ... 'Error message.'     [append array]
 #        try 'filename.txt<' cmd args ... 'Error message.'   [overwrite file]
 #        try 'filename.txt<<' cmd args ... 'Error message.'  [append file]
 #            for any of the above put & before the specifier to
@@ -133,23 +156,22 @@ function try {
 	# see if we're storing output
 	local target="$1"
 	local type=
+	local ifscode=
 	local ignorestderr=1
 
 	# figure out which type of storage to do
-	if [[ "${target:${#target}-1}" = '=' ]]; then
+	if [[ "$target" =~ (\+?)=$ ]]; then
 	    # storing in a variable as a string
-	    target="${target::${#target}-1}"
+	    target="${target::${#target}-${#BASH_REMATCH[0]}}"
 	    type=scalar
+	    [[ "${BASH_REMATCH[1]}" ]] && type="${type}_append"
 	    shift
-	elif [[ "${target:${#target}-4}" = '+=()' ]] ; then
-	    # append to array
-	    target="${target::${#target}-4}"
-	    type=array_append
-	    shift
-	elif [[ "${target:${#target}-3}" = '=()' ]] ; then
-	    # store as array
-	    target="${target::${#target}-3}"
+	elif [[ "$target" =~ (\+?)=\(([^\)]?)\)$ ]] ; then
+	    # array
+	    target="${target::${#target}-${#BASH_REMATCH[0]}}"
 	    type=array
+	    [[ "${BASH_REMATCH[1]}" ]] && type="${type}_append"
+	    ifscode="${BASH_REMATCH[2]}"
 	    shift
 	elif [[ "${target:${#target}-2}" = '<''<' ]]; then
 	    # append to file
@@ -164,6 +186,15 @@ function try {
 	else
 	    # not storing
 	    target=
+	fi
+
+	# handle special ifscode values
+	if [[ "$ifscode" = t ]] ; then
+	    ifscode=$'\t\n'
+	elif [[ "$ifscode" = n ]] ; then
+	    ifscode=$'\n'
+	elif [[ ! "$ifscode" ]] ; then
+	    ifscode="$IFS"  # no IFS given, so use current value
 	fi
 	
 	# determine handling of stderr
@@ -180,78 +211,63 @@ function try {
 	local last=$((${#args[@]} - 1))
 	local myerrmsg="${args[$last]}"
 	unset "args[$last]"
+
+	# check stderr temp file
+	local logStderrToFile=
+	if [[ "$ignorestderr" ]] ; then
+	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1 && logStderrToFile=1
+	fi
 	
 	# run the command
 	local result=
-	local try_stderr=
-	if [[ "$type" = scalar ]] ; then
-	    
-	    # store output as string in named variable
+	if [[ ( "${type::6}" = scalar ) || ( "${type::5}" = array ) ]] ; then
+
+	    # store output as string initially
 	    
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$debug" ]] ; then
-		    #temp="$("${args[@]}")"
-		    #result="$?"
-		    eval "$( "${args[@]}" \
-		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
-		    	     > >(temp=$(cat); declare -p temp); \
-			     result=$?; declare -p result )"
+		if [[ ! "$try_stderr" ]] ; then
+		    temp="$( "${args[@]}" 2> "$stderrTempFile" )"
 		else
-		    temp="$("${args[@]}" 2> /dev/null)"
+		    temp="$( "${args[@]}" )"
 		fi
 		result="$?"
 	    else
 		temp="$("${args[@]}" 2>&1)"
 		result="$?"
 	    fi
-	    
-	    # assign to target variable with special characters escaped
-	    eval "${target}=$(printf '%q' "$temp")"
 
-	elif [[ "${type::5}" = array ]] ; then
+	    # put output into the correct type of variable
 	    
-	    # output to array
+	    # if we're not appending, start with an empty target
+	    [[ "${type:${#type}-6:6}" = append ]] || eval "$target="
 	    
-	    local temp=
-	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$debug" ]] ; then
-		    #temp=( $( "${args[@]}" ) )
-		    #result="$?"
-		    eval "$( "${args[@]}" \
-		            2> >(try_stderr=$(cat); declare -p try_stderr) \
-		            > >(declare -a temp="( $(cat) )"; declare -p temp); \
-		    	     result=$?; declare -p result )"
-		else
-		    temp=( $( "${args[@]}" 2> /dev/null ) )
-		    result="$?"
-		fi
+	    if [[ "${type::6}" = scalar ]] ; then
+		
+		# scalar
+		
+		# append the output to the target
+		eval "$target=\"\${$target}\${temp}\""
 	    else
-		temp=( $( "${args[@]}" 2>&1 ) )
-		result="$?"
+		
+		# array
+
+		# break up the output using our chosen delimiter (and newline, no way around that)
+		local temparray=
+		while IFS="$ifscode" read -ra temparray ; do
+		      eval "$target+=( \"\${temparray[@]}\" )"
+		done <<< "$temp"
 	    fi
-	    
-	    # # assign to target variable with special characters escaped
-	    [[ "$type" = array ]] && eval "${target}=()"
-	    local t
-	    for t in "${temp[@]}" ; do
-	    	eval "${target}+=( $(printf '%q' "$t") )"
-	    done
 	    
 	elif [[ "$type" = file_append ]] ; then
 	    # append stdout to a file
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$debug" ]] ; then
-		    #"${args[@]}" >> "$target"
-		    #result="$?"
-		    eval "$( "${args[@]}" \
-		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
-		    	     >> "$target"; \
-			     result=$?; declare -p result )"
+		if [[ ! "$try_stderr" ]] ; then
+		    "${args[@]}" >> "$target" 2> "$stderrTempFile"
 		else
-		    "${args[@]}" >> "$target" 2> /dev/null
-		    result="$?"
+		    "${args[@]}" >> "$target"
 		fi
+		result="$?"
 	    else
 		"${args[@]}" >> "$target" 2>&1
 		result="$?"
@@ -259,37 +275,34 @@ function try {
 	elif [[ "$type" = file ]] ; then
 	    # store stdout in a file
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$debug" ]] ; then
-		    #"${args[@]}" > "$target"
-		    #result="$?"
-		    eval "$( "${args[@]}" \
-		    	     2> >(try_stderr=$(cat); declare -p try_stderr) \
-		    	     > "$target"; \
-			     result=$?; declare -p result )"
+		if [[ ! "$try_stderr" ]] ; then
+		    "${args[@]}" > "$target" 2> "$stderrTempFile"
 		else
-		    "${args[@]}" > "$target" 2> /dev/null
-		    result="$?"
+		    "${args[@]}" > "$target"
 		fi
+		result="$?"
 	    else
 		"${args[@]}" > "$target" 2>&1
 		result="$?"
 	    fi
 	else
-	    # throw stdout away (unless in debug mode)
-	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$debug" ]] ; then
-		    try_stderr="$( "${args[@]}" 2>&1 )"
-		    result="$?"
-		else
-		    "${args[@]}" > /dev/null 2>&1
-		    result="$?"
-		fi
+	    # not storing stdout, so put both stdout & stderr into stderr log
+	    if [[ ! "$try_stderr" ]] ; then
+		"${args[@]}" > "$stderrTempFile" 2>&1
+	    else
+		"${args[@]}" 2>&1
 	    fi
+	    result="$?"
 	fi
 	
-	if [[ "$try_stderr" ]] ; then
-	    debuglog "$try_stderr"
+	# log unstored output
+	local myStderr=
+	if [[ "$logStderrToFile" ]] ; then
+	    myStderr="$(/bin/cat "$stderrTempFile")"
+	elif [[ "$ignorestderr" ]] ; then
+	    myStderr="##error## unable to direct stderr to $stderrTempFile"
 	fi
+	[[ "$myStderr" ]] && errlog "$myStderr"
 	
 	# check result
 	if [[ "$result" != 0 ]]; then
@@ -298,7 +311,7 @@ function try {
 	    return "$result"
 	fi
     fi
-        
+    
     return 0
 }
 
@@ -562,12 +575,11 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
 	if [ "${icon::1}" = "|" ] ; then
 	    icon="${icon:1}"
 	    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
-	    icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")
-tell application \"Finder\"
-    if (not exists myIcon) or ((the name extension of (myIcon as alias)) is not \"icns\") then
-        set myIcon to $icon
-    end if
-end tell"
+	    if [[ -f "$myPath/Contents/Resources/$CFBundleIconFile" ]] ; then
+		icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")"
+	    else
+		icon_set="set myIcon to $icon"
+	    fi
 	else
 	    [[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
 	fi
@@ -923,18 +935,10 @@ function epichromeinfo { # (optional)EPICHROME-PATH
 	else
 	    
 	    # use spotlight to find Epichrome instances
-	    try 'epiPath=' /usr/bin/mdfind \
+	    try 'epiPath=(n)' /usr/bin/mdfind \
 			    "kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
 			    'error'
-	    if [[ "$ok" ]] ; then
-		# get paths to all Epichrome.app instances found
-		
-		# break up result into array
-		local oldifs=$IFS
-		IFS=$'\n'
-		epiPath=($epiPath)
-		IFS="$oldifs"
-	    else
+	    if [[ ! "$ok" ]] ; then
 		# ignore mdfind errors
 		ok=1
 		errmsg=
@@ -942,11 +946,11 @@ function epichromeinfo { # (optional)EPICHROME-PATH
 	    
 	    # if spotlight fails (or is off) try hard-coded locations
 	    if [[ ! "$epiPath" ]] ; then
-		epiPath+=( ~/'Applications/Epichrome.app' \
-			       '/Applications/Epichrome.app' )
+		epiPath=( ~/'Applications/Epichrome.app' \
+			    '/Applications/Epichrome.app' )
 	    fi
 	fi
-
+	
 	# find all instances of Epichrome on the system
 	local curPath=
 	local latestPath=
@@ -1332,16 +1336,23 @@ appConfigVarsGoogleChrome=( SSBGoogleChromePath \
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes
-function readconfig {
-    
-    safesource "$myContents/$appConfigScript" "config file"
-    
-    if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
-			   "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
-	ok=
-	errmsg='Config file is corrupt.'
-    fi
+function readconfig {  # LOG-ONLY
 
+    local logOnly="$1"
+    
+    if [[ ! "$logOnly" ]] ; then
+
+	# read in config file
+	safesource "$myContents/$appConfigScript" "config file"
+
+	# check for required values
+	if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
+			       "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+	    ok=
+	    errmsg='Config file is corrupt.'
+	fi
+    fi
+    
     if [[ "$ok" ]] ; then
 	
 	# create full list of config vars based on engine type
@@ -1355,14 +1366,23 @@ function readconfig {
 	for varname in "${myConfigVars[@]}" ; do
 	    
 	    if [[ "$(isarray "$varname")" ]]; then
-		# copy array value
-		eval "config$varname=(\"\${$varname[@]}\")"
-		[[ "$debug" ]] && eval "debuglog \"$varname=( \${config$varname[*]} )\""
+
+		# array value
+		
+		if [[ ! "$logOnly" ]] ; then
+		    eval "config$varname=(\"\${$varname[@]}\")"
+		else
+		    eval "debuglog \"$varname=( \${config$varname[*]} )\""
+		fi
 	    else
 		
-		# copy scalar value
-		eval "config$varname=\"\${$varname}\""
-		[[ "$debug" ]] && eval "debuglog \"$varname=\$config$varname\""
+		# scalar value
+		
+		if [[ ! "$logOnly" ]] ; then
+		    eval "config$varname=\"\${$varname}\""
+		else
+		    eval "debuglog \"$varname=\$config$varname\""
+		fi
 	    fi
 	done
     fi

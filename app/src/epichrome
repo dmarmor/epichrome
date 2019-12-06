@@ -19,10 +19,10 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-# 
+#
 
 
-# DEBUG FLAG
+# DEBUG FLAG (CAN BE OVERRIDDEN BY RUNTIME.SH)
 
 debug=
 
@@ -31,7 +31,18 @@ debug=
 
 # ABORT -- display an error alert and abort
 function abort {
-    alert "$1" "Unable to Run" '|stop'
+
+    # log error message
+    errlog "Aborting: $1"
+    
+    # show dialog & offer to open log
+    local choice=
+    dialog choice "$1" "Unable to Run" '|stop' '+Quit' '-View Log'
+    [[ "$choice" = 'View Log' ]] && try /usr/bin/osascript -e '
+tell application "Finder" to reveal ((POSIX file "'"$logPath"'") as alias)
+tell application "Finder" to activate' 'Error attempting to view log file.'
+    
+    # quit with error code
     [[ "$2" ]] && exit $2
     exit 1
 }
@@ -39,11 +50,11 @@ function abort {
 # UNSUDO -- run a command as the original user
 function unsudo {
     if [[ "$isAdmin" ]] ; then
-	sudo -u $USER "$@"
-	local result="$?"
+        sudo -u $USER "$@"
+        local result="$?"
     else
-	"$@"
-	local result="$?"
+        "$@"
+        local result="$?"
     fi
 
     return "$result"
@@ -60,56 +71,56 @@ function relaunch { # APP-PATH DELAY-SECONDS
 # AUTHENTICATE -- relaunch authenticated if necessary
 isAuthenticated=
 function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, return 1 on auth fail)
-    
+
     # only run if no error
     if [[ "$ok" ]]; then
-	
+
 	# get ID of this authentication to pass to self
 	local id="$1"
 	shift
 	[[ "$id" ]] || id="admin"
-	
+
 	# build preamble
 	local preamble="$1"
 	shift
 	[[ "$preamble" ]] && preamble="$preamble "
-	
+
 	# build alert message
 	local msg="$1"
 	shift
 	[[ ! "$msg" ]] && msg="update"
-	
+
 	# get nonfatal argument
 	local nonfatal="$1"
-	
+
 	# only check if we're not already authenticated
 	if [[ ! "$isAuthenticated" ]] ; then
-	    
+
 	    # try to touch the app bundle--if we can, we have the privileges we need
 	    cmdtext=$(/usr/bin/touch "$myPath" 2>&1)
-	    
+
 	    if [[ "$?" != 0 ]] ; then
 
 		local doAuth=
 		errre='Permission denied$'
 		if [[ ! "$cmdtext" =~ $errre ]] ; then
-		    
+
 		    # some other error (not permission denied)
 		    msg="Error attempting to determine if authentication is required."
-		    
+
 		    if [[ "$nonfatal" ]] ; then
 			alert "$msg" 'Warning' '|caution'
 		    else
 			abort "$msg" 1
 		    fi
 		else
-		    
+
 		    # permission denied to touch this file--ask to authenticate
 		    dialog doAuth "${preamble}In order to $msg, the app must run with administrator privileges." "Authentication Required" "|caution" "Authenticate" "+Cancel"
-		    
+
 		    # user wants to authenticate
 		    if [[ "$doAuth" = "Authenticate" ]] ; then
-			
+
 			# replace ourself with an authenticated version
 			#of the same script running with admin privileges
 			#exec osascript -e 'do shell script "su -m '"$USER"' -c \"" & (quoted form of "'"${0//\"/\\\\\\\"}"'") & "\"" with administrator privileges'
@@ -117,9 +128,9 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 			# add debug flag if it was set for us
 			local debugOpt='""'
 			[[ "$debug" ]] && debugOpt='" --debug "'
-			    
+
 			exec osascript -e 'do shell script (quoted form of "'"$0"'") & " --epichrome-admin " & $debugOpt & (quoted form of "'"$id"'") with administrator privileges'
-			
+
 		    elif [[ "$nonfatal" ]] ; then
 			return 1
 		    else
@@ -131,7 +142,7 @@ function authenticate {  # ID PREAMBLE MESSAGE NONFATAL (If NONFATAL exists, ret
 	    fi
 	fi
     fi
-    
+
     # all went well, we are authenticated!
     [[ "$ok" ]] && return 0
     return 1
@@ -145,7 +156,7 @@ function linktree { # $1 = sourcedir (absolute)
     #                 $@ = <files>
 
     if [[ "$ok" ]]; then
-	
+
 	# read arguments
 	local sourcedir="$1"  # could absolutize: echo "$(cd "$foo" 2> /dev/null && pwd)"
 	local destdir="$2"
@@ -159,7 +170,7 @@ function linktree { # $1 = sourcedir (absolute)
 	local destDevice=
 	try 'destDevice=' /usr/bin/stat -f '%d' "$destdir" \
 	    "Unable to get info on $destdir."
-	
+
 	if [[ "$ok" ]] ; then
 	    if [[ "$sourceDevice" != "$destDevice" ]]; then
 		ok=
@@ -179,14 +190,14 @@ function linktree { # $1 = sourcedir (absolute)
 		# no items specified, so link all non-dot items
 		files=( * )
 	    fi
-	    
+
 	    # loop through entries creating hard links
 	    for entry in "${files[@]}" ; do
 		# hard link
 		try /bin/pax -rwlpp "$entry" "$destdir" \
 		    "$tryid link error: Unable to create link to $entry."
 	    done
-	    
+
 	    # popd back from source directory
 	    try '/dev/null&<' popd \
 		"$tryid link error: Unable to move back from $sourcedir."
@@ -201,33 +212,33 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 
     # assume no PID
     enginePID=
-    
+
     # args
     local id="$1"
     local path="$2"
-    
+
     # get all ASNs associated with the engine's bundle ID
     local asns=
     try 'asns=()' /usr/bin/lsappinfo find "bundleid=$id" \
 	'Error while attempting to find running engine.'
-    
+
     # no engine found, just don't return a PID
     if [[ "$ok" && ( "${#asns[@]}" = 0 ) ]] ; then
 	return 0
     fi
-    
+
     # search for PID
     if [[ "$ok" ]] ; then
 
 	local info=
-	
+
 	local a=
 	for a in "${asns[@]}" ; do
 
 	    # get info on an ASN (we use try for the debugging output)
 	    try 'info=' /usr/bin/lsappinfo info "$a" ''
 	    ok=1 ; errmsg=
-	    
+
 	    # if this ASN matches our bundle, grab the PID
 	    re='bundle path *= *"([^'$'\n'']+)".*pid *= *([0-9]+)'
 	    if [[ ( "$info" =~ $re ) && ( "${BASH_REMATCH[1]}" = "$path" ) ]] ; then
@@ -256,19 +267,19 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 
 # CLEANUP: wait for app engine to die, then clean it up
 function cleanup {  # $1 = ENGINE-PID
-    
+
     # wait for app to exit
     while /bin/kill -0 "$1" 2> /dev/null ; do
 	sleep 1
     done
-    
+
     # make sure we can still find engine
     if [[ ! -d "$myEngineAppContents" ]] ; then
 	# abort -- something has gone wrong, maybe app was renamed or moved
 	echo "Cleanup error: Can't find app engine." 1>&2
 	exit 1
     fi
-    
+
     # build list of runtime elements to delete
 
     local deletelist=()
@@ -280,7 +291,7 @@ function cleanup {  # $1 = ENGINE-PID
     for i in "${curdir[@]}" ; do
 	deletelist+=( "$SSBEngineAppPath/$i" )
     done
-    
+
     if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
 	# all items in Contents except Info.plist, MacOS & Resources
 	dirlist "$myEngineAppContents" curdir \
@@ -314,7 +325,7 @@ function cleanup {  # $1 = ENGINE-PID
 	ok=1
 	echo "Cleanup error: $errmsg" 1>&2
     fi
-    
+
     # Chromium engine: rename Info.plist Info.plist.off
     if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 	try /bin/mv -f "$myEngineAppContents/Info.plist" \
@@ -325,7 +336,7 @@ function cleanup {  # $1 = ENGINE-PID
 	    echo "Cleanup error: $errmsg" 1>&2
 	fi
     fi
-    
+
     # rename engine back to Payload
     try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
 	'Unable to restore Payload directory.'
@@ -335,7 +346,7 @@ function cleanup {  # $1 = ENGINE-PID
 	echo "Cleanup error: $errmsg" 1>&2
 	exit 1
     fi
-    
+
     exit 0
 }
 
@@ -353,16 +364,16 @@ while [[ "$#" -gt 0 ]] ; do
         --epichrome-admin)
 	    isAdmin="$1"
             ;;
-        
+
         --epichrome-debug)
             debug=1
             ;;
-	
+
 	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
 	    # this should be sent to the open command
 	    argsURIs+=( "$1" )
 	    ;;
-	
+
 	*)
 	    # pass any other options along to the engine
 	    argsOptions+=( "$1" )
@@ -385,6 +396,10 @@ myContents="$myPath/Contents"
 source "${myContents}/Resources/Scripts/runtime.sh"
 [[ $? != 0 ]] && abort 'Unable to load runtime script.' 1
 
+# temporary logApp until we read config
+logApp="${myPath##*/}"
+logApp="${logApp%.[aA][pP][pP]}"
+
 
 # GET BASIC APP INFORMATION
 
@@ -399,11 +414,18 @@ myProfilePath="${HOME}/$SSBProfilePath"
 myProfileArg="--user-data-dir=$myProfilePath"
 
 # override runtime.sh debug log path & start fresh
-debugLogPath="$myProfilePath/_epichrome_log.txt"
-/bin/rm -f "$debugLogPath"
+logApp="$CFBundleName"
+logPath="$myProfilePath/_epichrome/log.txt"
+stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
+/bin/rm -f "$logPath"
+/bin/mkdir -p "$myProfilePath/_epichrome"
 
 # by default, use existing profile
 newprofile=
+
+
+# log config.sh info
+[[ "$debug" ]] && readconfig LOGONLY
 
 
 # IF THE ENGINE IS ALREADY RUNNING, SEND ANY FILES TO RUNNING ENGINE & QUIT
@@ -422,7 +444,7 @@ if [[ "$?" != 0 ]] ; then
 fi
 
 if [[ "$enginePID" ]] ; then
-    
+
     # engine is already running, so just send any files or URLs to it &
     # don't run the usual command-line
 
@@ -432,12 +454,12 @@ if [[ "$enginePID" ]] ; then
 	try "$SSBEngineAppPath/Contents/MacOS/$SSBGoogleChromeExec" "$myProfileArg" "${argsURIs[@]}" \
 	    'Unable to connect to running Google Chrome app engine.'
     else
-	
+
 	# Chromium engine, open by engine ID
 	try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" \
 	    'Unable to connect to app engine.'
     fi
-    
+
     # we're done, so exit
     [[ "$ok" ]] && exit 0
     exit 1
@@ -471,7 +493,7 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
     authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiVersion)." \
 		 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
-	
+
 	# Ask about updating (unless we asked with the authentication dialog)
 	if [[ "$isAdmin" != epichromeupdate ]] ; then
 	    dialog doUpdate \
@@ -490,19 +512,19 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 	else
 	    doUpdate="Update"
 	fi
-	
+
 	if [[ "$ok" ]] ; then
-	    
+
 	    # act based on dialog
 	    case "$doUpdate" in
 		Update)
-		    
+
 		    # read in the new runtime
 		    safesource "$epiContents/Resources/Runtime/Resources/Scripts/runtime.sh" "updated runtime script"
-		    
+
 		    # use new runtime to update the SSB (and relaunch)
 		    updateapp "$myPath"
-		    
+
 		    # relaunch after a delay
 		    if [[ "$ok" ]] ; then
 			relaunch "$myPath" 1 &
@@ -510,19 +532,19 @@ if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
 			exit 0
 		    fi
 		    ;;
-		
+
 		Later)
 		    # don't update
 		    doUpdate=
 		    ;;
-		
+
 		*)
 		    # pretend we're already at the new version
 		    SSBVersion="$epiVersion"
 		    ;;
 	    esac
 	fi
-	
+
 	# alert the user to any error, but don't abort
 	if [[ ! "$ok" ]] ; then
 	    alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
@@ -537,13 +559,13 @@ fi
 
 try 'curDate=' /bin/date '+%s' 'Unable to get date for Epichrome update check.'
 if [[ "$ok" ]] ; then
-    
+
     # check for updates if we've never run a check, or if the next check date is in the past
     if [[ ( ! "$SSBUpdateCheckDate" ) || ( "$SSBUpdateCheckDate" -lt "$curDate" ) ]] ; then
 
 	# set next update for 7 days from now
 	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
-	
+
 	# if we haven't set a version to check against, use the current version
 	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiVersion"
 
@@ -571,16 +593,16 @@ if [[ "$ok" ]] ; then
 		   "+Download" \
 		   "-Later" \
 		   "Ignore This Version"
-		
+
 		# act based on dialog
 		if [[ "$ok" ]] ; then
-		    
+
 		    case "$doEpichromeUpdate" in
 			Download)
 			    # open the update URL
 			    open "${updateResult[1]}"
 			    ;;
-			
+
 			Later)
 			    # do nothing
 			    doEpichromeUpdate=
@@ -591,13 +613,13 @@ if [[ "$ok" ]] ; then
 			    ;;
 		    esac
 		fi
-		
+
 		# alert the user to any error, but don't abort
 		if [[ ! "$ok" ]] ; then
 		    alert "Warning: $errmsg" 'Checking For Update' '|caution'
 		    ok=1
 		fi
-		
+
 		IFS="$oldifs"
 	    fi
 	fi
@@ -608,21 +630,21 @@ fi
 # IF USING GOOGLE CHROME ENGINE, CHECK FOR NEW VERSION AND UPDATE
 
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-    
+
     if [[ "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ]] ; then
-	
+
 	# authenticate
 	authenticate chromeupdate "A new version of Google Chrome was found ($SSBGoogleChromeVersion)." \
 		     'update' nonfatal
 	if [[ "$?" = 0 ]] ; then
-	    
+
 	    # create a new engine payload from the new version
 	    createenginepayload "$myContents"
 	else
 	    ok=
 	    errmsg="Permission denied."
 	fi
-	
+
 	# failure is non-fatal
 	if [[ ! "$ok" ]] ; then
 	    abort "Unable to update app to new version of Google Chrome. ($errmsg)" 1
@@ -676,7 +698,7 @@ else
 	if [[ "$payloadManifest" != "$engineManifest" ]] ; then
 	    debuglog "App payload doesn't match engine source payload."
 	    newPayload=1
-	fi	
+	fi
     fi
 fi
 
@@ -710,34 +732,34 @@ try /bin/mv "$myPayloadPath" "$SSBEngineAppPath" 'Unable to create app engine fr
 [[ "$ok" ]] || abort "$errmsg" 1
 
 if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
-    
+
     # EPICHROME CHROMIUM ENGINE
 
     # link to everything except Resources directory
     dirlist "$epiEngineRuntime" curdir 'Epichrome app engine' '^Resources$'
     linktree "$epiEngineRuntime" "$myEngineAppContents" \
 	     'Epichrome app engine' "${curdir[@]}"
-    
+
     # link to everything in Resources
     linktree "$epiEngineRuntime/Resources" "$myEngineAppContents/Resources" \
 	     'Epichrome app engine Resources'
 else
     # GOOGLE CHROME ENGINE
-    
+
     # link to everything except Resources & MacOS directories
     dirlist "$googleChromeContents" curdir \
 	    'Google Chrome app engine' '^((Resources)|(MacOS))$'
     linktree "$googleChromeContents" "$myEngineAppContents" \
 	     'Google Chrome app engine' "${curdir[@]}"
-    
+
     # link to everything in Resources except .lproj & .icns
     dirlist "$googleChromeContents/Resources" curdir \
 	    'Google Chrome app engine Resources' '\.((icns)|(lproj))$'
     linktree "$googleChromeContents/Resources" "$myEngineAppContents/Resources" \
 	     'Google Chrome app engine Resources' \
-	     "${curdir[@]}"    
+	     "${curdir[@]}"
 fi
-    
+
 # abort on error
 [[ "$ok" ]] || abort "$errmsg" 1
 
@@ -747,19 +769,19 @@ fi
 if [[ "$SSBFirstRunSinceVersion" ]]; then
 
     # UPDATE PROFILE PATH
-    
+
     # check if we're migrating profile paths
     if [[ "$(isarray SSBProfilePath)" ]] ; then
-	
+
 	# get old path info
 	oldProfilePath="${SSBProfilePath[1]}"
-	
+
 	# get absolute path if necessary
 	[[ "${oldProfilePath:0:1}" = "/" ]] || oldProfilePath="${HOME}/$oldProfilePath"
 
 	# get the base directory
 	oldProfileBase="${oldProfilePath%/*}"
-	
+
 	# if there's a profile in the old location, try to move it
 	if [[ -d "$oldProfilePath" ]] ; then
 	    if [[ -e "$myProfilePath" && ! -d "$myProfilePath" ]]; then
@@ -767,9 +789,9 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 		try rm -f "$myProfilePath" 'Unable to clean up new profile location.'
 		[[ "$ok" ]] || abort "Can't create profile folder. $errmsg" 1
 	    fi
-	    
+
 	    if [[ ! -d "$myProfilePath" ]]; then
-		
+
 		# old profile exists, new one doesn't, so create it
 		newprofile=1
 		try 'profileBase=' dirname "$myProfilePath" \
@@ -788,11 +810,11 @@ if [[ "$SSBFirstRunSinceVersion" ]]; then
 		alert 'Warning: Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' '|caution'
 	    fi
 	fi
-	
+
 	# if we've emptied out the old profile base folder, get rid of it (not important, so fail silently)
 	rm -f "${oldProfileBase}/.DS_Store" > /dev/null 2>&1
 	foob="$(rmdir "$oldProfileBase"  2>&1)"
-	
+
 	# update profile path to be a single entry now that we're done migrating
 	tempProfilePath="${SSBProfilePath[0]}"
 	unset SSBProfilePath
@@ -820,54 +842,54 @@ firstrunfile="${myProfilePath}/First Run"
 
 extDoCopy=
 if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
-    
+
     # set up useful variables
     extDir="External Extensions"
     extSourcePath="$myContents/Resources/$extDir"
     extDestPath="$myProfilePath/$extDir"
-    
+
     # make sure the extension install source folder exists
     if [[ ! -d "$extSourcePath" ]] ; then
 	ok=
 	errmsg='No source directory found.'
     fi
-    
+
     # get a listing of the source directory
     dirlist "$extSourcePath" extSourceList 'source directory'
-    
+
     # check if the source directory is empty
     if [[ "$ok" && ( ! "${extSourceList[*]}" ) ]]; then
 	ok=
 	errmsg='The source directory is empty.'
     fi
-    
+
     # check if the destination directory exists
     if [[ "$ok" ]] ; then
 	if [[ -e "$extDestPath" && ! -d "$extDestPath" ]]; then
 	    # found something other than a directory, get rid of it
 	    try rm -f "$extDestPath" 'Unable to clean up destination directory.'
 	fi
-	
+
 	if [[ "$ok" && ! -d "$extDestPath" ]] ; then
 	    # no destination directory
 	    extDoCopy=1
 	else
 	    # get a listing of the destination directory
 	    dirlist "$extDestPath" extDestList 'destination directory'
-	    
+
 	    # compare source and destination directories
 	    if [[ "$ok" && ( "${extSourceList[*]}" != "${extDestList[*]}" ) ]] ; then
 		extDoCopy=1
 	    fi
 	fi
     fi
-    
+
     # $$$$ REMOVE UNSUDO??
     # if for any reason we need to copy the install directory, do it now
     if [[ "$ok" && "$extDoCopy" ]] ; then
 	unsudo safecopy "$extSourcePath" "$extDestPath" 'installation directory'
     fi
-    
+
     # report error, but don't abort
     if [[ ! "$ok" ]] ; then
 	# show warning alert
@@ -875,7 +897,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
 
 	# clear extension copy state
 	extDoCopy=
-	
+
 	# clear error state
 	ok=1 ; errmsg=
     fi
@@ -885,7 +907,7 @@ fi
 # MAKE SURE NATIVE HOST IS INSTALLED
 
 if [[ ! "$SSBHostInstallError" ]]; then
-    
+
     # set up host file paths
     hostManifest=( "org.epichrome.runtime.json" "org.epichrome.helper.json" )
     hostScript="epichromeruntimehost.py"
@@ -893,10 +915,10 @@ if [[ ! "$SSBHostInstallError" ]]; then
     hostInstallPath="$myProfilePath/$hostDir"
     hostScriptInstalled="$hostInstallPath/$hostScript"
     hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
-    
+
     # check if we need to install native messaging host
     doHostInstall=
-    
+
     # do it if we just updated, or the host script or manifest don't exist
     if [[ "$SSBFirstRunSinceVersion" || \
 	      ( ! -x "$hostScriptInstalled" ) || \
@@ -910,40 +932,40 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	    hostVersion=0.0.0
 	    ok=1 ; errmsg=
 	fi
-	
+
 	# if installed host is old, we'll update it
 	[[ $(newversion "$hostVersion" "$epiVersion") ]] && doHostInstall=1
     fi
-    
+
     # make sure the manifest points to the current path of the script
     if [[ ! "$doHostInstall" ]] ; then
-	
+
 	for hmi in "${hostManifestInstalled[@]}" ; do
-	    
+
 	    # get path to script in the manifest
 	    try 'oldHostScriptInstalled=' sed -En \
 		's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
 		'Unable to get current host script path'
-	    
+
 	    # on error, or if the paths don't match, reinstall
 	    if [[ ! "$ok" || \
 		      ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
 		ok=1 ; errmsg=
 		doHostInstall=1
 	    fi
-	    
+
 	done
     fi
-    
+
     # do the installation if necessary
     if [[ "$doHostInstall" ]] ; then
-	
+
 	hostSourcePath="$myContents/Resources/$hostDir"
-	
+
 	# create the install directory
 	try unsudo /bin/mkdir -p "$hostInstallPath" \
 	    'Unable to create installation folder.'
-	
+
 	# stream-edit the host script  $$$ UNSUDO
 	hostScriptTmp=$(tempname "$hostScriptInstalled")
 	try unsudo /usr/bin/touch "${hostScriptTmp}" \
@@ -951,10 +973,10 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	try "${hostScriptTmp}<" sed \
 	    "s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/; s/APPDISPLAYNAME/$CFBundleDisplayName/; s/APPBUNDLENAME/$CFBundleName/;" \
 	    "$hostSourcePath/$hostScript" 'Unable to copy script.'
-	
+
 	# fix host script permissions
 	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
-	
+
 	# move script to permanent home
 	permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
 
@@ -965,7 +987,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 
 	index=0
 	for hmi in "${hostManifestInstalled[@]}" ; do
-	    
+
 	    # stream-edit the manifest file
 	    hostManifestTmp=$(tempname "$hmi")
 	    try unsudo /usr/bin/touch "${hostManifestTmp}" \
@@ -974,28 +996,28 @@ if [[ ! "$SSBHostInstallError" ]]; then
 		"s/APPHOSTPATH/${hostScriptInstalled//\//\\/}/" \
 		"$hostSourcePath/${hostManifest[$index]}" \
 		'Unable to copy manifest.'
-	    
+
 	    # move manifest to permanent home
 	    permanent "$hostManifestTmp" "$hmi" 'manifest'
-	    
+
 	    # on error, remove temporary file
 	    if [[ ! "$ok" ]] ; then
 		[[ -e "$hostManifestTmp" ]] && \
 		    rmtemp "$hostManifestTmp" 'manifest'
 	    fi
-	    
+
 	    index=$(($index + 1))
 	done
-	
+
 	# report error, but don't abort
 	if [[ ! "$ok" ]] ; then
-	    
+
 	    # set error state
 	    SSBHostInstallError=1
-	    
+
 	    # show an alert
 	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' '|caution'
-	    
+
 	    # clear error state (non-fatal)
 	    ok=1
 	    errmsg=
@@ -1018,14 +1040,14 @@ if [[ "$ok" ]] ; then
     else
 	hostDirs=( "$googleChromeHostDir" "$chromiumHostDir" )
     fi
-    
+
     # navigate to our host directory
     try '/dev/null&<' pushd "$hostInstallPath" "Unable to navigate to ${hostInstallPath}"
-    
+
     # get list of host files currently installed
-    hostFiles=( * )	
-    
-    # remove dead host links    
+    hostFiles=( * )
+
+    # remove dead host links
     for curFile in "${hostFiles[@]}" ; do
 	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
 	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
@@ -1034,14 +1056,14 @@ if [[ "$ok" ]] ; then
 
     # link to hosts from both directories
     for curHostDir in "${hostDirs[@]}" ; do
-	
+
 	if [[ -d "$curHostDir" ]] ; then
-	    
+
 	    # get a list of all hosts in this directory
 	    try '/dev/null&<' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
 	    hostFiles=( * )
 	    try '/dev/null&<' popd "Unable to navigate away from ${curHostDir}"
-	    
+
 	    # link to any hosts that are not already in our directory
 	    # or are links to a different file -- this way if a given
 	    # host is in both the Chrome & Chromium directories, whichever
@@ -1056,9 +1078,9 @@ if [[ "$ok" ]] ; then
 	    done
 	fi
     done
-    
+
     try '/dev/null&<' popd "Unable to navigate away from ${hostInstallPath}."
-    
+
     # errors here are non-fatal
     if [[ ! "$ok" ]] ; then
 	alert "Warning: ${errmsg}." 'Unable to Link to Native Messaging Hosts' '|caution'
@@ -1077,7 +1099,7 @@ if [[ "$SSBFirstRunSinceVersion" ]] ; then
 
     # authenticate (fail to run otherwise)
     authenticate firstrun '' 'run for the first time'
-    
+
     # update config file to signal no longer first run
     SSBFirstRunSinceVersion=
 fi
@@ -1120,11 +1142,11 @@ if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
     # Google Chrome engine, launch by engine app path
     try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch Google Chrome app engine.'
-    
+
 else
 
     # Chromium engine, use open to launch engine
-    
+
     try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch app engine.'
 fi
@@ -1137,15 +1159,15 @@ fi
 getenginepid "$myEngineID" "$SSBEngineAppPath"
 
 if [[ "$enginePID" ]] ; then
-    
+
     # PID found, so launch cleanup daemon
-    try /usr/bin/open "$myContents/$appCleanup" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" \
+    try /usr/bin/open "$myContents/$appCleanup" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$logPath" "$stderrTempFile" \
 	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
-    
+
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
-    
+
 else
-    
+
     # PID not found, display error message and quit
     [[ "$errmsg" ]] && errmsg="$errmsg "
     alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
