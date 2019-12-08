@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  runtime.sh: runtime utility functions for Epichrome creator & apps
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -21,12 +21,14 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# DEBUG FLAG
+# BUILD FLAGS
 
-debug=
+#debug=
+#logPreserve=
 
 
-# shell options
+# SHELL OPTIONS
+
 shopt -s nullglob
 
 
@@ -52,7 +54,14 @@ appEngineIDBase="$appIDRoot.eng"
 # Google Chrome ID
 googleChromeID='com.google.Chrome'
 
-# important paths -- relative to app Contents directory
+# path to this app  $$$ RENAME THIS
+myPath="${0%/Contents/Resources/Scripts/runtime.sh}"
+[[ "$myPath" = "$0" ]] && myPath="${0%/Contents/Resources/Runtime/Resources/Scripts/runtime.sh}"
+if [[ "$myPath" = "$0" ]] ; then
+    ok= ; errmsg='Unable to get path to parent app.'
+fi
+
+# important paths -- relative to app Contents directory   $$$ SHOULD THESE BE ABSOLUTE?
 appInfoPlist="Info.plist"
 appEngine="Resources/Engine"
 appPayload="$appEngine/Payload"
@@ -65,7 +74,7 @@ appProfileBase="Library/Application Support/Epichrome"
 
 # logging info (can be overridden by individual apps)
 logApp="Epichrome"
-logPath="$HOME/$appProfileBase/log.txt"
+logPath="$HOME/$appProfileBase/epichrome_log.txt"
 logToStderr=1
 logToFile=1
 stderrTempFile="$HOME/$appProfileBase/stderr.txt"
@@ -128,6 +137,13 @@ function debuglog {
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
+}
+
+# CLEARLOG: delete old log file
+function clearlog {
+
+    # if we're not saving logs & the logfile exists, delete it & ignore failure
+    [[ ( ! "$logPreserve" ) && ( -f "$logPath" ) ]] && /bin/rm -f "$logPath"
 }
 
 
@@ -359,27 +375,30 @@ function isarray {
 
 
 # SAFESOURCE -- safely source a script
-function safesource {
+function safesource { # SCRIPT FILEINFO
     
     # only run if no error
     if [[ "$ok" ]]; then
 	
-	local fileinfo=
+	# get command-line args
+	local args=( "$@" )
 	
-	# get file info string
-	if [ "$2" ] ; then
-	    fileinfo="$2"
-	else	
-	    [[ "$fileinfo" =~ /([^/]+)$ ]] && fileinfo="${BASH_REMATCH[1]}"
+	# get file info string & make try error string
+	if [[ "$#" -lt 2 ]] ; then
+	    local fileinfo=
+	    if [[ "$1" =~ /([^/]+)$ ]] ; then
+		fileinfo="${BASH_REMATCH[1]}"
+	    else
+		fileinfo='empty path'
+	    fi
+	    args+=( "$fileinfo" )
+	elif [[ ! "${args[$(( ${#args[@]} - 1 ))]}" ]] ; then
+	    args[$(( ${#args[@]} - 1))]='empty path'
 	fi
-
+	args[$(( ${#args[@]} - 1))]="Unable to load ${args[$(( ${#args[@]} - 1 ))]}."
+	
 	# try to source the file
-	if [ -e "$1" ] ; then
-	    try source "$1" "Unable to load $fileinfo."
-	else
-	    errmsg="Unable to find $fileinfo."
-	    ok=
-	fi
+	try source "${args[@]}"
     fi
     
     [[ "$ok" ]] && return 0
@@ -917,27 +936,46 @@ function filterlproj {  # BASE-PATH SEARCH-NAME MESSAGE-INFO
 
 
 # EPICHROMEINFO: get absolute path and version info for Epichrome
-function epichromeinfo { # (optional)EPICHROME-PATH
-    #                         sets the following globals:
-    #                             epiPath, epiVersion,
-    #                             epiContents,
-    #                             epiEngine, epiEngineRuntime, epiPayload
+e_version=0 ; e_path=1 ; e_contents=2 ; e_engineRuntime=3 ; e_enginePayload=4
+function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
+    #                         if RESULT-VAR & EPICHROME-PATH are set, populates ARRAY-VAR
+    #                         otherwise, populates the following globals:
+    #                             epiCurrent, epiLatest
+    #                               each is an array with the following elements:
+    #                                e_version, e_path, e_contents,
+    #                                e_engineRuntime, e_enginePayload
     
     if [[ "$ok" ]]; then
 	
-	# default value
-	epiVersion="$SSBVersion"
-	epiPath=
-		
-	# if a path is specified, only use that path
-	if [[ "$1" ]] ; then
-	    epiPath=( "$1" )
+	# arguments
+	local resultVar="$1" ; shift
+	local epiPath="$1" ; shift
+
+	# get the instances of Epichrome we're interested in
+	local instances=
+	if [[ "$resultVar" && "$epiPath" ]] ; then
+	    
+	    # we're only getting info on one specific instance of Epichrome
+	    instances=( "$epiPath" )
+	    
+	elif [[ ! "$epiPath" ]] ; then
+
+	    ok= ; errmsg="Bad arguments to epichromeinfo."
+	    return 1
 	else
+
+	    # search the system for all instances
+	    
+	    # clear arguments
+	    resultVar= ; epiPath=
+	    
+	    # default return values
+	    epiCurrent= ; epiLatest=
 	    
 	    # use spotlight to find Epichrome instances
-	    try 'epiPath=(n)' /usr/bin/mdfind \
-			    "kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
-			    'error'
+	    try 'instances=(n)' /usr/bin/mdfind \
+		"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
+		'error'
 	    if [[ ! "$ok" ]] ; then
 		# ignore mdfind errors
 		ok=1
@@ -945,54 +983,70 @@ function epichromeinfo { # (optional)EPICHROME-PATH
 	    fi
 	    
 	    # if spotlight fails (or is off) try hard-coded locations
-	    if [[ ! "$epiPath" ]] ; then
-		epiPath=( ~/'Applications/Epichrome.app' \
-			    '/Applications/Epichrome.app' )
+	    if [[ ! "$instances" ]] ; then
+		instances=( ~/'Applications/Epichrome.app' \
+			      '/Applications/Epichrome.app' )
 	    fi
 	fi
 	
-	# find all instances of Epichrome on the system
-	local curPath=
-	local latestPath=
-	local latestVersion=0.0.0
-	for curPath in "${epiPath[@]}" ; do
-	    if [[ -d "$curPath" ]] ; then
-		debuglog "found Epichrome instance at '$curPath'"
+	# check chosen instances of Epichrome to find the current and latest
+	# or just populate our one variable
+	local curInstance= ; local curVersion= ; curInfo=
+	for curInstance in "${instances[@]}" ; do
+	    if [[ -d "$instances" ]] ; then
 		
-		# get current value for epiVersion
-		try source "${curPath}/Contents/Resources/Scripts/version.sh" ''
-		if [[ "$ok" ]] ; then
-		    if [[ $(newversion "$latestVersion" "$epiVersion") ]] ; then
-			latestPath="$curPath"
-			latestVersion="$epiVersion"
+		# get this instance's version
+		try 'curVersion=' /usr/bin/sed -En -e 's/^epiVersion=(.*)$/\1/p' \
+		    '$curInstance/Contents/Resources/Scripts/version.sh' ''
+
+		if [[ "$ok" && $(newversion 0.0.0 "$curVersion" ) ]] ; then
+		    
+		    debuglog "found Epichrome $curVersion at '$curPath'"
+		    
+		    # get all info for this version
+		    curInfo=( "$curVersion" \
+				  "$curInstance" \
+				  "$curInstance/Contents" \
+				  "$curInstance/Contents/Resources/Engine/Runtime" \
+				  "$curInstance/Contents/Resources/Engine/Payload" )
+		    
+		    # see if this is newer than the current latest Epichrome
+		    if [[ "$resultVar" ]] ; then
+			eval "$resultVar=( \"\${curInfo[@]}\" )"
+		    else
+			if [[ ( ! "$epiLatest" ) || \
+				  $(newversion "${epiLatest[$e_version]}" "$curVersion") ]] ; then
+			    epiLatest=( "${curInfo[@]}" )
+			fi
+			
+			# if we haven't already found an instance of the current version,
+			# check that too
+			if [[ ( ! "$epiCurrent" ) && ( "$curVersion" = "$SSBVersion" ) ]] ; then
+			    epiCurrent=( "${curInfo[@]}" )
+			fi
 		    fi
+		    
 		else
-		    ok=1 ; errmsg=
+		    
+		    # failed to get version, so assume this isn't really a version of Epichrome
+		    debuglog "Epichrome not found at '$curPath'"
+		    
+		    if [[ "$resultVar" ]] ; then
+			ok= ; [[ "$errmsg" ]] && errmsg="$errmsg "
+			errmsg="${errmsg}No Epichrome version found at provided path '$curPath'."
+		    else
+			ok=1 ; errmsg=
+		    fi
 		fi
 	    fi
 	done
 	
-	if [[ "$latestPath" ]] ; then
-	    # use the latest version
-	    epiPath="$latestPath"
-	    epiVersion="$latestVersion"
-	    debuglog "latest Epichrome instance found: version $epiVersion at '$epiPath'"
-	else
-	    # not found
-	    epiPath=
-	    epiVersion="0.0.0"
-	    
-	    errmsg="Unable to find Epichrome."
-	    ok=
-	    return 1
-	fi
+	# log versions found
+	[[ "$epiCurrent" ]] && \
+	    debuglog "current Epichrome found: ${epiCurrent[$e_version]} at '${epiCurrent[$e_path]}'"
+	[[ "${epiCurrent[$e_path]}" != "${epiLatest[$e_path]}" ]] && \
+	    debuglog "latest Epichrome found: ${epiLatest[$e_version]} at '${epiLatest[$e_path]}'"
     fi
-
-    # set useful globals
-    epiContents="$epiPath/Contents"
-    epiEngine="$epiContents/Resources/Engine"
-    epiEngineRuntime="$epiContents/Resources/Engine/Runtime"
-    epiPayload="$epiContents/Resources/Engine/Payload"
     
     [[ "$ok" ]] && return 0
     return 1
@@ -1279,41 +1333,6 @@ Delete :CFBundleURLTypes"
 }
 
 
-# MAKEAPPICONS: wrapper for makeicon.sh
-function makeappicons {  # INPUT OUTPUT-DIR app|doc|both
-    if [[ "$ok" ]] ; then
-
-	# find makeicon.sh
-	local makeIconScript="$epiContents/Resources/Scripts/makeicon.sh"
-	[[ -e "$makeIconScript" ]] || abort "Unable to locate makeicon.sh." 1
-	
-	# build command-line
-	local args=
-	local docargs=(-c "$epiContents/Resources/docbg.png" 256 286 512 "$1" "$2/$CFBundleTypeIconFile")
-	case "$3" in
-	    app)
-		args=(-f "$1" "$2/$CFBundleIconFile")
-		;;
-	    doc)
-		args=(-f "${docargs[@]}")
-		;;
-	    both)
-		args=(-f -o "$2/$CFBundleIconFile" "${docargs[@]}")
-		;;
-	esac
-
-	# run script
-	try 'makeiconerr&=' "$makeIconScript" "${args[@]}" ''
-	
-	# parse errors
-	if [[ ! "$ok" ]] ; then
-	    errmsg="${makeiconerr#*Error: }"
-	    errmsg="${errmsg%.*}"
-	fi
-    fi
-}
-
-
 # CONFIGVARS: list of variables in config.sh
 appConfigVarsCommon=( SSBIdentifier \
 			  SSBCommandLine \
@@ -1343,7 +1362,7 @@ function readconfig {  # LOG-ONLY
     if [[ ! "$logOnly" ]] ; then
 
 	# read in config file
-	safesource "$myContents/$appConfigScript" "config file"
+	safesource "$myContents/$appConfigScript" 'config file'
 
 	# check for required values
 	if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
@@ -1479,30 +1498,33 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 
 
 # CHECKEPICHROMEVERSION: function that checks for a new version of Epichrome on github
-function checkepichromeversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
+function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
 
-    # URL for the latest Epichrome release
-    local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
-    
-    # call Python script to check github for the latest version
-    local latestVersion="$( "$1/$appGetVersionScript" 2> /dev/null )"
-    if [[ "$?" != 0 ]] ; then
-	ok=
-	errmsg="$latestVersion"
+    if [[ "$ok" ]] ; then
+	
+	# set current version to compare against
+	local myContents="$1" ; shift
+	local curVersion="$1" ; shift
+	
+	# URL for the latest Epichrome release
+	local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
+	
+	# call Python script to check github for the latest version
+	local latestVersion="$( "$myContents/$appGetVersionScript" 2> /dev/null )"
+	if [[ "$?" != 0 ]] ; then
+	    ok=
+	    errmsg="$latestVersion"
+	fi
+	
+	# compare versions
+	if [[ "$ok" && "$(newversion "$curVersion" "$latestVersion")" ]] ; then
+	    # output new available version number & download URL
+	    echo "$latestVersion"
+	    echo "$updateURL"
+	fi
     fi
     
-    # set current version to compare against
-    local curVersion="$epiVersion"
-    [[ "$2" ]] && curVersion="$2"
-    
-    # compare versions
-    if [[ "$ok" && "$(newversion "$curVersion" "$latestVersion")" ]] ; then
-	# output new available version number & download URL
-	echo "$latestVersion"
-	echo "$updateURL"
-    fi
-    
-    # return value tells us know if we had any errors
+    # return value tells us if we had any errors
     if [[ "$ok" ]]; then
 	return 0
     else
@@ -1511,262 +1533,109 @@ function checkepichromeversion { # CONTENTS-PATH (optional)NOMINAL-VERSION
 }
 
 
-# UPDATEAPP: function that populates an app bundle
-function updateapp {
-    
-    if [[ "$ok" ]] ; then
-	
-	# arguments
-	local appPath="$1"        # path to the app bundle
-	local customIconDir="$2"  # path to custom icon directory
-	
-	if [[ ! "$SSBEngineType" ]] ; then
-	    
-	    # No engine type in config, so we're updating from an old Google Chrome app
-
-	    # Allow the user to choose which engine to use (Chromium is the default)
-	    dialog useChromium \
-		   "SOME TEXT ABOUT CHROMIUM ENGINE." \
-		   "Choose App Engine" \
-		   "|caution" \
-		   "+Yes" \
-		   "-No"
-	    if [[ ! "$ok" ]] ; then
-		alert "CHROMIUM ENGINE TEXT but the update dialog failed. Attempting to update with Chromium engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-		doUpdate="Update"
-		ok=1
-		errmsg=
-	    fi
-	    
-	    if [[ "$useChromium" = No ]] ; then
-		SSBEngineType="Google Chrome"
-	    else
-		SSBEngineType="Chromium"
-	    fi
-	fi
-
-	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    # Google Chrome engine: make sure we've got Chrome info
-	    [[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
-	fi
-
-
-	# PERFORM UPDATE
-	
-	# put updated bundle in temporary Contents directory
-	local contentsTmp="$(tempname "$appPath/Contents")"
-	
-	# copy in the boilerplate for the app
-	try /bin/cp -a "$epiContents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
-	[[ "$ok" ]] || return 1
-	
-	# place custom icon, if any
-	
-	# check if we are copying from an old version of a custom icon
-	local remakeDocIcon=
-	if [[ ( ! "$customIconDir" ) && ( "$SSBCustomIcon" = "Yes" ) ]] ; then
-	    customIconDir="$appPath/Contents/Resources"
-	    
-	    # starting in 2.1.14 we can customize the document icon too
-	    if [[ $(newversion "$SSBVersion" "2.1.14") ]] ; then
-		remakeDocIcon=1
-	    fi
-	fi
-	
-	# if there's a custom app icon, copy it in
-	if [[ -e "$customIconDir/$CFBundleIconFile" ]] ; then
-	    # copy in custom icon
-	    safecopy "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources/$CFBundleIconFile" "custom icon"
-	fi
-	
-	# either copy or remake the doc icon
-	if [[ "$remakeDocIcon" ]] ; then
-	    # remake doc icon now that we can customize that
-	    makeappicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
-	    if [[ ! "$ok" ]] ; then
-		errmsg="Unable to update doc icon ($errmsg)."
-	    fi
-	    
-	elif [[ -e "$customIconDir/$CFBundleTypeIconFile" ]] ; then
-	    # copy in existing custom doc icon
-	    safecopy "$customIconDir/$CFBundleTypeIconFile" "${contentsTmp}/Resources/$CFBundleTypeIconFile" "custom icon"
-	fi
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # make sure we have a unique identifier for our app & engine
-	    
-	    if [[ ! "$SSBIdentifier" ]] ; then
-		
-		# no ID found
-
-		# if we're coming from an old version, try pulling from CFBundleIdentifier
-		local idre="^${appIDBase//./\\.}"		    
-		if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
-		    
-		    # pull ID from our CFBundleIdentifier
-		    SSBIdentifier="${CFBundleIdentifier##*.}"
-		else
-		    
-		    # no CFBundleIdentifier, so create a new ID
-		    
-		    # get max length for SSBIdentifier, given that CFBundleIdentifier
-		    # must be 30 characters or less (the extra 1 accounts for the .
-		    # we will need to add to the base
-		    
-		    local maxidlength=$((30 - \
-					    ((${#appIDBase} > ${#appEngineIDBase} ? \
-							    ${#appIDBase} : \
-							    ${#appEngineIDBase} ) + 1) ))
-		    
-		    # first attempt is to just use the bundle name with
-		    # illegal characters removed
-		    SSBIdentifier="${CFBundleName//[^-a-zA-Z0-9_]/}"
-		    
-		    # if trimmed away to nothing, use a default name
-		    [ ! "$SSBIdentifier" ] && SSBIdentifier="generic"
-		    
-		    # trim down to max length
-		    SSBIdentifier="${SSBIdentifier::$maxidlength}"
-		    
-		    # check for any apps that already have this ID
-		    
-		    # get a length that's the smaller of the length of the
-		    # full ID or the max allowed length - 3 to accommodate
-		    # adding random digits at the end
-		    local idbaselength="${SSBIdentifier::$(($maxidlength - 3))}"
-		    idbaselength="${#idbaselength}"
-		    
-		    # initialize status variables
-		    local appidfound=
-		    local engineidfound=
-		    local randext=
-		    
-		    # determine if Spotlight is enabled for the root volume
-		    local spotlight=$(mdutil -s / 2> /dev/null)
-		    if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
-			spotlight=1
-		    else
-			spotlight=
-		    fi
-		    
-		    # loop until we randomly hit a unique ID
-		    while [[ 1 ]] ; do
-			
-			if [[ "$spotlight" ]] ; then
-			    try 'appidfound=' mdfind \
-				"kMDItemCFBundleIdentifier == '$appIDBase.$SSBIdentifier'" \
-				'Unable to search system for app bundle identifier.'
-			    try 'engineidfound=' mdfind \
-				"kMDItemCFBundleIdentifier == '$appEngineIDBase.$SSBIdentifier'" \
-				'Unable to search system for engine bundle identifier.'
-			    
-			    # exit loop on error, or on not finding this ID
-			    [[ "$ok" && ( "$appidfound" || "$engineidfound" ) ]] || break
-			fi
-			
-			# try to create a new unique ID
-			randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-			
-			SSBIdentifier="${SSBIdentifier::$idbaselength}${randext:1:3}"
-			
-			# if we don't have spotlight we'll just use the first randomly-generated ID
-			[[ ! "$spotlight" ]] && break
-			
-		    done
-		    
-		    # if we got out of the loop, we have a unique-ish ID (or we got an error)
-		fi
-	    fi
-	fi
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # set profile path
-	    SSBProfilePath="${appProfileBase}/Apps/$SSBIdentifier"
-	    
-	    # set up first-run notification
-	    if [[ "$SSBVersion" ]] ; then
-		SSBFirstRunSinceVersion="$SSBVersion"
-	    else
-		SSBFirstRunSinceVersion="0.0.0"
-	    fi
-	    
-	    # update SSBVersion & SSBUpdateCheckVersion
-	    SSBVersion="$epiVersion"
-	    SSBUpdateCheckVersion="$epiVersion"
-	    
-	    # clear host install error state
-	    SSBHostInstallError=
-	fi
-	
-
-	# FILTER BOILERPLATE INFO.PLIST WITH APP INFO
-
-	# set up default PlistBuddy commands
-	local filterCommands="
-set :CFBundleDisplayName $CFBundleDisplayName
-set :CFBundleName $CFBundleName
-set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier"
-
-	# if not registering as browser, delete URI handlers
-	if [[ "$SSBRegisterBrowser" != "Yes" ]] ; then
-	    filterCommands="$filterCommands
-Delete :CFBundleURLTypes"
-	fi
-
-	# $$$ CLEAN THIS UP
-	# if using Google Chrome engine, do not register as a background app
-	# (to prevent losing custom icon)
-# 	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-# 	    filterCommands="$filterCommands
-# Delete :LSUIElement"
-# 	fi
-	
-	# filter boilerplate Info.plist with info for this app
-	filterplist "$contentsTmp/Info.plist.in" \
-		    "$contentsTmp/Info.plist" \
-		    "app Info.plist" \
-		    "$filterCommands"
-
-	# remove boilerplate input file
-	if [[ "$ok" ]] ; then
-	    try /bin/rm -f "$contentsTmp/Info.plist.in" \
-		'Unable to remove boilerplate Info.plist.'
-	fi
-	
-	
-	# UPDATE ENGINE PAYLOAD
-	
-	createenginepayload "$contentsTmp"
-	
-	
-	# WRITE OUT CONFIG FILE
-	
-	writeconfig "$contentsTmp" force
-
-	# $$$ REMOVE THIS WITH AUTH CODE
-	# set ownership of app bundle to this user (only necessary if running as admin)
-	setowner "$appPath" "$contentsTmp" "app bundle Contents directory"
-	
-	
-	# MOVE CONTENTS TO PERMANENT HOME
-	if [[ ! "$chromeOnly" ]] ; then
-	    if [[ "$ok" ]] ; then
-		permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
-	    else
-		# remove temp contents on error
-		rmtemp "$contentsTmp" 'Contents folder'
-	    fi
-	fi
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1    
-}
-
 
 # $$$ REMOVE THIS IN FUTURE VERSIONS
 function updatessb {
-    updateapp "$@"
+
+    if [[ "$ok" ]] ; then
+	
+	local doUpdate=
+	
+	# if we're here, we're updating from a pre-2.3.0 version, so see if we need to redisplay
+	# the update dialog, as the old dialog code has been failing in Mojave
+	
+	# set new-style log path
+	logApp="$CFBundleName"
+	logPath="$myProfilePath/_epichrome/epichrome_app_log.txt"
+	stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
+	/bin/mkdir -p "$myProfilePath/_epichrome" > /dev/null 2>&1
+	
+	# check if the old dialog code is failing
+	local asResult=
+	try 'asResult&=' /usr/bin/osascript -e \
+	    'tell application "Finder" to the name extension of ((POSIX file "'"$0"'") as alias)' \
+	    'FAILED'
+	
+	# for now, not parsing asResult, would rather risk a double dialog than none
+	if [[ ! "$ok" ]] ; then
+	    
+	    # reset command status
+	    ok=1
+	    errmsg=
+	    
+	    # get info on this version of Epichrome
+	    epichromeinfo "$mcssbPath"
+	    
+	    if [[ "$ok" ]] ; then
+
+		# our version of Epichrome
+		local epiVersion="${epiLatest[$e_version]}"
+		
+		# show the update choice dialog
+		dialog doUpdate \
+		       "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
+		       "Update" \
+		       "|caution" \
+		       "+Update" \
+		       "-Later" \
+		       "Don't Ask Again For This Version"
+		
+		if [[ ! "$ok" ]] ; then
+		    alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
+		    doUpdate="Update"
+		    ok=1
+		    errmsg=
+		fi		
+	    fi
+	fi
+	
+	if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
+
+	    # load update script
+	    safesource "$myPath/Contents/Resources/Scripts/update.sh" NORUNTIMELOAD 'update script'
+
+	    # run update
+	    updateapp "$@"
+	    
+	    # relaunch after a delay
+	    if [[ "$ok" ]] ; then
+		relaunch "$myPath" 1 &
+		disown -ar
+		exit 0
+	    fi
+	fi
+	
+    	# handle a failed update or non-update
+
+	if [[ ( ! "$ok" ) || ( "$doUpdate" != "Update" ) ]] ; then
+
+	    # if we chose not to ask again with this version, update config
+	    if [[ ( "$doUpdate" != "Update" ) && ( "$doUpdate" != "Later" ) ]] ; then
+		
+		# pretend we're already at the new version
+		SSBVersion="$epiVersion"
+		updateconfig=1
+	    fi
+	    	    
+	    # turn this option off again as it interferes with unset in old try function
+	    shopt -u nullglob
+	    
+	    # temporarily turn OK back on & reload old runtime
+	    local oldErrmsg="$errmsg" ; errmsg=
+	    local oldOK="$ok" ; ok=1
+	    safesource "$myPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
+	    [[ "$ok" ]] && ok="$oldOK"
+	    
+	    # update error message
+	    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+		errmsg="$oldErrmsg $errmsg"
+	    elif [[ "$oldErrmsg" ]] ; then
+		errmsg="$oldErrmsg"
+	    fi
+	fi
+    fi
+
+    # return value
+    [[ "$ok" ]] || return 1
+    return 0
 }

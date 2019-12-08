@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #  build.sh: Create an Epichrome application
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -22,9 +22,10 @@
 #
 
 
-# DEBUG FLAG (CAN BE OVERRIDDEN BY RUNTIME.SH)
+# BUILD FLAGS (CAN BE OVERRIDDEN BY RUNTIME.SH)
 
 debug=
+logPreserve=
 
 
 # ABORT -- exit cleanly on error
@@ -45,22 +46,14 @@ function abort {
 trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 
-# BOOTSTRAP RUNTIME SCRIPT
+# BOOTSTRAP UPDATE SCRIPT
 
-# determine location of runtime script
-myPath=$(cd "$(dirname "$0")/../../.."; pwd)
-[ $? != 0 ] && abort 'Unable to determine Epichrome path.' 1
-[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected Epichrome path: $myPath." 1
+source "${0%/*}/../Runtime/Resources/Scripts/runtime.sh"
+[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
-# load main runtime functions
-source "${myPath}/Contents/Resources/Runtime/Resources/Scripts/runtime.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
 
 # set logging parameters so all stderr output goes to log only
 logToStderr=
-
-# get important Epichrome info
-epichromeinfo "$myPath"
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
@@ -105,6 +98,9 @@ shift
 SSBCommandLine=("${@}")
 
 
+# GET INFO ON THIS INSTANCE OF EPICHROME
+
+
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 
 # create the app directory in a temporary location
@@ -112,8 +108,8 @@ appTmp=$(tempname "$appPath")
 cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
 if [[ "$?" != 0 ]] ; then
     # if we don't have permission, let the app know to try for admin privileges
-    errre='Permission denied$'
-    [[ "$cmdtext" =~ $errre ]] && abort 'PERMISSION' 2
+    errRe='Permission denied$'
+    [[ "$cmdtext" =~ $errRe ]] && abort 'PERMISSION' 2
 
     # regular error
     abort 'Unable to create temporary app bundle.' 1
@@ -143,8 +139,8 @@ if [[ "$iconSource" ]] ; then
     [[ "$ok" ]] || abort "$errmsg"
     
     # convert image into an ICNS
-    makeappicons "$iconSource" "$customIconDir" both
-
+    makeappicons "$myPath" "$iconSource" "$customIconDir" both
+    
     # handle results
     if [[ ! "$ok" ]] ; then
 	[[ "$errmsg" ]] && errmsg=" ($errmsg)"

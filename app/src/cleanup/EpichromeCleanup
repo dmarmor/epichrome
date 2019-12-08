@@ -24,11 +24,6 @@
 # 
 
 
-# DEBUG FLAG (CAN BE OVERRIDDEN BY RUNTIME.SH)
-
-debug=
-
-
 # FUNCTION DEFINITIONS
 
 # ABORT -- display an error alert and abort
@@ -57,15 +52,8 @@ fi
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-# determine location of runtime script
-myPath=$(cd "$(dirname "$0")/../.."; pwd)
-myContents="$myPath/Contents"
-[[ $? != 0 ]] && abort 'Unable to determine app path.' 1
-[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort 'Unexpected app path.'
-
-# load main runtime functions
-source "${myContents}/Resources/Scripts/runtime.sh"
-[[ $? != 0 ]] && abort 'Unable to load runtime script.' 1
+source "${0%/*}/../Resources/Scripts/runtime.sh"
+[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
 
 # COMMAND-LINE OPTIONS -- ALL ARE MANDATORY & OVERRIDE RUNTIME.SH VALUES

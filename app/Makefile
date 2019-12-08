@@ -1,6 +1,7 @@
 #
 #  Makefile: Build rules for the project.
-#  Copyright (C) 2019  David Marmor
+#
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -42,8 +43,7 @@ HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(EXTENSION_ID)\/",\\\n        "c
 HOSTMANIFEST_SED:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
 HOSTMANIFEST_SED_INTERNAL:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(EXTENSION_ID_INPLACE)\/"/'
 
-EXEC_SED_BETA:=-e 's/^debug=$$/debug=1  \# DEBUG ON FOR BETA/'
-
+EXEC_SED_BETA:=-e 's/^\#debug=$$/debug=1  \# DEBUG ON/'
 
 # app paths
 APP_CTNT:=$(APP)/Contents
@@ -71,6 +71,10 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 internal: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_INTERNAL)
 
+internal: BETA:=_beta
+
+internal: EXEC_SED_BETA:=$(EXEC_SED_BETA) -e 's/^\#logPreserve=$$/logPreserve=1        \# PRESERVE LOG FILES ACROSS RUNS/'
+
 internal: $(APP)
 
 package: $(APP)
@@ -86,6 +90,7 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_SCPT)/build.sh \
 	$(APP_SCPT)/pathinfo.sh \
 	$(APP_SCPT)/updatecheck.sh \
+	$(APP_SCPT)/update.sh \
 	$(APP_SCPT)/makeicon.sh \
 	$(APP_RNTM)/Info.plist.in \
 	$(APP_RNTM_RSRC)/script \

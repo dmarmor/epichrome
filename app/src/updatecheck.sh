@@ -1,7 +1,8 @@
 #!/bin/sh
 #
 #  updatecheck.sh: Check for updates to Epichrome
-#  Copyright (C) 2019  David Marmor
+#  
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -41,27 +42,33 @@ trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-# determine location of runtime script
-myPath=$(cd "$(dirname "$0")/../../.."; pwd)
-[ $? != 0 ] && abort 'Unable to determine Epichrome path.' 1
-[[ "$myPath" =~ \.[aA][pP][pP]$ ]] || abort "Unexpected Epichrome path: $myPath." 1
+source "${0%/*}/../Runtime/Resources/Scripts/runtime.sh"
+[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
-# load main runtime functions
-myRuntimePath="${myPath}/Contents/Resources/Runtime"
-source "${myRuntimePath}/Resources/Scripts/runtime.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load runtime script.' 1
+
+# GET INFO ON MY INSTANCE OF EPICHROME
 
 epichromeinfo "$myPath"
 
-if [[ "$2" ]] ; then
-    # compare two versions & echo the latest
-    if [[ $(newversion "$1" "$2") ]] ; then
-	echo "$2"
+
+# COMPARE VERSIONS
+
+if [[ "$ok" ]] ; then
+    if [[ "$2" ]] ; then
+	
+	# compare two versions & echo the latest
+	
+	if [[ $(newversion "$1" "$2") ]] ; then
+	    echo "$2"
+	else
+	    echo "$1"
+	fi
     else
-	echo "$1"
+
+	# compare the supplied version against the latest on GitHub
+	
+	checkepichromeversion "$myPath/Contents/Resources/Runtime" "$1"
     fi
-else
-    checkepichromeversion "$myRuntimePath" "$1"
 fi
 
 [[ "$ok" ]] || abort "$errmsg" 1
