@@ -488,7 +488,7 @@ epichromeinfo
 [[ "$ok" ]] || abort "$errmsg"
 epiVersion="${epiLatest[$e_version]}"
 
-if [[ "$(newversion "$SSBVersion" "$epiVersion")" ]] ; then
+if vcmp "$SSBVersion" '<' "$epiVersion" ; then
 
     # authenticate
     authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiVersion)." \
@@ -955,7 +955,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	fi
 
 	# if installed host is old, we'll update it
-	[[ $(newversion "$hostVersion" "$epiVersion") ]] && doHostInstall=1
+	vcmp "$hostVersion" '<' "$epiVersion" && doHostInstall=1
     fi
 
     # make sure the manifest points to the current path of the script

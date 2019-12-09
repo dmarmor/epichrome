@@ -58,7 +58,7 @@ if [[ "$ok" ]] ; then
 	
 	# compare two versions & echo the latest
 	
-	if [[ $(newversion "$1" "$2") ]] ; then
+	if vcmp "$1" '<' "$2" ; then
 	    echo "$2"
 	else
 	    echo "$1"

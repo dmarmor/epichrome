@@ -143,7 +143,7 @@ function updateapp { # ( appPath [customIconDir epiInfoPath] )
 		customIconDir="$appPath/Contents/Resources"
 		
 		# starting in 2.1.14 we can customize the document icon too
-		if [[ $(newversion "$SSBVersion" "2.1.14") ]] ; then
+		if vcmp "$SSBVersion" '<' "2.1.14" ; then
 		    remakeDocIcon=1
 		fi
 	    fi

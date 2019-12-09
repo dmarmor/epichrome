@@ -787,40 +787,59 @@ function writevars {  # $1 = destination file
 }
 
 
-# NEWVERSION (V1 V2) -- if V1 < V2, return (and echo) 1, else return 0
-function newversion {
-    local re='^([0-9]+)\.([0-9]+)\.([0-9]+)(.*)'
-    if [[ "$1" =~ $re ]] ; then
-	old=("${BASH_REMATCH[@]:1}")
-    else
-	old=( 0 0 0 '' )
-    fi
-    if [[ "$2" =~ $re ]] ; then
-	new=("${BASH_REMATCH[@]:1}")
-    else
-	new=( 0 0 0 '' )
-    fi
+# VCMP -- if V1 OP V2 is true, return 0, else return 1
+function vcmp { # ( version1 operator version2 )
 
-    local i= ; local idx=( 0 1 2 )
-    for i in "${idx[@]}" ; do
-	if [[ "${old[$i]}" -lt "${new[$i]}" ]] ; then
-	    echo "1"
-	    return 1
+    # arguments
+    local v1="$1" ; shift
+    local op="$1" ; shift
+    local v2="$1" ; shift
+
+    # turn operator into a numeric comparator
+    case "$op" in
+	'>')
+	    op='-gt'
+	    ;;
+	'<')
+	    op='-lt'
+	    ;;
+	'>=')
+	    op='-ge'
+	    ;;
+	'<=')
+	    op='-le'
+	    ;;
+	'='|'==')
+	    op='-eq'
+	    ;;
+    esac
+    
+    # munge version numbers into comparable strings
+    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$'
+    local vnums=() ; local i=0
+    local curv=
+    for curv in "$v1" "$v2" ; do
+	if [[ "$curv" =~ $vre ]] ; then
+
+	    # munge main part of version number
+	    vnums[$i]="$( printf '%d%03d%03d' ${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} )"
+	    if [[ "${BASH_REMATCH[4]}" ]] ; then
+		# beta version
+		vnums[$i]="${vnums[$i]}$( printf '%03d' ${BASH_REMATCH[5]} )"
+	    else
+		# release version
+		vnums[$i]="${vnums[$i]}999"
+	    fi
+	else
+	    # no version
+	    vnums[$1]='0'
 	fi
-	[[ "${old[$i]}" -gt "${new[$i]}" ]] && return 0
+	
+	i=$(( $i + 1 ))
     done
-    
-    # special handling for trailing text: if V1 has trailing text & V2 doesn't,
-    # V1 was pre-release & V2 is release; otherwise, if both have trailing text,
-    # just compare it
-    if [[ ( "${old[3]}" && ! "${new[3]}" ) || \
-	      ( "${old[3]}" && "${new[3]}" && ( "${old[3]}" < "${new[3]}" ) ) ]] ; then
-	echo "1"
-	return 1
-    fi 
-    
-    # if we got here, the V1 >= V2
-    return 0
+
+    # compare versions using the operator & return the result
+    eval "[[ ${vnums[0]} $op ${vnums[1]} ]]"
 }
 
 
@@ -999,7 +1018,7 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 		try 'curVersion=' /usr/bin/sed -En -e 's/^epiVersion=(.*)$/\1/p' \
 		    '$curInstance/Contents/Resources/Scripts/version.sh' ''
 
-		if [[ "$ok" && $(newversion 0.0.0 "$curVersion" ) ]] ; then
+		if ( [[ "$ok" ]] && vcmp 0.0.0 '<' "$curVersion" ) ; then
 		    
 		    debuglog "found Epichrome $curVersion at '$curPath'"
 		    
@@ -1014,8 +1033,8 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 		    if [[ "$resultVar" ]] ; then
 			eval "$resultVar=( \"\${curInfo[@]}\" )"
 		    else
-			if [[ ( ! "$epiLatest" ) || \
-				  $(newversion "${epiLatest[$e_version]}" "$curVersion") ]] ; then
+			if ( [[ ! "$epiLatest" ]] || \
+				 vcmp "${epiLatest[$e_version]}" '<' "$curVersion" ) ; then
 			    epiLatest=( "${curInfo[@]}" )
 			fi
 			
@@ -1517,7 +1536,7 @@ function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
 	fi
 	
 	# compare versions
-	if [[ "$ok" && "$(newversion "$curVersion" "$latestVersion")" ]] ; then
+	if ( [[ "$ok" ]] && vcmp "$curVersion" '<' "$latestVersion" ) ; then
 	    # output new available version number & download URL
 	    echo "$latestVersion"
 	    echo "$updateURL"
