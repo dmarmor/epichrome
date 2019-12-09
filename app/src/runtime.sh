@@ -143,7 +143,9 @@ function debuglog_raw {
 function clearlog {
 
     # if we're not saving logs & the logfile exists, delete it & ignore failure
-    [[ ( ! "$logPreserve" ) && ( -f "$logPath" ) ]] && /bin/rm -f "$logPath"
+    if  [[ ( ! "$logPreserve" ) && ( -f "$logPath" ) ]] ; then
+	/bin/rm -f "$logPath"
+    fi
 }
 
 
