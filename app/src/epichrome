@@ -31,22 +31,43 @@ logPreserve=
 # FUNCTION DEFINITIONS
 
 # ABORT -- display an error alert and abort
-function abort {
+function abort { # [myErrMsg code]
 
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
+    
     # log error message
-    errlog "Aborting: $1"
+    local myAbortLog="Aborting: $myErrMsg"
+    if [[ "$( type -t dialog )" = function ]] ; then
+	errlog "$myAbortLog"
+    else
+	echo "$myAbortLog" 1>&2
+	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
+    fi
     
     # show dialog & offer to open log
     local choice=
-    dialog choice "$1" "Unable to Run" '|stop' '+Quit' '-View Log'
-    [[ "$choice" = 'View Log' ]] && try /usr/bin/osascript -e '
+    if [[ "$( type -t dialog )" = function ]] ; then
+	dialog choice "$myErrMsg" "Unable to Run" '|stop' '+Quit' '-View Log'
+	if [[ "$choice" = 'View Log' ]] ; then
+	    
+	    # clear OK state so try works & ignore result
+	    ok=1 ; errmsg=
+	    try /usr/bin/osascript -e '
 tell application "Finder" to reveal ((POSIX file "'"$logPath"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
+	fi
+    else
+
+	# dialog function not defined (we could be pre-runtime load)
+	/usr/bin/osascript -e 'display dialog "'"$myErrMsg"'" with title "Unable to Run" with icon stop buttons {"Quit"} default button "Quit"'
+    fi
     
     # quit with error code
-    [[ "$2" ]] && exit $2
-    exit 1
+    exit "$myCode"
 }
+
 
 # UNSUDO -- run a command as the original user
 function unsudo {
@@ -266,92 +287,6 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 }
 
 
-# CLEANUP: wait for app engine to die, then clean it up
-function cleanup {  # $1 = ENGINE-PID
-
-    # wait for app to exit
-    while /bin/kill -0 "$1" 2> /dev/null ; do
-	sleep 1
-    done
-
-    # make sure we can still find engine
-    if [[ ! -d "$myEngineAppContents" ]] ; then
-	# abort -- something has gone wrong, maybe app was renamed or moved
-	echo "Cleanup error: Can't find app engine." 1>&2
-	exit 1
-    fi
-
-    # build list of runtime elements to delete
-
-    local deletelist=()
-    local curdir=
-    local i=
-
-    # all items in engine root except Contents
-    dirlist "$SSBEngineAppPath" curdir 'app engine' '^Contents$'
-    for i in "${curdir[@]}" ; do
-	deletelist+=( "$SSBEngineAppPath/$i" )
-    done
-
-    if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
-	# all items in Contents except Info.plist, MacOS & Resources
-	dirlist "$myEngineAppContents" curdir \
-		'Epichrome app engine Contents' \
-		'^((Info.plist)|(MacOS)|(Resources))$'
-    else
-	# all items in Contents except MacOS & Resources
-	dirlist "$myEngineAppContents" curdir \
-		'Google Chrome app engine Contents' \
-		'^((MacOS)|(Resources))$'
-    fi
-    for i in "${curdir[@]}" ; do
-	deletelist+=( "$myEngineAppContents/$i" )
-    done
-
-    # all items in Resources except .lproj & .icns
-    dirlist "$myEngineAppContents/Resources" curdir \
-	    'app engine Resources' '\.((icns)|(lproj))$'
-    for i in "${curdir[@]}" ; do
-	deletelist+=( "$myEngineAppContents/Resources/$i" )
-    done
-
-    # delete items
-    if [[ "${deletelist[*]}" ]] ; then
-	try /bin/rm -rf "${deletelist[@]}" \
-	    'Unable to clean up app engine.'
-    fi
-
-    # report any errors with the deletion process
-    if [[ ! "$ok" ]] ; then
-	ok=1
-	echo "Cleanup error: $errmsg" 1>&2
-    fi
-
-    # Chromium engine: rename Info.plist Info.plist.off
-    if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
-	try /bin/mv -f "$myEngineAppContents/Info.plist" \
-	    "$myEngineAppContents/Info.plist.off" \
-	    'Unable to deactivate payload Info.plist.'
-	if [[ ! "$ok" ]] ; then
-	    ok=1
-	    echo "Cleanup error: $errmsg" 1>&2
-	fi
-    fi
-
-    # rename engine back to Payload
-    try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
-	'Unable to restore Payload directory.'
-
-    # report any final error
-    if [[ ! "$ok" ]] ; then
-	echo "Cleanup error: $errmsg" 1>&2
-	exit 1
-    fi
-
-    exit 0
-}
-
-
 # MAIN BODY
 
 
@@ -391,21 +326,29 @@ done
 
 # BOOTSTRAP THIS APP'S RUNTIME SCRIPT
 
+# temporary logApp until we read config
+logApp="${0%.[aA][pP][pP]/*}"
+logApp="${logApp##*/}"
+
 source "${0%/*}/../Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
-# useful paths
-myContents="$myPath/Contents"
+# path to this app
+myPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
-# temporary logApp until we read config
-logApp="${myPath##*/}"
-logApp="${logApp%.[aA][pP][pP]}"
+# set absolute paths from hardcoded relative ones
+myContents="$myPath/Contents"
+myEnginePath="$myContents/$appEnginePath"
+myPayloadPath="$myContents/$appPayloadPath"
+myCleanupPath="$myContents/$appCleanupPath"
 
 
 # GET BASIC APP INFORMATION
 
 # load config.sh file
-readconfig
+readconfig "$myContents"
+
+[[ "$ok" ]] || abort
 
 
 # SET UP USER PROFILE PATH
@@ -420,15 +363,15 @@ logPath="$myProfilePath/_epichrome/epichrome_app_log.txt"
 stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
 /bin/mkdir -p "$myProfilePath/_epichrome"
 
-# clear the old log, unless logPreserve is set
-clearlog
+# initialize the log
+initlog
 
 # by default, use existing profile
 newprofile=
 
 
 # log config.sh info
-[[ "$debug" ]] && readconfig LOGONLY
+[[ "$debug" ]] && readconfig  # just log previously read config
 
 
 # IF THE ENGINE IS ALREADY RUNNING, SEND ANY FILES TO RUNNING ENGINE & QUIT
@@ -521,7 +464,7 @@ if vcmp "$SSBVersion" '<' "$epiVersion" ; then
 		Update)
 
 		    # read in the new runtime
-		    safesource "$epiContents/Resources/Scripts/update.sh" "update script $epiVersion"
+		    safesource "${epiLatest[$e_contents]}/Resources/Scripts/update.sh" "update script $epiVersion"
 
 		    # use new runtime to update the SSB (and relaunch)
 		    updateapp "$myPath"
@@ -586,7 +529,7 @@ if [[ "$ok" ]] ; then
 	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
 
 	# if we haven't set a version to check against, use the latest version
-	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="${epiLatest[$e_version]}"
+	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiVersion"
 
 	# check if there's a new version on Github
 	try 'updateResult=(n)' checkepichromeversion "$myContents" "$SSBUpdateCheckVersion" \
@@ -672,8 +615,8 @@ fi
 # BUILD ENGINE ON THE FLY
 
 # get important absolute paths
-myEnginePath="$myContents/$appEngine"
-myPayloadPath="$myContents/$appPayload"
+myEnginePath="$myContents/$appEnginePath"
+myPayloadPath="$myContents/$appPayloadPath"
 myPayloadContents="$myPayloadPath/Contents"
 
 # RECREATE PAYLOAD IF NECESSARY
@@ -1185,7 +1128,7 @@ if [[ "$enginePID" ]] ; then
     export debug logPreserve
     
     # PID found, so launch cleanup daemon
-    try /usr/bin/open "$myContents/$appCleanup" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$logPath" "$stderrTempFile" \
+    try /usr/bin/open "$myContents/$appCleanupPath" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$logPath" "$stderrTempFile" \
 	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
 
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'

@@ -25,14 +25,29 @@
 
 # ABORT -- exit cleanly on error
 
-function abort {
+function abort { # [myErrMsg code]
+    
+    # destroy temp app bundle
     [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
     
-    [[ "$1" ]] && echo "$1" 1>&2
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
     
-    local result="$2" ; [ "$result" ] || result=1
-    exit "$result"
+    # log error message
+    if [[ "$( type -t dialog )" = function ]] ; then
+	errlog "$myErrMsg"
+    else
+	[[ -w "$logPath" ]] && echo "updatecheck.sh: $myErrMsg" >> "$logPath"
+    fi
+
+    # print errmsg to stderr for the app to display in a dialog
+    echo "$myErrMsg" 1>&2
+    
+    # quit with error code
+    exit "$myCode"
 }
+
 
 
 # HANDLE KILL SIGNALS
@@ -42,13 +57,18 @@ trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-source "${0%/*}/../Runtime/Resources/Scripts/runtime.sh"
+logNoStderr=1
+
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
+
+myPath="${BASH_SOURCE[0]%/Contents/*}"
 
 
 # GET INFO ON MY INSTANCE OF EPICHROME
 
-epichromeinfo "$myPath"
+# myEpichrome=
+# epichromeinfo "$myPath"
 
 
 # COMPARE VERSIONS

@@ -36,7 +36,6 @@ shopt -s nullglob
 #       the "ok" global variable on error, set a message in "errmsg",
 #       and return 0 on success, non-zero on error
 
-
 # CONSTANTS
 
 # app executable name
@@ -54,29 +53,24 @@ appEngineIDBase="$appIDRoot.eng"
 # Google Chrome ID
 googleChromeID='com.google.Chrome'
 
-# path to this app  $$$ RENAME THIS
-myPath="${0%/Contents/Resources/Scripts/runtime.sh}"
-[[ "$myPath" = "$0" ]] && myPath="${0%/Contents/Resources/Runtime/Resources/Scripts/runtime.sh}"
-if [[ "$myPath" = "$0" ]] ; then
-    ok= ; errmsg='Unable to get path to parent app.'
-fi
-
-# important paths -- relative to app Contents directory   $$$ SHOULD THESE BE ABSOLUTE?
-appInfoPlist="Info.plist"
-appEngine="Resources/Engine"
-appPayload="$appEngine/Payload"
-appConfigScript="Resources/Scripts/config.sh"
-appGetVersionScript="Resources/Scripts/getversion.py"
-appCleanup="Resources/EpichromeCleanup.app"
+# important paths -- relative to app Contents directory
+appEnginePath="Resources/Engine"
+appPayloadPath="$appEnginePath/Payload"
+appConfigScriptPath="Resources/Scripts/config.sh"
+appCleanupPath="Resources/EpichromeCleanup.app"
 
 # profile base
 appProfileBase="Library/Application Support/Epichrome"
 
+# dialog icon path
+appDialogIcon="${BASH_SOURCE[0]%/Scripts/*}/app.icns"
+
 # logging info (can be overridden by individual apps)
-logApp="Epichrome"
-logPath="$HOME/$appProfileBase/epichrome_log.txt"
-logToStderr=1
-logToFile=1
+[[ "$logApp" ]] || logApp="Epichrome"
+[[ "$logPath" ]] || logPath="$HOME/$appProfileBase/epichrome_log.txt"
+#logNoStderr=  # set this in calling script to prevent logging to stderr
+#logNoFile=    # set this in calling script to prevent logging to file
+
 stderrTempFile="$HOME/$appProfileBase/stderr.txt"
 
 
@@ -121,12 +115,13 @@ function errlog {
 	errlog_raw "$prefix$@"
  }
 function errlog_raw {
-    # if we're logging to stderr, do it
-    [[ "$logToStderr" ]] && echo "$@" 1>&2
 
+    # if we're logging to stderr, do it
+    [[ "$logNoStderr" ]] ||	echo "$@" 1>&2
+    
     # if we're logging to file & either the file exists & is writeable, or
     # the file doesn't exist and its parent directory is writeable, do it
-    if [[ "$logToFile" && \
+    if [[ ( ! "$logNoFile" ) && \
 	      ( ( ( -f "$logPath" ) && ( -w "$logPath" ) ) || \
 		    ( ( ! -e "$logPath" ) && ( -w "${logPath%/*}" ) ) ) ]] ; then
 	echo "$@" >> "$logPath"
@@ -139,12 +134,16 @@ function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
 }
 
-# CLEARLOG: delete old log file
-function clearlog {
+# INITLOG: initialize log file
+function initlog {
 
-    # if we're not saving logs & the logfile exists, delete it & ignore failure
     if  [[ ( ! "$logPreserve" ) && ( -f "$logPath" ) ]] ; then
-	/bin/rm -f "$logPath"
+	# we're not saving logs & the logfile exists, so clear it, ignoring failure
+	/bin/cat /dev/null > "$logPath"
+    else
+	# make sure the log file & its path exist
+	/bin/mkdir -p "${logPath%/*}"
+	/usr/bin/touch "$logPath"
     fi
 }
 
@@ -231,9 +230,9 @@ function try {
 	unset "args[$last]"
 
 	# check stderr temp file
-	local logStderrToFile=
+	local saveStderr=
 	if [[ "$ignorestderr" ]] ; then
-	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1 && logStderrToFile=1
+	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1 && saveStderr=1
 	fi
 	
 	# run the command
@@ -244,7 +243,7 @@ function try {
 	    
 	    local temp=
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ ! "$try_stderr" ]] ; then
+		if [[ "$saveStderr" ]] ; then
 		    temp="$( "${args[@]}" 2> "$stderrTempFile" )"
 		else
 		    temp="$( "${args[@]}" )"
@@ -280,7 +279,7 @@ function try {
 	elif [[ "$type" = file_append ]] ; then
 	    # append stdout to a file
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ ! "$try_stderr" ]] ; then
+		if [[ "$saveStderr" ]] ; then
 		    "${args[@]}" >> "$target" 2> "$stderrTempFile"
 		else
 		    "${args[@]}" >> "$target"
@@ -293,7 +292,7 @@ function try {
 	elif [[ "$type" = file ]] ; then
 	    # store stdout in a file
 	    if [[ "$ignorestderr" ]] ; then
-		if [[ ! "$try_stderr" ]] ; then
+		if [[ "$saveStderr" ]] ; then
 		    "${args[@]}" > "$target" 2> "$stderrTempFile"
 		else
 		    "${args[@]}" > "$target"
@@ -305,7 +304,7 @@ function try {
 	    fi
 	else
 	    # not storing stdout, so put both stdout & stderr into stderr log
-	    if [[ ! "$try_stderr" ]] ; then
+	    if [[ "$saveStderr" ]] ; then
 		"${args[@]}" > "$stderrTempFile" 2>&1
 	    else
 		"${args[@]}" 2>&1
@@ -315,7 +314,7 @@ function try {
 	
 	# log unstored output
 	local myStderr=
-	if [[ "$logStderrToFile" ]] ; then
+	if [[ "$saveStderr" ]] ; then
 	    myStderr="$(/bin/cat "$stderrTempFile")"
 	elif [[ "$ignorestderr" ]] ; then
 	    myStderr="##error## unable to direct stderr to $stderrTempFile"
@@ -377,30 +376,47 @@ function isarray {
 
 
 # SAFESOURCE -- safely source a script
-function safesource { # SCRIPT FILEINFO
+function safesource { # SCRIPT [ARGS... FILEINFO]
     
     # only run if no error
     if [[ "$ok" ]]; then
 	
 	# get command-line args
 	local args=( "$@" )
+	local lastIndex=$(( ${#args[@]} - 1 ))
 	
 	# get file info string & make try error string
-	if [[ "$#" -lt 2 ]] ; then
-	    local fileinfo=
+	local fileinfo=
+	if [[ ( "$#" -lt 2 ) || ( ! "${args[$lastIndex]}" ) ]] ; then
+	    
+	    # no file info supplied, so autocreate it
 	    if [[ "$1" =~ /([^/]+)$ ]] ; then
 		fileinfo="${BASH_REMATCH[1]}"
 	    else
 		fileinfo='empty path'
 	    fi
 	    args+=( "$fileinfo" )
-	elif [[ ! "${args[$(( ${#args[@]} - 1 ))]}" ]] ; then
-	    args[$(( ${#args[@]} - 1))]='empty path'
+	else
+	    fileinfo="${args[$lastIndex]}"
 	fi
-	args[$(( ${#args[@]} - 1))]="Unable to load ${args[$(( ${#args[@]} - 1 ))]}."
 	
-	# try to source the file
-	try source "${args[@]}"
+	# check that the source file exists & is readable
+	local myErrPrefix="Error loading $fileinfo: "
+	local myErr=
+	local sourceFile="${args[0]}"
+	[[ ! -e "$sourceFile" ]] && myErr="${myErrPrefix}Nothing found at '$sourceFile'."
+	[[ ( ! "$myErr" ) && ( ! -f "$sourceFile" ) ]] && myErr="${myErrPrefix}'$sourceFile' is not a file."
+	[[ ( ! "$myErr" ) && ( ! -r "$sourceFile" ) ]] && myErr="${myErrPrefix}'$sourceFile' is not readable."
+
+	if [[ "$myErr" ]] ; then
+	    ok=
+	    errmsg="$myErr"
+	else
+	    
+	    # try to source the file
+	    args[$lastIndex]="Unable to load ${args[$(( ${#args[@]} - 1 ))]}."
+	    try source "${args[@]}"
+	fi
     fi
     
     [[ "$ok" ]] && return 0
@@ -582,113 +598,96 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 # DIALOG -- display a dialog and return the button pressed
 function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
 
-    if [[ "$ok" ]] ; then
+    # save ok state
+    local oldok="$ok" ; local olderrmsg="$errmsg"
+    ok=1 ; errmsg=
 
-	local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
-	local msg="${1//\"/\\\"}" ; shift
-	local title="${1//\"/\\\"}" ; shift
-	local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
-	
-	# build icon code
-	local icon="$1" ; shift
-	local icon_set=
-	local icon_code=
-	if [ "${icon::1}" = "|" ] ; then
-	    icon="${icon:1}"
-	    [[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
-	    if [[ -f "$myPath/Contents/Resources/$CFBundleIconFile" ]] ; then
-		icon_set="set myIcon to (POSIX file \"$myPath/Contents/Resources/$CFBundleIconFile\")"
-	    else
-		icon_set="set myIcon to $icon"
-	    fi
+    # arguments
+    local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
+    local msg="${1//\"/\\\"}" ; shift
+    local title="${1//\"/\\\"}" ; shift
+    local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
+    
+    # build icon code
+    local icon="$1" ; shift
+    local icon_set=
+    local icon_code=
+    if [ "${icon::1}" = "|" ] ; then
+	icon="${icon:1}"
+	[[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
+	if [[ -f "$appDialogIcon" ]] ; then
+	    icon_set="set myIcon to (POSIX file \"$appDialogIcon\")"
 	else
-	    [[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
+	    icon_set="set myIcon to $icon"
 	fi
-	[[ "$icon_set" ]] && icon_code='with icon myIcon'
+    else
+	[[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
+    fi
+    [[ "$icon_set" ]] && icon_code='with icon myIcon'
+    
+    # build button list
+    local buttonlist=
+    local button=
+    local button_default=
+    local button_cancel=
+    local try_start=
+    local try_end=
+    local numbuttons=0
+    
+    for button in "$@" ; do
+	# increment button count
+	numbuttons=$((${numbuttons} + 1))
 	
-	# build button list
-	local buttonlist=
-	local button=
-	local button_default=
-	local button_cancel=
-	local try_start=
-	local try_end=
-	local numbuttons=0
-	
-	for button in "$@" ; do
-	    # increment button count
-	    numbuttons=$((${numbuttons} + 1))
-	    
-	    # identify default and cancel buttons
-	    if [[ "${button::1}" = "+" ]] ; then
-		button="${button:1}"
-		button_default="default button \"$button\""
-	    elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
-		button="${button#-}"
-		button_cancel="cancel button \"$button\""
-		try_start="try"
-		try_end="on error number -128
+	# identify default and cancel buttons
+	if [[ "${button::1}" = "+" ]] ; then
+	    button="${button:1}"
+	    button_default="default button \"$button\""
+	elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
+	    button="${button#-}"
+	    button_cancel="cancel button \"$button\""
+	    try_start="try"
+	    try_end="on error number -128
     \"$button\"
 end try"
-	    fi
-	    
-	    # add to button list
-	    buttonlist="$buttonlist, \"$button\""
-	done
-	
-	# if no buttons specified, make one default OK button
-	if [[ "$numbuttons" -eq 0 ]]; then
-	    numbuttons=1
-	    button='OK'
-	    button_default="default button \"$button\""
-	    buttonlist=", \"$button\""
 	fi
 	
-	# close button list
-	buttonlist="{ ${buttonlist:2} }"
+	# add to button list
+	buttonlist="$buttonlist, \"$button\""
+    done
+    
+    # if no buttons specified, make one default OK button
+    if [[ "$numbuttons" -eq 0 ]]; then
+	numbuttons=1
+	button='OK'
+	button_default="default button \"$button\""
+	buttonlist=", \"$button\""
+    fi
+    
+    # close button list
+    buttonlist="{ ${buttonlist:2} }"
 
-	# run the dialog
-	
-	try "${var}=" osascript -e "$icon_set
+    # run the dialog
+    
+    try "${var}=" /usr/bin/osascript -e "$icon_set
 $try_start
     button returned of (display dialog \"$msg\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
 $try_end" 'Unable to display dialog box!'
 
-	# dialog failure -- if this is an alert, fallback to basic alert
-	if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
-	    # dialog failed, try an alert
-	    ok=1
-	    
-	    # display simple alert with fallback icon
-	    [[ "$icon" ]] && icon="with icon $icon"
-	    osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
-	    
-	    if [[ "$?" != 0 ]] ; then
-		# alert failed too!
-		echo "Unable to display alert with message: $msg" 1>&2
-		ok=
-	    fi
+    # dialog failure -- if this is an alert, fallback to basic alert
+    if [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
+	# dialog failed, try an alert
+	ok=1
+	
+	# display simple alert with fallback icon
+	[[ "$icon" ]] && icon="with icon $icon"
+	/usr/bin/osascript -e "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" > /dev/null 2>&1
+	
+	if [[ "$?" != 0 ]] ; then
+	    # alert failed too!
+	    echo "Unable to display alert with message: $msg" 1>&2
+	    ok=
 	fi
     fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-}
-
-
-# ALERT -- display a simple alert dialog box (whether ok or not)
-function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
-    local result=
-    
-    # save ok state
-    local oldok="$ok"
-    local olderrmsg="$errmsg"
-    ok=1
-    errmsg=
-
-    # show the alert
-    dialog '' "$1" "$2" "$3"
-    result="$?"
     
     # add new error message or restore old one
     if [[ "$olderrmsg" && "$errmsg" ]] ; then
@@ -699,8 +698,19 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
     
     # if ok was off or we turned it off, turn it off
     [[ "$oldok" ]] || ok="$oldok"
+
+    [[ "$ok" ]] && return 0
+    return 1
+}
+
+
+# ALERT -- display a simple alert dialog box (whether ok or not)
+function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
+    local result=
     
-    return "$result"
+    # show the alert
+    dialog '' "$1" "$2" "$3"
+    return "$?"
 }
 
 
@@ -793,10 +803,10 @@ function writevars {  # $1 = destination file
 function vcmp { # ( version1 operator version2 )
 
     # arguments
-    local v1="$1" ; shift
-    local op="$1" ; shift
-    local v2="$1" ; shift
-
+    local v1="$1" ; shift ; [[ "$v1" ]] || v1=0.0.0
+    local op="$1" ; shift ; [[ "$op" ]] || op='=='
+    local v2="$1" ; shift ; [[ "$v2" ]] || v2=0.0.0
+    
     # turn operator into a numeric comparator
     case "$op" in
 	'>')
@@ -816,7 +826,7 @@ function vcmp { # ( version1 operator version2 )
 	    ;;
     esac
     
-    # munge version numbers into comparable strings
+    # munge version numbers into comparable integers
     local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$'
     local vnums=() ; local i=0
     local curv=
@@ -824,17 +834,19 @@ function vcmp { # ( version1 operator version2 )
 	if [[ "$curv" =~ $vre ]] ; then
 
 	    # munge main part of version number
-	    vnums[$i]="$( printf '%d%03d%03d' ${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} )"
+	    vnums[$i]=$(( ( ${BASH_REMATCH[1]} * 1000000000 ) \
+			      + ( ${BASH_REMATCH[2]} * 1000000 ) \
+			      + ( ${BASH_REMATCH[3]} * 1000 ) ))
 	    if [[ "${BASH_REMATCH[4]}" ]] ; then
 		# beta version
-		vnums[$i]="${vnums[$i]}$( printf '%03d' ${BASH_REMATCH[5]} )"
+		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} ))
 	    else
 		# release version
-		vnums[$i]="${vnums[$i]}999"
+		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} + 999 ))
 	    fi
 	else
 	    # no version
-	    vnums[$1]='0'
+	    vnums[$1]=0
 	fi
 	
 	i=$(( $i + 1 ))
@@ -979,12 +991,12 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	    # we're only getting info on one specific instance of Epichrome
 	    instances=( "$epiPath" )
 	    
-	elif [[ ! "$epiPath" ]] ; then
+	elif [[ "$resultVar" && ( ! "$epiPath" ) ]] ; then
 
 	    ok= ; errmsg="Bad arguments to epichromeinfo."
 	    return 1
 	else
-
+	    
 	    # search the system for all instances
 	    
 	    # clear arguments
@@ -1004,7 +1016,7 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	    fi
 	    
 	    # if spotlight fails (or is off) try hard-coded locations
-	    if [[ ! "$instances" ]] ; then
+	    if [[ ! "${instances[*]}" ]] ; then
 		instances=( ~/'Applications/Epichrome.app' \
 			      '/Applications/Epichrome.app' )
 	    fi
@@ -1014,15 +1026,15 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	# or just populate our one variable
 	local curInstance= ; local curVersion= ; curInfo=
 	for curInstance in "${instances[@]}" ; do
-	    if [[ -d "$instances" ]] ; then
+	    if [[ -d "$curInstance" ]] ; then
 		
 		# get this instance's version
 		try 'curVersion=' /usr/bin/sed -En -e 's/^epiVersion=(.*)$/\1/p' \
-		    '$curInstance/Contents/Resources/Scripts/version.sh' ''
+		    "$curInstance/Contents/Resources/Scripts/version.sh" ''
 
 		if ( [[ "$ok" ]] && vcmp 0.0.0 '<' "$curVersion" ) ; then
 		    
-		    debuglog "found Epichrome $curVersion at '$curPath'"
+		    debuglog "found Epichrome $curVersion at '$curInstance'"
 		    
 		    # get all info for this version
 		    curInfo=( "$curVersion" \
@@ -1050,11 +1062,11 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 		else
 		    
 		    # failed to get version, so assume this isn't really a version of Epichrome
-		    debuglog "Epichrome not found at '$curPath'"
+		    debuglog "Epichrome not found at '$curInstance'"
 		    
 		    if [[ "$resultVar" ]] ; then
 			ok= ; [[ "$errmsg" ]] && errmsg="$errmsg "
-			errmsg="${errmsg}No Epichrome version found at provided path '$curPath'."
+			errmsg="${errmsg}No Epichrome version found at provided path '$curInstance'."
 		    else
 			ok=1 ; errmsg=
 		    fi
@@ -1279,13 +1291,15 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 
 # CREATEENGINEPAYLOAD: create persistent engine payload
 function createenginepayload { # $1 = Contents path
-    
-    local enginePath="$1/$appEngine"
-    local payloadContents="$1/$appPayload/Contents"
 
+    local curContents="$1" ; shift
+    
+    local curEnginePath="$curContents/$appEnginePath"
+    local curPayloadContentsPath="$curContents/$appPayloadPath/Contents"
+    
     # clear out old engine
-    if [[ -d "$enginePath" ]] ; then
-	try /bin/rm -rf "$enginePath"/* "$enginePath"/.[^.]* 'Unable to clear old engine.'
+    if [[ -d "$curEnginePath" ]] ; then
+	try /bin/rm -rf "$curEnginePath"/* "$curEnginePath"/.[^.]* 'Unable to clear old engine.'
     fi
     
     # create persistent payload
@@ -1296,16 +1310,16 @@ function createenginepayload { # $1 = Contents path
 	    # CHROMIUM PAYLOAD
 
 	    # create engine directory
-	    try /bin/mkdir -p "$enginePath" \
+	    try /bin/mkdir -p "$curEnginePath" \
 		'Unable to create app engine directory.'
 
 	    # copy payload items from Epichrome
-	    try /bin/cp -a "$epiPayload" "$enginePath" \
+	    try /bin/cp -a "$epiPayload" "$curEnginePath" \
 		'Unable to copy items to app engine payload.'
 	    
 	    # filter Info.plist with app info
-	    filterplist "$payloadContents/Info.plist.in" \
-			"$payloadContents/Info.plist.off" \
+	    filterplist "$curPayloadContentsPath/Info.plist.in" \
+			"$curPayloadContentsPath/Info.plist.off" \
 			"app engine Info.plist" \
 			"
 set :CFBundleDisplayName $CFBundleDisplayName
@@ -1315,39 +1329,39 @@ Delete :CFBundleDocumentTypes
 Delete :CFBundleURLTypes"
 
 	    if [[ "$ok" ]] ; then
-		try /bin/rm -f "$payloadContents/Info.plist.in" \
+		try /bin/rm -f "$curPayloadContentsPath/Info.plist.in" \
 		    'Unable to remove app engine Info.plist template.'
 	    fi
 	    
 	    # filter localization strings
-	    filterlproj "$payloadContents/Resources" Chromium 'app engine'
+	    filterlproj "$curPayloadContentsPath/Resources" Chromium 'app engine'
 	    
 	else
 
 	    # GOOGLE CHROME PAYLOAD
 	    
-	    try /bin/mkdir -p "$payloadContents/Resources" \
+	    try /bin/mkdir -p "$curPayloadContentsPath/Resources" \
 		'Unable to create Google Chrome app engine Resources directory.'
 	    
 	    # copy engine executable (linking causes confusion between apps & real Chrome)
-	    try /bin/cp -a "$googleChromeContents/MacOS" "$payloadContents" \
+	    try /bin/cp -a "$googleChromeContents/MacOS" "$curPayloadContentsPath" \
 		'Unable to copy Google Chrome executable to app engine payload.'
 
 	    # copy .lproj directories
-	    try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$payloadContents/Resources" \
+	    try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$curPayloadContentsPath/Resources" \
 		'Unable to copy Google Chrome localizations to app engine payload.'
 	    
 	    # filter localization files
-	    filterlproj "$payloadContents/Resources" Chrome 'Google Chrome app engine'
+	    filterlproj "$curPayloadContentsPath/Resources" Chrome 'Google Chrome app engine'
 	fi	
 	
 	# link to this app's icons
 	if [[ "$ok" ]] ; then
 	    try /bin/ln -s "../../../../$CFBundleIconFile" \
-		"$payloadContents/Resources/$chromeBundleIconFile" \
+		"$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
 		"Unable to link app engine to application icon file. '../../../../$CFBundleIconFile'"
 	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
-		"$payloadContents/Resources/$chromeBundleTypeIconFile" \
+		"$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
 		"Unable to link app engine to document icon file."
 	fi
     fi
@@ -1376,14 +1390,16 @@ appConfigVarsGoogleChrome=( SSBGoogleChromePath \
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes
-function readconfig {  # LOG-ONLY
+function readconfig {  # ( [myContents] )
+    #                    if myContents not set, then log config instead of reading
 
-    local logOnly="$1"
+    # arguments
+    local myContents="$1" ; shift
     
-    if [[ ! "$logOnly" ]] ; then
-
+    if [[ "$myContents" ]] ; then
+	
 	# read in config file
-	safesource "$myContents/$appConfigScript" 'config file'
+	safesource "$myContents/$appConfigScriptPath" 'config file'
 
 	# check for required values
 	if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
@@ -1409,7 +1425,7 @@ function readconfig {  # LOG-ONLY
 
 		# array value
 		
-		if [[ ! "$logOnly" ]] ; then
+		if [[ "$myContents" ]] ; then
 		    eval "config$varname=(\"\${$varname[@]}\")"
 		else
 		    eval "debuglog \"$varname=( \${config$varname[*]} )\""
@@ -1418,7 +1434,7 @@ function readconfig {  # LOG-ONLY
 		
 		# scalar value
 		
-		if [[ ! "$logOnly" ]] ; then
+		if [[ "$myContents" ]] ; then
 		    eval "config$varname=\"\${$varname}\""
 		else
 		    eval "debuglog \"$varname=\$config$varname\""
@@ -1503,7 +1519,7 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	# if we need to, write out the file
 	if [[ "$dowrite" ]] ; then
 	    
-	    local configScript="$destContents/$appConfigScript"
+	    local configScript="$destContents/$appConfigScriptPath"
 	    
 	    # write out the config file
 	    writevars "$configScript" "${myConfigVars[@]}"
@@ -1531,7 +1547,7 @@ function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
 	local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
 	
 	# call Python script to check github for the latest version
-	local latestVersion="$( "$myContents/$appGetVersionScript" 2> /dev/null )"
+	local latestVersion="$( "$myContents/Resources/Scripts/getversion.py" 2> /dev/null )"
 	if [[ "$?" != 0 ]] ; then
 	    ok=
 	    errmsg="$latestVersion"
@@ -1556,107 +1572,146 @@ function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
 
 
 # $$$ REMOVE THIS IN FUTURE VERSIONS
-function updatessb {
-
+function updatessb { # curAppPath
+    
     if [[ "$ok" ]] ; then
+
+	# if we're here, we're updating from a pre-2.3.0 version, so set up
+	# variables we need, then see if we need to redisplay the update dialog,
+	# as the old dialog code has been failing in Mojave
 	
-	local doUpdate=
+	# arguments
+	local curAppPath="$1"
 	
-	# if we're here, we're updating from a pre-2.3.0 version, so see if we need to redisplay
-	# the update dialog, as the old dialog code has been failing in Mojave
+	local doUpdate=Update
 	
-	# set new-style log path
+	# set up new-style logging
 	logApp="$CFBundleName"
 	logPath="$myProfilePath/_epichrome/epichrome_app_log.txt"
 	stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
-	/bin/mkdir -p "$myProfilePath/_epichrome" > /dev/null 2>&1
+	initlog
 	
-	# check if the old dialog code is failing
-	local asResult=
-	try 'asResult&=' /usr/bin/osascript -e \
-	    'tell application "Finder" to the name extension of ((POSIX file "'"$0"'") as alias)' \
-	    'FAILED'
-	
-	# for now, not parsing asResult, would rather risk a double dialog than none
-	if [[ ! "$ok" ]] ; then
-	    
-	    # reset command status
-	    ok=1
-	    errmsg=
-	    
-	    # get info on this version of Epichrome
-	    epichromeinfo "$mcssbPath"
-	    
-	    if [[ "$ok" ]] ; then
-
-		# our version of Epichrome
-		local epiVersion="${epiLatest[$e_version]}"
-		
-		# show the update choice dialog
-		dialog doUpdate \
-		       "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
-		       "Update" \
-		       "|caution" \
-		       "+Update" \
-		       "-Later" \
-		       "Don't Ask Again For This Version"
-		
-		if [[ ! "$ok" ]] ; then
-		    alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
-		    doUpdate="Update"
-		    ok=1
-		    errmsg=
-		fi		
-	    fi
+	# get our version of Epichrome
+	local epiVersion="${epiRuntime[$e_version]}"
+	if [[ ! "$epiVersion" ]] ; then
+	    ok= ; errmsg="Unable to get Epichrome version for update."
 	fi
 	
-	if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
-
-	    # load update script
-	    safesource "$myPath/Contents/Resources/Scripts/update.sh" NORUNTIMELOAD 'update script'
-
-	    # run update
-	    updateapp "$@"
+	if [[ "$ok" ]] ; then
 	    
-	    # relaunch after a delay
-	    if [[ "$ok" ]] ; then
-		relaunch "$myPath" 1 &
-		disown -ar
-		exit 0
-	    fi
-	fi
-	
-    	# handle a failed update or non-update
+	    # check if the old dialog code is failing
+	    local asResult=
+	    try 'asResult&=' /usr/bin/osascript -e \
+		'tell application "Finder" to the name extension of ((POSIX file "'"${BASH_SOURCE[0]}"'") as alias)' \
+		'FAILED'
+	    
+	    # for now, not parsing asResult, would rather risk a double dialog than none
+	    if [[ ! "$ok" ]] ; then
 
-	if [[ ( ! "$ok" ) || ( "$doUpdate" != "Update" ) ]] ; then
-
-	    # if we chose not to ask again with this version, update config
-	    if [[ ( "$doUpdate" != "Update" ) && ( "$doUpdate" != "Later" ) ]] ; then
+		# assume nothing
+		doUpdate=
 		
-		# pretend we're already at the new version
-		SSBVersion="$epiVersion"
-		updateconfig=1
+		# reset command status
+		ok=1
+		errmsg=
+		
+		if [[ "$ok" ]] ; then
+
+		    # show the update choice dialog
+		    dialog doUpdate \
+			   "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
+			   "Update" \
+			   "|caution" \
+			   "+Update" \
+			   "-Later" \
+			   "Don't Ask Again For This Version"
+		    
+		    if [[ ! "$ok" ]] ; then
+			alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
+			doUpdate="Update"
+			ok=1
+			errmsg=
+		    fi		
+		fi
 	    fi
-	    	    
-	    # turn this option off again as it interferes with unset in old try function
-	    shopt -u nullglob
+
+	    debuglog "Got past dialog code: doUpdate=$doUpdate"
 	    
-	    # temporarily turn OK back on & reload old runtime
-	    local oldErrmsg="$errmsg" ; errmsg=
-	    local oldOK="$ok" ; ok=1
-	    safesource "$myPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
-	    [[ "$ok" ]] && ok="$oldOK"
-	    
-	    # update error message
-	    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-		errmsg="$oldErrmsg $errmsg"
-	    elif [[ "$oldErrmsg" ]] ; then
-		errmsg="$oldErrmsg"
+	    if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
+
+		# load update script
+		safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" NORUNTIMELOAD 'update script'
+
+		# run actual update
+		[[ "$ok" ]] && updateapp "$@"
+		
+		# relaunch after a delay
+		if [[ "$ok" ]] ; then
+		    relaunch "$curAppPath" 1 &
+		    disown -ar
+		    exit 0
+		fi
 	    fi
 	fi
     fi
+    
+    # handle a failed update or non-update
 
+    if [[ ( ! "$ok" ) || ( "$doUpdate" != "Update" ) ]] ; then
+
+	# if we chose not to ask again with this version, update config
+	if [[ "$doUpdate" = "Don't Ask Again For This Version" ]] ; then
+	    
+	    # pretend we're already at the new version
+	    SSBVersion="$epiVersion"
+	    updateconfig=1
+	fi
+	
+	# turn this option off again as it interferes with unset in old try function
+	shopt -u nullglob
+	
+	# temporarily turn OK back on & reload old runtime
+	local oldErrmsg="$errmsg" ; errmsg=
+	local oldOK="$ok" ; ok=1
+	safesource "$curAppPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
+	[[ "$ok" ]] && ok="$oldOK"
+	
+	# update error message
+	if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+	    errmsg="$oldErrmsg $errmsg"
+	elif [[ "$oldErrmsg" ]] ; then
+	    errmsg="$oldErrmsg"
+	fi
+    fi
+    
     # return value
     [[ "$ok" ]] || return 1
     return 0
 }
+
+
+# GET INFO ON THIS SCRIPT'S VERSION OF EPICHROME
+
+myApp="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Resources/Scripts/runtime.sh}"
+if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
+    
+    # this runtime.sh script is in Epichrome itself, not an app
+
+    if [[ "$myApp" != "${epiRuntime[$e_path]}" ]] ; then
+
+	# epiRuntime not yet set, so populate it with info on this runtime
+	# script's parent Epichrome instance
+	
+	if [[ "$myApp" = "${epiCurrent[$e_path]}" ]] ; then
+	    myApp=( "${epiCurrent[@]}" )
+	elif [[ "$myApp" = "${epiLatest[$e_path]}" ]] ; then
+	    myApp=( "${epiLatest[@]}" )
+	else
+	    epichromeinfo epiRuntime "$myApp"
+	fi
+    fi
+else
+
+    # this runtime.sh  script is in an app, so unset epiRuntime
+    epiRuntime=
+fi

@@ -48,12 +48,11 @@ trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 # BOOTSTRAP UPDATE SCRIPT
 
-source "${0%/*}/../Runtime/Resources/Scripts/runtime.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
-
-
 # set logging parameters so all stderr output goes to log only
-logToStderr=
+logNoStderr=1
+
+source "${0%/*}/update.sh"
+[[ "$?" != 0 ]] && abort 'Unable to load update script.'
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
@@ -158,7 +157,6 @@ SSBFirstRun=1
 updateapp "$appTmp" "$customIconDir"
 
 [[ "$ok" ]] || abort "$errmsg"
-
 
 # delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
 [[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1

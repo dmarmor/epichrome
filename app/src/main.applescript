@@ -198,7 +198,7 @@ set appURLs to {}
 
 -- SET UP LOG INFO AND CLEAR LOG FILE
 try
-	set logPath to do shell script "source " & runtimeScript & " && echo \"$logPath\" && clearlog"
+	set logPath to do shell script "source " & runtimeScript & " && echo \"$logPath\" && initlog"
 on error errStr number errNum
 	display dialog "Non-fatal error clearing log file: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 	set logPath to false
@@ -218,7 +218,12 @@ if updateCheckDate < curDate then
 	if updateCheckVersion is "" then
 		set updateCheckVersion to curVersion
 	else
-		set updateCheckVersion to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
+		try
+			set updateCheckVersion to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
+		on error errStr number errNum
+			display dialog "Non-fatal error getting Epichrome version info: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
+			set updateCheckVersion to curVersion
+		end try
 	end if
 	
 	-- run the actual update check script
@@ -226,7 +231,7 @@ if updateCheckDate < curDate then
 		set updateCheckResult to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion)
 	on error errStr number errNum
 		set updateCheckResult to false
-		display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+		display dialog "Non-fatal error checking new version of Epichrome: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 	end try
 	
 	-- parse update check results

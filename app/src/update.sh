@@ -24,8 +24,11 @@
 
 # BOOTSTRAP MY VERSION OF RUNTIME.SH
 
-if [[ ! "$1" ]] ; then
-    source "${0%/*}/../Runtime/Resources/Scripts/runtime.sh"
+# path to this script
+updateScriptPath="${BASH_SOURCE[0]}"
+
+if [[ ! "$1" = NORUNTIMELOAD ]] ; then
+    source "${updateScriptPath%/*}/../Runtime/Resources/Scripts/runtime.sh"
     if [[ "$?" != 0 ]] ; then
 	ok= ; errmsg='Unable to load runtime script.'
 	return
@@ -33,33 +36,28 @@ if [[ ! "$1" ]] ; then
 fi
 
 
-# GET INFO ON MY VERSION OF EPICHROME
-
-updateEpiInfo=
-epichromeinfo 'updateEpiInfo' "$0/../../.."
-
-
 # FUNCTION DEFINITIONS
 
 # MAKEAPPICONS: wrapper for makeicon.sh
-function makeappicons {  # INPUT OUTPUT-DIR app|doc|both
+function makeappicons {  # INPUT-IMAGE OUTPUT-DIR app|doc|both
     if [[ "$ok" ]] ; then
 
 	# arguments
-	local inFile="$1" ; shift
-	local outDir="$1" ; shift
+	local inImage="$1"  ; shift
+	local outDir="$1"   ; shift
 	local iconType="$1" ; shift
 	
 	# find makeicon.sh
-	local makeIconScript="$epiPath/Contents/Resources/Scripts/makeicon.sh"
+	local makeIconScript="${epiRuntime[$e_contents]}/Resources/Scripts/makeicon.sh"
 	[[ -e "$makeIconScript" ]] || abort "Unable to locate makeicon.sh."
 	
 	# build command-line
 	local args=
-	local docargs=(-c "$epiPath/Contents/Resources/docbg.png" 256 286 512 "$inFile" "$outDir/$CFBundleTypeIconFile")
+	local docargs=(-c "${epiRuntime[$e_contents]}/Resources/docbg.png" \
+			  256 286 512 "$inImage" "$outDir/$CFBundleTypeIconFile")
 	case "$iconType" in
 	    app)
-		args=(-f "$inFile" "$outDir/$CFBundleIconFile")
+		args=(-f "$inImage" "$outDir/$CFBundleIconFile")
 		;;
 	    doc)
 		args=(-f "${docargs[@]}")
@@ -82,7 +80,7 @@ function makeappicons {  # INPUT OUTPUT-DIR app|doc|both
 
 
 # UPDATEAPP: function that populates an app bundle
-function updateapp { # ( appPath [customIconDir epiInfoPath] )
+function updateapp { # ( appPath [customIconDir] )
     
     if [[ "$ok" ]] ; then
 	
@@ -130,7 +128,7 @@ function updateapp { # ( appPath [customIconDir epiInfoPath] )
 	    contentsTmp="$(tempname "$appPath/Contents")"
 	    
 	    # copy in the boilerplate for the app
-	    try /bin/cp -a "$epiContents/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
+	    try /bin/cp -a "${epiRuntime[$e_contents]}/Resources/Runtime" "$contentsTmp" 'Unable to populate app bundle.'
 	fi
 	
 	if [[ "$ok" ]] ; then
@@ -157,7 +155,7 @@ function updateapp { # ( appPath [customIconDir epiInfoPath] )
 	    # either copy or remake the doc icon
 	    if [[ "$remakeDocIcon" ]] ; then
 		# remake doc icon now that we can customize that
-		makeappicons "$epiPathXXXX" "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
+		makeappicons "$customIconDir/$CFBundleIconFile" "${contentsTmp}/Resources" doc
 		if [[ ! "$ok" ]] ; then
 		    errmsg="Unable to update doc icon ($errmsg)."
 		fi
@@ -269,8 +267,8 @@ function updateapp { # ( appPath [customIconDir epiInfoPath] )
 	    fi
 	    
 	    # update SSBVersion & SSBUpdateCheckVersion
-	    SSBVersion="$epiVersion"  # $$$$$$ FIX THIS???
-	    SSBUpdateCheckVersion="$epiVersion"
+	    SSBVersion="${epiRuntime[$e_version]}"
+	    SSBUpdateCheckVersion="$SSBVersion"
 	    
 	    # clear host install error state
 	    SSBHostInstallError=
