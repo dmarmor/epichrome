@@ -24,11 +24,8 @@
 
 # BOOTSTRAP MY VERSION OF RUNTIME.SH
 
-# path to this script
-updateScriptPath="${BASH_SOURCE[0]}"
-
 if [[ ! "$1" = NORUNTIMELOAD ]] ; then
-    source "${updateScriptPath%/*}/../Runtime/Resources/Scripts/runtime.sh"
+    source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/runtime.sh"
     if [[ "$?" != 0 ]] ; then
 	ok= ; errmsg='Unable to load runtime script.'
 	return
@@ -93,15 +90,22 @@ function updateapp { # ( appPath [customIconDir] )
 	    # No engine type in config, so we're updating from an old Google Chrome app
 
 	    # Allow the user to choose which engine to use (Chromium is the default)
+	    local useChromium=
 	    dialog useChromium \
-		   "SOME TEXT ABOUT CHROMIUM ENGINE." \
+		   "Use Chromium app engine?
+
+NOTE: If you don't know what this question means, click Yes.
+
+In almost all cases, using Chromium will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+
+The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
 		   "Choose App Engine" \
 		   "|caution" \
 		   "+Yes" \
 		   "-No"
 	    if [[ ! "$ok" ]] ; then
-		alert "CHROMIUM ENGINE TEXT but the update dialog failed. Attempting to update with Chromium engine. If this is not what you want, you must abort the app now." 'Update' 'caution'
-		doUpdate="Update"
+		alert "The app engine choice dialog failed. Attempting to update this app with a Chromium engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+		useChromium="Yes"
 		ok=1
 		errmsg=
 	    fi
@@ -113,9 +117,16 @@ function updateapp { # ( appPath [customIconDir] )
 	    fi
 	fi
 	
-	if [[ "$ok" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
-	    # Google Chrome engine: make sure we've got Chrome info
-	    [[ "$SSBGoogleChromePath" && "$SSBGoogleChromeVersion" ]] || googlechromeinfo
+	if [[ "$ok" ]] ; then
+	    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+		
+		# Google Chrome engine: make sure we've got Chrome info
+		[[ "$SSBGoogleChromePath" && "$SSBEngineVersion" ]] || googlechromeinfo
+	    else
+		
+		# Chromium engine: just set the engine version
+		SSBEngineVersion="${epiRuntime[$e_version]}"
+	    fi
 	fi
 	
 	
@@ -268,6 +279,7 @@ function updateapp { # ( appPath [customIconDir] )
 	    
 	    # update SSBVersion & SSBUpdateCheckVersion
 	    SSBVersion="${epiRuntime[$e_version]}"
+	    SSBUpdateVersion="$SSBVersion"
 	    SSBUpdateCheckVersion="$SSBVersion"
 	    
 	    # clear host install error state
@@ -305,7 +317,7 @@ Delete :CFBundleURLTypes"
 	    
 	    # UPDATE ENGINE PAYLOAD
 	    
-	    createenginepayload "$contentsTmp"
+	    createenginepayload "$contentsTmp" "${epiRuntime[$e_enginePayload]}"
 	    
 	    
 	    # WRITE OUT CONFIG FILE

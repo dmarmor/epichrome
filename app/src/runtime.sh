@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 #  runtime.sh: runtime utility functions for Epichrome creator & apps
+#
 #  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
@@ -159,7 +160,8 @@ function initlog {
 #        try 'filename.txt<<' cmd args ... 'Error message.'  [append file]
 #            for any of the above put & before the specifier to
 #            also capture stderr
-#        try cmd args ... 'Error message.'
+#        try cmd args ... 'Error message.'  [log stdout/stderr together]
+#        try '![1|2|12]' cmd args ... 'Error message.' [don't log stdout/stderr or both]
 #
 # get first line of a variable: "${x%%$'\n'*}"
 #
@@ -174,8 +176,9 @@ function try {
 	local target="$1"
 	local type=
 	local ifscode=
-	local ignorestderr=1
-
+	local storeStderr=
+	local dropStdout= ; local dropStderr=
+	
 	# figure out which type of storage to do
 	if [[ "$target" =~ (\+?)=$ ]]; then
 	    # storing in a variable as a string
@@ -200,8 +203,27 @@ function try {
 	    target="${target::${#target}-1}"
 	    type=file
 	    shift
+	elif [[ ( "${target::1}" = '!' ) && \
+		    "${target:1:${#target}-1}" =~ ^(1|2|12|21)$ ]] ; then
+	    	    
+	    target=
+	    shift
+	    
+	    # not storing, and dropping stdout or stderr or both
+	    case "${BASH_REMATCH[0]}" in
+		1)
+		    dropStdout=1
+		    ;;
+		2)
+		    dropStderr=1
+		    ;;
+		12|21)
+		    dropStdout=1
+		    dropStderr=1
+		    ;;
+	    esac
 	else
-	    # not storing
+	    # not storing, logging both stdout & stderr
 	    target=
 	fi
 
@@ -218,7 +240,7 @@ function try {
 	if [[ "$type" && ( "${target:${#target}-1}" = '&' ) ]] ; then
 	    # keep stderr
 	    target="${target::${#target}-1}"
-	    ignorestderr=
+	    storeStderr=1
 	fi
 	
 	# get command-line args
@@ -228,11 +250,17 @@ function try {
 	local last=$((${#args[@]} - 1))
 	local myerrmsg="${args[$last]}"
 	unset "args[$last]"
-
-	# check stderr temp file
-	local saveStderr=
-	if [[ "$ignorestderr" ]] ; then
-	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1 && saveStderr=1
+	
+	# check stderr temp file if we might be writing to it
+	if [[ ! ( ( "$storeStderr" || "$dropStderr" ) && \
+		      ( "$type" || "$dropStdout" ) ) ]] ; then
+	    
+	    # unable to write to stderr temp file, so disable it for this run
+	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1
+	    if [[ $? != 0 ]] ; then
+		local realStderrTempFile="$stderrTempFile"
+		local stderrTempFile='/dev/null'
+	    fi
 	fi
 	
 	# run the command
@@ -242,8 +270,8 @@ function try {
 	    # store output as string initially
 	    
 	    local temp=
-	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$saveStderr" ]] ; then
+	    if [[ ! "$storeStderr" ]] ; then
+		if [[ ! "$dropStderr" ]] ; then
 		    temp="$( "${args[@]}" 2> "$stderrTempFile" )"
 		else
 		    temp="$( "${args[@]}" )"
@@ -278,8 +306,8 @@ function try {
 	    
 	elif [[ "$type" = file_append ]] ; then
 	    # append stdout to a file
-	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$saveStderr" ]] ; then
+	    if [[ ! "$storeStderr" ]] ; then
+		if [[ ! "$dropStderr" ]] ; then
 		    "${args[@]}" >> "$target" 2> "$stderrTempFile"
 		else
 		    "${args[@]}" >> "$target"
@@ -291,8 +319,8 @@ function try {
 	    fi
 	elif [[ "$type" = file ]] ; then
 	    # store stdout in a file
-	    if [[ "$ignorestderr" ]] ; then
-		if [[ "$saveStderr" ]] ; then
+	    if [[ ! "$storeStderr" ]] ; then
+		if [[ ! "$dropStderr" ]] ; then
 		    "${args[@]}" > "$target" 2> "$stderrTempFile"
 		else
 		    "${args[@]}" > "$target"
@@ -303,21 +331,38 @@ function try {
 		result="$?"
 	    fi
 	else
-	    # not storing stdout, so put both stdout & stderr into stderr log
-	    if [[ "$saveStderr" ]] ; then
+	    # not storing, so put both stdout & stderr into stderr log
+	    # unless we're dropping either or both
+	    if [[ ( ! "$dropStdout" ) && ( ! "$dropStderr" ) ]] ; then
+		
+		# log both stdout & stderr
 		"${args[@]}" > "$stderrTempFile" 2>&1
+		
+	    elif [[ ! "$dropStdout" ]] ; then
+		
+		# log stdout & drop stderr
+		"${args[@]}" > "$stderrTempFile" 2> /dev/null
+		
+	    elif [[ ! "$dropStderr" ]] ; then
+
+		# log stderr & drop stdout
+		"${args[@]}" > /dev/null 2> "$stderrTempFile"
+
 	    else
-		"${args[@]}" 2>&1
+
+		# drop both stdout & stderr
+		"${args[@]}" > /dev/null 2>&1
+		
 	    fi
 	    result="$?"
 	fi
 	
 	# log unstored output
 	local myStderr=
-	if [[ "$saveStderr" ]] ; then
+	if [[ "$stderrTempFile" = '/dev/null' ]] ; then
+	    myStderr="##error## unable to direct stderr to $realStderrTempFile"
+	elif [[ ! ( "$dropStdout" && "$dropStderr" ) ]] ; then
 	    myStderr="$(/bin/cat "$stderrTempFile")"
-	elif [[ "$ignorestderr" ]] ; then
-	    myStderr="##error## unable to direct stderr to $stderrTempFile"
 	fi
 	[[ "$myStderr" ]] && errlog "$myStderr"
 	
@@ -862,24 +907,18 @@ function filterplist {  # SRC-FILE DEST-FILE TRY-ERROR-ID PLISTBUDDY-COMMANDS
     
     if [[ "$ok" ]]; then
 	
-	# source & dest files
-	local srcFile="$1"
-	local destFile="$2"
-
-	# ID of this plist file for messaging
-	local tryErrorID="$3"
+	# arguments
+	local srcFile="$1"    ; shift
+	local destFile="$1"   ; shift
+	local tryErrorID="$1" ; shift # ID of this plist file for messaging
 	
 	# command list, appended with save & exit commands
-	local plistbuddyCommands="$4
+	local plistbuddyCommands="$1
 Save
 Exit"	
-
 	
 	# create name for temp destination file
 	local destFileTmp="$(tempname "$destFile")"
-
-	echo "copying $srcFile to $destFileTmp" 1>&2
-	echo 1>&2
 	
 	# copy source file to temp
 	try cp "$srcFile" "$destFileTmp" "Unable to create temporary $tryErrorID."
@@ -887,19 +926,14 @@ Exit"
 	if [[ "$ok" ]] ; then
 	    
 	    # use PlistBuddy to filter temp plist
-	    if [[ "$debug" ]] ; then
-		echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy "$destFileTmp" 1>&2
-	    else
-		echo "$plistbuddyCommands" | /usr/libexec/PlistBuddy "$destFileTmp" > /dev/null 2>&1
-	    fi
+	    local ignore=
+	    echo "$plistbuddyCommands" | try '!1' /usr/libexec/PlistBuddy "$destFileTmp" \
+					     "Error filtering $tryErrorID."
 	    
-	    if [[ "$?" = 0 ]] ; then
+	    if [[ "$ok" ]] ; then		
 		# move temp file to permanent location
 		permanent "$destFileTmp" "$destFile" "$tryErrorID"
 	    else
-		ok=
-		errmsg="Error filtering $tryErrorID."
-		
 		# delete the temp file
 		rmtemp "$destFileTmp" "$tryErrorID"
 	    fi
@@ -973,7 +1007,7 @@ e_version=0 ; e_path=1 ; e_contents=2 ; e_engineRuntime=3 ; e_enginePayload=4
 function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
     #                         if RESULT-VAR & EPICHROME-PATH are set, populates ARRAY-VAR
     #                         otherwise, populates the following globals:
-    #                             epiCurrent, epiLatest
+    #                             epiCompatible, epiLatest
     #                               each is an array with the following elements:
     #                                e_version, e_path, e_contents,
     #                                e_engineRuntime, e_enginePayload
@@ -1003,7 +1037,7 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	    resultVar= ; epiPath=
 	    
 	    # default return values
-	    epiCurrent= ; epiLatest=
+	    epiCompatible= ; epiLatest=
 	    
 	    # use spotlight to find Epichrome instances
 	    try 'instances=(n)' /usr/bin/mdfind \
@@ -1019,6 +1053,21 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	    if [[ ! "${instances[*]}" ]] ; then
 		instances=( ~/'Applications/Epichrome.app' \
 			      '/Applications/Epichrome.app' )
+	    fi
+	fi
+
+	# create maximum compatible version for Chromium engine
+	# NOTE: I've arbitrarily decided that versions with the same middle number
+	# are Chromium-engine compatible
+	local versionCeiling=
+	if [[ "$SSBEngineType" = 'Chromium' ]] ; then
+	    local mcv_re='^[0-9]+\.[0-9]+\.'
+
+	    if [[ "$SSBVersion" =~ $mcv_re ]] ; then
+		versionCeiling="${BASH_REMATCH[0]}999"
+	    else
+		errlog 'Unexpected version number format. Unable to create maximum compatible version.'
+		versionCeiling="$SSBVersion"
 	    fi
 	fi
 	
@@ -1052,10 +1101,14 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 			    epiLatest=( "${curInfo[@]}" )
 			fi
 			
-			# if we haven't already found an instance of the current version,
-			# check that too
-			if [[ ( ! "$epiCurrent" ) && ( "$curVersion" = "$SSBVersion" ) ]] ; then
-			    epiCurrent=( "${curInfo[@]}" )
+			if [[ "$SSBEngineType" = 'Chromium' ]] ; then
+			    # if we haven't already found an instance of a compatible version,
+			    # check that too
+			    if [[ ! "$epiCompatible" ]] || \
+				   ( vcmp "${epiCompatible[$e_version]}" '<' "$curVersion" && \
+					 vcmp "$curVersion" '<=' "$versionCeiling" ) ; then
+				epiCompatible=( "${curInfo[@]}" )
+			    fi
 			fi
 		    fi
 		    
@@ -1075,9 +1128,9 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 	done
 	
 	# log versions found
-	[[ "$epiCurrent" ]] && \
-	    debuglog "current Epichrome found: ${epiCurrent[$e_version]} at '${epiCurrent[$e_path]}'"
-	[[ "${epiCurrent[$e_path]}" != "${epiLatest[$e_path]}" ]] && \
+	[[ "$epiCompatible" ]] && \
+	    debuglog "engine-compatible Epichrome found: ${epiCompatible[$e_version]} at '${epiCompatible[$e_path]}'"
+	[[ "${epiCompatible[$e_path]}" != "${epiLatest[$e_path]}" ]] && \
 	    debuglog "latest Epichrome found: ${epiLatest[$e_version]} at '${epiLatest[$e_path]}'"
     fi
     
@@ -1088,7 +1141,7 @@ function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
 
 # GOOGLECHROMEINFO: find absolute paths to and info on relevant Google Chrome items
 #                   sets the following variables:
-#                      SSBGoogleChromePath, SSBGoogleChromeVersion, SSBGoogleChromeExec, googleChromeContents
+#                      SSBEngineVersion, SSBGoogleChromePath, SSBGoogleChromeExec, googleChromeContents
 function googlechromeinfo {  # $1 == FALLBACKLEVEL
     
     if [[ "$ok" ]]; then
@@ -1259,20 +1312,20 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# try to get it via Spotlight
 	local re='^kMDItemVersion = "(.*)"$'
-	try 'SSBGoogleChromeVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
-	if [[ "$ok" && ( "$SSBGoogleChromeVersion" =~ $re ) ]] ; then
-	    SSBGoogleChromeVersion="${BASH_REMATCH[1]}"
+	try 'SSBEngineVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
+	if [[ "$ok" && ( "$SSBEngineVersion" =~ $re ) ]] ; then
+	    SSBEngineVersion="${BASH_REMATCH[1]}"
 	else
 	    # Spotlight failed -- use version from Info.plist
 	    ok=1
 	    errmsg=
-	    SSBGoogleChromeVersion="$infoplistChromeVersion"
+	    SSBEngineVersion="$infoplistChromeVersion"
 	fi
 	
 	# check for error
-	if [[ ! "$ok" || ! "$SSBGoogleChromeVersion" ]] ; then
+	if [[ ! "$ok" || ! "$SSBEngineVersion" ]] ; then
 	    SSBGoogleChromePath=
-	    SSBGoogleChromeVersion=
+	    SSBEngineVersion=
 	    errmsg='Unable to retrieve Chrome version.'
 	    ok=
 	    return 1
@@ -1290,79 +1343,85 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 
 
 # CREATEENGINEPAYLOAD: create persistent engine payload
-function createenginepayload { # $1 = Contents path
+function createenginepayload { # ( curContents [epiPayloadPath] )
 
-    local curContents="$1" ; shift
-    
-    local curEnginePath="$curContents/$appEnginePath"
-    local curPayloadContentsPath="$curContents/$appPayloadPath/Contents"
-    
-    # clear out old engine
-    if [[ -d "$curEnginePath" ]] ; then
-	try /bin/rm -rf "$curEnginePath"/* "$curEnginePath"/.[^.]* 'Unable to clear old engine.'
-    fi
-    
-    # create persistent payload
     if [[ "$ok" ]] ; then
 	
-	if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
-
-	    # CHROMIUM PAYLOAD
-
-	    # create engine directory
-	    try /bin/mkdir -p "$curEnginePath" \
-		'Unable to create app engine directory.'
-
-	    # copy payload items from Epichrome
-	    try /bin/cp -a "$epiPayload" "$curEnginePath" \
-		'Unable to copy items to app engine payload.'
+	local curContents="$1"    ; shift
+	local epiPayloadPath="$1" ; shift  # only needed for Chromium engine
+	
+	local curEnginePath="$curContents/$appEnginePath"
+	local curPayloadContentsPath="$curContents/$appPayloadPath/Contents"
+	
+	# clear out old engine
+	if [[ -d "$curEnginePath" ]] ; then
+	    try /bin/rm -rf "$curEnginePath"/* "$curEnginePath"/.[^.]* 'Unable to clear old engine.'
+	fi
+	
+	# create persistent payload
+	if [[ "$ok" ]] ; then
 	    
-	    # filter Info.plist with app info
-	    filterplist "$curPayloadContentsPath/Info.plist.in" \
-			"$curPayloadContentsPath/Info.plist.off" \
-			"app engine Info.plist" \
-			"
+	    if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+
+		# CHROMIUM PAYLOAD
+
+		debuglog "CREATING CHROMIUM PAYLOAD"  # $$$$
+		
+		# create engine directory
+		try /bin/mkdir -p "$curEnginePath" \
+		    'Unable to create app engine directory.'
+
+		# copy payload items from Epichrome
+		try /bin/cp -a "$epiPayloadPath" "$curEnginePath" \
+		    'Unable to copy items to app engine payload.'
+		
+		# filter Info.plist with app info
+		filterplist "$curPayloadContentsPath/Info.plist.in" \
+			    "$curPayloadContentsPath/Info.plist.off" \
+			    "app engine Info.plist" \
+			    "
 set :CFBundleDisplayName $CFBundleDisplayName
 set :CFBundleName $CFBundleName
 set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
 Delete :CFBundleDocumentTypes
 Delete :CFBundleURLTypes"
 
+		if [[ "$ok" ]] ; then
+		    try /bin/rm -f "$curPayloadContentsPath/Info.plist.in" \
+			'Unable to remove app engine Info.plist template.'
+		fi
+		
+		# filter localization strings
+		filterlproj "$curPayloadContentsPath/Resources" Chromium 'app engine'
+		
+	    else
+
+		# GOOGLE CHROME PAYLOAD
+		
+		try /bin/mkdir -p "$curPayloadContentsPath/Resources" \
+		    'Unable to create Google Chrome app engine Resources directory.'
+		
+		# copy engine executable (linking causes confusion between apps & real Chrome)
+		try /bin/cp -a "$googleChromeContents/MacOS" "$curPayloadContentsPath" \
+		    'Unable to copy Google Chrome executable to app engine payload.'
+
+		# copy .lproj directories
+		try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$curPayloadContentsPath/Resources" \
+		    'Unable to copy Google Chrome localizations to app engine payload.'
+		
+		# filter localization files
+		filterlproj "$curPayloadContentsPath/Resources" Chrome 'Google Chrome app engine'
+	    fi	
+	    
+	    # link to this app's icons
 	    if [[ "$ok" ]] ; then
-		try /bin/rm -f "$curPayloadContentsPath/Info.plist.in" \
-		    'Unable to remove app engine Info.plist template.'
+		try /bin/ln -s "../../../../$CFBundleIconFile" \
+		    "$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
+		    "Unable to link app engine to application icon file."
+		try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
+		    "$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
+		    "Unable to link app engine to document icon file."
 	    fi
-	    
-	    # filter localization strings
-	    filterlproj "$curPayloadContentsPath/Resources" Chromium 'app engine'
-	    
-	else
-
-	    # GOOGLE CHROME PAYLOAD
-	    
-	    try /bin/mkdir -p "$curPayloadContentsPath/Resources" \
-		'Unable to create Google Chrome app engine Resources directory.'
-	    
-	    # copy engine executable (linking causes confusion between apps & real Chrome)
-	    try /bin/cp -a "$googleChromeContents/MacOS" "$curPayloadContentsPath" \
-		'Unable to copy Google Chrome executable to app engine payload.'
-
-	    # copy .lproj directories
-	    try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$curPayloadContentsPath/Resources" \
-		'Unable to copy Google Chrome localizations to app engine payload.'
-	    
-	    # filter localization files
-	    filterlproj "$curPayloadContentsPath/Resources" Chrome 'Google Chrome app engine'
-	fi	
-	
-	# link to this app's icons
-	if [[ "$ok" ]] ; then
-	    try /bin/ln -s "../../../../$CFBundleIconFile" \
-		"$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
-		"Unable to link app engine to application icon file. '../../../../$CFBundleIconFile'"
-	    try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
-		"$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
-		"Unable to link app engine to document icon file."
 	fi
     fi
 }
@@ -1374,9 +1433,11 @@ appConfigVarsCommon=( SSBIdentifier \
 			  CFBundleDisplayName \
 			  CFBundleName \
 			  SSBVersion \
+			  SSBUpdateVersion \
 			  SSBUpdateCheckDate \
 			  SSBUpdateCheckVersion \
 			  SSBEngineType \
+			  SSBEngineVersion \
 			  SSBEngineAppName \
 			  SSBEngineAppPath \
 			  SSBProfilePath \
@@ -1385,7 +1446,6 @@ appConfigVarsCommon=( SSBIdentifier \
 			  SSBFirstRunSinceVersion \
 			  SSBHostInstallError )
 appConfigVarsGoogleChrome=( SSBGoogleChromePath \
-				SSBGoogleChromeVersion \
 				SSBGoogleChromeExec )
 
 
@@ -1524,7 +1584,7 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	    # write out the config file
 	    writevars "$configScript" "${myConfigVars[@]}"
 	    
-	    # set ownership of config file
+	    # set ownership of config file  $$$ GET RID?
 	    setowner "$destContents/.." "$configScript" "config file"
 	fi
     fi
@@ -1702,8 +1762,8 @@ if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
 	# epiRuntime not yet set, so populate it with info on this runtime
 	# script's parent Epichrome instance
 	
-	if [[ "$myApp" = "${epiCurrent[$e_path]}" ]] ; then
-	    myApp=( "${epiCurrent[@]}" )
+	if [[ "$myApp" = "${epiCompatible[$e_path]}" ]] ; then
+	    myApp=( "${epiCompatible[@]}" )
 	elif [[ "$myApp" = "${epiLatest[$e_path]}" ]] ; then
 	    myApp=( "${epiLatest[@]}" )
 	else

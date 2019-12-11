@@ -52,7 +52,7 @@ fi
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-source "${0%/*}/../Resources/Scripts/runtime.sh"
+source "${0%/MacOS/*}/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
 

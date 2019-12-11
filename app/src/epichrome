@@ -330,7 +330,7 @@ done
 logApp="${0%.[aA][pP][pP]/*}"
 logApp="${logApp##*/}"
 
-source "${0%/*}/../Resources/Scripts/runtime.sh"
+source "${0%/*}/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
 
 # path to this app
@@ -429,26 +429,26 @@ fi
 # get info on latest Epichrome version
 epichromeinfo
 [[ "$ok" ]] || abort "$errmsg"
-epiVersion="${epiLatest[$e_version]}"
+epiLatestVersion="${epiLatest[$e_version]}"
 
-if vcmp "$SSBVersion" '<' "$epiVersion" ; then
+if vcmp "$SSBUpdateVersion" '<' "$epiLatestVersion" ; then
 
     # authenticate
-    authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiVersion)." \
+    authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiLatestVersion)." \
 		 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
 
 	# Ask about updating (unless we asked with the authentication dialog)
 	if [[ "$isAdmin" != epichromeupdate ]] ; then
 	    dialog doUpdate \
-		   "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
+		   "A new version of the Epichrome runtime was found ($epiLatestVersion). Would you like to update now?" \
 		   "Update" \
 		   "|caution" \
 		   "+Update" \
 		   "-Later" \
 		   "Don't Ask Again For This Version"
 	    if [[ ! "$ok" ]] ; then
-		alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
+		alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
 		doUpdate="Update"
 		ok=1
 		errmsg=
@@ -464,7 +464,7 @@ if vcmp "$SSBVersion" '<' "$epiVersion" ; then
 		Update)
 
 		    # read in the new runtime
-		    safesource "${epiLatest[$e_contents]}/Resources/Scripts/update.sh" "update script $epiVersion"
+		    safesource "${epiLatest[$e_contents]}/Resources/Scripts/update.sh" "update script $epiLatestVersion"
 
 		    # use new runtime to update the SSB (and relaunch)
 		    updateapp "$myPath"
@@ -502,7 +502,7 @@ if vcmp "$SSBVersion" '<' "$epiVersion" ; then
 
 		*)
 		    # pretend we're already at the new version
-		    SSBVersion="$epiVersion"
+		    SSBUpdateVersion="$epiLatestVersion"
 		    ;;
 	    esac
 	fi
@@ -529,7 +529,7 @@ if [[ "$ok" ]] ; then
 	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
 
 	# if we haven't set a version to check against, use the latest version
-	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiVersion"
+	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiLatestVersion"
 
 	# check if there's a new version on Github
 	try 'updateResult=(n)' checkepichromeversion "$myContents" "$SSBUpdateCheckVersion" \
@@ -584,30 +584,30 @@ if [[ "$ok" ]] ; then
 fi
 
 
-# IF USING GOOGLE CHROME ENGINE, CHECK FOR NEW VERSION AND UPDATE
+# $$$$$ DELETE THIS -- IF USING GOOGLE CHROME ENGINE, CHECK FOR NEW VERSION AND UPDATE
 
-if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+# if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
-    if [[ "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ]] ; then
+#     if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
 
-	# authenticate
-	authenticate chromeupdate "A new version of Google Chrome was found ($SSBGoogleChromeVersion)." \
-		     'update' nonfatal
-	if [[ "$?" = 0 ]] ; then
+# 	# authenticate
+# 	authenticate chromeupdate "A new version of Google Chrome was found ($SSBEngineVersion)." \
+# 		     'update' nonfatal
+# 	if [[ "$?" = 0 ]] ; then
 
-	    # create a new engine payload from the new version
-	    createenginepayload "$myContents"
-	else
-	    ok=
-	    errmsg="Permission denied."
-	fi
+# 	    # create a new engine payload from the new version
+# 	    createenginepayload "$myContents"
+# 	else
+# 	    ok=
+# 	    errmsg="Permission denied."
+# 	fi
 
-	# failure is non-fatal
-	if [[ ! "$ok" ]] ; then
-	    abort "Unable to update app to new version of Google Chrome. ($errmsg)" 1
-	fi
-    fi
-fi
+# 	# failure is non-fatal
+# 	if [[ ! "$ok" ]] ; then
+# 	    abort "Unable to update app to new version of Google Chrome. ($errmsg)" 1
+# 	fi
+#     fi
+# fi
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
@@ -619,51 +619,87 @@ myEnginePath="$myContents/$appEnginePath"
 myPayloadPath="$myContents/$appPayloadPath"
 myPayloadContents="$myPayloadPath/Contents"
 
+
 # RECREATE PAYLOAD IF NECESSARY
+# (due to new Google Chrome version, new Chromium engine version, or corrupt or missing payload)
 
 # status variable to decide if we need to recreate the payload
 newPayload=
+payloadErrmsg=
 
-# no payload directory found or missing key items
-if [[ ( ! -d "$myPayloadPath" ) || ( ! -d "$myPayloadPath/Resources" ) ]] ; then
-    newPayload=1
-else
-    # check for corrupt Payload directory
+# check for new engine versions
 
-    # get manifest of current Payload directory
-    payloadManifest="$(cd "$myPayloadPath" && /usr/bin/find -L . -print | /usr/bin/sort)"
-    if [[ "$?" != 0 ]] ; then
-	debuglog "Failed to get manifest of payload directory."
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    
+    # new version of Google Chrome
+    if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
+	debuglog "Updating payload with new version of Google Chrome ($SSBEngineVersion)."
 	newPayload=1
+	payloadErrmsg="Unable to update app to new version of Google Chrome app engine."
+    fi
+else
+    
+    # new version of Epichrome with Chromium engine
+    if [[ "$SSBEngineVersion" != "${epiCompatible[$e_version]}" ]] ; then
+	debuglog "Updating payload with new version of Epichrome app engine."
+	newPayload=1
+	payloadErrmsg="Unable to update app to new version of app engine."
+	
+	SSBEngineVersion="${epiCompatible[$e_version]}"
+    fi
+fi
+
+# check for missing or corrupt payload
+
+if [[ ! "$newPayload" ]] ; then
+    
+    if [[ ( ! -d "$myPayloadPath" ) || ( ! -d "$myPayloadContents/Resources" ) ]] ; then
+	debuglog "Replacing missing app engine payload"
+	newPayload=1
+	payloadErrmsg="Unable to replace missing app engine payload."
     else
-	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    # get Google Chrome payload manifest
-	    engineManifest="$(cd "$SSBGoogleChromePath" && /usr/bin/find -L . -path '.' -print -or -path './Contents' -print -or -path './Contents/Resources' -print -or -path './Contents/Resources*' -path '*.lproj*' -not -path './Contents/*/Contents/*' -print -or -path './Contents/Resources/*.icns' -print | /usr/bin/sort)"
-	    if [[ "$?" != 0 ]] ; then
-		debuglog "Failed to get manifest of Google Chrome directory."
-		newPayload=1
-	    fi
-	else
-
-	    # #$$$$ LINKED TO epiEngineRuntime thing, need range of compatible versions!!
-	    
-	    # get Epichrome Chromium payload manifest
-	    engineManifest="$(cd "$epiPayload" && (echo './Contents/Resources/app.icns' && echo './Contents/Resources/document.icns' && /usr/bin/find -L . -print) | /usr/bin/sed -E -e 's/InfoPlist\.strings.in/InfoPlist.strings/' -e 's/Info.plist.in/Info.plist.off/' | /usr/bin/sort)"
-	    if [[ "$?" != 0 ]] ; then
-		debuglog "Failed to get manifest of Epichrome payload directory."
-		newPayload=1
-	    fi
-	fi
-
-	if [[ "$payloadManifest" != "$engineManifest" ]] ; then
-	    debuglog "App payload doesn't match engine source payload."
+	
+	# check for corrupt Payload directory
+	
+	# get manifest of current Payload directory
+	payloadManifest="$(cd "$myPayloadPath" && /usr/bin/find -L . -print | /usr/bin/sort)"
+	if [[ "$?" != 0 ]] ; then
+	    debuglog "Failed to get manifest of app engine payload."
 	    newPayload=1
+	else
+	    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+		# get Google Chrome payload manifest
+		engineManifest="$(cd "$SSBGoogleChromePath" && /usr/bin/find -L . -path '.' -print -or -path './Contents' -print -or -path './Contents/Resources' -print -or -path './Contents/Resources*' -path '*.lproj*' -not -path './Contents/*/Contents/*' -print -or -path './Contents/Resources/*.icns' -print | /usr/bin/sort)"
+		if [[ "$?" != 0 ]] ; then
+		    debuglog "Failed to get manifest of Google Chrome app engine."
+		    newPayload=1
+		fi
+	    else
+		
+		# get Epichrome Chromium payload manifest
+		engineManifest="$(cd "${epiCompatible[$e_enginePayload]}" && (echo './Contents/Resources/app.icns' && echo './Contents/Resources/document.icns' && /usr/bin/find -L . -print) | /usr/bin/sed -E -e 's/InfoPlist\.strings.in/InfoPlist.strings/' -e 's/Info.plist.in/Info.plist.off/' | /usr/bin/sort)"
+		if [[ "$?" != 0 ]] ; then
+		    debuglog "Failed to get manifest of Epichrome app engine payload."
+		    newPayload=1
+		fi
+	    fi
+	    
+	    if [[ "$payloadManifest" != "$engineManifest" ]] ; then
+		debuglog "App payload doesn't match engine source payload."
+		newPayload=1
+	    fi
 	fi
+	
+	[[ "$newPayload" ]] && payloadErrmsg="Unable to replace corrupt app engine Payload."
     fi
 fi
 
 # create a new engine payload if needed
-[[ "$newPayload" ]] && createenginepayload "$myContents"
+if [[ "$newPayload" ]] ; then
+    createenginepayload "$myContents" "${epiCompatible[$e_enginePayload]}"
+
+    [[ "$ok" ]] || abort "$payloadErrmsg ($errmsg)"
+fi
 
 
 # UPDATE ENGINE APP NAME & PATH
@@ -694,19 +730,22 @@ try /bin/mv "$myPayloadPath" "$SSBEngineAppPath" 'Unable to create app engine fr
 if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 
     # EPICHROME CHROMIUM ENGINE
-
-    if [[ ! "$epiCurrent" ]] ; then
-	### $$$$ MUST FIX THIS!!! NEED A RANGE OF COMPATIBLE VERSIONS
-	abort "Unable to find current version of Epichrome, which is needed to run with the Chromium engine."
+    
+    if [[ ! "$epiCompatible" ]] ; then
+	abort "Unable to find a version of Epichrome compatible with this app's engine."
     fi
-    # link to everything except Resources directory  $$$ REPLACE epiEngineRuntime calls
-    dirlist "$epiEngineRuntime" curdir 'Epichrome app engine' '^Resources$'
-    linktree "$epiEngineRuntime" "$myEngineAppContents" \
+    # link to everything except Resources directory
+    dirlist "${epiCompatible[e_engineRuntime]}" curdir 'Epichrome app engine' '^Resources$'
+    linktree "${epiCompatible[e_engineRuntime]}" "$myEngineAppContents" \
 	     'Epichrome app engine' "${curdir[@]}"
 
     # link to everything in Resources
-    linktree "$epiEngineRuntime/Resources" "$myEngineAppContents/Resources" \
+    linktree "${epiCompatible[e_engineRuntime]}/Resources" "$myEngineAppContents/Resources" \
 	     'Epichrome app engine Resources'
+
+    try /bin/mv -f "$myEngineAppContents/Info.plist.off" \
+	"$myEngineAppContents/Info.plist" \
+	'Unable to activate payload Info.plist.'
 else
     # GOOGLE CHROME ENGINE
 
@@ -898,7 +937,7 @@ if [[ ! "$SSBHostInstallError" ]]; then
 	fi
 
 	# if installed host is old, we'll update it
-	vcmp "$hostVersion" '<' "$epiVersion" && doHostInstall=1
+	vcmp "$hostVersion" '<' "$epiLatestVersion" && doHostInstall=1
     fi
 
     # make sure the manifest points to the current path of the script
@@ -1111,7 +1150,7 @@ else
 
     # Chromium engine, use open to launch engine
 
-    try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+    try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch app engine.'
 fi
 

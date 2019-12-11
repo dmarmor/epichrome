@@ -73,7 +73,7 @@ internal: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_INTERNAL)
 
 internal: BETA:=_beta
 
-internal: EXEC_SED_BETA:=$(EXEC_SED_BETA) -e 's/^\#logPreserve=$$/logPreserve=1        \# PRESERVE LOG FILES ACROSS RUNS/'
+#internal: EXEC_SED_BETA:=$(EXEC_SED_BETA) -e 's/^\#logPreserve=$$/logPreserve=1        \# PRESERVE LOG FILES ACROSS RUNS/'
 
 internal: $(APP)
 
