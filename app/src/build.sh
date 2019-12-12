@@ -153,7 +153,7 @@ if [[ "$iconSource" ]] ; then
     [[ "$ok" ]] || abort "$errmsg"
     
     # convert image into an ICNS
-    makeappicons "$myPath" "$iconSource" "$customIconDir" both
+    makeappicons "$iconSource" "$customIconDir" both
     
     # handle results
     if [[ ! "$ok" ]] ; then

@@ -36,7 +36,7 @@ fi
 # FUNCTION DEFINITIONS
 
 # MAKEAPPICONS: wrapper for makeicon.sh
-function makeappicons {  # INPUT-IMAGE OUTPUT-DIR app|doc|both
+function makeappicons {  # ( inImage, outDir, iconType:app|doc|both )
     if [[ "$ok" ]] ; then
 
 	# arguments
@@ -47,6 +47,7 @@ function makeappicons {  # INPUT-IMAGE OUTPUT-DIR app|doc|both
 	# find makeicon.sh
 	local makeIconScript="${epiRuntime[$e_contents]}/Resources/Scripts/makeicon.sh"
 	[[ -e "$makeIconScript" ]] || abort "Unable to locate makeicon.sh."
+	[[ -x "$makeIconScript" ]] || abort "Unable to run makeicon.sh."
 	
 	# build command-line
 	local args=
@@ -267,8 +268,8 @@ The only reason to click No is if your app must run on a signed browser (mainly 
 	
 	if [[ "$ok" ]] ; then
 	    
-	    # set profile & engine paths
-	    SSBProfilePath="$appProfileBase/$SSBIdentifier"
+	    # set data directory path
+	    SSBDataPath="$appDataBase/$SSBIdentifier"
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then

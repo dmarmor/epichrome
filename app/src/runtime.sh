@@ -58,26 +58,28 @@ googleChromeID='com.google.Chrome'
 appConfigScriptPath="Resources/Scripts/config.sh"
 appCleanupPath="Resources/EpichromeCleanup.app"
 
-# profile base
-epiProfileBase="Library/Application Support/Epichrome"
-epiProfilePath="$HOME/$epiProfileBase"
-appProfileBase="$epiProfileBase/Apps"
+# Epichrome data directory
+epiDataBase="Library/Application Support/Epichrome"
+epiDataPath="$HOME/$epiDataBase"
 
-# app profile paths -- relative to app profile directory
-appProfileMainPath='_epichrome'
-appProfileEnginePath="$appProfileMainPath/Engine"
-appProfilePayloadPath="$appProfileMainPath/Engine/Payload"
+# app data directory base -- relative to home directory
+appDataBase="$epiDataBase/Apps"
+
+# app data directory subfolders -- relative to appDataBase
+appDataEngineBase="Engine"
+appDataPayloadBase="$appDataEngineBase/Payload"
+appDataProfileBase="UserData"
 
 # dialog icon path
 appDialogIcon="${BASH_SOURCE[0]%/Scripts/*}/app.icns"
 
 # logging info (can be overridden by individual apps)
 [[ "$logApp" ]] || logApp="Epichrome"
-[[ "$logPath" ]] || logPath="$epiProfilePath/epichrome_log.txt"
+[[ "$logPath" ]] || logPath="$epiDataPath/epichrome_log.txt"
 #logNoStderr=  # set this in calling script to prevent logging to stderr
 #logNoFile=    # set this in calling script to prevent logging to file
 
-stderrTempFile="$epiProfilePath/stderr.txt"
+stderrTempFile="$epiDataPath/stderr.txt"
 
 
 # JOIN_ARRAY: join a bash array into a string with an arbitrary delimiter
@@ -493,7 +495,7 @@ function permanent {
 	
 	# move the permanent file to a holding location for later removal
 	if [[ -e "$perm" ]] ; then
-	    permOld=$(tempname "$perm")
+	    permOld="$(tempname "$perm")"
 	    try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
 	    [[ "$ok" ]] || permOld=
 	fi
@@ -973,7 +975,7 @@ function filterlproj {  # BASE-PATH SEARCH-NAME MESSAGE-INFO
 	    
 	    # get paths for current in & out files
 	    local curStringsIn="$curLproj/InfoPlist.strings"
-	    local curStringsOutTmp="$(tempname "${curStringsIn}")"
+	    local curStringsOutTmp="$(tempname "$curStringsIn")"
 
 	    if [[ -f "$curStringsIn" ]] ; then
 		# filter current localization
@@ -1339,16 +1341,16 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 
 
 # CREATEENGINEPAYLOAD: create persistent engine payload
-function createenginepayload { # ( curContents curProfilePath [epiPayloadPath] )
+function createenginepayload { # ( curContents curDataPath [epiPayloadPath] )
 
     if [[ "$ok" ]] ; then
 	
 	local curContents="$1"    ; shift
-	local curProfilePath="$1" ; shift
+	local curDataPath="$1" ; shift
 	local epiPayloadPath="$1" ; shift  # only needed for Chromium engine
 	
-	local curEnginePath="$curProfilePath/$appProfileEnginePath"
-	local curPayloadContentsPath="$curProfilePath/$appProfilePayloadPath/Contents"
+	local curEnginePath="$curDataPath/$appDataEngineBase"
+	local curPayloadContentsPath="$curDataPath/$appDataPayloadBase/Contents"
 	
 	# clear out old engine
 	if [[ -d "$curEnginePath" ]] ; then
@@ -1434,7 +1436,7 @@ appConfigVarsCommon=( SSBIdentifier \
 			  SSBEngineType \
 			  SSBEngineVersion \
 			  SSBEngineAppName \
-			  SSBProfilePath \
+			  SSBDataPath \
 			  SSBCustomIcon \
 			  SSBFirstRun \
 			  SSBFirstRunSinceVersion \
@@ -1459,7 +1461,7 @@ function readconfig {  # ( [myContents] )
 
 	    # check for required values
 	    if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
-				   "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+				   "$SSBVersion" && "$SSBDataPath" ) ]] ; then
 		ok=
 		errmsg='Config file is corrupt.'
 	    fi
@@ -1644,8 +1646,8 @@ function updatessb { # curAppPath
 	
 	# set up new-style logging
 	logApp="$CFBundleName"
-	logPath="$myProfilePath/$appProfileMainPath/epichrome_app_log.txt"
-	stderrTempFile="$myProfilePath/$appProfileMainPath/stderr.txt"
+	logPath="$myDataPath/epichrome_app_log.txt"
+	stderrTempFile="$myDataPath/stderr.txt"
 	initlog
 	
 	# get our version of Epichrome
@@ -1691,16 +1693,42 @@ function updatessb { # curAppPath
 		    fi		
 		fi
 	    fi
-
-	    debuglog "Got past dialog code: doUpdate=$doUpdate"
 	    
 	    if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
-
+		
 		# load update script
 		safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" NORUNTIMELOAD 'update script'
-
+		
+		# data path variable name change
+		SSBDataPath="$SSBProfilePath"
+		
 		# run actual update
 		[[ "$ok" ]] && updateapp "$@"
+		
+		# update data directory to new structure
+		if [[ "$ok" ]] ; then
+
+		    # what was the Chrome profile path is now our base data directory
+		    local myDataPath="$myProfilePath"
+
+		    # give profile directory temporary name
+		    local oldProfilePath="$(tempname "$myProfilePath")"
+		    try /bin/mv "$myProfilePath" "$oldProfilePath" \
+			'Error renaming old profile directory.'
+
+		    # make empty directory where old profile was
+		    try /bin/mkdir -p "$myDataPath" \
+			'Error creating new data directory.'
+
+		    # move profile directory into new data directory
+		    try /bin/mv "$oldProfilePath" "$myDataPath/$appDataProfileBase" \
+			'Error moving old profile into new data directory.'
+
+		    if [[ ! "$ok" ]] ; then
+			alert "Unable to migrate to new data directory structure. ($errmsg) Your user data may be lost."
+			ok=1 ; errmsg=
+		    fi
+		fi
 		
 		# relaunch after a delay
 		if [[ "$ok" ]] ; then

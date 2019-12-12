@@ -30,12 +30,17 @@ import subprocess
 import os
 import platform
 
+# BUILD FLAGS
+
+debug =
+
 
 # info specific to this host (filled in on install)
-appVersion     = 'EPIVERSION'  # filled in by Makefile
-appBundleID    = 'APPBUNDLEID'  # filled in by Epichrome
+appVersion     = 'EPIVERSION'      # filled in by Makefile
+appBundleID    = 'APPBUNDLEID'     # filled in by Epichrome
 appDisplayName = 'APPDISPLAYNAME'  # filled in by Epichrome
-appBundleName  = 'APPBUNDLENAME'  # filled in by Epichrome
+appBundleName  = 'APPBUNDLENAME'   # filled in by Epichrome
+appLogPath     = 'APPLOGPATH'      # filled in by Epichrome
 
 # special mode for communicating version to parent app
 if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):

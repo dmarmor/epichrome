@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 #  Epichrome: Run an Epichrome app
+#
 #  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
@@ -350,16 +351,20 @@ readconfig "$myContents"
 [[ "$ok" ]] || abort
 
 
-# SET UP USER PROFILE PATH
+# SET UP USER DATA PATHS
 
-# get absolute profile path
-myProfilePath="${HOME}/$SSBProfilePath"
-myProfileArg="--user-data-dir=$myProfilePath"
+# get absolute data directory path
+myDataPath="${HOME}/$SSBDataPath"
+
+# get app engine user data path
+myProfilePath="$myDataPath/$appDataProfileBase"
+myProfilePathArg="--user-data-dir=$myProfilePath"
 
 # set path to app engine (in profile folder)
-myEnginePath="$myProfilePath/$appProfileEnginePath"
-myPayloadPath="$myProfilePath/$appProfilePayloadPath"
+myEnginePath="$myDataPath/$appDataEngineBase"
+myPayloadPath="$myDataPath/$appDataPayloadBase"
 myPayloadContents="$myPayloadPath/Contents"
+
 
 # UPDATE ENGINE APP NAME & PATH
 
@@ -380,15 +385,14 @@ myEngineAppContents="$myEngineAppPath/Contents"
 
 # override runtime.sh debug log path & start fresh
 logApp="$CFBundleName"
-logPath="$myProfilePath/$appProfileMainPath/epichrome_app_log.txt"
-stderrTempFile="$myProfilePath/$appProfileMainPath/stderr.txt"
+logPath="$myDataPath/epichrome_app_log.txt"
+stderrTempFile="$myDataPath/stderr.txt"
 
 # initialize the log
 initlog
 
 # by default, use existing profile
 newprofile=
-
 
 # log config.sh info
 [[ "$debug" ]] && readconfig  # just log previously read config
@@ -676,7 +680,7 @@ fi
 # create a new engine payload if needed
 if [[ "$newPayload" ]] ; then
     
-    createenginepayload "$myContents" "$myProfilePath" "${epiCompatible[$e_enginePayload]}"
+    createenginepayload "$myContents" "$myDataPath" "${epiCompatible[$e_enginePayload]}"
 
     [[ "$ok" ]] || abort "$payloadErrmsg ($errmsg)"
 fi
@@ -726,66 +730,10 @@ else
 fi
 
 # abort on error
-[[ "$ok" ]] || abort "$errmsg" 1
+[[ "$ok" ]] || abort
 
 
 # HANDLE FIRST-RUN SETUP
-
-if [[ "$SSBFirstRunSinceVersion" ]]; then
-
-    # UPDATE PROFILE PATH
-
-    # check if we're migrating profile paths
-    if [[ "$(isarray SSBProfilePath)" ]] ; then
-
-	# get old path info
-	oldProfilePath="${SSBProfilePath[1]}"
-
-	# get absolute path if necessary
-	[[ "${oldProfilePath:0:1}" = "/" ]] || oldProfilePath="${HOME}/$oldProfilePath"
-
-	# get the base directory
-	oldProfileBase="${oldProfilePath%/*}"
-
-	# if there's a profile in the old location, try to move it
-	if [[ -d "$oldProfilePath" ]] ; then
-	    if [[ -e "$myProfilePath" && ! -d "$myProfilePath" ]]; then
-		# found something other than a directory, get rid of it
-		try rm -f "$myProfilePath" 'Unable to clean up new profile location.'
-		[[ "$ok" ]] || abort "Can't create profile folder. $errmsg" 1
-	    fi
-
-	    if [[ ! -d "$myProfilePath" ]]; then
-
-		# old profile exists, new one doesn't, so create it
-		newprofile=1
-		try 'profileBase=' dirname "$myProfilePath" \
-		    'Unable to get path to profile folder.'
-		try unsudo mkdir -p "$profileBase" \
-		    'Unable to create profile folder.'
-		try mv -f "$oldProfilePath" "$myProfilePath" \
-		    'Unable to move profile folder from old location.'
-		if [[ ! "$ok" ]] ; then
-		    alert "Warning: $errmsg You may lose your settings." \
-			  'Updating Profile' '|caution'
-		    ok=1
-		fi
-	    else
-		# profile directories in both places! throw up hands
-		alert 'Warning: Profiles exist in both new and old locations. Your old profile will be ignored.' 'Multiple Profiles' '|caution'
-	    fi
-	fi
-
-	# if we've emptied out the old profile base folder, get rid of it (not important, so fail silently)
-	rm -f "${oldProfileBase}/.DS_Store" > /dev/null 2>&1
-	foob="$(rmdir "$oldProfileBase"  2>&1)"
-
-	# update profile path to be a single entry now that we're done migrating
-	tempProfilePath="${SSBProfilePath[0]}"
-	unset SSBProfilePath
-	SSBProfilePath="$tempProfilePath"
-    fi
-fi
 
 
 # CREATE PROFILE FOLDER IF IT DOESN'T ALREADY EXIST
@@ -793,13 +741,13 @@ fi
 # create profile folder   $$$ REMOVE UNSUDO ON DEAUTH PASS??
 if [[ ! -d "$myProfilePath" ]]; then
     newprofile=1
-    try unsudo mkdir -p "$myProfilePath" 'Unable to create profile folder.'
-    [[ "$ok" ]] || abort "$errmsg" 1
+    try unsudo /bin/mkdir -p "$myProfilePath" 'Unable to create app engine profile folder.'
+    [[ "$ok" ]] || abort
 fi
 
 # $$$ GET RID OF THIS AND USE MASTER PREFS?? OR REMOVE UNSUDO
-# set First Run file so Chrome doesn't think it's new (fail silently)
-firstrunfile="${myProfilePath}/First Run"
+# set First Run file so Chrome/Chromium doesn't think it's new (fail silently)
+firstrunfile="$myProfilePath/First Run"
 [[ -e "$firstrunfile" ]] || unsudo touch "$firstrunfile" > /dev/null 2>&1
 
 
@@ -812,7 +760,7 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     extDir="External Extensions"
     extSourcePath="$myContents/Resources/$extDir"
     extDestPath="$myProfilePath/$extDir"
-
+    
     # make sure the extension install source folder exists
     if [[ ! -d "$extSourcePath" ]] ; then
 	ok=
@@ -1102,21 +1050,9 @@ fi
 
 # engine is not running, so launch as usual (still sending URIs to engine)
 
-if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-
-    # Google Chrome engine, launch by engine app path
-    try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
-	'Unable to launch Google Chrome app engine.'
-
-else
-
-    # Chromium engine, use open to launch engine
-
-    try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfilePathArg" "${myArgs[@]}" \
 	'Unable to launch app engine.'
-fi
-
-[[ "$ok" ]] || abort "$errmsg" 1
+[[ "$ok" ]] || abort
 
 # find PID & launch cleanup process
 
