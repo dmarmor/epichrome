@@ -92,7 +92,7 @@ function updateapp { # ( appPath [customIconDir] )
 	    # Allow the user to choose which engine to use (Chromium is the default)
 	    local useChromium=
 	    dialog useChromium \
-		   "Use Chromium app engine?
+		   "Switch app engine to Chromium?
 
 NOTE: If you don't know what this question means, click Yes.
 

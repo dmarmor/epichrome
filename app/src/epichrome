@@ -413,19 +413,10 @@ if [[ "$enginePID" ]] ; then
 
     # engine is already running, so just send any files or URLs to it &
     # don't run the usual command-line
-
-    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-
-	# Google Chrome engine, open by engine path
-	try "$myEngineAppPath/Contents/MacOS/$SSBGoogleChromeExec" "$myProfileArg" "${argsURIs[@]}" \
-	    'Unable to connect to running Google Chrome app engine.'
-    else
-
-	# Chromium engine, open by engine ID
-	try /usr/bin/open -b "$myEngineID" "${argsURIs[@]}" \
-	    'Unable to connect to app engine.'
-    fi
-
+    
+    try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" \
+	'Unable to connect to running app engine.'
+    
     # we're done, so exit
     [[ "$ok" ]] && exit 0
     exit 1
