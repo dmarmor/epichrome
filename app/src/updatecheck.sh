@@ -24,10 +24,9 @@
 
 
 # ABORT -- exit cleanly on error
+function abort { # [myErrMsg myCode]
 
-function abort { # [myErrMsg code]
-    
-    # destroy temp app bundle
+    # clean up any temp app bundle we've been working on
     [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
     
     # arguments
@@ -35,19 +34,20 @@ function abort { # [myErrMsg code]
     local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
     
     # log error message
-    if [[ "$( type -t dialog )" = function ]] ; then
-	errlog "$myErrMsg"
+    local myAbortLog="Aborting: $myErrMsg"
+    if [[ "$( type -t errlog )" = function ]] ; then
+	errlog "$myAbortLog"
     else
-	[[ -w "$logPath" ]] && echo "updatecheck.sh: $myErrMsg" >> "$logPath"
-    fi
+	# send abort message to log
+	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
 
-    # print errmsg to stderr for the app to display in a dialog
+    fi
+    
+    # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
     
-    # quit with error code
     exit "$myCode"
 }
-
 
 
 # HANDLE KILL SIGNALS
@@ -61,6 +61,7 @@ logNoStderr=1
 
 source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
+[[ "$ok" ]] || abort
 
 myPath="${BASH_SOURCE[0]%/Contents/*}"
 

@@ -55,24 +55,29 @@ appEngineIDBase="$appIDRoot.eng"
 googleChromeID='com.google.Chrome'
 
 # important paths -- relative to app Contents directory
-appEnginePath="Resources/Engine"
-appPayloadPath="$appEnginePath/Payload"
 appConfigScriptPath="Resources/Scripts/config.sh"
 appCleanupPath="Resources/EpichromeCleanup.app"
 
 # profile base
-appProfileBase="Library/Application Support/Epichrome"
+epiProfileBase="Library/Application Support/Epichrome"
+epiProfilePath="$HOME/$epiProfileBase"
+appProfileBase="$epiProfileBase/Apps"
+
+# app profile paths -- relative to app profile directory
+appProfileMainPath='_epichrome'
+appProfileEnginePath="$appProfileMainPath/Engine"
+appProfilePayloadPath="$appProfileMainPath/Engine/Payload"
 
 # dialog icon path
 appDialogIcon="${BASH_SOURCE[0]%/Scripts/*}/app.icns"
 
 # logging info (can be overridden by individual apps)
 [[ "$logApp" ]] || logApp="Epichrome"
-[[ "$logPath" ]] || logPath="$HOME/$appProfileBase/epichrome_log.txt"
+[[ "$logPath" ]] || logPath="$epiProfilePath/epichrome_log.txt"
 #logNoStderr=  # set this in calling script to prevent logging to stderr
 #logNoFile=    # set this in calling script to prevent logging to file
 
-stderrTempFile="$HOME/$appProfileBase/stderr.txt"
+stderrTempFile="$epiProfilePath/stderr.txt"
 
 
 # JOIN_ARRAY: join a bash array into a string with an arbitrary delimiter
@@ -145,6 +150,13 @@ function initlog {
 	# make sure the log file & its path exist
 	/bin/mkdir -p "${logPath%/*}"
 	/usr/bin/touch "$logPath"
+    fi
+
+    # check if we can write to stderr or if we need to disable it
+    ( /bin/mkdir -p "${stderrTempFile%/*}" && /usr/bin/touch "$stderrTempFile" ) > /dev/null 2>&1
+    if [[ $? != 0 ]] ; then
+	errlog "Unable to direct stderr to '$stderrTempFile' -- stderr output will not be logged."
+	stderrTempFile='/dev/null'
     fi
 }
 
@@ -251,18 +263,6 @@ function try {
 	local myerrmsg="${args[$last]}"
 	unset "args[$last]"
 	
-	# check stderr temp file if we might be writing to it
-	if [[ ! ( ( "$storeStderr" || "$dropStderr" ) && \
-		      ( "$type" || "$dropStdout" ) ) ]] ; then
-	    
-	    # unable to write to stderr temp file, so disable it for this run
-	    /usr/bin/touch "$stderrTempFile" > /dev/null 2>&1
-	    if [[ $? != 0 ]] ; then
-		local realStderrTempFile="$stderrTempFile"
-		local stderrTempFile='/dev/null'
-	    fi
-	fi
-	
 	# run the command
 	local result=
 	if [[ ( "${type::6}" = scalar ) || ( "${type::5}" = array ) ]] ; then
@@ -359,11 +359,7 @@ function try {
 	
 	# log unstored output
 	local myStderr=
-	if [[ "$stderrTempFile" = '/dev/null' ]] ; then
-	    myStderr="##error## unable to direct stderr to $realStderrTempFile"
-	elif [[ ! ( "$dropStdout" && "$dropStderr" ) ]] ; then
-	    myStderr="$(/bin/cat "$stderrTempFile")"
-	fi
+	[[ ! ( "$dropStdout" && "$dropStderr" ) ]] && myStderr="$(/bin/cat "$stderrTempFile")"
 	[[ "$myStderr" ]] && errlog "$myStderr"
 	
 	# check result
@@ -1343,15 +1339,16 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 
 
 # CREATEENGINEPAYLOAD: create persistent engine payload
-function createenginepayload { # ( curContents [epiPayloadPath] )
+function createenginepayload { # ( curContents curProfilePath [epiPayloadPath] )
 
     if [[ "$ok" ]] ; then
 	
 	local curContents="$1"    ; shift
+	local curProfilePath="$1" ; shift
 	local epiPayloadPath="$1" ; shift  # only needed for Chromium engine
 	
-	local curEnginePath="$curContents/$appEnginePath"
-	local curPayloadContentsPath="$curContents/$appPayloadPath/Contents"
+	local curEnginePath="$curProfilePath/$appProfileEnginePath"
+	local curPayloadContentsPath="$curProfilePath/$appProfilePayloadPath/Contents"
 	
 	# clear out old engine
 	if [[ -d "$curEnginePath" ]] ; then
@@ -1365,8 +1362,6 @@ function createenginepayload { # ( curContents [epiPayloadPath] )
 
 		# CHROMIUM PAYLOAD
 
-		debuglog "CREATING CHROMIUM PAYLOAD"  # $$$$
-		
 		# create engine directory
 		try /bin/mkdir -p "$curEnginePath" \
 		    'Unable to create app engine directory.'
@@ -1415,12 +1410,12 @@ Delete :CFBundleURLTypes"
 	    
 	    # link to this app's icons
 	    if [[ "$ok" ]] ; then
-		try /bin/ln -s "../../../../$CFBundleIconFile" \
+		try /bin/cp "$curContents/Resources/$CFBundleIconFile" \
 		    "$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
-		    "Unable to link app engine to application icon file."
-		try /bin/ln -s "../../../../$CFBundleTypeIconFile" \
+		    "Unable to copy application icon file to app engine."
+		try /bin/cp "$curContents/Resources/$CFBundleTypeIconFile" \
 		    "$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
-		    "Unable to link app engine to document icon file."
+		    "Unable to copy document icon file to app engine."
 	    fi
 	fi
     fi
@@ -1439,7 +1434,6 @@ appConfigVarsCommon=( SSBIdentifier \
 			  SSBEngineType \
 			  SSBEngineVersion \
 			  SSBEngineAppName \
-			  SSBEngineAppPath \
 			  SSBProfilePath \
 			  SSBCustomIcon \
 			  SSBFirstRun \
@@ -1452,55 +1446,58 @@ appConfigVarsGoogleChrome=( SSBGoogleChromePath \
 # READCONFIG: read in config.sh file & save config versions to track changes
 function readconfig {  # ( [myContents] )
     #                    if myContents not set, then log config instead of reading
-
+    
     # arguments
     local myContents="$1" ; shift
     
-    if [[ "$myContents" ]] ; then
-	
-	# read in config file
-	safesource "$myContents/$appConfigScriptPath" 'config file'
-
-	# check for required values
-	if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
-			       "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
-	    ok=
-	    errmsg='Config file is corrupt.'
-	fi
-    fi
-    
     if [[ "$ok" ]] ; then
 	
-	# create full list of config vars based on engine type
-	local myConfigVars=( "${appConfigVarsCommon[@]}" )
-	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	    myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
+	if [[ "$myContents" ]] ; then
+	    
+	    # read in config file
+	    safesource "$myContents/$appConfigScriptPath" 'config file'
+
+	    # check for required values
+	    if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
+				   "$SSBVersion" && "$SSBProfilePath" ) ]] ; then
+		ok=
+		errmsg='Config file is corrupt.'
+	    fi
 	fi
 	
-	# save all relevant config variables prefixed with "config"
-	
-	for varname in "${myConfigVars[@]}" ; do
+	if [[ "$ok" ]] ; then
 	    
-	    if [[ "$(isarray "$varname")" ]]; then
-
-		# array value
-		
-		if [[ "$myContents" ]] ; then
-		    eval "config$varname=(\"\${$varname[@]}\")"
-		else
-		    eval "debuglog \"$varname=( \${config$varname[*]} )\""
-		fi
-	    else
-		
-		# scalar value
-		
-		if [[ "$myContents" ]] ; then
-		    eval "config$varname=\"\${$varname}\""
-		else
-		    eval "debuglog \"$varname=\$config$varname\""
-		fi
+	    # create full list of config vars based on engine type
+	    local myConfigVars=( "${appConfigVarsCommon[@]}" )
+	    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+		myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
 	    fi
-	done
+	    
+	    # save all relevant config variables prefixed with "config"
+	    
+	    for varname in "${myConfigVars[@]}" ; do
+		
+		if [[ "$(isarray "$varname")" ]]; then
+
+		    # array value
+		    
+		    if [[ "$myContents" ]] ; then
+			eval "config$varname=(\"\${$varname[@]}\")"
+		    else
+			eval "debuglog \"$varname=( \${config$varname[*]} )\""
+		    fi
+		else
+		    
+		    # scalar value
+		    
+		    if [[ "$myContents" ]] ; then
+			eval "config$varname=\"\${$varname}\""
+		    else
+			eval "debuglog \"$varname=\$config$varname\""
+		    fi
+		fi
+	    done
+	fi
     fi
 }
 
@@ -1647,8 +1644,8 @@ function updatessb { # curAppPath
 	
 	# set up new-style logging
 	logApp="$CFBundleName"
-	logPath="$myProfilePath/_epichrome/epichrome_app_log.txt"
-	stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
+	logPath="$myProfilePath/$appProfileMainPath/epichrome_app_log.txt"
+	stderrTempFile="$myProfilePath/$appProfileMainPath/stderr.txt"
 	initlog
 	
 	# get our version of Epichrome
@@ -1767,11 +1764,15 @@ if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
 	elif [[ "$myApp" = "${epiLatest[$e_path]}" ]] ; then
 	    myApp=( "${epiLatest[@]}" )
 	else
+	    # temporarily turn off any logging to stderr
+	    oldStderrTempFile="$stderrTempFile" ; oldLogNoStderr="$logNoStderr"
+	    stderrTempFile=/dev/null ; logNoStderr=1
 	    epichromeinfo epiRuntime "$myApp"
+	    stderrTempFile="$oldStderrTempFile" ; logNoStderr="$oldLogNoStderr"
 	fi
     fi
 else
-
+    
     # this runtime.sh  script is in an app, so unset epiRuntime
     epiRuntime=
 fi

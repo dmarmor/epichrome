@@ -29,15 +29,29 @@ logPreserve=
 
 
 # ABORT -- exit cleanly on error
+function abort { # [myErrMsg code]
 
-function abort {
+    # clean up any temp app bundle we've been working on
     [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
+    
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
+    
+    # log error message
+    local myAbortLog="Aborting: $myErrMsg"
+    if [[ "$( type -t errlog )" = function ]] ; then
+	errlog "$myAbortLog"
+    else
+	# send abort message to log
+	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
 
-    [[ "$1" ]] && echo "$1" 1>&2
-
-    # quit with error code
-    [[ "$2" ]] && exit $2
-    exit 1
+    fi
+    
+    # send only passed error message to stderr (goes back to main.applescript)
+    echo "$myErrMsg" 1>&2
+    
+    exit "$myCode"
 }
 
 
@@ -53,6 +67,7 @@ logNoStderr=1
 
 source "${0%/*}/update.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load update script.'
+[[ "$ok" ]] || abort
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER

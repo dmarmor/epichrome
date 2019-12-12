@@ -267,8 +267,8 @@ The only reason to click No is if your app must run on a signed browser (mainly 
 	
 	if [[ "$ok" ]] ; then
 	    
-	    # set profile path
-	    SSBProfilePath="${appProfileBase}/Apps/$SSBIdentifier"
+	    # set profile & engine paths
+	    SSBProfilePath="$appProfileBase/$SSBIdentifier"
 	    
 	    # set up first-run notification
 	    if [[ "$SSBVersion" ]] ; then
@@ -314,12 +314,7 @@ Delete :CFBundleURLTypes"
 		    'Unable to remove boilerplate Info.plist.'
 	    fi
 	    
-	    
-	    # UPDATE ENGINE PAYLOAD
-	    
-	    createenginepayload "$contentsTmp" "${epiRuntime[$e_enginePayload]}"
-	    
-	    
+	    	    
 	    # WRITE OUT CONFIG FILE
 	    
 	    writeconfig "$contentsTmp" force

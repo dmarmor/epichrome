@@ -39,7 +39,7 @@ function abort { # [myErrMsg code]
     
     # log error message
     local myAbortLog="Aborting: $myErrMsg"
-    if [[ "$( type -t dialog )" = function ]] ; then
+    if [[ "$( type -t errlog )" = function ]] ; then
 	errlog "$myAbortLog"
     else
 	echo "$myAbortLog" 1>&2
@@ -332,14 +332,13 @@ logApp="${logApp##*/}"
 
 source "${0%/*}/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
+[[ "$ok" ]] || abort
 
 # path to this app
 myPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
 # set absolute paths from hardcoded relative ones
 myContents="$myPath/Contents"
-myEnginePath="$myContents/$appEnginePath"
-myPayloadPath="$myContents/$appPayloadPath"
 myCleanupPath="$myContents/$appCleanupPath"
 
 
@@ -357,11 +356,32 @@ readconfig "$myContents"
 myProfilePath="${HOME}/$SSBProfilePath"
 myProfileArg="--user-data-dir=$myProfilePath"
 
+# set path to app engine (in profile folder)
+myEnginePath="$myProfilePath/$appProfileEnginePath"
+myPayloadPath="$myProfilePath/$appProfilePayloadPath"
+myPayloadContents="$myPayloadPath/Contents"
+
+# UPDATE ENGINE APP NAME & PATH
+
+# regex for pulling out current app name
+appNameRe='/([^/]+)\.[aA][pP][pP]$'
+
+# try to use current name of this Epichrome app as engine name
+if [[ "$myPath" =~ $appNameRe ]] ; then
+    SSBEngineAppName="${BASH_REMATCH[1]}.app"
+else
+    # if app name is unparsable, just use Info.plist display name
+    SSBEngineAppName="${CFBundleDisplayName}.app"
+fi
+
+# get path to engine app bundle
+myEngineAppPath="$myEnginePath/$SSBEngineAppName"
+myEngineAppContents="$myEngineAppPath/Contents"
+
 # override runtime.sh debug log path & start fresh
 logApp="$CFBundleName"
-logPath="$myProfilePath/_epichrome/epichrome_app_log.txt"
-stderrTempFile="$myProfilePath/_epichrome/stderr.txt"
-/bin/mkdir -p "$myProfilePath/_epichrome"
+logPath="$myProfilePath/$appProfileMainPath/epichrome_app_log.txt"
+stderrTempFile="$myProfilePath/$appProfileMainPath/stderr.txt"
 
 # initialize the log
 initlog
@@ -384,7 +404,7 @@ else
 fi
 
 # determine if the engine is running
-getenginepid "$myEngineID" "$SSBEngineAppPath"
+getenginepid "$myEngineID" "$myEngineAppPath"
 if [[ "$?" != 0 ]] ; then
     debuglog "Unable to determine if app engine is running: $errmsg"
 fi
@@ -397,7 +417,7 @@ if [[ "$enginePID" ]] ; then
     if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
 	# Google Chrome engine, open by engine path
-	try "$SSBEngineAppPath/Contents/MacOS/$SSBGoogleChromeExec" "$myProfileArg" "${argsURIs[@]}" \
+	try "$myEngineAppPath/Contents/MacOS/$SSBGoogleChromeExec" "$myProfileArg" "${argsURIs[@]}" \
 	    'Unable to connect to running Google Chrome app engine.'
     else
 
@@ -583,42 +603,10 @@ if [[ "$ok" ]] ; then
     fi
 fi
 
-
-# $$$$$ DELETE THIS -- IF USING GOOGLE CHROME ENGINE, CHECK FOR NEW VERSION AND UPDATE
-
-# if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-
-#     if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
-
-# 	# authenticate
-# 	authenticate chromeupdate "A new version of Google Chrome was found ($SSBEngineVersion)." \
-# 		     'update' nonfatal
-# 	if [[ "$?" = 0 ]] ; then
-
-# 	    # create a new engine payload from the new version
-# 	    createenginepayload "$myContents"
-# 	else
-# 	    ok=
-# 	    errmsg="Permission denied."
-# 	fi
-
-# 	# failure is non-fatal
-# 	if [[ ! "$ok" ]] ; then
-# 	    abort "Unable to update app to new version of Google Chrome. ($errmsg)" 1
-# 	fi
-#     fi
-# fi
-
 [[ "$ok" ]] || abort "$errmsg" 1
 
 
 # BUILD ENGINE ON THE FLY
-
-# get important absolute paths
-myEnginePath="$myContents/$appEnginePath"
-myPayloadPath="$myContents/$appPayloadPath"
-myPayloadContents="$myPayloadPath/Contents"
-
 
 # RECREATE PAYLOAD IF NECESSARY
 # (due to new Google Chrome version, new Chromium engine version, or corrupt or missing payload)
@@ -696,34 +684,17 @@ fi
 
 # create a new engine payload if needed
 if [[ "$newPayload" ]] ; then
-    createenginepayload "$myContents" "${epiCompatible[$e_enginePayload]}"
+    
+    createenginepayload "$myContents" "$myProfilePath" "${epiCompatible[$e_enginePayload]}"
 
     [[ "$ok" ]] || abort "$payloadErrmsg ($errmsg)"
 fi
 
 
-# UPDATE ENGINE APP NAME & PATH
-
-# regex for pulling out current app name
-appNameRe='/([^/]+)\.[aA][pP][pP](\.[0-9]+)?$'
-
-# try to use current name of this Epichrome app as engine name
-if [[ "$myPath" =~ $appNameRe ]] ; then
-    SSBEngineAppName="${BASH_REMATCH[1]}.app"
-else
-    # if app name is unparsable, just use Info.plist display name
-    SSBEngineAppName="${CFBundleDisplayName}.app"
-fi
-
-# get paths for engine app bundle
-SSBEngineAppPath="$myEnginePath/$SSBEngineAppName"
-myEngineAppContents="$SSBEngineAppPath/Contents"
-
-
 # BUILD ENGINE OUT OF PAYLOAD
 
 # rename Payload to engine app name
-try /bin/mv "$myPayloadPath" "$SSBEngineAppPath" 'Unable to create app engine from payload.'
+try /bin/mv "$myPayloadPath" "$myEngineAppPath" 'Unable to create app engine from payload.'
 
 [[ "$ok" ]] || abort "$errmsg" 1
 
@@ -1143,14 +1114,14 @@ fi
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 
     # Google Chrome engine, launch by engine app path
-    try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+    try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch Google Chrome app engine.'
 
 else
 
     # Chromium engine, use open to launch engine
 
-    try /usr/bin/open -a "$SSBEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
+    try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfileArg" "${myArgs[@]}" \
 	'Unable to launch app engine.'
 fi
 
@@ -1159,7 +1130,7 @@ fi
 # find PID & launch cleanup process
 
 #sleep 0.5
-getenginepid "$myEngineID" "$SSBEngineAppPath"
+getenginepid "$myEngineID" "$myEngineAppPath"
 
 if [[ "$enginePID" ]] ; then
 
@@ -1167,7 +1138,8 @@ if [[ "$enginePID" ]] ; then
     export debug logPreserve
     
     # PID found, so launch cleanup daemon
-    try /usr/bin/open "$myContents/$appCleanupPath" --args "$SSBEngineType" "$enginePID" "$SSBEngineAppPath" "$logPath" "$stderrTempFile" \
+    try /usr/bin/open "$myContents/$appCleanupPath" --args \
+	"$SSBEngineType" "$enginePID" "$myEngineAppPath" "$logPath" "$stderrTempFile" \
 	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
 
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'

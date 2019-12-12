@@ -27,10 +27,22 @@
 # FUNCTION DEFINITIONS
 
 # ABORT -- display an error alert and abort
-function abort {
-    errlog "$1"
-    [[ "$2" ]] && exit $2
-    exit 1
+function abort { # [myErrMsg code]
+    
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
+    
+    # log error message
+    local myAbortLog="Aborting: $myErrMsg"
+    if [[ "$( type -t errlog )" = function ]] ; then
+	errlog "$myAbortLog"
+    else
+	echo "$myAbortLog" 1>&2
+	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
+    fi
+    
+    exit "$myCode"
 }
 
 
@@ -54,13 +66,14 @@ fi
 
 source "${0%/MacOS/*}/Resources/Scripts/runtime.sh"
 [[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
+[[ "$ok" ]] || abort
 
 
 # COMMAND-LINE OPTIONS -- ALL ARE MANDATORY & OVERRIDE RUNTIME.SH VALUES
 
 SSBEngineType="$1" ; shift
 enginePID="$1" ; shift
-SSBEngineAppPath="$1" ; shift
+myEngineAppPath="$1" ; shift
 logPath="$1" ; shift
 stderrTempFile="$1" ; shift
 
@@ -74,7 +87,7 @@ logApp="Cleanup[$$/$enginePID]"
 
 [[ "$enginePID" =~ ^[0-9]+$ ]] || abort "Bad engine PID '$enginePID'"
 
-[[ -d "$SSBEngineAppPath" ]] || abort "Bad app engine path '$SSBEngineAppPath'"
+[[ -d "$myEngineAppPath" ]] || abort "Bad app engine path '$myEngineAppPath'"
 
 /usr/bin/touch "$logPath" > /dev/null 2>&1 || abort "Bad log file path '$logPath'"
 
@@ -82,7 +95,7 @@ logApp="Cleanup[$$/$enginePID]"
 
 # set up payload path
 
-myPayloadPath="${SSBEngineAppPath%/Contents/Resources/Engine/*}/Contents/Resources/Engine/Payload"
+myPayloadPath="${myEngineAppPath%/*}/Payload"
 
 
 debuglog "RUNNING"  # $$$$
@@ -98,7 +111,7 @@ done
 debuglog "Engine has quit, beginning cleanup"
 
 # make sure we can still find engine
-if [[ ! -d "$SSBEngineAppPath/Contents" ]] ; then
+if [[ ! -d "$myEngineAppPath/Contents" ]] ; then
     # abort -- something has gone wrong, maybe app was renamed or moved
     abort "Cleanup error -- Can't find app engine."
 fi
@@ -110,31 +123,31 @@ curdir=
 i=
 
 # all items in engine root except Contents
-dirlist "$SSBEngineAppPath" curdir 'app engine' '^Contents$'
+dirlist "$myEngineAppPath" curdir 'app engine' '^Contents$'
 for i in "${curdir[@]}" ; do
-    deletelist+=( "$SSBEngineAppPath/$i" )
+    deletelist+=( "$myEngineAppPath/$i" )
 done
 
 if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
     # all items in Contents except Info.plist, MacOS & Resources
-    dirlist "$SSBEngineAppPath/Contents" curdir \
+    dirlist "$myEngineAppPath/Contents" curdir \
 	    'Epichrome app engine Contents' \
 	    '^((Info.plist)|(MacOS)|(Resources))$'
 else
     # all items in Contents except MacOS & Resources
-    dirlist "$SSBEngineAppPath/Contents" curdir \
+    dirlist "$myEngineAppPath/Contents" curdir \
 	    'Google Chrome app engine Contents' \
 	    '^((MacOS)|(Resources))$'
 fi
 for i in "${curdir[@]}" ; do
-    deletelist+=( "$SSBEngineAppPath/Contents/$i" )
+    deletelist+=( "$myEngineAppPath/Contents/$i" )
 done
 
 # all items in Resources except .lproj & .icns
-dirlist "$SSBEngineAppPath/Contents/Resources" curdir \
+dirlist "$myEngineAppPath/Contents/Resources" curdir \
 	'app engine Resources' '\.((icns)|(lproj))$'
 for i in "${curdir[@]}" ; do
-    deletelist+=( "$SSBEngineAppPath/Contents/Resources/$i" )
+    deletelist+=( "$myEngineAppPath/Contents/Resources/$i" )
 done
 
 # delete items
@@ -151,8 +164,8 @@ fi
 
 # Chromium engine: rename Info.plist Info.plist.off
 if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
-    try /bin/mv -f "$SSBEngineAppPath/Contents/Info.plist" \
-	"$SSBEngineAppPath/Contents/Info.plist.off" \
+    try /bin/mv -f "$myEngineAppPath/Contents/Info.plist" \
+	"$myEngineAppPath/Contents/Info.plist.off" \
 	'Unable to deactivate payload Info.plist.'
     if [[ ! "$ok" ]] ; then
 	ok=1
@@ -161,7 +174,7 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 fi
 
 # rename engine back to Payload
-try /bin/mv -f "$SSBEngineAppPath" "$myPayloadPath" \
+try /bin/mv -f "$myEngineAppPath" "$myPayloadPath" \
     'Unable to restore Payload directory.'
 
 # report any final error
