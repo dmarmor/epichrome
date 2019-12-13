@@ -32,7 +32,7 @@ import platform
 
 # BUILD FLAGS
 
-debug =
+debug = False
 
 
 # info specific to this host (filled in on install)

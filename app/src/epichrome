@@ -1056,7 +1056,7 @@ try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "$myProfilePathA
 
 # find PID & launch cleanup process
 
-#sleep 0.5
+sleep 0.5
 getenginepid "$myEngineID" "$myEngineAppPath"
 
 if [[ "$enginePID" ]] ; then
