@@ -118,9 +118,7 @@ $(APP_CLNP): $(APP_CLNP_CTNT)/Info.plist \
 	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh
 
 $(APP) $(APP_CLNP):
-	codesign --remove-signature $@
-	rm -rf $@/Contents/_CodeSignature
-	codesign -s 'David Marmor' -vv $@
+	codesign --force --options runtime -s 'David Marmor' -vv $@
 	codesign --verify --deep --strict --verbose=2 $@
 	spctl --assess --type execute --verbose=4 $@
 	touch $@
