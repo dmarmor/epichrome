@@ -99,7 +99,7 @@ SSBRegisterBrowser="$1"
 shift
 
 # specify app engine
-if [[ "$1" = "No" ]] ; then
+if [[ "$1" = "Google Chrome" ]] ; then
     SSBEngineType="Google Chrome"
 else
     SSBEngineType="Chromium"

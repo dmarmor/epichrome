@@ -342,6 +342,9 @@ myPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 myContents="$myPath/Contents"
 myCleanupPath="$myContents/$appCleanupPath"
 
+# override default icon path for dialog boxes
+appDialogIcon="$myContents/Resources/app.icns"
+
 
 # GET BASIC APP INFORMATION
 

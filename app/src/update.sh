@@ -92,30 +92,24 @@ function updateapp { # ( appPath [customIconDir] )
 
 	    # Allow the user to choose which engine to use (Chromium is the default)
 	    local useChromium=
-	    dialog useChromium \
+	    dialog SSBEngineType \
 		   "Switch app engine to Chromium?
 
-NOTE: If you don't know what this question means, click Yes.
+NOTE: If you don't know what this question means, choose Chromium.
 
-In almost all cases, using Chromium will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+In almost all cases, using a Chromium engine will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
 
-The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
+The only reason to Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
 		   "Choose App Engine" \
 		   "|caution" \
-		   "+Yes" \
-		   "-No"
+		   "+Chromium" \
+		   "-Google Chrome"
 	    if [[ ! "$ok" ]] ; then
 		alert "The app engine choice dialog failed. Attempting to update this app with a Chromium engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-		useChromium="Yes"
+		SSBEngineType="Chromium"
 		ok=1
 		errmsg=
-	    fi
-	    
-	    if [[ "$useChromium" = No ]] ; then
-		SSBEngineType="Google Chrome"
-	    else
-		SSBEngineType="Chromium"
-	    fi
+	    fi	    
 	fi
 	
 	if [[ "$ok" ]] ; then

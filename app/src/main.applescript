@@ -559,13 +559,13 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								
 								repeat
 									try
-										set doChromiumEngine to button returned of (display dialog "Use Chromium app engine?
+										set appEngineType to button returned of (display dialog "Use Chromium app engine?
 
-NOTE: If you don't know what this question means, click Yes.
+NOTE: If you don't know what this question means, choose Chromium.
 
-In almost all cases, using Chromium will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+In almost all cases, using a Chromium engine will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
 
-The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button "Yes" cancel button "Back")
+The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
 									on error number -128 -- Back button
 										set curStep to curStep - 1
 										exit repeat
@@ -615,11 +615,7 @@ Icon: "
 									set appSummary to appSummary & "
 								
 App Engine: "
-									if doChromiumEngine is "No" then
-										set appSummary to appSummary & "Google Chrome"
-									else
-										set appSummary to appSummary & "Chromium"
-									end if
+									set appSummary to appSummary & appEngineType
 									
 									-- set up Chrome command line
 									set appCmdLine to ""
@@ -651,7 +647,7 @@ App Engine: "
 													(quoted form of appShortName) & " " & Â
 													(quoted form of appIconSrc) & " " & Â
 													(quoted form of doRegisterBrowser) & " " & Â
-													(quoted form of doChromiumEngine) & " " & Â
+													(quoted form of appEngineType) & " " & Â
 													appCmdLine
 												set creationSuccess to true
 											on error errStr number errNum
