@@ -1712,7 +1712,7 @@ function updatessb { # curAppPath
 		if [[ "$ok" ]] ; then
 
 		    # update existing data directory to new structure
-		    if [[ ( -d "$myProfilePath" && ( ! -d "$myProfilePath/$appDataProfileBase" ) ]] ; then
+		    if [[ ( -d "$myProfilePath" ) && ( ! -d "$myProfilePath/$appDataProfileBase" ) ]] ; then
 			
 			# what was the Chrome profile path is now our base data directory
 			local myDataPath="$myProfilePath"
