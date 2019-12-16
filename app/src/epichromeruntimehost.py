@@ -29,6 +29,7 @@ import webbrowser
 import subprocess
 import os
 import platform
+import inspect
 
 # BUILD FLAGS
 
@@ -42,21 +43,67 @@ appDisplayName = 'APPDISPLAYNAME'  # filled in by Epichrome
 appBundleName  = 'APPBUNDLENAME'   # filled in by Epichrome
 appLogPath     = 'APPLOGPATH'      # filled in by Epichrome
 
+
 # special mode for communicating version to parent app
 if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
     print appVersion
     exit(0)
 
 
+# ERRLOG: log to stderr and log file
+def errlog(msg):
+
+    # get stack frame info
+    myStack = inspect.stack()
+    myStack.reverse()
+
+    # build log string
+    myMsg = (
+        '{app}|{filename}({fileline}){frame}: {msg}\n'.format( app=appBundleName,
+                                                         filename=os.path.basename(myStack[-1][1]),
+                                                         fileline=myStack[0][2],
+                                                         frame=(' [{}]'.format('/'.join(
+                                                             ['{}({})'.format(n[3], n[2])
+                                                                  for n in myStack[1:-1]]))
+                                                                    if len(myStack[1:-1]) else ''),
+                                                         msg=msg ) )
+
+    # attempt to log to stderr & log file, but fail silently
+    try:
+        sys.stderr.write(myMsg)
+        sys.stderr.flush()
+    except:
+        pass
+
+    try:
+        with open(appLogPath, 'a') as f:
+            f.write(myMsg)
+    except:
+        pass
+
+
+#DEBUGLOG: log debugging message if debugging enabled
+def debuglog(msg):
+    if debug:
+        errlog(msg)
+
+
 # SEND_MESSAGE -- send a message to a Chrome extension
 def send_message(message):
+
+    try:
+        # send the message's size
+        sys.stdout.write(struct.pack('I', len(message)))
     
-    # send the message's size
-    sys.stdout.write(struct.pack('I', len(message)))
+        # send the message itself
+        sys.stdout.write(message)
+        sys.stdout.flush()
+    except:
+        # $$$$ HANDLE EXCEPTION PROPERLY
+        errlog('Error sending message')
     
-    # send the message itself
-    sys.stdout.write(message)
-    sys.stdout.flush()
+    # log message
+    debuglog('sent message to app: {}'.format(message))
 
 
 # SEND_RESULT -- send a result message
@@ -67,18 +114,29 @@ def send_result(result, url):
 # RECEIVE_MESSAGE -- receive and unpack a message
 def receive_message():
     
-    # read the message length (first 4 bytes)
-    text_length_bytes = sys.stdin.read(4)
+    try:
+        # read the message length (first 4 bytes)
+        text_length_bytes = sys.stdin.read(4)
 
-    # read returned nothing -- the pipe is closed
-    if len(text_length_bytes) == 0:
-        return False
+        # read returned nothing -- the pipe is closed
+        if len(text_length_bytes) == 0:
+            return False
     
-    # unpack message length as 4-byte integer
-    text_length = struct.unpack('i', text_length_bytes)[0]
+        # unpack message length as 4-byte integer
+        text_length = struct.unpack('i', text_length_bytes)[0]
     
-    # read and parse the text into a JSON object
-    return json.loads(sys.stdin.read(text_length).decode('utf-8'))
+        # read and parse the text into a JSON object
+        json_text = sys.stdin.read(text_length)
+
+        result = json.loads(json_text.decode('utf-8'))
+    except:
+        # $$$$$$ HANDLE EXCEPTIONS PROPERLY WITH LOG
+        errlog('Error receiving message')
+
+    # log received message
+    debuglog('received message from app: {}'.format(json_text))
+
+    return result
 
 
 # SPECIAL CASE -- if default browser is Chrome we need to specify that when opening links
@@ -114,8 +172,8 @@ if os.path.isfile(launchsvc):
         if httpHandler.lower() == 'com.google.chrome':
             defaultIsChrome = True
             
-    except: # subprocess.CalledProcessError + plistlib err
-        pass
+    except: # $$$$$ subprocess.CalledProcessError + plistlib err
+        errlog('Error getting list of browsers.')
 
     
 # MAIN LOOP -- just keep on receiving messages until stdin closes

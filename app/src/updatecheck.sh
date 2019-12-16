@@ -92,4 +92,4 @@ if [[ "$ok" ]] ; then
     fi
 fi
 
-[[ "$ok" ]] || abort "$errmsg" 1
+[[ "$ok" ]] || abort

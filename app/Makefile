@@ -43,6 +43,9 @@ HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(EXTENSION_ID)\/",\\\n        "c
 HOSTMANIFEST_SED:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
 HOSTMANIFEST_SED_INTERNAL:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(EXTENSION_ID_INPLACE)\/"/'
 
+NMH_SED:=-e 's/EPIVERSION/$(VERSION)/'
+NMH_SED_BETA:=$(NMH_SED) -e 's/debug = False/debug = True  \# DEBUG ON/'
+
 EXEC_SED_BETA:=-e 's/^\#debug=$$/debug=1  \# DEBUG ON/'
 
 # app paths
@@ -118,9 +121,9 @@ $(APP_CLNP): $(APP_CLNP_CTNT)/Info.plist \
 	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh
 
 $(APP) $(APP_CLNP):
-	codesign --force --options runtime -s 'David Marmor' -vv $@
-	codesign --verify --deep --strict --verbose=2 $@
-	spctl --assess --type execute --verbose=4 $@
+# 	codesign --force --options runtime -s 'David Marmor' -vv $@
+# 	codesign --verify --deep --strict --verbose=2 $@
+# 	spctl --assess --type execute --verbose=4 $@
 	touch $@
 
 clean:
@@ -257,7 +260,13 @@ $(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/$(HOSTID).json src/version.sh $(APP_RNT
 	sed -E -e 's/$(HOSTID)/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
-	sed 's/EPIVERSION/$(VERSION)/' $< > $@
+	@if [[ "$(BETA)" ]] ; then \
+	  echo "sed $(NMH_SED_BETA) $< > $@" ; \
+	  sed $(NMH_SED_BETA) $< > $@ ; \
+	else \
+	  echo "sed $(NMH_SED) $< > $@" ; \
+	  sed $(NMH_SED) $< > $@ ; \
+	fi
 
 $(APP_RNTM_NMEX)/$(EXTENSION_ID).json: src/install-extension.json $(APP_RNTM)
 	mkdir -p $(APP_RNTM_NMEX)

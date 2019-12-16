@@ -846,9 +846,9 @@ function writevars {  # $1 = destination file
 function vcmp { # ( version1 operator version2 )
 
     # arguments
-    local v1="$1" ; shift ; [[ "$v1" ]] || v1=0.0.0
+    local v1="$1" ; shift
     local op="$1" ; shift ; [[ "$op" ]] || op='=='
-    local v2="$1" ; shift ; [[ "$v2" ]] || v2=0.0.0
+    local v2="$1" ; shift
     
     # turn operator into a numeric comparator
     case "$op" in
@@ -889,12 +889,12 @@ function vcmp { # ( version1 operator version2 )
 	    fi
 	else
 	    # no version
-	    vnums[$1]=0
+	    vnums[$i]=0
 	fi
 	
 	i=$(( $i + 1 ))
     done
-
+        
     # compare versions using the operator & return the result
     eval "[[ ${vnums[0]} $op ${vnums[1]} ]]"
 }
@@ -1606,7 +1606,8 @@ function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
 	local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
 	
 	# call Python script to check github for the latest version
-	local latestVersion="$( "$myContents/Resources/Scripts/getversion.py" 2> /dev/null )"
+	local latestVersion=
+	latestVersion="$( "$myContents/Resources/Scripts/getversion.py" 2> /dev/null )"
 	if [[ "$?" != 0 ]] ; then
 	    ok=
 	    errmsg="$latestVersion"
@@ -1705,25 +1706,28 @@ function updatessb { # curAppPath
 		# run actual update
 		[[ "$ok" ]] && updateapp "$@"
 		
-		# update data directory to new structure
 		if [[ "$ok" ]] ; then
 
-		    # what was the Chrome profile path is now our base data directory
-		    local myDataPath="$myProfilePath"
-
-		    # give profile directory temporary name
-		    local oldProfilePath="$(tempname "$myProfilePath")"
-		    try /bin/mv "$myProfilePath" "$oldProfilePath" \
-			'Error renaming old profile directory.'
-
-		    # make empty directory where old profile was
-		    try /bin/mkdir -p "$myDataPath" \
-			'Error creating new data directory.'
-
-		    # move profile directory into new data directory
-		    try /bin/mv "$oldProfilePath" "$myDataPath/$appDataProfileBase" \
-			'Error moving old profile into new data directory.'
-
+		    # update data directory to new structure
+		    if [[ ! -d "$myProfilePath/$appDataProfileBase" ]] ; then
+			
+			# what was the Chrome profile path is now our base data directory
+			local myDataPath="$myProfilePath"
+			
+			# give profile directory temporary name
+			local oldProfilePath="$(tempname "$myProfilePath")"
+			try /bin/mv "$myProfilePath" "$oldProfilePath" \
+			    'Error renaming old profile directory.'
+			
+			# make empty directory where old profile was
+			try /bin/mkdir -p "$myDataPath" \
+			    'Error creating new data directory.'
+			
+			# move profile directory into new data directory
+			try /bin/mv "$oldProfilePath" "$myDataPath/$appDataProfileBase" \
+			    'Error moving old profile into new data directory.'
+		    fi
+		    
 		    if [[ ! "$ok" ]] ; then
 			alert "Unable to migrate to new data directory structure. ($errmsg) Your user data may be lost."
 			ok=1 ; errmsg=

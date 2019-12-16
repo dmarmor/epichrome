@@ -816,125 +816,130 @@ if [[ "$SSBFirstRunSinceVersion" || "$newprofile" ]]; then
     fi
 fi
 
+[[ "$ok" ]] || abort
+
 
 # MAKE SURE NATIVE HOST IS INSTALLED
 
-if [[ ! "$SSBHostInstallError" ]]; then
+# set up host file paths
+hostManifest=( "org.epichrome.runtime.json" "org.epichrome.helper.json" )
+hostScript="epichromeruntimehost.py"
+hostDir="NativeMessagingHosts"
+hostInstallPath="$myProfilePath/$hostDir"
+hostScriptInstalled="$hostInstallPath/$hostScript"
+hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
 
-    # set up host file paths
-    hostManifest=( "org.epichrome.runtime.json" "org.epichrome.helper.json" )
-    hostScript="epichromeruntimehost.py"
-    hostDir="NativeMessagingHosts"
-    hostInstallPath="$myProfilePath/$hostDir"
-    hostScriptInstalled="$hostInstallPath/$hostScript"
-    hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
+# check if we need to install native messaging host
+doHostInstall=
 
-    # check if we need to install native messaging host
-    doHostInstall=
+# do it if we just updated, or the host script or manifest don't exist
+if [[ "$SSBFirstRunSinceVersion" || \
+	  ( ! -x "$hostScriptInstalled" ) || \
+	  ( ! -e "${hostManifestInstalled[0]}" ) || \
+	  ( ! -e "${hostManifestInstalled[1]}" ) ]] ; then
+    doHostInstall=1
+else
+    # get installed host version if possible
+    try 'hostVersion=' "$hostScriptInstalled" -v ''
+    if [[ ! "$ok" ]] ; then
+	hostVersion=0.0.0
+	ok=1 ; errmsg=
+    fi
 
-    # do it if we just updated, or the host script or manifest don't exist
-    if [[ "$SSBFirstRunSinceVersion" || \
-	      ( ! -x "$hostScriptInstalled" ) || \
-	      ( ! -e "${hostManifestInstalled[0]}" ) || \
-	      ( ! -e "${hostManifestInstalled[1]}" ) ]] ; then
-	doHostInstall=1
-    else
-	# get installed host version if possible
-	try 'hostVersion=' "$hostScriptInstalled" -v ''
-	if [[ ! "$ok" ]] ; then
-	    hostVersion=0.0.0
+    # if installed host is old, we'll update it
+    vcmp "$hostVersion" '<' "$epiLatestVersion" && doHostInstall=1
+fi
+
+# make sure the manifest points to the current path of the script
+if [[ ! "$doHostInstall" ]] ; then
+
+    for hmi in "${hostManifestInstalled[@]}" ; do
+
+	# get path to script in the manifest
+	try 'oldHostScriptInstalled=' sed -En \
+	    's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
+	    'Unable to get current host script path'
+
+	# on error, or if the paths don't match, reinstall
+	if [[ ! "$ok" || \
+		  ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
 	    ok=1 ; errmsg=
+	    doHostInstall=1
 	fi
 
-	# if installed host is old, we'll update it
-	vcmp "$hostVersion" '<' "$epiLatestVersion" && doHostInstall=1
+    done
+fi
+
+# do the installation if necessary
+if [[ "$doHostInstall" ]] ; then
+
+    hostSourcePath="$myContents/Resources/$hostDir"
+
+    # create the install directory
+    try unsudo /bin/mkdir -p "$hostInstallPath" \
+	'Unable to create installation folder.'
+
+    # stream-edit the host script  $$$ UNSUDO
+    hostScriptTmp=$(tempname "$hostScriptInstalled")
+    try unsudo /usr/bin/touch "${hostScriptTmp}" \
+	'Unable to create script.'
+    try "${hostScriptTmp}<" /usr/bin/sed \
+	"s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/;
+         s/APPDISPLAYNAME/$CFBundleDisplayName/;
+         s/APPBUNDLENAME/$CFBundleName/;
+         s/APPLOGPATH/${logPath//\//\/}/;" \
+		 "$hostSourcePath/$hostScript" 'Unable to copy script.'
+
+    # fix host script permissions
+    try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
+
+    # move script to permanent home
+    permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
+
+    # on error, remove temporary file
+    if [[ ! "$ok" ]] ; then
+	[[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
     fi
 
-    # make sure the manifest points to the current path of the script
-    if [[ ! "$doHostInstall" ]] ; then
+    index=0
+    for hmi in "${hostManifestInstalled[@]}" ; do
 
-	for hmi in "${hostManifestInstalled[@]}" ; do
+	# stream-edit the manifest file
+	hostManifestTmp=$(tempname "$hmi")
+	try unsudo /usr/bin/touch "${hostManifestTmp}" \
+	    'Unable to create manifest.'
+	try "${hostManifestTmp}<" /usr/bin/sed \
+	    "s/APPHOSTPATH/${hostScriptInstalled//\//\\/}/" \
+	    "$hostSourcePath/${hostManifest[$index]}" \
+	    'Unable to copy manifest.'
 
-	    # get path to script in the manifest
-	    try 'oldHostScriptInstalled=' sed -En \
-		's/^.*"path": "(.*)",[ ]*(\/\/.*)?$/\1/p' "$hmi" \
-		'Unable to get current host script path'
-
-	    # on error, or if the paths don't match, reinstall
-	    if [[ ! "$ok" || \
-		      ("$oldHostScriptInstalled" != "$hostScriptInstalled") ]] ; then
-		ok=1 ; errmsg=
-		doHostInstall=1
-	    fi
-
-	done
-    fi
-
-    # do the installation if necessary
-    if [[ "$doHostInstall" ]] ; then
-
-	hostSourcePath="$myContents/Resources/$hostDir"
-
-	# create the install directory
-	try unsudo /bin/mkdir -p "$hostInstallPath" \
-	    'Unable to create installation folder.'
-
-	# stream-edit the host script  $$$ UNSUDO
-	hostScriptTmp=$(tempname "$hostScriptInstalled")
-	try unsudo /usr/bin/touch "${hostScriptTmp}" \
-	    'Unable to create script.'
-	try "${hostScriptTmp}<" sed \
-	    "s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/; s/APPDISPLAYNAME/$CFBundleDisplayName/; s/APPBUNDLENAME/$CFBundleName/;" \
-	    "$hostSourcePath/$hostScript" 'Unable to copy script.'
-
-	# fix host script permissions
-	try /bin/chmod 755 "$hostScriptTmp" 'Unable to make script executable.'
-
-	# move script to permanent home
-	permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
+	# move manifest to permanent home
+	permanent "$hostManifestTmp" "$hmi" 'manifest'
 
 	# on error, remove temporary file
 	if [[ ! "$ok" ]] ; then
-	    [[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
+	    [[ -e "$hostManifestTmp" ]] && \
+		rmtemp "$hostManifestTmp" 'manifest'
 	fi
 
-	index=0
-	for hmi in "${hostManifestInstalled[@]}" ; do
+	index=$(($index + 1))
+    done
 
-	    # stream-edit the manifest file
-	    hostManifestTmp=$(tempname "$hmi")
-	    try unsudo /usr/bin/touch "${hostManifestTmp}" \
-		'Unable to create manifest.'
-	    try "${hostManifestTmp}<" sed \
-		"s/APPHOSTPATH/${hostScriptInstalled//\//\\/}/" \
-		"$hostSourcePath/${hostManifest[$index]}" \
-		'Unable to copy manifest.'
+    # store (and report once) error, but don't abort
+    if [[ ! "$ok" ]] ; then
 
-	    # move manifest to permanent home
-	    permanent "$hostManifestTmp" "$hmi" 'manifest'
-
-	    # on error, remove temporary file
-	    if [[ ! "$ok" ]] ; then
-		[[ -e "$hostManifestTmp" ]] && \
-		    rmtemp "$hostManifestTmp" 'manifest'
-	    fi
-
-	    index=$(($index + 1))
-	done
-
-	# report error, but don't abort
-	if [[ ! "$ok" ]] ; then
-
-	    # set error state
-	    SSBHostInstallError=1
-
+	if [[ "$SSBHostInstallError" != "$errmsg" ]] ; then
+	    
+	    # set new error state
+	    SSBHostInstallError="$errmsg"
+	    
 	    # show an alert
 	    alert "Unable to install native messaging host. ($errmsg) The SSB will still work, but the companion \"Epichrome Helper\" extension won't." 'Messaging Host Install Error' '|caution'
-
-	    # clear error state (non-fatal)
-	    ok=1
-	    errmsg=
 	fi
+	
+	# clear error state (non-fatal)
+	ok=1
+	errmsg=
     fi
 fi
 
@@ -1039,14 +1044,11 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
 fi
 
 # build command line
-if [[ "$newprofile" ]] ; then
-    # if we're creating a new profile (first run), run once with a page
-    # instructing the user to enable the Epichrome extension
-    myArgs=( "${argsOptions[@]}" "file://$myContents/Resources/FirstRun/welcome.html" )
-else
-    # normal run -- use the regular command line
-    myArgs=( "${argsOptions[@]}" "${SSBCommandLine[@]}" )
-fi
+myArgs=( "${argsOptions[@]}" "${SSBCommandLine[@]}" )
+
+# if we're creating a new profile (first run), open a page
+# instructing the user to enable the Epichrome extension
+[[ "$newprofile" ]] && argsURIs=( "${argsURIs[@]}" "file://$myContents/Resources/FirstRun/welcome.html" )
 
 # engine is not running, so launch as usual (still sending URIs to engine)
 
