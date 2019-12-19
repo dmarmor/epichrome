@@ -51,11 +51,9 @@ function abort { # [myErrMsg code]
 
 if [[ "$1" != daemon ]] ; then
     "$0" daemon "$@" &
-    debuglog "Parent process forked daemon"
     exit 0
 else
     shift
-    debuglog "Child process now running"
 fi
 
 
@@ -80,6 +78,10 @@ stderrTempFile="$1" ; shift
 # override log info
 logApp="Cleanup[$$/$enginePID]"
 
+# initialize log
+logPreserve=1  # don't delete any log created by the parent app
+initlog
+
 # quality-check arguments
 
 [[ ( "$SSBEngineType" = 'Google Chrome' ) || ( "$SSBEngineType" = 'Chromium' ) ]] || \
@@ -98,7 +100,7 @@ logApp="Cleanup[$$/$enginePID]"
 myPayloadPath="${myEngineAppPath%/*}/Payload"
 
 
-debuglog "RUNNING"  # $$$$
+debuglog "waiting for parent app to quit"
 
 
 # WAIT FOR APP ENGINE TO DIE, THEN CONVERT ENGINE BACK TO PAYLOAD

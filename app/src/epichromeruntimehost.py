@@ -55,12 +55,18 @@ def errlog(msg):
 
     # get stack frame info
     myStack = inspect.stack()
-    myStack.reverse()
+    
+    # if we were called from debuglog, trim the stack
+    if myStack[1][3] == 'debuglog':
+        myStack = myStack[1:]
 
+    # reverse the stack for easier message-building
+    myStack.reverse()
+        
     # build log string
     myMsg = (
         '{app}|{filename}({fileline}){frame}: {msg}\n'.format( app=appBundleName,
-                                                         filename=os.path.basename(myStack[-1][1]),
+                                                         filename=os.path.basename(myStack[0][1]),
                                                          fileline=myStack[0][2],
                                                          frame=(' [{}]'.format('/'.join(
                                                              ['{}({})'.format(n[3], n[2])
@@ -174,6 +180,9 @@ if os.path.isfile(launchsvc):
             
     except: # $$$$$ subprocess.CalledProcessError + plistlib err
         errlog('Error getting list of browsers.')
+
+
+debuglog("native message host running")
 
     
 # MAIN LOOP -- just keep on receiving messages until stdin closes
