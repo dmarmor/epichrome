@@ -323,6 +323,7 @@ Delete :CFBundleURLTypes"
 	
 	
 	# MOVE CONTENTS TO PERMANENT HOME
+
 	if [[ "$ok" ]] ; then
 	    permanent "$contentsTmp" "$appPath/Contents" "app bundle Contents directory"
 	elif [[ "$contentsTmp" && -d "$contentsTmp" ]] ; then

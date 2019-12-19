@@ -1811,18 +1811,18 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 
 myApp="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Resources/Scripts/runtime.sh}"
 if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
-    
+
     # this runtime.sh script is in Epichrome itself, not an app
 
     if [[ "$myApp" != "${epiRuntime[$e_path]}" ]] ; then
-
+	
 	# epiRuntime not yet set, so populate it with info on this runtime
 	# script's parent Epichrome instance
 	
 	if [[ "$myApp" = "${epiCompatible[$e_path]}" ]] ; then
-	    myApp=( "${epiCompatible[@]}" )
+	    epiRuntime=( "${epiCompatible[@]}" )
 	elif [[ "$myApp" = "${epiLatest[$e_path]}" ]] ; then
-	    myApp=( "${epiLatest[@]}" )
+	    epiRuntime=( "${epiLatest[@]}" )
 	else
 	    # temporarily turn off any logging to stderr
 	    oldStderrTempFile="$stderrTempFile" ; oldLogNoStderr="$logNoStderr"
@@ -1832,6 +1832,8 @@ if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
 	fi
     fi
 else
+
+    errlog "I got here with myApp=source='$myApp'"
     
     # this runtime.sh  script is in an app, so unset epiRuntime
     epiRuntime=

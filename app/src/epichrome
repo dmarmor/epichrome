@@ -84,10 +84,20 @@ function unsudo {
 }
 
 
-# RELAUNCH -- relaunch this app after a delay
-function relaunch { # APP-PATH DELAY-SECONDS
-    [[ "$2" ]] && sleep "$2"
-    open "$1"
+# RELAUNCH -- relaunch this app
+function relaunch { # APP-PATH
+    
+    # export debug & log options for relaunch daemon
+    export debug logPreserve
+    
+    # launch relaunch daemon
+    try /usr/bin/open "$myContents/$appCleanupPath" --args \
+	RELAUNCH "$$" "$myPath" "$logPath" "$stderrTempFile" \
+	'Update succeeded, but unable to lauch updated app. Try launching it manually.'
+
+    # exit
+    [[ "$ok" ]] || abort
+    exit 0
 }
 
 
@@ -505,11 +515,10 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		    
 		    if [[ "$ok" ]] ; then
 			
-			# SUCCESS -- relaunch after a delay
-			relaunch "$myPath" 1 &
-			disown -ar
-			exit 0
-
+			# SUCCESS -- relaunch & exit
+			relaunch "$myPath"
+			exit 0  # not necessary, but for clarity
+			
 		    else
 
 			# UPDATE FAILED -- reload my runtime
@@ -1088,7 +1097,7 @@ if [[ "$enginePID" ]] ; then
     # PID found, so launch cleanup daemon
     try /usr/bin/open "$myContents/$appCleanupPath" --args \
 	"$SSBEngineType" "$enginePID" "$myEngineAppPath" "$logPath" "$stderrTempFile" \
-	'Unable to lauch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
+	'Unable to launch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
 
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
 
