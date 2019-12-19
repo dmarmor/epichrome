@@ -93,20 +93,22 @@ function updateapp { # ( appPath [customIconDir] )
 	    # Allow the user to choose which engine to use (Chromium is the default)
 	    local useChromium=
 	    dialog SSBEngineType \
-		   "Switch app engine to Chromium?
+		   "Switch app engine to Chromium or continue to use Google Chrome?
 
-NOTE: If you don't know what this question means, choose Chromium.
+NOTE: If you don't know what this question means, choose Google Chrome.
 
-In almost all cases, using a Chromium engine will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+Switching an existing app to the Chromium engine will likely log you out of any existing sessions in the app and may require you to reactivate extensions and/or lose extension data.
 
-The only reason to Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
+In the long run, switching to the Chromium engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.
+
+The main advantage of continuing to use the Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
 		   "Choose App Engine" \
 		   "|caution" \
-		   "+Chromium" \
-		   "-Google Chrome"
+		   "-Chromium" \
+		   "+Google Chrome"
 	    if [[ ! "$ok" ]] ; then
-		alert "The app engine choice dialog failed. Attempting to update this app with a Chromium engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-		SSBEngineType="Chromium"
+		alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+		SSBEngineType="Google Chrome"
 		ok=1
 		errmsg=
 	    fi	    

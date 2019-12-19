@@ -563,9 +563,9 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 
 NOTE: If you don't know what this question means, choose Chromium.
 
-In almost all cases, using a Chromium engine will result in a more functional app. If you click No, the app will use Google Chrome as its engine, which has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give the app access to camera and microphone, and inability to reliably use AppleScript or Keyboard Maestro with the app.
+In almost all cases, using a Chromium engine will result in a more functional app. Using Google Chrome as its engine has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.
 
-The only reason to click No is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
+The only reason to choose Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
 									on error number -128 -- Back button
 										set curStep to curStep - 1
 										exit repeat

@@ -125,7 +125,7 @@ function errlog {
 function errlog_raw {
 
     # if we're logging to stderr, do it
-    [[ "$logNoStderr" ]] ||	echo "$@" 1>&2
+    [[ "$logNoStderr" ]] || echo "$@" 1>&2
     
     # if we're logging to file & either the file exists & is writeable, or
     # the file doesn't exist and its parent directory is writeable, do it
@@ -841,6 +841,11 @@ function writevars {  # $1 = destination file
     return 1
 }
 
+# VISBETA -- if version is a beta, return 0, else return 1
+function visbeta { # ( version )
+    [[ "$1" =~ [bB] ]] && return 0
+    return 1
+}
 
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
 function vcmp { # ( version1 operator version2 )
@@ -1650,8 +1655,8 @@ function updatessb { # curAppPath
 	
 	# set up new-style logging
 	logApp="$CFBundleName"
-	logPath="$myDataPath/epichrome_app_log.txt"
-	stderrTempFile="$myDataPath/stderr.txt"
+	# logPath="$epiDataPath/epichrome_log.txt"
+	# stderrTempFile="$epiDataPath/stderr.txt"
 	initlog
 	
 	# get our version of Epichrome
@@ -1677,16 +1682,35 @@ function updatessb { # curAppPath
 		# reset command status
 		ok=1
 		errmsg=
-		
-		if [[ "$ok" ]] ; then
 
+		if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
+		    
+		    # let the app update its Chrome version first
+		    doUpdate=Later
+		else
+		    
+		    local updateMsg="A new version of Epichrome was found ($epiVersion). Would you like to update this app?"
+		    local updateBtnUpdate='Update'
+		    local updateBtnLater='Later'
+		    
+		    if visbeta "$epiVersion" ; then
+			updateMsg="$updateMsg
+			
+IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myProfilePath) before updating."
+			updateBtnUpdate="-$updateBtnUpdate"
+			updateBtnLater="+$updateBtnLater"
+		    else
+			updateBtnUpdate="+$updateBtnUpdate"
+			updateBtnLater="-$updateBtnLater"
+		    fi
+		    
 		    # show the update choice dialog
 		    dialog doUpdate \
-			   "A new version of the Epichrome runtime was found ($epiVersion). Would you like to update now?" \
+			   "$updateMsg" \
 			   "Update" \
 			   "|caution" \
-			   "+Update" \
-			   "-Later" \
+			   "$updateBtnUpdate" \
+			   "$updateBtnLater" \
 			   "Don't Ask Again For This Version"
 		    
 		    if [[ ! "$ok" ]] ; then
@@ -1694,7 +1718,7 @@ function updatessb { # curAppPath
 			doUpdate="Update"
 			ok=1
 			errmsg=
-		    fi		
+		    fi
 		fi
 	    fi
 	    
@@ -1732,7 +1756,8 @@ function updatessb { # curAppPath
 		    fi
 		    
 		    if [[ ! "$ok" ]] ; then
-			alert "Unable to migrate to new data directory structure. ($errmsg) Your user data may be lost."
+			alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
+			      'Warning' 'caution'
 			ok=1 ; errmsg=
 		    fi
 		fi

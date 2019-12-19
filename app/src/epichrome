@@ -451,19 +451,35 @@ epiLatestVersion="${epiLatest[$e_version]}"
 
 if vcmp "$SSBUpdateVersion" '<' "$epiLatestVersion" ; then
 
-    # authenticate
+    # authenticate  $$$ REMOVE THIS?
     authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiLatestVersion)." \
 		 'update' nonfatal
     if [[ "$?" = 0 ]] ; then
 
 	# Ask about updating (unless we asked with the authentication dialog)
 	if [[ "$isAdmin" != epichromeupdate ]] ; then
+
+	    updateMsg="A new version of Epichrome was found ($epiLatestVersion). Would you like to update this app?"
+	    updateBtnUpdate='Update'
+	    updateBtnLater='Later'
+	    
+	    if visbeta "$epiLatestVersion" ; then
+		updateMsg="$updateMsg
+
+IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
+		updateBtnUpdate="-$updateBtnUpdate"
+		updateBtnLater="+$updateBtnLater"
+	    else
+		updateBtnUpdate="+$updateBtnUpdate"
+		updateBtnLater="-$updateBtnLater"
+	    fi
+	    
 	    dialog doUpdate \
-		   "A new version of the Epichrome runtime was found ($epiLatestVersion). Would you like to update now?" \
+		   "$updateMsg" \
 		   "Update" \
 		   "|caution" \
-		   "+Update" \
-		   "-Later" \
+		   "$updateBtnUpdate" \
+		   "$updateBtnLater" \
 		   "Don't Ask Again For This Version"
 	    if [[ ! "$ok" ]] ; then
 		alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
