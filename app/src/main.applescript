@@ -1,7 +1,8 @@
 (*
  * 
  *  main.applescript: An AppleScript GUI for creating Epichrome apps.
- *  Copyright (C) 2019  David Marmor
+ *
+ *  Copyright (C) 2020  David Marmor
  *
  *  https://github.com/dmarmor/epichrome
  *
@@ -24,106 +25,58 @@
 
 
 -- MISC CONSTANTS
+local promptNameLoc
 set promptNameLoc to "Select name and location for the app."
+local appDefaultURL
 set appDefaultURL to "https://www.google.com/mail/"
+local iconPrompt
 set iconPrompt to "Select an image to use as an icon."
+local iconTypes
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
 
--- USER DATA PATHS
-global userDataPath
-set userDataPath to "Library/Application Support/Epichrome"
-global userDataFile
-set userDataFile to "epichrome.plist"
+-- SET UP USER DATA PATHS
+local userDataFile
+set userDataFile to (system attribute "HOME") & "/Library/Application Support/Epichrome"
+do shell script "/bin/mkdir -p " & (quoted form of userDataFile)
+set userDataFile to userDataFile & "/epichrome.plist"
 
 
 -- GET MY ICON FOR DIALOG BOXES
+local myIcon
 set myIcon to path to resource "applet.icns"
 
+
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
+local runtimeScript
 set runtimeScript to quoted form of (POSIX path of (path to resource "runtime.sh" in directory "Runtime/Resources/Scripts"))
+local buildScript
 set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
+local pathInfoScript
 set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
+local updateCheckScript
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
+local versionScript
 set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
 
 
 -- PERSISTENT PROPERTIES
 
-global lastIconPath
-global lastAppPath
-global doRegisterBrowser
-global doCustomIcon
-global updateCheckDate
-global updateCheckVersion
+local lastIconPath
+local lastAppPath
+local doRegisterBrowser
+local doCustomIcon
+local updateCheckDate
+local updateCheckVersion
 
--- READPROPERTIES: read properties from user data file, or initialize properties on failure
-on readProperties()
-	
-	tell application "System Events"
-		
-		-- read in the file
-		try
-			set myProperties to property list file ("~/" & userDataPath & "/" & userDataFile)
-		on error
-			set myProperties to null
-		end try
-		
-		-- set properties from the file & if anything went wrong, initialize any unset properties
-		
-		-- lastIconPath
-		try
-			set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
-		on error
-			set lastIconPath to ""
-		end try
-		
-		-- lastAppPath
-		try
-			set lastAppPath to (value of (get property list item "lastAppPath" of myProperties) as text)
-		on error
-			set lastAppPath to ""
-		end try
-		
-		-- doRegisterBrowser
-		try
-			set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
-		on error
-			set doRegisterBrowser to "No"
-		end try
-		
-		-- doCustomIcon
-		try
-			set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
-		on error
-			set doCustomIcon to "Yes"
-		end try
-		
-		-- updateCheckDate
-		try
-			set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
-		on error
-			set updateCheckDate to (current date) - (1 * days)
-		end try
-		
-		-- updateCheckVersion
-		try
-			set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
-		on error
-			set updateCheckVersion to ""
-		end try
-		
-	end tell
-end readProperties
 
 -- WRITEPROPERTIES: write properties back to plist file
-on writeProperties()
+on writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 	tell application "System Events"
 		
 		try
 			-- create enclosing folder if needed and create empty plist file
-			do shell script "/bin/mkdir -p ~/" & (quoted form of userDataPath)
-			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:("~/" & userDataPath & "/" & userDataFile)}
+			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:userDataFile}
 			
 			-- fill property list
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
@@ -138,18 +91,72 @@ on writeProperties()
 	end tell
 end writeProperties
 
--- read in or initialize properties
-readProperties()
+
+-- READ PROPERTIES FROM USER DATA OR INITIALIZE THEM IF NONE FOUND
+
+tell application "System Events"
+	
+	-- read in the file
+	try
+		set myProperties to property list file userDataFile
+	on error
+		set myProperties to null
+	end try
+	
+	-- set properties from the file & if anything went wrong, initialize any unset properties
+	
+	-- lastIconPath
+	try
+		set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
+	on error
+		set lastIconPath to ""
+	end try
+	
+	-- lastAppPath
+	try
+		set lastAppPath to (value of (get property list item "lastAppPath" of myProperties) as text)
+	on error
+		set lastAppPath to ""
+	end try
+	
+	-- doRegisterBrowser
+	try
+		set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
+	on error
+		set doRegisterBrowser to "No"
+	end try
+	
+	-- doCustomIcon
+	try
+		set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
+	on error
+		set doCustomIcon to "Yes"
+	end try
+	
+	-- updateCheckDate
+	try
+		set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
+	on error
+		set updateCheckDate to (current date) - (1 * days)
+	end try
+	
+	-- updateCheckVersion
+	try
+		set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
+	on error
+		set updateCheckVersion to ""
+	end try
+	
+end tell
 
 
 -- NUMBER OF STEPS IN THE PROCESS
-global numSteps
-set numSteps to 8
-global curStep
+local curStep
 set curStep to 1
-on step()
-	return "Step " & curStep & " of " & numSteps
+on step(curStep)
+	return "Step " & curStep & " of 8"
 end step
+
 
 -- BUILD REPRESENTATION OF BROWSER TABS
 on tablist(tabs, tabnum)
@@ -263,12 +270,12 @@ repeat
 	-- STEP 1: SELECT APPLICATION NAME & LOCATION
 	repeat
 		try
-			display dialog "Click OK to select a name and location for the app." with title step() with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
+			display dialog "Click OK to select a name and location for the app." with title step(curStep) with icon myIcon buttons {"OK", "Quit"} default button "OK" cancel button "Quit"
 			exit repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				writeProperties()
+				writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			on error number -128
 			end try
@@ -307,7 +314,7 @@ repeat
 				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				writeProperties()
+				writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			end try
 			
@@ -367,7 +374,7 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 				set appShortNameCanceled to false
 				set appShortNamePrev to appShortName
 				try
-					set appShortName to text returned of (display dialog appShortNamePrompt with title step() with icon myIcon default answer appShortName buttons {"OK", "Back"} default button "OK" cancel button "Back")
+					set appShortName to text returned of (display dialog appShortNamePrompt with title step(curStep) with icon myIcon default answer appShortName buttons {"OK", "Back"} default button "OK" cancel button "Back")
 				on error number -128 -- Back button
 					set appShortNameCanceled to true
 					set curStep to curStep - 1
@@ -398,7 +405,7 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 
 APP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)
 
-BROWSER TABS - The app will display a full browser window with the given tabs." with title step() with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
+BROWSER TABS - The app will display a full browser window with the given tabs." with title step(curStep) with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
 					
 				on error number -128 -- Back button
 					set curStep to curStep - 1
@@ -417,7 +424,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 					if appStyle is "App Window" then
 						-- APP WINDOW STYLE
 						try
-							set (item 1 of appURLs) to text returned of (display dialog "Choose URL:" with title step() with icon myIcon default answer (item 1 of appURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
+							set (item 1 of appURLs) to text returned of (display dialog "Choose URL:" with title step(curStep) with icon myIcon default answer (item 1 of appURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -428,7 +435,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						repeat
 							if curTab > (count of appURLs) then
 								try
-									set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer appDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
+									set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer appDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
 								on error number -128 -- Back button
 									set dlgResult to "Back"
 								end try
@@ -452,12 +459,12 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								set backButton to 0
 								if curTab is 1 then
 									try
-										set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
+										set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
 									on error number -128
 										set backButton to 1
 									end try
 								else
-									set dlgResult to display dialog tablist(appURLs, curTab) with title step() with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
+									set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
 								end if
 								
 								if (backButton is 1) or ((button returned of dlgResult) is "Previous") then
@@ -496,7 +503,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 					
 					repeat
 						try
-							set doRegisterBrowser to button returned of (display dialog "Register app as a browser?" with title step() with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
+							set doRegisterBrowser to button returned of (display dialog "Register app as a browser?" with title step(curStep) with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -507,7 +514,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						
 						repeat
 							try
-								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step() with icon myIcon buttons {"Yes", "No", "Back"} default button doCustomIcon cancel button "Back")
+								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step(curStep) with icon myIcon buttons {"Yes", "No", "Back"} default button doCustomIcon cancel button "Back")
 							on error number -128 -- Back button
 								set curStep to curStep - 1
 								exit repeat
@@ -543,7 +550,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set appInfo to do shell script pathInfoScript & " icon " & quoted form of appIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										writeProperties()
+										writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 										return -- QUIT
 									end try
 									
@@ -565,7 +572,7 @@ NOTE: If you don't know what this question means, choose Chromium.
 
 In almost all cases, using a Chromium engine will result in a more functional app. Using Google Chrome as its engine has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.
 
-The only reason to choose Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step() with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
+The only reason to choose Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step(curStep) with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
 									on error number -128 -- Back button
 										set curStep to curStep - 1
 										exit repeat
@@ -629,7 +636,7 @@ App Engine: "
 									
 									repeat
 										try
-											display dialog appSummary with title step() with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
+											display dialog appSummary with title step(curStep) with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
 										on error number -128 -- Back button
 											set curStep to curStep - 1
 											exit repeat
@@ -669,7 +676,7 @@ App Engine: "
 															tell application "Finder" to reveal ((POSIX file logPath) as alias)
 															tell application "Finder" to activate
 														end if
-														writeProperties() -- Quit button
+														writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
 														return -- QUIT
 													on error number -128 -- Back button
 														exit repeat
@@ -683,7 +690,7 @@ App Engine: "
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 											on error number -128
-												writeProperties() -- "Quit" button
+												writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
 												return -- QUIT
 											end try
 											
@@ -694,7 +701,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 													do shell script "open " & quoted form of (POSIX path of appPath)
 													--tell application appName to activate
 												on error
-													writeProperties()
+													writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 													return -- QUIT
 												end try
 											else
@@ -703,7 +710,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												tell application "Finder" to activate
 											end if
 											
-											writeProperties() -- We're done!
+											writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
 											return -- QUIT
 											
 										end repeat

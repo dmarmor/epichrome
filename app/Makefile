@@ -153,7 +153,7 @@ $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/a
 	fi
 	@rm -rf $(APP)
 	chmod 444 $<
-	osacompile -o $(APP) -x -d $<
+	osacompile -x -o $(APP) $<
 	@touch $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc
 	chmod 644 $<
 	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works

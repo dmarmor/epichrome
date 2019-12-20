@@ -1832,8 +1832,6 @@ if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
 	fi
     fi
 else
-
-    errlog "I got here with myApp=source='$myApp'"
     
     # this runtime.sh  script is in an app, so unset epiRuntime
     epiRuntime=
