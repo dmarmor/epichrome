@@ -26,7 +26,7 @@
 
 # FUNCTION DEFINITIONS
 
-# ABORT -- display an error alert and abort
+# ABORT -- log an error and abort
 function abort { # [myErrMsg code]
     
     # arguments

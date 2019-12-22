@@ -120,8 +120,14 @@ $(APP_CLNP): $(APP_CLNP_CTNT)/Info.plist \
 	$(APP_CLNP_CTNT)/MacOS/EpichromeCleanup \
 	$(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh
 
-$(APP) $(APP_CLNP):
-	codesign --force --options runtime -s 'David Marmor' -vv $@
+$(APP): src/entitlements.plist
+	codesign -vv --force --options runtime --entitlements src/entitlements.plist -s 'David Marmor' $@
+	codesign --verify --deep --strict --verbose=2 $@
+	spctl --assess --type execute --verbose=4 $@
+	touch $@
+
+$(APP_CLNP): src/entitlements.plist
+	codesign --force -s 'David Marmor' -vv $@
 	codesign --verify --deep --strict --verbose=2 $@
 	spctl --assess --type execute --verbose=4 $@
 	touch $@
