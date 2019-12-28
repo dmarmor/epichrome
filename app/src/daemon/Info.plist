@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>EpichromeCleanup</string>
+	<string>EpichromeHelper</string>
 	<key>CFBundleExecutable</key>
-	<string>EpichromeCleanup</string>
+	<string>EpichromeHelper</string>
 	<key>CFBundleName</key>
-	<string>EpichromeCleanup</string>
+	<string>EpichromeHelper</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.epichrome.cleanup</string>
+	<string>org.epichrome.daemon</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
@@ -27,7 +27,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2019 David Marmor</string>
+	<string>© 2020 David Marmor</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
