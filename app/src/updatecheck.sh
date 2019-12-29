@@ -39,7 +39,7 @@ function abort { # [myErrMsg myCode]
 	errlog "$myAbortLog"
     else
 	# send abort message to log
-	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
+	[[ -w "$myLogPath" ]] && echo "$myAbortLog" >> "$myLogPath"
 
     fi
     

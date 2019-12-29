@@ -203,11 +203,11 @@ set appNameBase to "My Epichrome App"
 set appURLs to {}
 
 
--- SET UP LOG INFO AND CLEAR LOG FILE
+-- SET UP LOG INFO AND INITIALIZE LOG FILE
 try
-	set logPath to do shell script "source " & runtimeScript & " && echo \"$logPath\" && initlog"
+	set logPath to do shell script "source " & runtimeScript & " && echo \"$myLogPath\" && initlog"
 on error errStr number errNum
-	display dialog "Non-fatal error clearing log file: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
+	display dialog "Non-fatal error initializing log: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 	set logPath to false
 end try
 

@@ -44,7 +44,7 @@ function abort { # [myErrMsg code]
 	errlog "$myAbortLog"
     else
 	echo "$myAbortLog" 1>&2
-	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
+	[[ -w "$myLogPath" ]] && echo "$myAbortLog" >> "$myLogPath"
     fi
     
     # show dialog & offer to open log
@@ -56,7 +56,7 @@ function abort { # [myErrMsg code]
 	    # clear OK state so try works & ignore result
 	    ok=1 ; errmsg=
 	    try /usr/bin/osascript -e '
-tell application "Finder" to reveal ((POSIX file "'"$logPath"'") as alias)
+tell application "Finder" to reveal ((POSIX file "'"$myLogPath"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
 	fi
     else
@@ -92,7 +92,7 @@ function relaunch { # APP-PATH
     
     # launch relaunch daemon
     try /usr/bin/open "$myContents/$appCleanupPath" --args \
-	RELAUNCH "$$" "$myPath" "$logPath" "$stderrTempFile" \
+	RELAUNCH "$$" "$myPath" "$myLogPath" "$stderrTempFile" \
 	'Update succeeded, but unable to lauch updated app. Try launching it manually.'
 
     # exit
@@ -398,7 +398,7 @@ myEngineAppContents="$myEngineAppPath/Contents"
 
 # override runtime.sh debug log path & start fresh
 logApp="$CFBundleName"
-logPath="$myDataPath/epichrome_app_log.txt"
+myLogPath="$myDataPath/epichrome_app_log.txt"
 stderrTempFile="$myDataPath/stderr.txt"
 
 # initialize the log
@@ -915,7 +915,7 @@ if [[ "$doHostInstall" ]] ; then
 	"s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/;
          s/APPDISPLAYNAME/$CFBundleDisplayName/;
          s/APPBUNDLENAME/$CFBundleName/;
-         s/APPLOGPATH/${logPath//\//\/}/;" \
+         s/APPLOGPATH/${myLogPath//\//\/}/;" \
 		 "$hostSourcePath/$hostScript" 'Unable to copy script.'
 
     # fix host script permissions
@@ -1096,7 +1096,7 @@ if [[ "$enginePID" ]] ; then
     
     # PID found, so launch cleanup daemon
     try /usr/bin/open "$myContents/$appCleanupPath" --args \
-	"$SSBEngineType" "$enginePID" "$myEngineAppPath" "$logPath" "$stderrTempFile" \
+	"$SSBEngineType" "$enginePID" "$myEngineAppPath" "$myLogPath" "$stderrTempFile" \
 	'Unable to launch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
 
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'

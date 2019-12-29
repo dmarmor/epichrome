@@ -22,33 +22,20 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
 
+# SHELL OPTIONS
+
+shopt -s nullglob
+
 
 # FUNCTION DEFINITIONS
 
-# ABORT -- log an error and abort
-function abort { # [myErrMsg code]
-    
-    # arguments
-    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
-    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
-    
-    # log error message
-    local myAbortLog="Aborting: $myErrMsg"
-    if [[ "$( type -t errlog )" = function ]] ; then
-	errlog "$myAbortLog"
-    else
-	echo "$myAbortLog" 1>&2
-	[[ -w "$logPath" ]] && echo "$myAbortLog" >> "$logPath"
-    fi
-    
-    cleanexit "$myCode"
-}
 
-
-function cleanexit {
+# CLEANEXIT -- restore launcher and exit
+function cleanexit { # [code]
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
-    
+
+    # restore launcher
     if [[ -d "$libPath/Engine/OFF" ]] ; then
 	ok=1 ; errmsg=
 	
@@ -62,7 +49,8 @@ function cleanexit {
 	    [[ "$myCode" = 0 ]] && myCode=1
 	fi	
     fi
-    
+
+    # exit
     exit "$myCode"
 }
     
@@ -163,7 +151,7 @@ appID="$1"    ; shift
 libPath="$HOME/Library/Application Support/Epichrome/Apps/$appName"
 
 # initialize log
-logPath="$libPath/epichrome_app_log.txt"
+myLogPath="$libPath/epichrome_app_log.txt"
 stderrTempFile="$libPath/stderr.txt"
 logApp="TestLaunch[$$/$huskPID]"
 logPreserve=1  # don't delete any log created by the parent app
