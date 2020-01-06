@@ -205,10 +205,10 @@ set appURLs to {}
 
 -- SET UP LOG INFO AND INITIALIZE LOG FILE
 try
-	set logPath to do shell script "source " & runtimeScript & " && echo \"$myLogPath\" && initlog"
+	set logFile to do shell script "source " & runtimeScript & " && echo \"$myLogFile\" && initlog"
 on error errStr number errNum
 	display dialog "Non-fatal error initializing log: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
-	set logPath to false
+	set logFile to false
 end try
 
 -- CHECK FOR UPDATES TO EPICHROME
@@ -668,12 +668,12 @@ App Engine: "
 													try
 														set dlgButtons to {"Quit", "Back"}
 														try
-															((POSIX file logPath) as alias)
+															((POSIX file logFile) as alias)
 															copy "View Log & Quit" to end of dlgButtons
 														end try
 														set dlgResult to button returned of (display dialog "Creation failed: " & errStr with icon stop buttons dlgButtons default button "Quit" cancel button "Back" with title "Application Not Created")
 														if dlgResult is "View Log & Quit" then
-															tell application "Finder" to reveal ((POSIX file logPath) as alias)
+															tell application "Finder" to reveal ((POSIX file logFile) as alias)
 															tell application "Finder" to activate
 														end if
 														writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button

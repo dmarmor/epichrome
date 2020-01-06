@@ -23,45 +23,34 @@
 # 
 
 
-# ABORT -- exit cleanly on error
-function abort { # [myErrMsg myCode]
-
-    # clean up any temp app bundle we've been working on
-    [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
-    
-    # arguments
-    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
-    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
-    
-    # log error message
-    local myAbortLog="Aborting: $myErrMsg"
-    if [[ "$( type -t errlog )" = function ]] ; then
-	errlog "$myAbortLog"
-    else
-	# send abort message to log
-	[[ -w "$myLogPath" ]] && echo "$myAbortLog" >> "$myLogPath"
-
-    fi
+# MYABORT -- exit cleanly on error
+function myabort { # [myErrMsg code]
     
     # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
     
-    exit "$myCode"
+    abortsilent "$@"
 }
-
-
-# HANDLE KILL SIGNALS
-
-trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 
 # BOOTSTRAP RUNTIME SCRIPT
 
 logNoStderr=1
 
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/runtime.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
-[[ "$ok" ]] || abort
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/core.sh"
+if [[ "$?" != 0 ]] ; then
+    [[ ! "$myLogFile" ]] && myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
+    /bin/mkdir -p "${myLogFile%/*}"
+    echo 'Unable to load core script.' >> "$myLogFile"
+    exit 1
+fi
+[[ "$ok" ]] || myabort
+
+
+# HANDLE KILL SIGNALS
+
+trap "myabort 'Received termination signal.' 2" SIGHUP SIGINT SIGTERM
+
 
 myPath="${BASH_SOURCE[0]%/Contents/*}"
 
@@ -69,7 +58,7 @@ myPath="${BASH_SOURCE[0]%/Contents/*}"
 # GET INFO ON MY INSTANCE OF EPICHROME
 
 # myEpichrome=
-# epichromeinfo "$myPath"
+# getepichromeinfo "$myPath"  $$$$$$ FIX THIS
 
 
 # COMPARE VERSIONS
@@ -92,4 +81,4 @@ if [[ "$ok" ]] ; then
     fi
 fi
 
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || myabort

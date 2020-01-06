@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  engine.sh: utility functions for working with Epichrome engines
+#  launch.sh: utility functions for building and launching an Epichrome engine
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -82,7 +82,7 @@ function linktree { # $1 = sourcedir (absolute)
 
 # GOOGLECHROMEINFO: find absolute paths to and info on relevant Google Chrome items
 #                   sets the following variables:
-#                      SSBEngineVersion, SSBGoogleChromePath, SSBGoogleChromeExec, googleChromeContents
+#                      SSBGoogleChromePath, SSBGoogleChromeVersion, SSBGoogleChromeExec
 function googlechromeinfo {  # $1 == FALLBACKLEVEL
     
     if [[ "$ok" ]]; then
@@ -253,20 +253,20 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 	
 	# try to get it via Spotlight
 	local re='^kMDItemVersion = "(.*)"$'
-	try 'SSBEngineVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
-	if [[ "$ok" && ( "$SSBEngineVersion" =~ $re ) ]] ; then
-	    SSBEngineVersion="${BASH_REMATCH[1]}"
+	try 'SSBGoogleChromeVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
+	if [[ "$ok" && ( "$SSBGoogleChromeVersion" =~ $re ) ]] ; then
+	    SSBGoogleChromeVersion="${BASH_REMATCH[1]}"
 	else
 	    # Spotlight failed -- use version from Info.plist
 	    ok=1
 	    errmsg=
-	    SSBEngineVersion="$infoplistChromeVersion"
+	    SSBGoogleChromeVersion="$infoplistChromeVersion"
 	fi
 	
 	# check for error
-	if [[ ! "$ok" || ! "$SSBEngineVersion" ]] ; then
+	if [[ ! "$ok" || ! "$SSBGoogleChromeVersion" ]] ; then
 	    SSBGoogleChromePath=
-	    SSBEngineVersion=
+	    SSBGoogleChromeVersion=
 	    errmsg='Unable to retrieve Chrome version.'
 	    ok=
 	    return 1
@@ -274,8 +274,6 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
     fi
     
     if [[ "$ok" ]] ; then
-	# set up dependant variables
-	googleChromeContents="$SSBGoogleChromePath/Contents"
 	return 0
     else
 	return 1
@@ -285,145 +283,121 @@ function googlechromeinfo {  # $1 == FALLBACKLEVEL
 
 # POPULATEDATADIR -- make sure an app's data directory is populated
 function populatedatadir { # ( [FORCE] )
+    #  returns:
+    #    0 on success
+    #    1 on fatal error
+    #    2 on error installing extension
+    #    3 on error installing native messaging host
+    
+    [[ "$ok" ]] || return 1
+
+    local result=0
+    
+    # collect all error messages
+    local myErrMsg=
+    
+    # force an update?
+    local force="$1" ; shift
+    
     
     # SET UP PROFILE DIRECTORY
-    
-    if [[ "$ok" ]] ; then
 
-	# collect all error messages
-	local myErrMsg=
+    # path to First Run file
+    local firstRunFile="$myProfilePath/First Run"
+
+    # make sure directory exists and is minimally populated
+    if [[ ! -e "$firstRunFile" ]] ; then
 	
-	# force an update?
-	local force="$1" ; shift
-
-	# path to First Run file
-	local firstRunFile="$myProfilePath/First Run"
-
-	# make sure directory exists and is minimally populated
-	if [[ ! -e "$firstRunFile" ]] ; then
+	# ensure data & profile directories exists
+	try /bin/mkdir -p "$myProfilePath" 'Unable to create app engine profile folder.'
+	
+	if [[ "$ok" ]] ; then
 	    
-	    # ensure data & profile directories exists
-	    try /bin/mkdir -p "$myProfilePath" 'Unable to create app engine profile folder.'
+	    # $$$ GET RID OF THIS AND USE MASTER PREFS??
 	    
-	    if [[ "$ok" ]] ; then
-		
-		# $$$ GET RID OF THIS AND USE MASTER PREFS??
-		
-		# set First Run file so Chrome/Chromium doesn't think it's a new profile (fail silently)
-		try /usr/bin/touch "$myProfilePath/First Run" 'Unable to create first run marker.'
-		
-		# non-fatal
-		if [[ ! "$ok" ]] ; then
-		    errlog "$errmsg"
-		    ok=1 ; errmsg=
-		fi
+	    # set First Run file so Chrome/Chromium doesn't think it's a new profile (fail silently)
+	    try /usr/bin/touch "$myProfilePath/First Run" 'Unable to create first run marker.'
+	    
+	    # non-fatal
+	    if [[ ! "$ok" ]] ; then
+		errlog "$errmsg"
+		ok=1 ; errmsg=
 	    fi
 	fi
     fi
     
     # if we couldn't create the directory, that's a fatal error
     [[ "$ok" ]] || return 1
+
     
-    if [[ "$ok" ]] ; then
-	
-	# MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE
-	
+    # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE ONLY ON FORCE
+    
+    if [[ "$force" ]] ; then
+
 	# set up useful variables
 	local extDir="External Extensions"
-	local extSourcePath="$myAppPath/Contents/Resources/$extDir"
-	local extDestPath="$myProfilePath/$extDir"
-
-	# flag for deciding whether to copy the directory
-	local doExtCopy=
-
-	if [[ "$force" ]] ; then
-	    doExtCopy=1
-	else
-
-	    # directory listings
-	    local extSourceList=()
-	    local extDestList=()
-	    
-	    # get a listing of the source directory
-	    dirlist "$extSourcePath" extSourceList 'source directory'
-	    
-	    # compare to destination directory
-	    if [[ "$ok" ]]; then
-		
-		# get a listing of the destination directory
-		dirlist "$extDestPath" extDestList 'destination directory'
-		
-		if [[ "$ok" ]] ; then
-		    
-		    # compare source and destination directories
-		    [[ "${extSourceList[*]}" != "${extDestList[*]}" ]] && doExtCopy=1
-		    
-		else
-
-		    # destination listing failed, so stomp it
-		    doExtCopy=1
-		    ok=1 ; errmsg=
-		fi
-	    fi
-	fi
 	
 	# if we need to copy the extension install directory, do it now
-	if [[ "$ok" && "$doExtCopy" ]] ; then
-	    safecopy "$extSourcePath" "$extDestPath" 'installation directory'
-	fi
+	safecopy "$myAppPath/Contents/Resources/$extDir" "$myProfilePath/$extDir" \
+		 'installation directory'
 	
 	# clear ok state, but keep error message
-	myErrMsg="$errmsg"
-	ok=1
-	
-	
-	# INSTALL NATIVE MESSAGING HOST
+	if [[ ! "$ok" ]] ; then
+	    myErrMsg="$errmsg"
+	    ok=1 ; errmsg=
+
+	    # flag error installing extension
+	    result=2
+	fi
+    fi
+    
+    # INSTALL OR UPDATE NATIVE MESSAGING HOST
+
+    # we need to do this if we're updating everything, or if the app has moved
+    if [[ "$force" || ( "$SSBAppPath" != "$myAppPath" ) ]] ; then
 	
 	# set up NMH file paths
 	local hostSourcePath="$myAppPath/Contents/Resources/NMH"
-	local hostScript="epichromeruntimehost.py"
-	local hostScriptSourceFile="$hostSourcePath/$hostScript"
-	local hostScriptDestFile="$myDataDir/$hostScript"
-	local hostManifest=( "org.epichrome.runtime.json" "org.epichrome.helper.json" )
-	local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
-	#local hostManifestInstalled=( "$hostInstallPath/${hostManifest[0]}" "$hostInstallPath/${hostManifest[1]}" )
 	
-	# install NMH script
-	if [[ "$force" || ( ! -x "$hostScriptDestFile" ) ]] ; then
-	    
-	    # filter the host script into place & make it executable
-	    filterscript "$hostScriptSourceFile" "$hostScriptDestFile" 'native messaging host script'
-	    try /bin/chmod 755 "$hostScriptDestFile" 'Unable to make native messaging host executable.'
+	local hostScriptPath="$hostSourcePath/epichromeruntimehost.py"
+	
+	local hostManifest="org.epichrome.runtime.json"
+	local hostManifestOld="org.epichrome.helper.json"
+	local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
+	
+	# create the install directory if necessary
+	if [[ ! -d "$hostManifestDestPath" ]] ; then
+	    try /bin/mkdir -p "$hostManifestDestPath" \
+		'Unable to create NativeMessagingHosts folder.'
 	fi
-
-	# install NMH manifest
-	if [[ "$ok" ]] ; then
-
-	    local curManifestSourceFile=
-	    for curManifest in "${hostManifest[@]}" ; do
-		
-		curManifestSourceFile="$hostManifestDestPath/$curManifest"
-		if [[ "$force" || ! -e "curManifestSourceFile" ]] ; then
-		    
-		    # create the install directory
-		    try /bin/mkdir -p "$hostManifestDestPath" \
-			'Unable to create NativeMessagingHosts folder.'
-		    
-		    # stream-edit the current manifest
-		    filterscript "$curManifestSourceFile" "$hostManifestDestPath/$curManifest" \
-				 'native messaging host manifest'
-		    
-	    done
+	
+	# paths to destination for host manifests with new and old IDs
+	local hostManifestDest="$hostManifestDestPath/$hostManifest"
+	local hostManifestOldDest="$hostManifestDestPath/$hostManifestOld"
+	
+	# stream-edit the new manifest into place  $$$ THIS WILL NEED TO HAVE ARGS
+	if [[ "$force" || ! -e "$hostManifestDest" ]] ; then
+	    filterscript "$hostSourcePath/$hostManifest" "$hostManifestDest" \
+			 'native messaging host manifest'
+	fi
+	
+	# duplicate the new manifest with the old ID
+	if [[ "$force" || ! -e "$hostManifestOldDest" ]] ; then
+	    try /bin/rm -f "$hostManifestOldDest" \
+		'Unable to remove old native messaging host manifest.'
+	    try /bin/cp "$hostManifestDest" "$hostManifestOldDest" \
+		'Unable to copy native messaging host manifest.'
 	fi
     fi
-
-    # handle error messaging and result code
-    if [[ "$ok" ]] ; then
-	
-	# success!
-	return 0
-    else
-	
+    
+    # flag error installing native messaging host
+    [[ "$ok" ]] || result=3
+    
+    
+    # HANDLE ERROR MESSAGING AND RETURN CODE
+    
+    if [[ "$result" != 0 ]] ; then
+		
 	# pass along error messages but clear error state
 	if [[ "$myErrMsg" ]] ; then
 	    errmsg="$myErrMsg Also: $errmsg"
@@ -432,18 +406,270 @@ function populatedatadir { # ( [FORCE] )
 	fi
 	
 	ok=1
-	
-	return 1
     fi
+    
+    return "$result"
+}
+
+
+# LINKTONMH -- link to Google Chrome and Chromium native message hosts
+function linktonmh {
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # turn on nullglob
+    local nullglobOff=
+    if shopt -q nullglob ; then
+	nullglobOff=1
+	shopt -s nullglob
+    fi
+	
+    # name for profile NMH folder
+    local nmhDir=NativeMessagingHosts
+    
+    # get paths to source and destination NMH manifest directories
+    local googleChromeHostDir="${HOME}/Library/Application Support/Google/Chrome/$nmhDir"
+    local chromiumHostDir="${HOME}/Library/Application Support/Chromium/$nmhDir"
+    local myHostDir="$myProfilePath/$nmhDir"
+    
+    # favor hosts from whichever browser our engine is using
+    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	hostDirs=( "$chromiumHostDir" "$googleChromeHostDir" )
+    else
+	hostDirs=( "$googleChromeHostDir" "$chromiumHostDir" )
+    fi
+    
+    # navigate to our host directory
+    try '!12' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
+    
+    # get list of host files currently installed
+    hostFiles=( * )
+    
+    # remove dead host links
+    for curFile in "${hostFiles[@]}" ; do
+	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
+	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
+	fi
+    done
+    
+    # link to hosts from both directories
+    for curHostDir in "${hostDirs[@]}" ; do
+
+	if [[ -d "$curHostDir" ]] ; then
+
+	    # get a list of all hosts in this directory
+	    try '!12' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
+	    hostFiles=( * )
+	    try '!12' popd "Unable to navigate away from ${curHostDir}"
+
+	    # link to any hosts that are not already in our directory
+	    # or are links to a different file -- this way if a given
+	    # host is in both the Chrome & Chromium directories, whichever
+	    # we hit second will win
+	    for curFile in "${hostFiles[@]}" ; do
+		if [[ ( ! -e "$curFile" ) || \
+			  ( -L "$curFile" && \
+				! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
+		    try ln -sf "${curHostDir}/$curFile" "$curFile" \
+			"Unable to link to native messaging host ${curFile}."
+		    
+		    # abort on error
+		    [[ "$ok" ]] || break
+		fi
+	    done
+	    
+	    # abort on error
+	    [[ "$ok" ]] || break
+	fi
+    done
+    
+    # silently return to original directory
+    try '!12' popd "Unable to navigate away from '$myHostDir'."
+    
+    # restore nullglob
+    [[ "$nullglobOff" ]] && shopt -u nullglob
+    
+    # return success or failure
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# CHECKENGINE -- check if the app engine is in a good state, active or not
+function checkengine {  # ( ON|OFF )
+    # return codes:
+    #   0 = engine is in expected state and in good condition
+    #   1 = error checking engine (and ok=, errmsg set)
+    #   2 = engine is in opposite state but in good condition
+    #   3 = engine is not in good condition
+
+    return 3
+} ; export -f setenginestate
+
+
+# SETENGINESTATE -- set the engine to the active or inactive state
+function setenginestate {  # ( ON|OFF )
+    
+} ; export -f setenginestate
+
+
+# CREATEENGINEPAYLOAD: create persistent engine payload
+function createenginepayload { # ( curContents curDataPath [epiPayloadPath] )
+
+    if [[ "$ok" ]] ; then
+	
+	# turn on nullglob
+	local nullglobOff=
+	if shopt -q nullglob ; then
+	    nullglobOff=1
+	    shopt -s nullglob
+	fi
+	
+	local curContents="$1"    ; shift
+	local curDataPath="$1" ; shift
+	local epiPayloadPath="$1" ; shift  # only needed for Chromium engine
+	
+	local curEnginePath="$curDataPath/$appDataEngineBase"
+	local curPayloadContentsPath="$curDataPath/$appDataPayloadBase/Contents"
+	
+	# clear out old engine
+	if [[ -d "$curEnginePath" ]] ; then
+	    try /bin/rm -rf "$curEnginePath"/* "$curEnginePath"/.[^.]* 'Unable to clear old engine.'
+	fi
+	
+	# create persistent payload
+	if [[ "$ok" ]] ; then
+	    
+	    if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+
+		# CHROMIUM PAYLOAD
+
+		# create engine directory
+		try /bin/mkdir -p "$curEnginePath" \
+		    'Unable to create app engine directory.'
+
+		# copy payload items from Epichrome
+		try /bin/cp -a "$epiPayloadPath" "$curEnginePath" \
+		    'Unable to copy items to app engine payload.'
+		
+		# filter Info.plist with app info
+		filterplist "$curPayloadContentsPath/Info.plist.in" \
+			    "$curPayloadContentsPath/Info.plist.off" \
+			    "app engine Info.plist" \
+			    "
+set :CFBundleDisplayName $CFBundleDisplayName
+set :CFBundleName $CFBundleName
+set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
+Delete :CFBundleDocumentTypes
+Delete :CFBundleURLTypes"
+
+		if [[ "$ok" ]] ; then
+		    try /bin/rm -f "$curPayloadContentsPath/Info.plist.in" \
+			'Unable to remove app engine Info.plist template.'
+		fi
+		
+		# filter localization strings
+		filterlproj "$curPayloadContentsPath/Resources" Chromium 'app engine'
+		
+	    else
+
+		# GOOGLE CHROME PAYLOAD
+		
+		try /bin/mkdir -p "$curPayloadContentsPath/Resources" \
+		    'Unable to create Google Chrome app engine Resources directory.'
+		
+		# copy engine executable (linking causes confusion between apps & real Chrome)
+		try /bin/cp -a "$SSBGoogleChromePath/Contents/MacOS" "$curPayloadContentsPath" \
+		    'Unable to copy Google Chrome executable to app engine payload.'
+
+		# copy .lproj directories
+		try /bin/cp -a "$SSBGoogleChromePath/Contents/Resources/"*.lproj "$curPayloadContentsPath/Resources" \
+		    'Unable to copy Google Chrome localizations to app engine payload.'
+		
+		# filter localization files
+		filterlproj "$curPayloadContentsPath/Resources" Chrome 'Google Chrome app engine'
+	    fi	
+	    
+	    # link to this app's icons
+	    if [[ "$ok" ]] ; then
+		try /bin/cp "$curContents/Resources/$CFBundleIconFile" \
+		    "$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
+		    "Unable to copy application icon file to app engine."
+		try /bin/cp "$curContents/Resources/$CFBundleTypeIconFile" \
+		    "$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
+		    "Unable to copy document icon file to app engine."
+	    fi
+	fi
+	
+	# restore nullglob
+	[[ "$nullglobOff" ]] && shopt -u nullglob
+    fi
+
+
+    # $$$$$ INTEGRATE THIS
+    
+# BUILD ENGINE OUT OF PAYLOAD
+
+# rename Payload to engine app name  $$$$$ 
+try /bin/mv "$myPayloadPath" "$myEngineAppPath" 'Unable to create app engine from payload.'
+
+[[ "$ok" ]] || abort "$errmsg" 1
+
+if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+
+    # EPICHROME CHROMIUM ENGINE
+    
+    if [[ ! "$epiCompatible" ]] ; then
+	abort "Unable to find a version of Epichrome compatible with this app's engine."
+    fi
+    # link to everything except Resources directory
+    dirlist "${epiCompatible[e_engineRuntime]}" curdir 'Epichrome app engine' '^Resources$'
+    linktree "${epiCompatible[e_engineRuntime]}" "$myEngineAppContents" \
+	     'Epichrome app engine' "${curdir[@]}"
+
+    # link to everything in Resources
+    linktree "${epiCompatible[e_engineRuntime]}/Resources" "$myEngineAppContents/Resources" \
+	     'Epichrome app engine Resources'
+
+    try /bin/mv -f "$myEngineAppContents/Info.plist.off" \
+	"$myEngineAppContents/Info.plist" \
+	'Unable to activate payload Info.plist.'
+else
+    # GOOGLE CHROME ENGINE
+
+    # link to everything except Resources & MacOS directories
+    dirlist "$SSBGoogleChromePath/Contents" curdir \
+	    'Google Chrome app engine' '^((Resources)|(MacOS))$'
+    linktree "$SSBGoogleChromePath/Contents" "$myEngineAppContents" \
+	     'Google Chrome app engine' "${curdir[@]}"
+
+    # link to everything in Resources except .lproj & .icns
+    dirlist "$SSBGoogleChromePath/Contents/Resources" curdir \
+	    'Google Chrome app engine Resources' '\.((icns)|(lproj))$'
+    linktree "$SSBGoogleChromePath/Contents/Resources" "$myEngineAppContents/Resources" \
+	     'Google Chrome app engine Resources' \
+	     "${curdir[@]}"
+fi
+
+
+
+
+
+    
+} ; export -f createenginepayload
+
+
+# CREATEENGINE -- create entire Epichrome engine (payload & placeholder)
+function createengine {
 }
 
 
 # GETENGINEPID: get the PID of the running engine  $$$$ REWRITE TO USE PS INSTEAD??
-enginePID=
+myEnginePID= ; export myEnginePID
 function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 
     # assume no PID
-    enginePID=
+    myEnginePID=
 
     # args
     local id="$1"
@@ -474,7 +700,7 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 	    # if this ASN matches our bundle, grab the PID
 	    re='bundle path *= *"([^'$'\n'']+)".*pid *= *([0-9]+)'
 	    if [[ ( "$info" =~ $re ) && ( "${BASH_REMATCH[1]}" = "$path" ) ]] ; then
-		enginePID="${BASH_REMATCH[2]}"
+		myEnginePID="${BASH_REMATCH[2]}"
 		break
 	    fi
 
@@ -484,7 +710,7 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
     fi
 
     # return result
-    if [[ "$enginePID" ]] ; then
+    if [[ "$myEnginePID" ]] ; then
 	ok=1 ; errmsg=
 	return 0
     elif [[ "$ok" ]] ; then
@@ -494,4 +720,4 @@ function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
 	ok=1
 	return 1
     fi
-}
+} ; export -f getenginepid

@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-#  TestLaunch
+#  EpichromeHelper: Helper app to clean up engines & handle app updates
 #
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -22,219 +22,143 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
 
-# SHELL OPTIONS
-
-shopt -s nullglob
-
-
-# FUNCTION DEFINITIONS
-
-
-# CLEANEXIT -- restore launcher and exit
-function cleanexit { # [code]
-    
-    local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
-
-    # restore launcher
-    if [[ -d "$libPath/Engine/OFF" ]] ; then
-	ok=1 ; errmsg=
-	
-	try /bin/mv "$huskPath/Contents" "$libPath/Engine/ON" 'Error moving out engine contents.'
-	try /bin/mv "$libPath/Engine/OFF" "$huskPath/Contents" 'Error moving in husk contents.'
-	
-	if [[ "$ok" ]] ; then
-	    debuglog "cleanup complete"
-	else
-	    errlog "$errmsg"
-	    [[ "$myCode" = 0 ]] && myCode=1
-	fi	
-    fi
-
-    # exit
-    exit "$myCode"
-}
-    
-
-# GETENGINEPID: get the PID of the running engine
-enginePID=
-function getenginepid { # ENGINE-BUNDLE-ID ENGINE-BUNDLE-PATH
-
-    # assume no PID
-    enginePID=
-
-    # args
-    local id="$1"
-    local path="$2"
-
-    # get all ASNs associated with the engine's bundle ID
-    local asns=
-    try 'asns=()' /usr/bin/lsappinfo find "bundleid=$id" \
-	'Error while attempting to find running engine.'
-    
-    # no engine found, just don't return a PID
-    if [[ "$ok" && ( "${#asns[@]}" = 0 ) ]] ; then
-	debuglog "NO ASNS RETURNED"
-	return 0
-    fi
-
-    # search for PID
-    if [[ "$ok" ]] ; then
-
-	local info=
-	
-	local a=
-	for a in "${asns[@]}" ; do
-
-	    # get info on an ASN (we use try for the debugging output)
-	    try 'info=' /usr/bin/lsappinfo info "$a" ''
-	    ok=1 ; errmsg=
-	    
-	    # if this ASN matches our bundle, grab the PID
-	    re='bundle path *= *"([^'$'\n'']+)".*pid *= *([0-9]+)'
-
-	    # if [[ "$info" =~ $re ]] ; then
-	    # 	debuglog "checking ASN: '${BASH_REMATCH[1]}' pid ${BASH_REMATCH[2]}"
-	    # 	debuglog "against path: '$path'"
-	    # fi
-	    
-	    if [[ ( "$info" =~ $re ) && ( "${BASH_REMATCH[1]}" = "$path" ) ]] ; then
-		enginePID="${BASH_REMATCH[2]}"
-		break
-	    fi
-
-	    # not found, so reset info
-	    info=
-	done
-    fi
-
-    # return result
-    if [[ "$enginePID" ]] ; then
-	ok=1 ; errmsg=
-	return 0
-    elif [[ "$ok" ]] ; then
-	return 0
-    else
-	# errors in this function are nonfatal; just return the error message
-	ok=1
-	return 1
-    fi
-}
-
 
 # IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
 
-
-if [[ "$1" != daemon ]] ; then
-    "$0" daemon "$@" &
+if [[ "${epiHelperMode::6}" =~ ^Launch(.+)$ ]] ; then
+    epiHelperMode="${BASH_REMATCH[1]}"
+    "$0" "$@" &
     exit 0
 else
     shift
 fi
 
 
+# FUNCTION DEFINITIONS
+
+
+# CLEANUP -- restore launcher  $$$$ REWRITE THIS
+function cleanup { # [code]
+    
+    local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
+    
+    # deactivate engine
+    setenginestate OFF
+    if [[ "$ok" ]] ; then
+	debuglog "Cleanup complete."
+    else
+	errlog "$errmsg"
+	[[ "$myCode" = 0 ]] && myCode=1
+    fi
+    
+    # exit
+    exit "$myCode"
+}
+
+
+# HANDLE KILL SIGNALS
+
+function handleexitsignal {
+
+    if kill -0 "$myEnginePID" 2> /dev/null ; then
+
+	# engine is still running, so try to kill it gently
+	errlog 'Terminated prematurely. Quitting engine.'
+	try kill -HUP "$myEnginePID" 'Error sending HUP to engine.'
+	if [[ ! "$ok" ]] ; then
+	    errlog "$errmsg"
+	    ok=1 ; errmsg
+	fi
+
+	# wait a few seconds
+	sleep 5
+
+	# if engine has now quit, clean up
+	if ! kill -0 "$myEnginePID" 2> /dev/null ; then
+	    debuglog 'Engine has quit. Cleaning up...'
+	    cleanup
+	else
+	    debuglog 'Engine still running. Giving up and leaving engine active.'
+	fi
+    fi
+    
+    # if engine is already dead, assume we've already cleaned up
+    
+    # release lock
+    lockrelease
+    
+}
+trap '' INT
+trap handleexitsignal EXIT
+
+
+# LOCKREPLACE -- replace a lock set by the parent app
+function lockreplace { # ( replacePID )
+
+    if [[ "$ok" ]] ; then
+	
+	# PID of lock we want to replace
+	local replacePID="$1" ; shift
+	#local myLockEnginePID="$1" ; shift
+	
+	# assume lock is not already on
+	lockOn=
+	
+	# check if there's already a lock file in place    
+	if [[ -f "$myLockFile" ]] ; then
+	    
+	    # read the existing lock file
+	    safesource "$myLockFile" 'lock'
+	    [[ "$ok" ]] || return 1	    
+	    
+	    # if this is the right lock, replace it
+	    if [[ "$replacePID" = "$lockPID" ]] ; then
+		lockPID="$$"
+		writevars "$myLockFile" lockPID lockEnginePID
+		[[ "$ok" ]] || return 1
+		lockOn=1
+		return 0
+	    else
+
+		# replacement PID doesn't match lock PID
+		ok= ; errmsg="Incorrect lock info."
+		return 1
+	    fi
+	    
+	else
+	    
+	    # we're supposed to be replacing a lock, but none in place
+	    ok= ; errmsg="No lock found."
+	    return 1
+	fi
+    fi
+
+    return 1
+}
+
+
 # MAIN BODY
 
-
-# BOOTSTRAP RUNTIME SCRIPT
-
-source "${0%/MacOS/*}/Resources/Scripts/runtime.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load runtime script.'
-[[ "$ok" ]] || abort
-
-# PARSE OPTIONS
-
-huskPID="$1"  ; shift
-appName="$1"  ; shift
-huskPath="$1" ; shift
-appID="$1"    ; shift
-
-libPath="$HOME/Library/Application Support/Epichrome/Apps/$appName"
-
-# initialize log
-myLogPath="$libPath/epichrome_app_log.txt"
-stderrTempFile="$libPath/stderr.txt"
-logApp="TestLaunch[$$/$huskPID]"
-logPreserve=1  # don't delete any log created by the parent app
-initlog
-
-# $$$ HACK TO HANDLE BROWSER FAIRY DOUBLE-LAUNCH
-try /bin/mv "$huskPath/Contents" "$libPath/Engine/OFF" 'Error moving out husk contents.'
+# update log name
+logApp="TestLaunch[$$/$myEnginePID]"  # $$$$ FIX THIS
 
 
-# debuglog "huskPID = $huskPID"
-# debuglog "appName = $appName"
-# debuglog "huskPath = $huskPath"
-# debuglog "appID = $appID"
+# REPLACE PARENT APP'S LOCK
 
-# WAIT FOR HUSK APP TO DIE, THEN CONVERT TO ENGINE
+lockEnginePID="$myEnginePID"
 
-debuglog "waiting for husk app to quit"
+lockreplace "$epiHelperParentPID" || abort "Unable to acquire lock. ($errmsg) The app engine will not be deactivated upon quitting."
 
-# wait for app to exit
-while /bin/kill -0 "$huskPID" 2> /dev/null ; do
-    sleep .5
-done
 
-logApp="TestLaunch[$$]"
+# WAIT FOR APP TO EXIT
 
-# $$$ HACK TO HANDLE BROWSER FAIRY DOUBLE-LAUNCH
-if [[ "$*" ]] ; then
-    debuglog "opening files, so pausing before convert"
-    sleep .5
-fi
-
-# handle engine launch
-debuglog "husk app has quit, converting to engine"
-
-try /bin/mv "$libPath/Engine/ON" "$huskPath/Contents" 'Error moving in engine contents.'
-[[ "$ok" ]] || abort
-
-debuglog "launching engine with args: $*"
-
-# $$$$ if this fails with no executable, try again
-# The application /Users/davidmarmor/Scratch/TestOneAppG.app cannot be opened because its executable is missing.
-for attempt in 1 2 3 4 5 6 7 8 9 10 ; do
-    if [[ "$attempt" != 1 ]] ; then
-	debuglog "Trying open again..."
-	ok=1 ; errmsg=
-    fi
-    
-    try 'openerr&=' /usr/bin/open -a "$huskPath" "$@" --args "--user-data-dir=$libPath/UserData" '--app=https://www.imdb.com/' \
-	"Unable to launch '$huskPath'"
-    
-    if [[ "$ok" ]] ; then
-	debuglog "Open succeeded on attempt $attempt"
-	break
-    else
-	debuglog "Open attempt $attempt failed: $openerr"
-	sleep .5
-    fi
-done
-
-[[ "$ok" ]] || abort
-
-sleep 1
-
-getenginepid "$appID" "$huskPath"
-
-if [[ ! "$enginePID" ]] ; then
-    abort "No engine PID"
-fi
-
-logApp="TestLaunch[$$/$enginePID]"
-
-debuglog "waiting for engine to quit"
-
-# wait for app to exit
-while /bin/kill -0 "$enginePID" 2> /dev/null ; do
+debuglog "Waiting for engine to quit."
+while kill -0 "$myEnginePID" 2> /dev/null ; do
     sleep .66
 done
 
-debuglog "engine has quit, cleaning up"
 
+# DEACTIVATE ENGINE AND QUIT
+
+debuglog 'Engine has quit. Cleaning up...'
 cleanexit
-
-#debuglog "Engine has quit, beginning cleanup"
-
-
-#debuglog "Cleanup completed successfully"

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  update.sh: core functions for updating/or creating Epichrome apps
+#  update.sh: functions for updating/or creating Epichrome apps
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -32,8 +32,27 @@ if [[ ! "$1" = NORUNTIMELOAD ]] ; then
     fi
 fi
 
+# $$$$ SOMEWHERE HERE -- POPULATE EPIRUNTIME
 
 # FUNCTION DEFINITIONS
+
+# RELAUNCH -- relaunch this app ($$$ MOVE INTO UPDATEAPP???)
+function relaunch { # APP-PATH
+    
+    # export debug & log options for relaunch daemon
+    export debug logPreserve
+    
+    # launch relaunch daemon  $$$ ADD ARGS HERE??
+    try /usr/bin/open "$myContents/$appCleanupPath" --args \
+	RELAUNCH "$$" "$myPath" "$myLogPath" "$stderrTempFile" \
+	'Update succeeded, but unable to lauch updated app. Try launching it manually.'
+
+    # exit
+    [[ "$ok" ]] || abort
+    exit 0
+}
+
+
 
 # MAKEAPPICONS: wrapper for makeicon.sh
 function makeappicons {  # ( inImage, outDir, iconType:app|doc|both )
@@ -116,13 +135,8 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	
 	if [[ "$ok" ]] ; then
 	    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-		
-		# Google Chrome engine: make sure we've got Chrome info
-		[[ "$SSBGoogleChromePath" && "$SSBEngineVersion" ]] || googlechromeinfo
-	    else
-		
-		# Chromium engine: just set the engine version
-		SSBEngineVersion="${epiRuntime[$e_version]}"
+		# Google Chrome engine: this will get set on first run
+		SSBGoogleChromeVersion=0
 	    fi
 	fi
 	
@@ -263,6 +277,9 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	fi
 	
 	if [[ "$ok" ]] ; then
+
+	    # set app path
+	    SSBAppPath="$appPath"
 	    
 	    # set data directory path
 	    SSBDataPath="$appDataBase/$SSBIdentifier"
@@ -271,7 +288,7 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	    if [[ "$SSBVersion" ]] ; then
 		SSBFirstRunSinceVersion="$SSBVersion"
 	    else
-		SSBFirstRunSinceVersion="0.0.0"
+		SSBFirstRunSinceVersion='0.0.0'
 	    fi
 	    
 	    # update SSBVersion & SSBUpdateCheckVersion
@@ -279,8 +296,8 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	    SSBUpdateVersion="$SSBVersion"
 	    SSBUpdateCheckVersion="$SSBVersion"
 	    
-	    # clear host install error state
-	    SSBHostInstallError=
+	    # clear extension install error state
+	    SSBExtensionInstallError=
 	fi
 	
 

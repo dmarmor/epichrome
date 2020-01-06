@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 #  build.sh: Create an Epichrome application
+#
 #  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
@@ -28,36 +29,17 @@ debug=
 logPreserve=
 
 
-# ABORT -- exit cleanly on error
-function abort { # [myErrMsg code]
-
+# MYABORT -- exit cleanly on error
+function myabort { # [myErrMsg code]
+    
     # clean up any temp app bundle we've been working on
     [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
-    
-    # arguments
-    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
-    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
-    
-    # log error message
-    local myAbortLog="Aborting: $myErrMsg"
-    if [[ "$( type -t errlog )" = function ]] ; then
-	errlog "$myAbortLog"
-    else
-	# send abort message to log
-	[[ -w "$myLogPath" ]] && echo "$myAbortLog" >> "$myLogPath"
 
-    fi
-    
     # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
     
-    exit "$myCode"
+    abortsilent "$@"
 }
-
-
-# HANDLE KILL SIGNALS
-
-trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 
 
 # BOOTSTRAP UPDATE SCRIPT
@@ -65,9 +47,19 @@ trap "abort 'Unexpected termination.' 2" SIGHUP SIGINT SIGTERM
 # set logging parameters so all stderr output goes to log only
 logNoStderr=1
 
-source "${0%/*}/update.sh"
-[[ "$?" != 0 ]] && abort 'Unable to load update script.'
-[[ "$ok" ]] || abort
+source "${BASH_SOURCE[0]%/*}/update.sh"
+if [[ "$?" != 0 ]] ; then
+    [[ ! "$myLogFile" ]] && myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
+    /bin/mkdir -p "${myLogFile%/*}"
+    echo 'Unable to load update script.' >> "$myLogFile"
+    exit 1
+fi
+[[ "$ok" ]] || myabort
+
+
+# HANDLE KILL SIGNALS
+
+trap "myabort 'Received termination signal.' 2" SIGHUP SIGINT SIGTERM
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
@@ -123,22 +115,14 @@ cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
 if [[ "$?" != 0 ]] ; then
     # if we don't have permission, let the app know to try for admin privileges
     errRe='Permission denied$'
-    [[ "$cmdtext" =~ $errRe ]] && abort 'PERMISSION' 2
+    [[ "$cmdtext" =~ $errRe ]] && myabort 'PERMISSION' 2
 
     # regular error
-    abort 'Unable to create temporary app bundle.' 1
+    myabort 'Unable to create temporary app bundle.' 1
 fi
 
 # set ownership of app bundle to this user (only necessary if running as admin)
 try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
-
-
-# GET INFO NECESSARY TO RUN THE UPDATE
-
-if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-    # get info about Google Chrome
-    googlechromeinfo
-fi
 
 
 # PREPARE CUSTOM ICON IF WE'RE USING ONE
@@ -150,7 +134,7 @@ if [[ "$iconSource" ]] ; then
     # get name for temporary icon directory
     customIconDir=$(tempname "${appTmp}/icons")
     try /bin/mkdir -p "$customIconDir" 'Unable to create temporary icon directory.'
-    [[ "$ok" ]] || abort "$errmsg"
+    [[ "$ok" ]] || myabort "$errmsg"
     
     # convert image into an ICNS
     makeappicons "$iconSource" "$customIconDir" both
@@ -158,7 +142,7 @@ if [[ "$iconSource" ]] ; then
     # handle results
     if [[ ! "$ok" ]] ; then
 	[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-	abort "Unable to create icon${errmsg}."
+	myabort "Unable to create icon${errmsg}."
     fi
 fi
 
@@ -171,7 +155,7 @@ SSBFirstRun=1
 # populate the app bundle
 updateapp "$appTmp" "$customIconDir"
 
-[[ "$ok" ]] || abort "$errmsg"
+[[ "$ok" ]] || myabort "$errmsg"
 
 # delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
 [[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
@@ -179,6 +163,6 @@ updateapp "$appTmp" "$customIconDir"
 # move new app to permanent location (overwriting any old app)
 permanent "$appTmp" "$appPath" "app bundle"
 
-[[ "$ok" ]] || abort "$errmsg"
+[[ "$ok" ]] || myabort "$errmsg"
 
 exit 0

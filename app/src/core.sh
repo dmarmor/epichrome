@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  runtime.sh: runtime utility functions for Epichrome creator & apps
+#  core.sh: core utility functions for Epichrome creator & apps
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -22,106 +22,93 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# BUILD FLAGS
-
-#debug=
-#logPreserve=
-
-
-# SHELL OPTIONS
-
-shopt -s nullglob
-
-
 # NOTE: the "try" function and many other functions in this system clear
 #       the "ok" global variable on error, set a message in "errmsg",
 #       and return 0 on success, non-zero on error
 
-# CONSTANTS
 
-# app executable name
-CFBundleExecutable="Epichrome"
+# CONSTANTS
 
 # icon names
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
+export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-appIDRoot="org.epichrome"
-appIDBase="$appIDRoot.app"
-appEngineIDBase="$appIDRoot.eng"
-
-# Google Chrome ID
+appIDBase="org.epichrome.app"
 googleChromeID='com.google.Chrome'
+export appIDBase googleChromeID
 
-# important paths -- relative to app Contents directory
+# $$$$ FIX THESE important paths -- relative to app Contents directory
 appConfigScriptPath="Resources/Scripts/config.sh"
 appCleanupPath="Resources/EpichromeCleanup.app"
 
+
+# ARGUMENTS
+
+myRole="$1" ; shift
+
+
+# SET UP CORE INFO
+
 # Epichrome data directory
-epiDataBase="Library/Application Support/Epichrome"
-epiDataPath="$HOME/$epiDataBase"
+myDataPath="$HOME/Library/Application Support/Epichrome" ; export myDataPath
 
-# app data directory base -- relative to home directory
-appDataBase="$epiDataBase/Apps"
+if [[ "$myRole" = app ]] ; then
+    # path to this app
+    myAppPath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/core.sh}"
+    
+    # path to important data directories and paths  $$$ MODIFY THESE
+    myDataPath="$myDataPath/Apps/$SSBIdentifier"
+    myConfigFile="$myDataPath/config.sh"
+    myEnginePath="$myDataPath/Engine.noindex"
+    
+    myPayloadPath="$myDataPath/Payload"
+    myProfilePath="$myDataPath/UserData"
+    export myPayloadPath myProfilePath
+    
+    #log path
+    myLogFile="$myDataPath/epichrome_app_log.txt"
 
-# app data directory subfolders -- relative to appDataBase
-appDataEngineBase="Engine"
-appDataPayloadBase="$appDataEngineBase/Payload"
-appDataProfileBase="UserData"
+else  # myRole = epichrome
+    
+    # path to this app
+    myAppPath="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Resources/Scripts/core.sh}"
 
-# dialog icon path
-appDialogIcon="${BASH_SOURCE[0]%/Scripts/*}/app.icns"
+    #log path
+    myLogFile="$myDataPath/epichrome_log.txt"
+fi
+export myAppPath myLogFile
 
-# logging info (can be overridden by individual apps)
-[[ "$logApp" ]] || logApp="Epichrome"
-[[ "$logPath" ]] || logPath="$epiDataPath/epichrome_log.txt"
-#logNoStderr=  # set this in calling script to prevent logging to stderr
-#logNoFile=    # set this in calling script to prevent logging to file
+# icon path for dialog boxes
+myDialogIcon="$myAppPath/Contents/Resources/app.icns" ; export myDialogIcon
 
-stderrTempFile="$epiDataPath/stderr.txt"
+# path to stderr temp file
+stderrTempFile="$myDataPath/stderr.txt" ; export stderrTempFile
+
+# variables to suppress logging to stderr or file
+[[ "$logNoStderr" ]] || logNoStderr=  # set this in calling script to prevent logging to stderr
+[[ "$logNoFile"   ]] || logNoFile=    # set this in calling script to prevent logging to file
+export logNoStderr logNoFile
+
+# lock file
+myLockFile="$myDataPath/lock" ; export myLockFile
 
 
-# JOIN_ARRAY: join a bash array into a string with an arbitrary delimiter
+# FUNCTION DEFINITIONS
+
+
+# JOIN_ARRAY -- join a bash array into a string with an arbitrary delimiter
 function join_array { # (DELIMITER)
     local delim=$1; shift
     
     printf "$1"
     shift
     printf "%s" "${@/#/$delim}"
-}
+} ; export -f join_array
 
-# LOGGING: log to stderr & a log file
-function errlog {
-	local trace=()
-	local src=( "$logApp" )
-	local i=1
-	local curfunc=
-	while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
-	    curfunc="${FUNCNAME[$i]}"
-	    if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-	     	src+=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" )
-		break
-	    elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
-		: # skip these functions
-	    else
-		trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
-	    fi
-	    i=$(( $i + 1 ))
-	done
 
-	local prefix="$(join_array '/' "${trace[@]}")"
-	src="$(join_array '|' "${src[@]}")"
-	if [[ "$src" && "$prefix" ]] ; then
-	    prefix="$src [$prefix]: "
-	elif [[ "$src" ]] ; then
-	    prefix="$src: "
-	elif [[ "$prefix" ]] ; then
-	    prefix="$prefix: "
-	fi
-	
-	errlog_raw "$prefix$@"
- }
+# LOGGING -- log to stderr & a log file
 function errlog_raw {
 
     # if we're logging to stderr, do it
@@ -130,28 +117,60 @@ function errlog_raw {
     # if we're logging to file & either the file exists & is writeable, or
     # the file doesn't exist and its parent directory is writeable, do it
     if [[ ( ! "$logNoFile" ) && \
-	      ( ( ( -f "$logPath" ) && ( -w "$logPath" ) ) || \
-		    ( ( ! -e "$logPath" ) && ( -w "${logPath%/*}" ) ) ) ]] ; then
-	echo "$@" >> "$logPath"
+	      ( ( ( -f "$myLogFile" ) && ( -w "$myLogFile" ) ) || \
+		    ( ( ! -e "$myLogFile" ) && ( -w "${myLogFile%/*}" ) ) ) ]] ; then
+	echo "$@" >> "$myLogFile"
     fi
 }
-function debuglog {
-    [[ "$debug" ]] && errlog "$@"
+function errlog {
+    local trace=()
+    local src=( "$logApp" )
+    local i=1
+    local curfunc=
+    while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
+	curfunc="${FUNCNAME[$i]}"
+	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
+	    src+=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" )
+	    break
+	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
+	    : # skip these functions
+	else
+	    trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+	fi
+	i=$(( $i + 1 ))
+    done
+    
+    local prefix="$(join_array '/' "${trace[@]}")"
+    src="$(join_array '|' "${src[@]}")"
+    if [[ "$src" && "$prefix" ]] ; then
+	prefix="$src [$prefix]: "
+    elif [[ "$src" ]] ; then
+	prefix="$src: "
+    elif [[ "$prefix" ]] ; then
+	prefix="$prefix: "
+    fi
+    
+    errlog_raw "$prefix$@"
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
 }
+function debuglog {
+    [[ "$debug" ]] && errlog "$@"
+}
+export -f errlog_raw errlog debuglog_raw debuglog
 
-# INITLOG: initialize log file
+
+# INITLOG: initialize logging
 function initlog {
 
-    if  [[ ( ! "$logPreserve" ) && ( -f "$logPath" ) ]] ; then
+    if  [[ ( ! "$logPreserve" ) && ( -f "$myLogFile" ) ]] ; then
 	# we're not saving logs & the logfile exists, so clear it, ignoring failure
-	/bin/cat /dev/null > "$logPath"
+	/bin/cat /dev/null > "$myLogFile"
     else
 	# make sure the log file & its path exist
-	/bin/mkdir -p "${logPath%/*}"
-	/usr/bin/touch "$logPath"
+	/bin/mkdir -p "${myLogFile%/*}"
+	/usr/bin/touch "$myLogFile"
     fi
 
     # check if we can write to stderr or if we need to disable it
@@ -160,7 +179,7 @@ function initlog {
 	errlog "Unable to direct stderr to '$stderrTempFile' -- stderr output will not be logged."
 	stderrTempFile='/dev/null'
     fi
-}
+} ; export -f initlog
 
 
 # TRY: try to run a command, as long as no errors have already been thrown
@@ -373,11 +392,11 @@ function try {
     fi
     
     return 0
-}
+} ; export ok errmsg ; export -f try
 
 
-# ONERR -- like TRY above, but it only runs if there's already been an error
-function onerr {
+# TRYONERR -- like TRY above, but it only runs if there's already been an error
+function tryonerr {
     
     # try a command, but only if there's already been an error
     
@@ -404,67 +423,106 @@ function onerr {
     fi
 
     return 0
-}
-
-
-# ISARRAY -- echo "true" and return 0 if a named variable is an array
-function isarray {
-    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
-	echo true
-	return 0
-    else
-	return 1
-    fi
-}
+} ; export -f tryonerr
 
 
 # SAFESOURCE -- safely source a script
-function safesource { # SCRIPT [ARGS... FILEINFO]
+function safesource { # SCRIPT [FILEINFO [ARGS ...]]
     
     # only run if no error
     if [[ "$ok" ]]; then
 	
 	# get command-line args
-	local args=( "$@" )
-	local lastIndex=$(( ${#args[@]} - 1 ))
+	local script="$1" ; shift
+	local fileinfo="$1" ; shift
 	
 	# get file info string & make try error string
-	local fileinfo=
-	if [[ ( "$#" -lt 2 ) || ( ! "${args[$lastIndex]}" ) ]] ; then
+	if [[ ! "$fileinfo" ]] ; then
 	    
-	    # no file info supplied, so autocreate it
-	    if [[ "$1" =~ /([^/]+)$ ]] ; then
+	    # autocreate file info
+	    if [[ "$script" =~ /([^/]+)$ ]] ; then
 		fileinfo="${BASH_REMATCH[1]}"
 	    else
 		fileinfo='empty path'
 	    fi
-	    args+=( "$fileinfo" )
-	else
-	    fileinfo="${args[$lastIndex]}"
 	fi
 	
 	# check that the source file exists & is readable
 	local myErrPrefix="Error loading $fileinfo: "
 	local myErr=
-	local sourceFile="${args[0]}"
-	[[ ! -e "$sourceFile" ]] && myErr="${myErrPrefix}Nothing found at '$sourceFile'."
-	[[ ( ! "$myErr" ) && ( ! -f "$sourceFile" ) ]] && myErr="${myErrPrefix}'$sourceFile' is not a file."
-	[[ ( ! "$myErr" ) && ( ! -r "$sourceFile" ) ]] && myErr="${myErrPrefix}'$sourceFile' is not readable."
-
+	[[ ! -e "$script" ]] && myErr="${myErrPrefix}Nothing found at '$script'."
+	[[ ( ! "$myErr" ) && ( ! -f "$script" ) ]] && myErr="${myErrPrefix}'$script' is not a file."
+	[[ ( ! "$myErr" ) && ( ! -r "$script" ) ]] && myErr="${myErrPrefix}'$script' is not readable."
+	
 	if [[ "$myErr" ]] ; then
 	    ok=
 	    errmsg="$myErr"
 	else
 	    
 	    # try to source the file
-	    args[$lastIndex]="Unable to load ${args[$(( ${#args[@]} - 1 ))]}."
-	    try source "${args[@]}"
+	    try source "$script" "$@" "Unable to load $fileinfo."
 	fi
     fi
     
     [[ "$ok" ]] && return 0
     return 1
+    
+} ; export -f safesource
+
+
+# CLEANEXIT -- call any defined cleanup function and exit
+function cleanexit { # [code]
+    
+    local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
+    
+    # call cleanup with exit code
+    if [[ "$( type -t cleanup )" = function ]] ; then
+	cleanup "$myCode"
+    fi
+    
+    # exit
+    exit "$myCode"
+} ; export -f cleanexit
+
+
+# ABORT -- display an error alert and abort
+function abort { # ( [myErrMsg myCode] )
+
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
+    
+    # log error message
+    local myAbortLog="Aborting: $myErrMsg"
+    errlog "$myAbortLog"
+    
+    # show dialog & offer to open log
+    if [[ "$( type -t dialog )" = function ]] ; then
+	local choice=
+	dialog choice "$myErrMsg" "Unable to Run" '|stop' '+Quit' '-View Log'
+	if [[ "$choice" = 'View Log' ]] ; then
+	    
+	    # clear OK state so try works & ignore result
+	    ok=1 ; errmsg=
+	    try /usr/bin/osascript -e '
+tell application "Finder" to reveal ((POSIX file "'"$myLogFile"'") as alias)
+tell application "Finder" to activate' 'Error attempting to view log file.'
+	fi
+    fi
+    
+    # quit with error code
+    cleanexit "$myCode"
+    
 }
+
+
+# ABORTSILENT -- log an error message and abort with no dialog
+function abortsilent { # ( [myErrMsg myCode] )
+    unset dialog
+    abort "$@"
+}
+
+export -f abort abortsilent
 
 
 # TEMPNAME: internal version of mktemp
@@ -476,7 +534,7 @@ function tempname {
     done
     
     echo "$result"
-}
+} ; export -f tempname
 
 
 # PERMANENT: move temporary file or directory to permanent location safely
@@ -517,7 +575,7 @@ function permanent {
 	    
 	    # move old permanent file back
 	    if [[ "$permOld" ]] ; then
-		onerr /bin/mv "$permOld" "$perm" "Also unable to restore old $filetype."
+		tryonerr /bin/mv "$permOld" "$perm" "Also unable to restore old $filetype."
 	    fi
 	    
 	    # delete temp file
@@ -527,7 +585,26 @@ function permanent {
     
     [[ "$ok" ]] && return 0
     return 1
-}
+} ; export -f permanent
+
+
+# RMTEMP: remove a temporary file or directory (whether $ok or not)
+function rmtemp {
+    local temp="$1"
+    local filetype="$2"	
+
+    # delete the temp file
+    if [ -e "$temp" ] ; then
+	if [[ "$ok" ]] ; then
+	    try /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
+	else
+	    tryonerr /bin/rm -rf "$temp" "Also unable to remove temporary $filetype."
+	fi
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+} ; export -f rmtemp
 
 
 # SAFECOPY: safely copy a file or directory to a new location
@@ -557,47 +634,29 @@ function safecopy {
     
     [[ "$ok" ]] && return 0
     return 1
-}
+} ; export -f safecopy
 
 
-# RMTEMP: remove a temporary file or directory (whether $ok or not)
-function rmtemp {
-    local temp="$1"
-    local filetype="$2"	
-
-    # delete the temp file
-    if [ -e "$temp" ] ; then
-	if [[ "$ok" ]] ; then
-	    try /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
-	else
-	    onerr /bin/rm -rf "$temp" "Also unable to remove temporary $filetype."
-	fi
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-}
-
-
+# $$$$ REMOVE THIS???
 # SETOWNER: set the owner of a directory tree or file to the owner of the app
-function setowner {  # APPPATH THISPATH PATHINFO
+# function setowner {  # APPPATH THISPATH PATHINFO
 
-    if [[ "$ok" ]] ; then
+#     if [[ "$ok" ]] ; then
 
-	# get args
-	local appPath="$1"
-	local thisPath="$2"
-	local pathInfo="$3"
-	[[ "$pathInfo" ]] || pathInfo="path \"$2\""
+# 	# get args
+# 	local appPath="$1"
+# 	local thisPath="$2"
+# 	local pathInfo="$3"
+# 	[[ "$pathInfo" ]] || pathInfo="path \"$2\""
 	
-	local appOwner=
-	try 'appOwner=' /usr/bin/stat -f '%Su' "$appPath" 'Unable to get owner of app bundle.'
-	try /usr/sbin/chown -R "$appOwner" "$thisPath" "Unable to set ownership of $pathInfo."
-    fi
+# 	local appOwner=
+# 	try 'appOwner=' /usr/bin/stat -f '%Su' "$appPath" 'Unable to get owner of app bundle.'
+# 	try /usr/sbin/chown -R "$appOwner" "$thisPath" "Unable to set ownership of $pathInfo."
+#     fi
 
-    [[ "$ok" ]] && return 0
-    return 1
-}
+#     [[ "$ok" ]] && return 0
+#     return 1
+# } ; export -f setowner
 
 
 # DIRLIST: get (and possibly filter) a directory listing
@@ -605,10 +664,10 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
 
     if [[ "$ok" ]]; then
 
-	local dir="$1"
-	local outvar="$2"
-	local fileinfo="$3"
-	local filter="$4"
+	local dir="$1"      ; shift
+	local outvar="$1"   ; shift
+	local fileinfo="$1" ; shift ; [[ "$fileinfo" ]] || fileinfo="$dir"
+	local filter="$1"   ; shift
 	
 	local files=
 	files="$(unset CLICOLOR ; /bin/ls "$dir" 2>&1)"
@@ -635,7 +694,7 @@ function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
     
     [[ "$ok" ]] && return 0
     return 1
-}
+} ; export -f dirlist
 
 
 # DIALOG -- display a dialog and return the button pressed
@@ -744,7 +803,7 @@ $try_end" 'Unable to display dialog box!'
 
     [[ "$ok" ]] && return 0
     return 1
-}
+} ; export -f dialog
 
 
 # ALERT -- display a simple alert dialog box (whether ok or not)
@@ -754,154 +813,31 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
     # show the alert
     dialog '' "$1" "$2" "$3"
     return "$?"
-}
+} ; export -f alert
 
 
-# WRITEVARS: write out a set of arbitrary bash variables to a file
-function writevars {  # $1 = destination file
-    #                   $@ = list of vars
-    
-    if [[ "$ok" ]] ; then
+# FILTERSCRIPT -- filter a script using a static set of tokens   $$$$ WRITE THIS
+function filterscript { # ( sourceFile destFile fileInfo )
+    local hostScriptTmp=$(tempname "$hostScriptInstalled")
+    try /usr/bin/touch "${hostScriptTmp}" 'Unable to create script.'
+    try "${hostScriptTmp}<" /usr/bin/sed \
+	"s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/;
+         s/APPDISPLAYNAME/$CFBundleDisplayName/;
+         s/APPBUNDLENAME/$CFBundleName/;
+         s/APPLOGPATH/${myLogFile//\//\/}/;" \
+	     "$hostSourcePath/$hostScript" 'Unable to copy script.'
+    		    try "${hostManifestTmp}<" /usr/bin/sed \
+			"s/APPHOSTPATH/${hostScriptInstalled//\//\\/}/" \
+			"$hostSourcePath/${hostManifest[$index]}" \
+			'Unable to copy manifest.'
 
-	# destination file
-	local dest="$1"
-	shift
-
-	# local variables
-	local var=
-	local value=
-	local arr=()
-	local i
-	
-	# temporary file
-	local tmpDest="$(tempname "$dest")"
-
-	# basename
-	local destBase="${dest##*/}"
-	# start temp vars file
-	local myDate=
-	try 'myDate=' /bin/date ''
-	if [[ ! "$ok" ]] ; then ok=1 ; myDate= ; fi
-	try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
-	    "Unable to create ${destBase}."
-	try "${tmpDest}<<" echo "" "Unable to write to ${destBase}."
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # go through each variable
-	    for var in "$@" ; do
-		
-		if [[ "$(isarray "$var")" ]]; then
-		    
-		    # variable holds an array, so start the array
-		    value="("
-		    
-		    # pull out the array value
-		    eval "arr=(\"\${$var[@]}\")"
-		    
-		    # go through each value and build the array
-		    for elem in "${arr[@]}" ; do
-			
-			# escape \ to \\
-			elem="${elem//\\/\\\\}"
-			
-			# add array value, escaping specials
-			value="${value} $(printf "%q" "$elem")"
-
-		    done
-		    
-		    # close the array
-		    value="${value} )"
-		else
-		    
-		    # scalar value, so pull out the value
-		    eval "value=\"\${$var}\""
-		    
-		    # escape \ to \\
-		    value="${value//\\/\\\\}"
-		    
-		    # escape spaces and quotes
-		    value=$(printf '%q' "$value")
-
-		fi
-		
-		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
-		[[ "$ok" ]] || break
-	    done
-	fi
-	
-	# move the temp file to its permanent place
-	permanent "$tmpDest" "$dest" "${destBase}"
-	
-	# on error, remove temp vars file
-	[[ "$ok" ]] || rmtemp "$tmpDest" "${destBase}"
+        # move script to permanent home
+    permanent "$hostScriptTmp" "$hostScriptInstalled" 'script'
+    # on error, remove temporary file
+    if [[ ! "$ok" ]] ; then
+	[[ -e "$hostScriptTmp" ]] && rmtemp "$hostScriptTmp" 'script'
     fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-}
 
-# VISBETA -- if version is a beta, return 0, else return 1
-function visbeta { # ( version )
-    [[ "$1" =~ [bB] ]] && return 0
-    return 1
-}
-
-# VCMP -- if V1 OP V2 is true, return 0, else return 1
-function vcmp { # ( version1 operator version2 )
-
-    # arguments
-    local v1="$1" ; shift
-    local op="$1" ; shift ; [[ "$op" ]] || op='=='
-    local v2="$1" ; shift
-    
-    # turn operator into a numeric comparator
-    case "$op" in
-	'>')
-	    op='-gt'
-	    ;;
-	'<')
-	    op='-lt'
-	    ;;
-	'>=')
-	    op='-ge'
-	    ;;
-	'<=')
-	    op='-le'
-	    ;;
-	'='|'==')
-	    op='-eq'
-	    ;;
-    esac
-    
-    # munge version numbers into comparable integers
-    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$'
-    local vnums=() ; local i=0
-    local curv=
-    for curv in "$v1" "$v2" ; do
-	if [[ "$curv" =~ $vre ]] ; then
-
-	    # munge main part of version number
-	    vnums[$i]=$(( ( ${BASH_REMATCH[1]} * 1000000000 ) \
-			      + ( ${BASH_REMATCH[2]} * 1000000 ) \
-			      + ( ${BASH_REMATCH[3]} * 1000 ) ))
-	    if [[ "${BASH_REMATCH[4]}" ]] ; then
-		# beta version
-		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} ))
-	    else
-		# release version
-		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} + 999 ))
-	    fi
-	else
-	    # no version
-	    vnums[$i]=0
-	fi
-	
-	i=$(( $i + 1 ))
-    done
-        
-    # compare versions using the operator & return the result
-    eval "[[ ${vnums[0]} $op ${vnums[1]} ]]"
 }
 
 
@@ -945,7 +881,7 @@ Exit"
     
     [[ "$ok" ]] && return 0
     return 1    
-}
+} ; export -f filterplist
 
 
 # LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
@@ -953,560 +889,224 @@ function lprojescape { # string
     s="${1/\\/\\\\\\\\}"  # escape backslashes for both sed & .strings file
     s="${s//\//\\/}"  # escape forward slashes for sed only
     echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
-}
+} ; export -f lprojescape
 
 
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
 function filterlproj {  # BASE-PATH SEARCH-NAME MESSAGE-INFO
 
-    if [[ "$ok" ]] ; then
-	
-	# path to folder containing .lproj folders
-	local basePath="$1" ; shift
-
-	# name to search for in access strings
-	local searchString="$1" ; shift
-
-	# info about this filtering for error messages
-	local messageInfo="$1" ; shift
-	
-	# escape bundle name strings
-	local displayName="$(lprojescape "$CFBundleDisplayName")"
-	local bundleName="$(lprojescape "$CFBundleName")"
-
-	# filter InfoPlist.strings files
-	local curLproj=
-	for curLproj in "$basePath/"*.lproj ; do
-	    
-	    # get paths for current in & out files
-	    local curStringsIn="$curLproj/InfoPlist.strings"
-	    local curStringsOutTmp="$(tempname "$curStringsIn")"
-
-	    if [[ -f "$curStringsIn" ]] ; then
-		# filter current localization
-		try "$curStringsOutTmp<" /usr/bin/sed -E \
-		    -e 's/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$searchString"'(.*"; *)$/\1'"$displayName"'\3/' \
-		    -e 's/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/' \
-		    "$curStringsIn" \
-		    "Unable to filter $messageInfo localization strings."
-
-		# move file to permanent home
-		permanent "$curStringsOutTmp" "$curStringsIn" "$messageInfo localization strings"
-
-		# on any error, abort
-		if [[ ! "$ok" ]] ; then
-		    # remove temp output file on error
-		    rmtemp "$curStringsOutTmp" "$messageInfo localization strings"
-		    break
-		fi
-	    fi
-	done
-    fi
-}
-
-
-# EPICHROMEINFO: get absolute path and version info for Epichrome
-e_version=0 ; e_path=1 ; e_contents=2 ; e_engineRuntime=3 ; e_enginePayload=4
-function epichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
-    #                         if RESULT-VAR & EPICHROME-PATH are set, populates ARRAY-VAR
-    #                         otherwise, populates the following globals:
-    #                             epiCompatible, epiLatest
-    #                               each is an array with the following elements:
-    #                                e_version, e_path, e_contents,
-    #                                e_engineRuntime, e_enginePayload
+    [[ "$ok" ]] || return 1
     
-    if [[ "$ok" ]]; then
+    # turn on nullglob
+    local nullglobOff=
+    if shopt -q nullglob ; then
+	nullglobOff=1
+	shopt -s nullglob
+    fi
+    
+    # path to folder containing .lproj folders
+    local basePath="$1" ; shift
+
+    # name to search for in access strings
+    local searchString="$1" ; shift
+
+    # info about this filtering for error messages
+    local messageInfo="$1" ; shift
+    
+    # escape bundle name strings
+    local displayName="$(lprojescape "$CFBundleDisplayName")"
+    local bundleName="$(lprojescape "$CFBundleName")"
+
+    # filter InfoPlist.strings files
+    local curLproj=
+    for curLproj in "$basePath/"*.lproj ; do
 	
-	# arguments
-	local resultVar="$1" ; shift
-	local epiPath="$1" ; shift
+	# get paths for current in & out files
+	local curStringsIn="$curLproj/InfoPlist.strings"
+	local curStringsOutTmp="$(tempname "$curStringsIn")"
 
-	# get the instances of Epichrome we're interested in
-	local instances=
-	if [[ "$resultVar" && "$epiPath" ]] ; then
-	    
-	    # we're only getting info on one specific instance of Epichrome
-	    instances=( "$epiPath" )
-	    
-	elif [[ "$resultVar" && ( ! "$epiPath" ) ]] ; then
+	if [[ -f "$curStringsIn" ]] ; then
+	    # filter current localization
+	    try "$curStringsOutTmp<" /usr/bin/sed -E \
+		-e 's/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$searchString"'(.*"; *)$/\1'"$displayName"'\3/' \
+		-e 's/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/' \
+		"$curStringsIn" \
+		"Unable to filter $messageInfo localization strings."
 
-	    ok= ; errmsg="Bad arguments to epichromeinfo."
-	    return 1
-	else
-	    
-	    # search the system for all instances
-	    
-	    # clear arguments
-	    resultVar= ; epiPath=
-	    
-	    # default return values
-	    epiCompatible= ; epiLatest=
-	    
-	    # use spotlight to find Epichrome instances
-	    try 'instances=(n)' /usr/bin/mdfind \
-		"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
-		'error'
+	    # move file to permanent home
+	    permanent "$curStringsOutTmp" "$curStringsIn" "$messageInfo localization strings"
+
+	    # on any error, abort
 	    if [[ ! "$ok" ]] ; then
-		# ignore mdfind errors
-		ok=1
-		errmsg=
-	    fi
-	    
-	    # if spotlight fails (or is off) try hard-coded locations
-	    if [[ ! "${instances[*]}" ]] ; then
-		instances=( ~/'Applications/Epichrome.app' \
-			      '/Applications/Epichrome.app' )
+		# remove temp output file on error
+		rmtemp "$curStringsOutTmp" "$messageInfo localization strings"
+		break
 	    fi
 	fi
-
-	# create maximum compatible version for Chromium engine
-	# NOTE: I've arbitrarily decided that versions with the same middle number
-	# are Chromium-engine compatible
-	local versionCeiling=
-	if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-	    local mcv_re='^[0-9]+\.[0-9]+\.'
-
-	    if [[ "$SSBVersion" =~ $mcv_re ]] ; then
-		versionCeiling="${BASH_REMATCH[0]}999"
-	    else
-		errlog 'Unexpected version number format. Unable to create maximum compatible version.'
-		versionCeiling="$SSBVersion"
-	    fi
-	fi
-	
-	# check chosen instances of Epichrome to find the current and latest
-	# or just populate our one variable
-	local curInstance= ; local curVersion= ; curInfo=
-	for curInstance in "${instances[@]}" ; do
-	    if [[ -d "$curInstance" ]] ; then
-		
-		# get this instance's version
-		try 'curVersion=' /usr/bin/sed -En -e 's/^epiVersion=(.*)$/\1/p' \
-		    "$curInstance/Contents/Resources/Scripts/version.sh" ''
-
-		if ( [[ "$ok" ]] && vcmp 0.0.0 '<' "$curVersion" ) ; then
-		    
-		    debuglog "found Epichrome $curVersion at '$curInstance'"
-		    
-		    # get all info for this version
-		    curInfo=( "$curVersion" \
-				  "$curInstance" \
-				  "$curInstance/Contents" \
-				  "$curInstance/Contents/Resources/Engine/Runtime" \
-				  "$curInstance/Contents/Resources/Engine/Payload" )
-		    
-		    # see if this is newer than the current latest Epichrome
-		    if [[ "$resultVar" ]] ; then
-			eval "$resultVar=( \"\${curInfo[@]}\" )"
-		    else
-			if ( [[ ! "$epiLatest" ]] || \
-				 vcmp "${epiLatest[$e_version]}" '<' "$curVersion" ) ; then
-			    epiLatest=( "${curInfo[@]}" )
-			fi
-			
-			if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-			    # if we haven't already found an instance of a compatible version,
-			    # check that too
-			    if [[ ! "$epiCompatible" ]] || \
-				   ( vcmp "${epiCompatible[$e_version]}" '<' "$curVersion" && \
-					 vcmp "$curVersion" '<=' "$versionCeiling" ) ; then
-				epiCompatible=( "${curInfo[@]}" )
-			    fi
-			fi
-		    fi
-		    
-		else
-		    
-		    # failed to get version, so assume this isn't really a version of Epichrome
-		    debuglog "Epichrome not found at '$curInstance'"
-		    
-		    if [[ "$resultVar" ]] ; then
-			ok= ; [[ "$errmsg" ]] && errmsg="$errmsg "
-			errmsg="${errmsg}No Epichrome version found at provided path '$curInstance'."
-		    else
-			ok=1 ; errmsg=
-		    fi
-		fi
-	    fi
-	done
-	
-	# log versions found
-	[[ "$epiCompatible" ]] && \
-	    debuglog "engine-compatible Epichrome found: ${epiCompatible[$e_version]} at '${epiCompatible[$e_path]}'"
-	[[ "${epiCompatible[$e_path]}" != "${epiLatest[$e_path]}" ]] && \
-	    debuglog "latest Epichrome found: ${epiLatest[$e_version]} at '${epiLatest[$e_path]}'"
-    fi
+    done
     
-    [[ "$ok" ]] && return 0
-    return 1
-}
+    # restore nullglob
+    [[ "$nullglobOff" ]] && shopt -u nullglob
 
-
-# GOOGLECHROMEINFO: find absolute paths to and info on relevant Google Chrome items
-#                   sets the following variables:
-#                      SSBEngineVersion, SSBGoogleChromePath, SSBGoogleChromeExec, googleChromeContents
-function googlechromeinfo {  # $1 == FALLBACKLEVEL
+    # return success or failure
+    [[ "$ok" ]] && return 0 || return 1
     
-    if [[ "$ok" ]]; then
-	
-	# holder for Info.plist file
-	local infoplist=
+} ; export -f filterlproj
 
-	# save fallback level
-	local fallback="$1"
 
-	# determines if we need to check Chrome's ID
-	local checkid=
-	
-	if [[ ! "$fallback" ]] ; then
-
-	    # this is our first try finding Chrome -- use the value already
-	    # in SSBGoogleChromePath
-	    
-	    # next option is try the default install locations
-	    fallback=DEFAULT1
-	    
-	elif [[ "$fallback" = DEFAULT1 ]] ; then
-
-	    # try the first default install locations	    
-	    SSBGoogleChromePath="$HOME/Applications/Google Chrome.app"
-	    
-	    # we need to check the app's ID
-	    checkid=1
-	    
-	    # if this fails, next stop is Spotlight search
-	    fallback=DEFAULT2
-	    
-	elif [[ "$fallback" = DEFAULT2 ]] ; then
-	    
-	    # try the first default install locations	    
-	    SSBGoogleChromePath='/Applications/Google Chrome.app'
-	    
-	    # we need to check the app's ID
-	    checkid=1
-	    
-	    # if this fails, next stop is Spotlight search
-	    fallback=SPOTLIGHT
-	    
-	elif [[ "$fallback" = SPOTLIGHT ]] ; then
-	    
-	    # try using Spotlight to find Chrome
-	    SSBGoogleChromePath=$(mdfind "kMDItemCFBundleIdentifier == '$googleChromeID'" 2> /dev/null)
-	    
-	    # find first instance
-	    SSBGoogleChromePath="${SSBGoogleChromePath%%$'\n'*}"
-	    
-	    # if this fails, the final stop is manual selection
-	    fallback=MANUAL
-
-	else # "$fallback" = MANUAL
-	    
-	    # last-ditch - ask the user to locate it
-	    try 'SSBGoogleChromePath=' osascript -e \
-		'return POSIX path of (choose application with title "Locate Google Chrome" with prompt "Please locate Google Chrome" as alias)' ''
-	    SSBGoogleChromePath="${SSBGoogleChromePath%/}"
-	    
-	    if [[ ! "$ok" || ! -d "$SSBGoogleChromePath" ]] ; then
-		
-		# NOW it's an error -- we've failed to find Chrome
-		SSBGoogleChromePath=
-		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-		errmsg="Unable to find Chrome application.$errmsg"
-		ok=
-		return 1
-	    fi
-
-	    # we need to check the ID
-	    checkid=1
-	    
-	    # don't change the fallback -- we'll just keep doing this
-	fi
-		
-	# check that Info.plist exists
-	local fail=
-	if [[ ! -e "${SSBGoogleChromePath}/Contents/Info.plist" ]] ; then
-	    fail=1
-	else
-	    
-	    # parse Info.plist
-	    
-	    # read in Info.plist
-	    infoplist=$(/bin/cat "${SSBGoogleChromePath}/Contents/Info.plist" 2> /dev/null)
-	    if [[ $? != 0 ]] ; then
-		errmsg="Unable to read Chrome Info.plist. $fallback $SSBGoogleChromePath"
-		ok=
-		SSBGoogleChromePath=
-		return 1
-	    fi
-	    
-	    # get app icon file name
-	    local re='<key>CFBundleIconFile</key>[
- 	]*<string>([^<]*)</string>'
-	    if [[ "$infoplist" =~ $re ]] ; then
-		chromeBundleIconFile="${BASH_REMATCH[1]}"
-	    else
-		chromeBundleIconFile=
-	    fi
-
-	    # get document icon file name
-	    local re='<key>CFBundleTypeIconFile</key>[
- 	]*<string>([^<]*)</string>'
-	    if [[ "$infoplist" =~ $re ]] ; then
-		chromeBundleTypeIconFile="${BASH_REMATCH[1]}"
-	    else
-		chromeBundleTypeIconFile=
-	    fi
-	    
-	    # get version
-	    local infoplistChromeVersion=
-	    re='<key>CFBundleShortVersionString</key>[
- 	]*<string>([^<]*)</string>'
-	    if [[ "$infoplist" =~ $re ]] ; then
-		infoplistChromeVersion="${BASH_REMATCH[1]}"
-	    fi
-
-	    # get executable name & path
-	    re='<key>CFBundleExecutable</key>[
- 	]*<string>([^<]*)</string>'
-	    if [[ "$infoplist" =~ $re ]] ; then
-		SSBGoogleChromeExec="${BASH_REMATCH[1]}"
-		local chromeExecPath="${SSBGoogleChromePath}/Contents/MacOS/$SSBGoogleChromeExec"
-	    fi
-	    	    
-	    # check app ID if necessary
-	    if [[ "$checkid" ]] ; then
-		
-		re='<key>CFBundleIdentifier</key>[
- 	]*<string>([^<]*)</string>'
-		
-		# check the app bundle's identifier against Chrome's
-		if [[ "$infoplist" =~ $re ]] ; then
-		    # wrong identifier, so we need to try again
-		    [[ "${BASH_REMATCH[1]}" != "$googleChromeID" ]] && fail=1
-		else
-		    # error -- failed to find the identifier
-		    errmsg="Unable to find Chrome identifier."
-		    ok=
-		    SSBGoogleChromePath=
-		    return 1
-		fi
-	    fi
-	fi
-	
-	# if any of this parsing failed, fall back to another method of finding Chrome
-	if [[ "$fail" ]] ; then
-	    googlechromeinfo "$fallback"
-	    return $?
-	fi
-	
-	# make sure the executable is in place and is not a directory
-	if [[ ( ! -x "$chromeExecPath" ) || ( -d "$chromeExecPath" ) ]] ; then
-	    
-	    # this error is fatal
-	    errmsg='Unable to find Chrome executable.'
-	    
-	    # set error variables and quit
-	    ok=
-	    SSBGoogleChromePath=
-	    return 1
-	fi
-	
-	# if we got here, we have a complete copy of Chrome, so get the version
-	
-	# try to get it via Spotlight
-	local re='^kMDItemVersion = "(.*)"$'
-	try 'SSBEngineVersion=' mdls -name kMDItemVersion "$SSBGoogleChromePath" ''
-	if [[ "$ok" && ( "$SSBEngineVersion" =~ $re ) ]] ; then
-	    SSBEngineVersion="${BASH_REMATCH[1]}"
-	else
-	    # Spotlight failed -- use version from Info.plist
-	    ok=1
-	    errmsg=
-	    SSBEngineVersion="$infoplistChromeVersion"
-	fi
-	
-	# check for error
-	if [[ ! "$ok" || ! "$SSBEngineVersion" ]] ; then
-	    SSBGoogleChromePath=
-	    SSBEngineVersion=
-	    errmsg='Unable to retrieve Chrome version.'
-	    ok=
-	    return 1
-	fi
-    fi
-    
-    if [[ "$ok" ]] ; then
-	# set up dependant variables
-	googleChromeContents="$SSBGoogleChromePath/Contents"
+# ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
+function isarray {
+    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
 	return 0
     else
 	return 1
     fi
-}
+} ; export -f isarray
 
 
-# CREATEENGINEPAYLOAD: create persistent engine payload
-function createenginepayload { # ( curContents curDataPath [epiPayloadPath] )
-
+# WRITEVARS: write out a set of arbitrary bash variables to a file
+function writevars {  # $1 = destination file
+    #                   $@ = list of vars
+    
     if [[ "$ok" ]] ; then
+
+	# destination file
+	local dest="$1"
+	shift
+
+	# local variables
+	local var=
+	local value=
+	local arr=()
+	local i
 	
-	local curContents="$1"    ; shift
-	local curDataPath="$1" ; shift
-	local epiPayloadPath="$1" ; shift  # only needed for Chromium engine
+	# temporary file
+	local tmpDest="$(tempname "$dest")"
+
+	# basename
+	local destBase="${dest##*/}"
+	# start temp vars file
+	local myDate=
+	try 'myDate=' /bin/date ''
+	if [[ ! "$ok" ]] ; then ok=1 ; myDate= ; fi
+	try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
+	    "Unable to create ${destBase}."
+	try "${tmpDest}<<" echo '' "Unable to write to ${destBase}."
 	
-	local curEnginePath="$curDataPath/$appDataEngineBase"
-	local curPayloadContentsPath="$curDataPath/$appDataPayloadBase/Contents"
-	
-	# clear out old engine
-	if [[ -d "$curEnginePath" ]] ; then
-	    try /bin/rm -rf "$curEnginePath"/* "$curEnginePath"/.[^.]* 'Unable to clear old engine.'
-	fi
-	
-	# create persistent payload
 	if [[ "$ok" ]] ; then
 	    
-	    if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
+	    # go through each variable
+	    for var in "$@" ; do
 
-		# CHROMIUM PAYLOAD
+		if isarray "$var" ; then
+		    
+		    # variable holds an array, so start the array
+		    value="("
+		    
+		    # pull out the array value
+		    eval "arr=(\"\${$var[@]}\")"
+		    
+		    # go through each value and build the array
+		    for elem in "${arr[@]}" ; do
+			
+			# escape \ to \\
+			elem="${elem//\\/\\\\}"
+			
+			# add array value, escaping specials
+			value="${value} $(printf "%q" "$elem")"
 
-		# create engine directory
-		try /bin/mkdir -p "$curEnginePath" \
-		    'Unable to create app engine directory.'
+		    done
+		    
+		    # close the array
+		    value="${value} )"
+		else
+		    
+		    # scalar value, so pull out the value
+		    eval "value=\"\${$var}\""
+		    
+		    # escape \ to \\
+		    value="${value//\\/\\\\}"
+		    
+		    # escape spaces and quotes
+		    value=$(printf '%q' "$value")
 
-		# copy payload items from Epichrome
-		try /bin/cp -a "$epiPayloadPath" "$curEnginePath" \
-		    'Unable to copy items to app engine payload.'
-		
-		# filter Info.plist with app info
-		filterplist "$curPayloadContentsPath/Info.plist.in" \
-			    "$curPayloadContentsPath/Info.plist.off" \
-			    "app engine Info.plist" \
-			    "
-set :CFBundleDisplayName $CFBundleDisplayName
-set :CFBundleName $CFBundleName
-set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier
-Delete :CFBundleDocumentTypes
-Delete :CFBundleURLTypes"
-
-		if [[ "$ok" ]] ; then
-		    try /bin/rm -f "$curPayloadContentsPath/Info.plist.in" \
-			'Unable to remove app engine Info.plist template.'
 		fi
 		
-		# filter localization strings
-		filterlproj "$curPayloadContentsPath/Resources" Chromium 'app engine'
+		echo "var=$var, value=$value"
 		
-	    else
-
-		# GOOGLE CHROME PAYLOAD
-		
-		try /bin/mkdir -p "$curPayloadContentsPath/Resources" \
-		    'Unable to create Google Chrome app engine Resources directory.'
-		
-		# copy engine executable (linking causes confusion between apps & real Chrome)
-		try /bin/cp -a "$googleChromeContents/MacOS" "$curPayloadContentsPath" \
-		    'Unable to copy Google Chrome executable to app engine payload.'
-
-		# copy .lproj directories
-		try /bin/cp -a "$googleChromeContents/Resources/"*.lproj "$curPayloadContentsPath/Resources" \
-		    'Unable to copy Google Chrome localizations to app engine payload.'
-		
-		# filter localization files
-		filterlproj "$curPayloadContentsPath/Resources" Chrome 'Google Chrome app engine'
-	    fi	
-	    
-	    # link to this app's icons
-	    if [[ "$ok" ]] ; then
-		try /bin/cp "$curContents/Resources/$CFBundleIconFile" \
-		    "$curPayloadContentsPath/Resources/$chromeBundleIconFile" \
-		    "Unable to copy application icon file to app engine."
-		try /bin/cp "$curContents/Resources/$CFBundleTypeIconFile" \
-		    "$curPayloadContentsPath/Resources/$chromeBundleTypeIconFile" \
-		    "Unable to copy document icon file to app engine."
-	    fi
+		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
+		[[ "$ok" ]] || break
+	    done
 	fi
+	
+	# move the temp file to its permanent place
+	permanent "$tmpDest" "$dest" "${destBase}"
+	
+	# on error, remove temp vars file
+	[[ "$ok" ]] || rmtemp "$tmpDest" "${destBase}"
     fi
-}
+    
+    [[ "$ok" ]] && return 0
+    return 1
+} ; export -f writevars
 
 
 # CONFIGVARS: list of variables in config.sh
-appConfigVarsCommon=( SSBIdentifier \
-			  SSBCommandLine \
-			  CFBundleDisplayName \
-			  CFBundleName \
-			  SSBVersion \
-			  SSBUpdateVersion \
+appConfigVarsCommon=( SSBUpdateVersion \
 			  SSBUpdateCheckDate \
 			  SSBUpdateCheckVersion \
-			  SSBEngineType \
-			  SSBEngineVersion \
-			  SSBEngineAppName \
+			  SSBAppPath \
 			  SSBDataPath \
+			  SSBEngineAppName \
 			  SSBCustomIcon \
-			  SSBFirstRun \
 			  SSBFirstRunSinceVersion \
-			  SSBHostInstallError )
+			  SSBExtensionInstallError )
 appConfigVarsGoogleChrome=( SSBGoogleChromePath \
+				SSBGoogleChromeVersion \
 				SSBGoogleChromeExec )
+export appConfigVarsCommon appConfigVarsGoogleChrome
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes
-function readconfig {  # ( [myContents] )
-    #                    if myContents not set, then log config instead of reading
-    
-    # arguments
-    local myContents="$1" ; shift
+function readconfig {
     
     if [[ "$ok" ]] ; then
 	
-	if [[ "$myContents" ]] ; then
-	    
-	    # read in config file
-	    safesource "$myContents/$appConfigScriptPath" 'config file'
-
-	    # check for required values
-	    if [[ "$ok" && ! ( "$SSBIdentifier" && "$CFBundleDisplayName" && \
-				   "$SSBVersion" && "$SSBDataPath" ) ]] ; then
-		ok=
-		errmsg='Config file is corrupt.'
-	    fi
-	fi
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # create full list of config vars based on engine type
-	    local myConfigVars=( "${appConfigVarsCommon[@]}" )
-	    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-		myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
-	    fi
-	    
-	    # save all relevant config variables prefixed with "config"
-	    
-	    for varname in "${myConfigVars[@]}" ; do
-		
-		if [[ "$(isarray "$varname")" ]]; then
-
-		    # array value
-		    
-		    if [[ "$myContents" ]] ; then
-			eval "config$varname=(\"\${$varname[@]}\")"
-		    else
-			eval "debuglog \"$varname=( \${config$varname[*]} )\""
-		    fi
-		else
-		    
-		    # scalar value
-		    
-		    if [[ "$myContents" ]] ; then
-			eval "config$varname=\"\${$varname}\""
-		    else
-			eval "debuglog \"$varname=\$config$varname\""
-		    fi
-		fi
-	    done
-	fi
+	# read in config file
+	safesource "$myConfigFile" 'configuration file'	
     fi
-}
+    
+    if [[ "$ok" ]] ; then
+	
+	# create full list of config vars based on engine type
+	local myConfigVars=( "${appConfigVarsCommon[@]}" )
+	if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+	    myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
+	fi
+
+	# export config vars
+	export "${myConfigVars[@]}"
+	
+	# save all relevant config variables prefixed with "config"
+	for varname in "${myConfigVars[@]}" ; do
+	    
+	    if isarray "$varname" ; then
+
+		# array value
+		
+		eval "config$varname=(\"\${$varname[@]}\")"
+		[[ "$debug" ]] && eval "errlog \"$varname=( \${config$varname[*]} )\""
+	    else
+		
+		# scalar value
+		
+		eval "config$varname=\"\${$varname}\""
+		[[ "$debug" ]] && eval "errlog \"$varname=\$config$varname\""
+	    fi	    
+	done
+    fi
+    
+} ; export -f readconfig
 
 
 # WRITECONFIG: write out config.sh file
@@ -1535,15 +1135,17 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	    for varname in "${myConfigVars[@]}" ; do
 		configname="config${varname}"
 		
-		local varisarray="$(isarray "$varname")"
+		isarray "$varname"
+		local varisarray="$?"
 		
 		# if variables are not the same type
-		if [[ "$varisarray" != "$(isarray "$configname")" ]] ; then
+		isarray "$configname"
+		if [[ "$varisarray" != "$?" ]] ; then
 		    dowrite=1
 		    break
 		fi
 		
-		if [[ "$varisarray" ]] ; then
+		if [[ "$varisarray" = 0 ]] ; then
 		    
 		    # variables are arrays, so compare part by part
 		    
@@ -1589,250 +1191,18 @@ function writeconfig {  # DEST-CONTENTS-DIR FORCE
 	    writevars "$configScript" "${myConfigVars[@]}"
 	    
 	    # set ownership of config file  $$$ GET RID?
-	    setowner "$destContents/.." "$configScript" "config file"
+	    # setowner "$destContents/.." "$configScript" "config file"
 	fi
     fi
     
     [[ "$ok" ]] && return 0
     return 1    
-}
+} ; export -f writeconfig
 
 
-# CHECKEPICHROMEVERSION: function that checks for a new version of Epichrome on github
-function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
+# do it $$$$
+initlog
 
-    if [[ "$ok" ]] ; then
-	
-	# set current version to compare against
-	local myContents="$1" ; shift
-	local curVersion="$1" ; shift
-	
-	# URL for the latest Epichrome release
-	local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
-	
-	# call Python script to check github for the latest version
-	local latestVersion=
-	latestVersion="$( "$myContents/Resources/Scripts/getversion.py" 2> /dev/null )"
-	if [[ "$?" != 0 ]] ; then
-	    ok=
-	    errmsg="$latestVersion"
-	fi
-	
-	# compare versions
-	if ( [[ "$ok" ]] && vcmp "$curVersion" '<' "$latestVersion" ) ; then
-	    # output new available version number & download URL
-	    echo "$latestVersion"
-	    echo "$updateURL"
-	fi
-    fi
-    
-    # return value tells us if we had any errors
-    if [[ "$ok" ]]; then
-	return 0
-    else
-	return 1
-    fi
-}
-
-
-
-# $$$ REMOVE THIS IN FUTURE VERSIONS
-function updatessb { # curAppPath
-    
-    if [[ "$ok" ]] ; then
-
-	# if we're here, we're updating from a pre-2.3.0 version, so set up
-	# variables we need, then see if we need to redisplay the update dialog,
-	# as the old dialog code has been failing in Mojave
-	
-	# arguments
-	local curAppPath="$1"
-	
-	local doUpdate=Update
-
-	# set up dialog icon
-	appDialogIcon="$curAppPath/Contents/Resources/app.icns"
-	
-	# set up new-style logging
-	logApp="$CFBundleName"
-	# logPath="$epiDataPath/epichrome_log.txt"
-	# stderrTempFile="$epiDataPath/stderr.txt"
-	initlog
-	
-	# get our version of Epichrome
-	local epiVersion="${epiRuntime[$e_version]}"
-	if [[ ! "$epiVersion" ]] ; then
-	    ok= ; errmsg="Unable to get Epichrome version for update."
-	fi
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # check if the old dialog code is failing
-	    local asResult=
-	    try 'asResult&=' /usr/bin/osascript -e \
-		'tell application "Finder" to the name extension of ((POSIX file "'"${BASH_SOURCE[0]}"'") as alias)' \
-		'FAILED'
-	    
-	    # for now, not parsing asResult, would rather risk a double dialog than none
-	    if [[ ! "$ok" ]] ; then
-
-		# assume nothing
-		doUpdate=
-		
-		# reset command status
-		ok=1
-		errmsg=
-
-		if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
-		    
-		    # let the app update its Chrome version first
-		    doUpdate=Later
-		else
-		    
-		    local updateMsg="A new version of Epichrome was found ($epiVersion). Would you like to update this app?"
-		    local updateBtnUpdate='Update'
-		    local updateBtnLater='Later'
-		    
-		    if visbeta "$epiVersion" ; then
-			updateMsg="$updateMsg
-			
-IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myProfilePath) before updating."
-			updateBtnUpdate="-$updateBtnUpdate"
-			updateBtnLater="+$updateBtnLater"
-		    else
-			updateBtnUpdate="+$updateBtnUpdate"
-			updateBtnLater="-$updateBtnLater"
-		    fi
-		    
-		    # show the update choice dialog
-		    dialog doUpdate \
-			   "$updateMsg" \
-			   "Update" \
-			   "|caution" \
-			   "$updateBtnUpdate" \
-			   "$updateBtnLater" \
-			   "Don't Ask Again For This Version"
-		    
-		    if [[ ! "$ok" ]] ; then
-			alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
-			doUpdate="Update"
-			ok=1
-			errmsg=
-		    fi
-		fi
-	    fi
-	    
-	    if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
-		
-		# load update script
-		safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" NORUNTIMELOAD 'update script'
-		
-		# data path variable name change
-		SSBDataPath="$SSBProfilePath"
-		
-		# run actual update
-		[[ "$ok" ]] && updateapp "$@"
-		
-		if [[ "$ok" ]] ; then
-
-		    # update existing data directory to new structure
-		    if [[ ( -d "$myProfilePath" ) && ( ! -d "$myProfilePath/$appDataProfileBase" ) ]] ; then
-			
-			# what was the Chrome profile path is now our base data directory
-			local myDataPath="$myProfilePath"
-			
-			# give profile directory temporary name
-			local oldProfilePath="$(tempname "$myProfilePath")"
-			try /bin/mv "$myProfilePath" "$oldProfilePath" \
-			    'Error renaming old profile directory.'
-			
-			# make empty directory where old profile was
-			try /bin/mkdir -p "$myDataPath" \
-			    'Error creating new data directory.'
-			
-			# move profile directory into new data directory
-			try /bin/mv "$oldProfilePath" "$myDataPath/$appDataProfileBase" \
-			    'Error moving old profile into new data directory.'
-		    fi
-		    
-		    if [[ ! "$ok" ]] ; then
-			alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
-			      'Warning' 'caution'
-			ok=1 ; errmsg=
-		    fi
-		fi
-		
-		# relaunch after a delay
-		if [[ "$ok" ]] ; then
-		    relaunch "$curAppPath" 1 &
-		    disown -ar
-		    exit 0
-		fi
-	    fi
-	fi
-    fi
-    
-    # handle a failed update or non-update
-
-    if [[ ( ! "$ok" ) || ( "$doUpdate" != "Update" ) ]] ; then
-
-	# if we chose not to ask again with this version, update config
-	if [[ "$doUpdate" = "Don't Ask Again For This Version" ]] ; then
-	    
-	    # pretend we're already at the new version
-	    SSBVersion="$epiVersion"
-	    updateconfig=1
-	fi
-	
-	# turn this option off again as it interferes with unset in old try function
-	shopt -u nullglob
-	
-	# temporarily turn OK back on & reload old runtime
-	local oldErrmsg="$errmsg" ; errmsg=
-	local oldOK="$ok" ; ok=1
-	safesource "$curAppPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
-	[[ "$ok" ]] && ok="$oldOK"
-	
-	# update error message
-	if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-	    errmsg="$oldErrmsg $errmsg"
-	elif [[ "$oldErrmsg" ]] ; then
-	    errmsg="$oldErrmsg"
-	fi
-    fi
-    
-    # return value
-    [[ "$ok" ]] || return 1
-    return 0
-}
-
-
-# GET INFO ON THIS SCRIPT'S VERSION OF EPICHROME
-
-myApp="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Resources/Scripts/runtime.sh}"
-if [[ "$myApp" != "${BASH_SOURCE[0]}" ]] ; then
-
-    # this runtime.sh script is in Epichrome itself, not an app
-
-    if [[ "$myApp" != "${epiRuntime[$e_path]}" ]] ; then
-	
-	# epiRuntime not yet set, so populate it with info on this runtime
-	# script's parent Epichrome instance
-	
-	if [[ "$myApp" = "${epiCompatible[$e_path]}" ]] ; then
-	    epiRuntime=( "${epiCompatible[@]}" )
-	elif [[ "$myApp" = "${epiLatest[$e_path]}" ]] ; then
-	    epiRuntime=( "${epiLatest[@]}" )
-	else
-	    # temporarily turn off any logging to stderr
-	    oldStderrTempFile="$stderrTempFile" ; oldLogNoStderr="$logNoStderr"
-	    stderrTempFile=/dev/null ; logNoStderr=1
-	    epichromeinfo epiRuntime "$myApp"
-	    stderrTempFile="$oldStderrTempFile" ; logNoStderr="$oldLogNoStderr"
-	fi
-    fi
-else
-    
-    # this runtime.sh  script is in an app, so unset epiRuntime
-    epiRuntime=
-fi
+# mark core as loaded
+coreIsLoaded= ; export coreIsLoaded
+[[ "$ok" ]] && coreIsLoaded=1

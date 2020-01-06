@@ -33,7 +33,6 @@ BUILD_TYPE:=$(patsubst build,build_release,build$(BETA))
 APP:=Epichrome.app
 
 HOSTID:=org.epichrome.runtime
-HOSTID_OLD:=org.epichrome.helper
 
 EXTENSION_ID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTENSION_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
@@ -59,7 +58,7 @@ APP_RNTM:=$(APP_RSRC)/Runtime
 APP_RNTM_MCOS:=$(APP_RNTM)/MacOS
 APP_RNTM_RSRC:=$(APP_RNTM)/Resources
 APP_RNTM_SCPT:=$(APP_RNTM_RSRC)/Scripts
-APP_RNTM_NMHT:=$(APP_RNTM_RSRC)/NativeMessagingHosts
+APP_RNTM_NMHT:=$(APP_RNTM_RSRC)/NMH
 APP_RNTM_NMEX:=$(APP_RNTM_RSRC)/External\ Extensions
 APP_RNTM_FRUN:=$(APP_RNTM_RSRC)/FirstRun
 APP_CLNP:=$(APP_RNTM_RSRC)/EpichromeCleanup.app
@@ -102,7 +101,6 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_SCPT)/runtime.sh \
 	$(APP_RNTM_SCPT)/getversion.py \
 	$(APP_RNTM_NMHT)/$(HOSTID).json \
-	$(APP_RNTM_NMHT)/$(HOSTID_OLD).json \
 	$(APP_RNTM_NMHT)/epichromeruntimehost.py \
 	$(APP_RNTM_NMEX)/$(EXTENSION_ID).json \
 	$(APP_RNTM_FRUN)/welcome.html \
@@ -260,10 +258,6 @@ $(APP_RNTM_NMHT):
 
 $(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM) | $(APP_RNTM_NMHT)
 	sed -E -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
-
-# remove this after Epichrome Runtime 1.2.0 release
-$(APP_RNTM_NMHT)/$(HOSTID_OLD).json: src/$(HOSTID).json src/version.sh $(APP_RNTM)
-	sed -E -e 's/$(HOSTID)/$(HOSTID_OLD)/' -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
 	@if [[ "$(BETA)" ]] ; then \
