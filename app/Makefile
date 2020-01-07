@@ -99,7 +99,6 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_RSRC)/app.icns \
 	$(APP_RNTM_RSRC)/document.icns \
 	$(APP_RNTM_SCPT)/runtime.sh \
-	$(APP_RNTM_SCPT)/getversion.py \
 	$(APP_RNTM_NMHT)/$(HOSTID).json \
 	$(APP_RNTM_NMHT)/epichromeruntimehost.py \
 	$(APP_RNTM_NMEX)/$(EXTENSION_ID).json \

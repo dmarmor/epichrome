@@ -27,7 +27,7 @@
 function visbeta { # ( version )
     [[ "$1" =~ [bB] ]] && return 0
     return 1
-} ; export -f visbeta
+}
 
 
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
@@ -85,19 +85,19 @@ function vcmp { # ( version1 operator version2 )
         
     # compare versions using the operator & return the result
     eval "[[ ${vnums[0]} $op ${vnums[1]} ]]"
-} ; export -f vcmp
+}
 
 
 # GETEPICHROMEINFO: get absolute path and version info for Epichrome
-e_version=0 ; e_mincompatversion=1 ; e_path=2 ; e_contents=3 ; e_engineRuntime=4 ; e_enginePayload=5
+e_version=0 ; e_path=1 ; e_contents=2 ; e_engineRuntime=4 ; e_enginePayload=5
 function getepichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
-    #                         if RESULT-VAR & EPICHROME-PATH are set, populates ARRAY-VAR
+    #                         if RESULT-VAR & EPICHROME-PATH are set, populates RESULT-VAR
     #                         otherwise, populates the following globals:
-    #                             epiCompatible -- the latest version found that's engine-compatible with this app
-    #                             epiLatest -- the latest version found
-    #                               each is an array with the following elements:
-    #                                e_version, e_mincompatversion, e_path, e_contents,
-    #                                e_engineRuntime, e_enginePayload
+    #                             epiCurrentPath -- path to version of Epichrome that corresponds to this app
+    #                             epiLatestVersion -- version of the latest Epichrome found
+    #                             epiLatestPath -- path to the latest Epichrome found
+
+    # $$$ I AM HERE: REWRITE THIS WITHOUT ARRAYS, AND FIX OBSOLETE OTHER USAGE
     
     if [[ "$ok" ]]; then
 	
@@ -232,41 +232,49 @@ function getepichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
     
     [[ "$ok" ]] && return 0
     return 1
-} ; export -f getepichromeinfo ; export e_version e_mincompatversion e_path e_contents e_engineRuntime e_enginePayload
+}
 
 
-# CHECKEPICHROMEVERSION: function that checks for a new version of Epichrome on github
-function checkepichromeversion { # CONTENTS-PATH CURRENT-VERSION
+# CHECKGITHUBVERSION: function that checks for a new version of Epichrome on GitHub
+function checkgithubversion { # ( curVersion )
 
-    if [[ "$ok" ]] ; then
+    [[ "$ok" ]] || return 1
+    
+    # set current version to compare against
+    local curVersion="$1" ; shift
+
+    # regex for pulling out version
+    local versionRe='"tag_name": +"v([0-9.bB]+)",'
+    
+    # check github for the latest version
+    local latestVersion=
+    latestVersion="$(/usr/bin/curl 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
+    
+    if [[ "$?" != 0 ]] ; then
+
+	# curl returned an error
+	ok=
+	errmsg="Error retrieving data."
 	
-	# set current version to compare against
-	local myContents="$1" ; shift
-	local curVersion="$1" ; shift
-	
-	# URL for the latest Epichrome release
-	local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
-	
-	# call Python script to check github for the latest version
-	local latestVersion=
-	latestVersion="$( "$myContents/Resources/Scripts/getversion.py" 2> /dev/null )"
-	if [[ "$?" != 0 ]] ; then
-	    ok=
-	    errmsg="$latestVersion"
-	fi
+    elif [[ "$latestVersion" =~ $versionRe ]] ; then
+
+	# extract version number from regex
+	latestVersion="${BASH_REMATCH[1]}"
 	
 	# compare versions
-	if ( [[ "$ok" ]] && vcmp "$curVersion" '<' "$latestVersion" ) ; then
+	if vcmp "$curVersion" '<' "$latestVersion" ; then
+	    
 	    # output new available version number & download URL
 	    echo "$latestVersion"
-	    echo "$updateURL"
+	    echo 'https://github.com/dmarmor/epichrome/releases/latest'
 	fi
+    else
+
+	# no version found
+	ok=
+	errmsg='No version information found.'
     fi
     
     # return value tells us if we had any errors
-    if [[ "$ok" ]]; then
-	return 0
-    else
-	return 1
-    fi
-} ; export -f checkepichromeversion
+    [[ "$ok" ]] && return 0 || return 1
+}

@@ -238,7 +238,7 @@ if updateCheckDate < curDate then
 		set updateCheckResult to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion)
 	on error errStr number errNum
 		set updateCheckResult to false
-		display dialog "Non-fatal error checking new version of Epichrome: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
+		display dialog "Non-fatal error checking for new version of Epichrome on GitHub: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 	end try
 	
 	-- parse update check results

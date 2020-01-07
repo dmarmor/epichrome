@@ -77,7 +77,7 @@ if [[ "$ok" ]] ; then
 
 	# compare the supplied version against the latest on GitHub
 	
-	checkepichromeversion "$myPath/Contents/Resources/Runtime" "$1"
+	checkgithubversion "$1"
     fi
 fi
 

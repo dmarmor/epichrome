@@ -239,6 +239,12 @@ if ! lockset ; then
 fi
 
 
+# ENGINE IS NOT RUNNING, SO LOAD LAUNCH SCRIPT
+
+safesource "${BASH_SOURCE[0]%/*}/Scripts/launch.sh"
+[[ "$ok" ]] || abort
+
+
 # # get the ID of the engine app   $$$ NOT NEEDED IF REWRITE GETENGINEPID
 # if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 #     myEngineID="$googleChromeID"
@@ -282,180 +288,29 @@ fi
 
 # get path to engine app bundle
 myEngineAppPath="$myEnginePath/$SSBEngineAppName"
-# myEngineAppContents="$myEngineAppPath/Contents"  $$$$ GET RID OF ALL REFERENCES
 
 
-# ENGINE IS NOT RUNNING, SO GATHER MORE INFO
+# CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
 
-# CHECK FOR NEW VERSION OF EPICHROME AND UPDATE
+checkappupdate
+if [[ "$?" != 0 ]] ; then
 
-safesource "${BASH_SOURCE[0]%/*}/Scripts/epichromeinfo.sh"
-[[ "$ok" ]] || abort
-   
-# get info on latest Epichrome version
-getepichromeinfo
-[[ "$ok" ]] || abort "$errmsg"
+    # abort on fatal error
+    [[ "$ok" ]] || abort
 
-epiLatestVersion="${epiLatest[$e_version]}"
-
-if vcmp "$SSBUpdateVersion" '<' "$epiLatestVersion" ; then
-    
-    # authenticate  $$$ REMOVE THIS?
-    # authenticate epichromeupdate "A new version of the Epichrome runtime was found ($epiLatestVersion)." \
-    # 		 'update' nonfatal
-    # if [[ "$?" = 0 ]] ; then
-
-    # # Ask about updating (unless we asked with the authentication dialog)
-    # if [[ "$isAdmin" != epichromeupdate ]] ; then
-
-    updateMsg="A new version of Epichrome was found ($epiLatestVersion). Would you like to update this app?"
-    updateBtnUpdate='Update'
-    updateBtnLater='Later'
-    
-    if visbeta "$epiLatestVersion" ; then
-	updateMsg="$updateMsg
-
-IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
-	updateBtnUpdate="-$updateBtnUpdate"
-	updateBtnLater="+$updateBtnLater"
-    else
-	updateBtnUpdate="+$updateBtnUpdate"
-	updateBtnLater="-$updateBtnLater"
-    fi
-    
-    dialog doUpdate \
-	   "$updateMsg" \
-	   "Update" \
-	   "|caution" \
-	   "$updateBtnUpdate" \
-	   "$updateBtnLater" \
-	   "Don't Ask Again For This Version"
-    if [[ ! "$ok" ]] ; then
-	alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
-	doUpdate="Update"
-	ok=1
-	errmsg=
-    fi
-else
-    doUpdate="Update"
-fi
-
-if [[ "$ok" ]] ; then
-
-    # act based on dialog
-    case "$doUpdate" in
-	Update)
-
-	    # read in the new runtime
-	    safesource "${epiLatest[$e_contents]}/Resources/Scripts/update.sh" "update script $epiLatestVersion"
-	    
-	    # use new runtime to update the SSB (and relaunch)
-	    updateapp "$myAppPath"
-	    
-	    # $$$$ MOVE THIS BACK INTO UPDATEAPP???
-	    if [[ "$ok" ]] ; then
-		
-		# SUCCESS -- relaunch & exit
-		relaunch "$myAppPath"
-		exit 0  # not necessary, but for clarity
-		
-	    else
-		
-		# UPDATE FAILED -- reload my runtime
-		
-		# temporarily turn OK back on & reload old runtime
-		oldErrmsg="$errmsg" ; errmsg=
-		oldOK="$ok" ; ok=1
-		safesource "$myContents/Resources/Scripts/core.sh" "core script $SSBVersion"
-		[[ "$ok" ]] && ok="$oldOK"
-		
-		# update error message
-		if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-		    errmsg="$oldErrmsg $errmsg"
-		elif [[ "$oldErrmsg" ]] ; then
-		    errmsg="$oldErrmsg"
-		fi
-	    fi
-	    ;;
-
-	Later)
-	    # don't update
-	    doUpdate=
-	    ;;
-
-	*)
-	    # pretend we're already at the new version
-	    SSBUpdateVersion="$epiLatestVersion"
-	    ;;
-    esac
-fi
-    
-# alert the user to any error, but don't abort
-if [[ ! "$ok" ]] ; then
+    # display warning on non-fatal error
     alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
     ok=1
     errmsg=
 fi
 
+# CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
 
-# CHECK FOR A NEW VERSION OF EPICHROME ON GITHUB
-
-try 'curDate=' /bin/date '+%s' 'Unable to get date for Epichrome update check.'
-if [[ "$ok" ]] ; then
-
-    # check for updates if we've never run a check, or if the next check date is in the past
-    if [[ ( ! "$SSBUpdateCheckDate" ) || ( "$SSBUpdateCheckDate" -lt "$curDate" ) ]] ; then
-
-	# set next update for 7 days from now
-	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
-
-	# if we haven't set a version to check against, use the latest version
-	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiLatestVersion"
-
-	# check if there's a new version on Github
-	try 'updateResult=(n)' checkepichromeversion "$myContents" "$SSBUpdateCheckVersion" \
-	    'Unable to check for a new version of Epichrome on Github.'
-	if [[ "$ok" ]] ; then
-	    
-	    # if there's an update available, display a dialog
-	    if [[ "${updateResult[*]}" ]] ; then
-		
-		# display dialog
-		dialog doEpichromeUpdate \
-		   "A new version of Epichrome (${updateResult[0]}) is available on GitHub." \
-		   "Update Available" \
-		   "|caution" \
-		   "+Download" \
-		   "-Later" \
-		   "Ignore This Version"
-
-		# act based on dialog
-		if [[ "$ok" ]] ; then
-
-		    case "$doEpichromeUpdate" in
-			Download)
-			    # open the update URL
-			    try /usr/bin/open "${updateResult[1]}" 'Unable to open update URL.'
-			    ;;
-			
-			Later)
-			    # do nothing
-			    doEpichromeUpdate=
-			    ;;
-			*)
-			    # pretend we're already at the new version
-			    SSBUpdateCheckVersion="${updateResult[0]}"
-			    ;;
-		    esac
-		fi
-	    fi
-	fi
-    fi
-fi
+checkgithubupdate
 
 # alert the user to any error, but don't abort
 if [[ ! "$ok" ]] ; then
-    alert "Warning: $errmsg" 'Checking For Update' '|caution'
+    alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" 'Checking For Update' '|caution'
     ok=1 ; errmsg=
 fi
 

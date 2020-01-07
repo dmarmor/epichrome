@@ -22,6 +22,192 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# LOAD EPICHROMEINFO SCRIPT
+
+safesource "${BASH_SOURCE[0]%/*}/epichromeinfo.sh"
+
+
+# CHECKAPPUPDATE -- check for a new version of Epichrome and offer to update app
+function checkappupdate {
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # get info on latest Epichrome version
+    [[ "$epiLatestPath" && "$epiLatestVersion" ]] || getepichromeinfo
+    if [[ "$ok" ]] ; then
+	ok=1
+	errmsg="Unable to get info on installed Epichrome versions. ($errmsg)"
+	return 1
+    fi
+    
+    # assume success
+    local result=0
+
+    # compare versions and possibly offer update
+    if vcmp "$SSBUpdateVersion" '<' "$epiLatestVersion" ; then
+
+	# by default, don't update
+	local doUpdate=Later
+
+	# set dialog info
+	local updateMsg="A new version of Epichrome was found ($epiLatestVersion). Would you like to update this app?"
+	local updateBtnUpdate='Update'
+	local updateBtnLater='Later'
+
+	# update dialog info if the new version is beta
+	if visbeta "$epiLatestVersion" ; then
+	    updateMsg="$updateMsg
+
+IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
+	    updateBtnUpdate="-$updateBtnUpdate"
+	    updateBtnLater="+$updateBtnLater"
+	else
+	    updateBtnUpdate="+$updateBtnUpdate"
+	    updateBtnLater="-$updateBtnLater"
+	fi
+
+	# display update dialog
+	dialog doUpdate \
+	       "$updateMsg" \
+	       "Update" \
+	       "|caution" \
+	       "$updateBtnUpdate" \
+	       "$updateBtnLater" \
+	       "Don't Ask Again For This Version"
+	if [[ ! "$ok" ]] ; then
+	    alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
+	    doUpdate="Update"
+	    ok=1
+	    errmsg=
+	fi
+	
+	# act based on dialog
+	case "$doUpdate" in
+	    Update)
+		
+		# read in the new runtime
+		safesource "${epiLatest[$e_contents]}/Resources/Scripts/update.sh" "update script $epiLatestVersion"
+		
+		# use new runtime to update the SSB (and relaunch)
+		updateapp "$myAppPath"
+		
+		# $$$$ MOVE THIS BACK INTO UPDATEAPP???
+		if [[ "$ok" ]] ; then
+		    
+		    # SUCCESS -- relaunch & exit
+		    relaunch "$myAppPath"
+		    exit 0  # not necessary, but for clarity
+		    
+		else
+		    
+		    # UPDATE FAILED -- reload my runtime
+		    
+		    # temporarily turn OK back on & reload old runtime
+		    oldErrmsg="$errmsg" ; errmsg=
+		    oldOK="$ok" ; ok=1
+		    safesource "$myAppPath/Contents/Resources/Scripts/core.sh" "core script $SSBVersion"
+		    if [[ "$ok" ]] ; then
+
+			# fatal error
+			errmsg="Update failed and unable to reload current app. ($errmsg)"
+			return 1
+		    fi
+		    
+		    # restore OK state
+		    ok="$oldOK"
+		    
+		    # update error messages
+		    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+			errmsg="$oldErrmsg $errmsg"
+		    elif [[ "$oldErrmsg" ]] ; then
+			errmsg="$oldErrmsg"
+		    fi
+		    
+		    # alert the user to any error, but don't throw an exception
+		    ok=1
+		    [[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
+		    result=1
+		fi
+		;;
+	    
+	    Later)
+		# don't update
+		doUpdate=
+		;;
+
+	    *)
+		# pretend we're already at the new version
+		SSBUpdateVersion="$epiLatestVersion"
+		;;
+	esac
+    fi
+
+    return "$result"
+}
+
+
+# CHECK FOR A NEW VERSION OF EPICHROME ON GITHUB
+
+# CHECKGITHUBUPDATE -- check if there's a new version of Epichrome on GitHub and offer to download
+function checkgithubupdate {
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # get current date
+    try 'curDate=' /bin/date '+%s' 'Unable to get date for Epichrome update check.'
+    [[ "$ok" ]] || return 1
+    
+    # check for updates if we've never run a check, or if the next check date is in the past
+    if [[ ( ! "$SSBUpdateCheckDate" ) || ( "$SSBUpdateCheckDate" -lt "$curDate" ) ]] ; then
+	
+	# set next update for 7 days from now
+	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
+	
+	# if we haven't set a version to check against, use the latest version
+	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiLatestVersion"
+
+	# check if there's a new version on Github
+	try 'updateResult=(n)' checkgithubversion "$SSBUpdateCheckVersion" ''
+	[[ "$ok" ]] || return 1
+	
+	# if there's an update available, display a dialog
+	if [[ "${updateResult[*]}" ]] ; then
+	    
+	    # display dialog
+	    dialog doEpichromeUpdate \
+		   "A new version of Epichrome (${updateResult[0]}) is available on GitHub." \
+		   "Update Available" \
+		   "|caution" \
+		   "+Download" \
+		   "-Later" \
+		   "Ignore This Version"
+	    [[ "$ok" ]] || return 1
+	    
+	    # act based on dialog
+	    case "$doEpichromeUpdate" in
+		Download)
+		    # open the update URL
+		    try /usr/bin/open "${updateResult[1]}" 'Unable to open update URL.'
+		    [[ "$ok" ]] || return 1
+		    ;;
+		
+		Later)
+		    # do nothing
+		    doEpichromeUpdate=
+		    ;;
+		*)
+		    # pretend we're already at the new version
+		    SSBUpdateCheckVersion="${updateResult[0]}"
+		    ;;
+	    esac
+	fi
+    fi
+    
+    return 0
+}
+
 
 # LINKTREE: hard link to a directory or file
 function linktree { # $1 = sourcedir (absolute)
@@ -624,15 +810,15 @@ if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
     fi
     # link to everything except Resources directory
     dirlist "${epiCompatible[e_engineRuntime]}" curdir 'Epichrome app engine' '^Resources$'
-    linktree "${epiCompatible[e_engineRuntime]}" "$myEngineAppContents" \
+    linktree "${epiCompatible[e_engineRuntime]}" "$myEngineAppPath/Contents" \
 	     'Epichrome app engine' "${curdir[@]}"
 
     # link to everything in Resources
-    linktree "${epiCompatible[e_engineRuntime]}/Resources" "$myEngineAppContents/Resources" \
+    linktree "${epiCompatible[e_engineRuntime]}/Resources" "$myEngineAppPath/Contents/Resources" \
 	     'Epichrome app engine Resources'
 
-    try /bin/mv -f "$myEngineAppContents/Info.plist.off" \
-	"$myEngineAppContents/Info.plist" \
+    try /bin/mv -f "$myEngineAppPath/Contents/Info.plist.off" \
+	"$myEngineAppPath/Contents/Info.plist" \
 	'Unable to activate payload Info.plist.'
 else
     # GOOGLE CHROME ENGINE
@@ -640,13 +826,13 @@ else
     # link to everything except Resources & MacOS directories
     dirlist "$SSBGoogleChromePath/Contents" curdir \
 	    'Google Chrome app engine' '^((Resources)|(MacOS))$'
-    linktree "$SSBGoogleChromePath/Contents" "$myEngineAppContents" \
+    linktree "$SSBGoogleChromePath/Contents" "$myEngineAppPath/Contents" \
 	     'Google Chrome app engine' "${curdir[@]}"
 
     # link to everything in Resources except .lproj & .icns
     dirlist "$SSBGoogleChromePath/Contents/Resources" curdir \
 	    'Google Chrome app engine Resources' '\.((icns)|(lproj))$'
-    linktree "$SSBGoogleChromePath/Contents/Resources" "$myEngineAppContents/Resources" \
+    linktree "$SSBGoogleChromePath/Contents/Resources" "$myEngineAppPath/Contents/Resources" \
 	     'Google Chrome app engine Resources' \
 	     "${curdir[@]}"
 fi
