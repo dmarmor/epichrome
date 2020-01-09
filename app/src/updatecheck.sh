@@ -22,12 +22,18 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
 
+# FLAG A CLEAN EXIT
+
+doCleanExit=
+
 
 # MYABORT -- exit cleanly on error
 function myabort { # [myErrMsg code]
     
     # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
+
+    doCleanExit=1
     
     abortsilent "$@"
 }
@@ -35,21 +41,20 @@ function myabort { # [myErrMsg code]
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-logNoStderr=1
-
 source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/core.sh"
-if [[ "$?" != 0 ]] ; then
-    [[ ! "$myLogFile" ]] && myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
-    /bin/mkdir -p "${myLogFile%/*}"
-    echo 'Unable to load core script.' >> "$myLogFile"
-    exit 1
-fi
+[[ "$?" = 0 ]] || ( echo 'Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
 [[ "$ok" ]] || myabort
 
 
 # HANDLE KILL SIGNALS
 
-trap "myabort 'Received termination signal.' 2" SIGHUP SIGINT SIGTERM
+function handleexitsignal {
+    if [[ ! "$doCleanExit" ]] ; then
+	echo "$myLogApp: Unexpected termination." >> "$myLogFile"
+	echo 'Unexpected termination.' 1>&2
+    fi
+}
+trap "handleexitsignal" EXIT
 
 
 myPath="${BASH_SOURCE[0]%/Contents/*}"
@@ -82,3 +87,5 @@ if [[ "$ok" ]] ; then
 fi
 
 [[ "$ok" ]] || myabort
+
+doCleanExit=1 ; exit 0

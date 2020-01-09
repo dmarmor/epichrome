@@ -27,25 +27,28 @@ VERSIONCODE:=$(shell if [[ "$(VERSION)" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(b([0-9][0-9
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 CHROMIUM:=Chromium/Chromium.78.0.3904.97.sync.app.zip
 
-# build differently depending if version is beta
-BUILD_TYPE:=$(patsubst build,build_release,build$(BETA))
-
 APP:=Epichrome.app
 
 HOSTID:=org.epichrome.runtime
 
 EXTENSION_ID:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTENSION_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
-EXTENSION_ID_INPLACE:=nhlnhgkagbiplaohhpmnhekngkckccfh
+EXTENSION_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
+
+# CONDITIONAL FILTERING FOR BETA/INTERNAL BUILDS
+
+SOURCE:=$(shell if [[ '$(BETA)' ]] ; then echo build ; else echo src ; fi)
 
 HOSTMANIFEST_SED_COMMON:="chrome-extension:\/\/$(EXTENSION_ID)\/",\\\n        "chrome-extension:\/\/$(EXTENSION_ID_BETA)\/"
 HOSTMANIFEST_SED:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON)/'
-HOSTMANIFEST_SED_INTERNAL:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(EXTENSION_ID_INPLACE)\/"/'
+HOSTMANIFEST_SED_INTERNAL:=-e $$'s/EPIRUNTIMEIDS/$(HOSTMANIFEST_SED_COMMON),\\\n        "chrome-extension:\/\/$(EXTENSION_ID_INTERNAL)\/"/'
 
-NMH_SED:=-e 's/EPIVERSION/$(VERSION)/'
-NMH_SED_BETA:=$(NMH_SED) -e 's/debug = False/debug = True  \# DEBUG ON/'
+NMH_SED:=$(shell printf -- "-e 's/EPIVERSION/$(VERSION)/' " ; \
+		 if [[ '$(BETA)' ]] ; then \
+		   echo "-e 's/debug = False/debug = True  \# DEBUG ON/'" ; \
+		 fi)
 
-EXEC_SED_BETA:=-e 's/^\#debug=$$/debug=1  \# DEBUG ON/'
+EXEC_SED:=-e 's/debug=$$/debug=1       \# DEBUG ON/'
 
 # app paths
 APP_CTNT:=$(APP)/Contents
@@ -65,17 +68,15 @@ APP_CLNP:=$(APP_RNTM_RSRC)/EpichromeCleanup.app
 APP_CLNP_CTNT:=$(APP_CLNP)/Contents
 INSTALL_PATH:=/Applications/Epichrome.app
 
-.PHONY: build internal install clean clean-all
+.PHONY: internal install clean clean-all
 
-.PRECIOUS: runtime icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128$(BETA).png
+.PRECIOUS: build icons/app$(BETA).icns icons/document$(BETA).icns icons/epichrome$(BETA).icns welcome/img/icon128$(BETA).png
 
-.DELETE_ON_ERROR: $(APP_ENGN) Engine runtime.app fake.icns fake.sh
+.DELETE_ON_ERROR: $(APP_ENGN) build Engine runtime.app fake.icns fake.sh
 
 internal: HOSTMANIFEST_SED:=$(HOSTMANIFEST_SED_INTERNAL)
 
-internal: BETA:=_beta
-
-#internal: EXEC_SED_BETA:=$(EXEC_SED_BETA) -e 's/^\#logPreserve=$$/logPreserve=1        \# PRESERVE LOG FILES ACROSS RUNS/'
+#internal: EXEC_SED:=$(EXEC_SED) -e 's/^\#logPreserve=$$/logPreserve=1        \# PRESERVE LOG FILES ACROSS RUNS/'
 
 internal: $(APP)
 
@@ -98,6 +99,7 @@ $(APP): $(APP_SCPT)/main.scpt \
 	$(APP_RNTM_RSRC)/script \
 	$(APP_RNTM_RSRC)/app.icns \
 	$(APP_RNTM_RSRC)/document.icns \
+	$(APP_RNTM_SCPT)/core.sh \
 	$(APP_RNTM_SCPT)/runtime.sh \
 	$(APP_RNTM_NMHT)/$(HOSTID).json \
 	$(APP_RNTM_NMHT)/epichromeruntimehost.py \
@@ -124,7 +126,7 @@ $(APP): src/entitlements.plist
 	touch $@
 
 $(APP_CLNP): src/entitlements.plist
-	codesign --force -s 'David Marmor' -vv $@
+	codesign -vv --force --options runtime --entitlements src/entitlements.plist -s 'David Marmor' $@
 	codesign --verify --deep --strict --verbose=2 $@
 	spctl --assess --type execute --verbose=4 $@
 	touch $@
@@ -132,7 +134,7 @@ $(APP_CLNP): src/entitlements.plist
 clean:
 	rm -rf $(APP)
 	rm -rf Engine
-	rm -rf runtime
+	rm -rf build
 
 clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
@@ -146,7 +148,11 @@ install: $(APP)
 	fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
-$(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: src/main.applescript
+build/main.applescript: src/main.applescript build
+	sed -e 's/set debug to ""/set debug to "1"/' $< > $@
+	@echo '$$$$$$$$$$ ADD VERSION TO THIS SED'
+
+$(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/applet.rsrc: $(SOURCE)/main.applescript
 	@if [[ -d Engine ]] ; then \
 		echo "Temp Engine directory left over from previous run" ; false ; \
 	fi
@@ -167,15 +173,12 @@ $(APP_SCPT)/main.scpt $(APP_CTNT)/MacOS/applet $(APP_CTNT)/PkgInfo $(APP_RSRC)/a
 	fi
 	@touch $(APP)
 
-$(APP_RNTM_SCPT)/runtime.sh: src/runtime.sh
-	@mkdir -p $(dir $@)
-	@if [[ "$(BETA)" ]] ; then \
-	  echo "sed -E $(EXEC_SED_BETA) $< > $@" ; \
-	  sed -E $(EXEC_SED_BETA) $< > $@ ; \
-	else \
-	  echo "cp $< $@" ; \
-	  cp $< $@ ; \
-	fi
+build/core.sh: src/core.sh build
+	sed -E $(EXEC_SED) $< > $@
+	@echo '$$$$$$$$$$ ALWAYS FILTER THIS AND ADD VERSION'
+
+$(APP_RNTM_SCPT)/core.sh: $(SOURCE)/core.sh
+	cp $< $@
 
 $(APP_CTNT)/Info.plist: src/Info.plist src/version.sh
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then echo "Bad version number in src/version.sh" ; false ; fi
@@ -209,25 +212,29 @@ $(APP_CLNP_CTNT)/Resources/Scripts/runtime.sh: $(APP_RNTM_SCPT)/runtime.sh
 	@mkdir -p $(APP_CLNP_CTNT)/Resources/Scripts
 	cp $< $@
 
-$(APP_RNTM): runtime
+$(APP_RNTM): build/runtime
 	rm -rf $@
 	cp -R $< $@
 
-runtime:
-	rm -rf runtime
+build:
+	mkdir $@
+
+build/runtime: | build
+	rm -rf $@
 	echo > fake.icns
 	echo > fake.sh
-	platypus --name Epichrome --interface-type None --app-icon fake.icns --document-icon fake.icns --interpreter /bin/sh --app-version $(VERSION) --author 'David Marmor' --bundle-identifier org.epichrome.APPBUNDLEID --droppable --background --quit-after-execution  --uniform-type-identifiers 'com.compuserve.gif|public.html|public.jpeg|com.netscape.javascript-source|com.microsoft.word.mhtml|org.videolan.ogg-audio|org.videolan.ogg-audio|org.xiph.ogg-video|com.adobe.pdf|public.png|public.svg-image|public.plain-text|org.videolan.webm|public.webp|public.xhtml' --uri-schemes 'http|https|ftp|file' --optimize-nib fake.sh runtime.app
+	platypus --name Epichrome --interface-type None --app-icon fake.icns --document-icon fake.icns --interpreter /bin/sh --app-version $(VERSION) --author 'David Marmor' --bundle-identifier org.epichrome.APPBUNDLEID --droppable --background --quit-after-execution  --uniform-type-identifiers 'com.compuserve.gif|public.html|public.jpeg|com.netscape.javascript-source|com.microsoft.word.mhtml|org.videolan.ogg-audio|org.videolan.ogg-audio|org.xiph.ogg-video|com.adobe.pdf|public.png|public.svg-image|public.plain-text|org.videolan.webm|public.webp|public.xhtml' --uri-schemes 'http|https|ftp|file' --optimize-nib fake.sh $@.app
 	rm fake.icns fake.sh
-	mv runtime.app/Contents $@
-	rm -rf runtime.app
-	rm runtime/Info.plist runtime/Resources/*.icns runtime/Resources/script
+	mv $@.app/Contents $@
+	rm -rf $@.app
+	rm $@/Info.plist $@/Resources/*.icns $@/Resources/script
 
 $(APP_RNTM)/Info.plist.in: src/Info.plist.runtime src/version.sh $(APP_RNTM)
 	@if [[ "$(VERSIONCODE)" = "VERSIONCODE_FAIL" ]] ; then \
 	  echo "Bad version number in src/version.sh" ; false ; \
 	fi
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
+	echo '$$$$$$$$ FILTER PLIST FOR ICON NAMES TOO!'
 
 $(APP_ENGN): $(CHROMIUM)
 	@rm -rf $(APP_ENGN)
@@ -258,14 +265,8 @@ $(APP_RNTM_NMHT):
 $(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM) | $(APP_RNTM_NMHT)
 	sed -E -e 's/EPIVERSION/$(VERSION)/' $(HOSTMANIFEST_SED) $< > $@
 
-$(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM)
-	@if [[ "$(BETA)" ]] ; then \
-	  echo "sed $(NMH_SED_BETA) $< > $@" ; \
-	  sed $(NMH_SED_BETA) $< > $@ ; \
-	else \
-	  echo "sed $(NMH_SED) $< > $@" ; \
-	  sed $(NMH_SED) $< > $@ ; \
-	fi
+$(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM) | $(APP_RNTM_NMHT)
+	sed $(NMH_SED) $< > $@
 
 $(APP_RNTM_NMEX)/$(EXTENSION_ID).json: src/install-extension.json $(APP_RNTM)
 	mkdir -p $(APP_RNTM_NMEX)

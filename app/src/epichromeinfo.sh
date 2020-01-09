@@ -89,149 +89,81 @@ function vcmp { # ( version1 operator version2 )
 
 
 # GETEPICHROMEINFO: get absolute path and version info for Epichrome
-e_version=0 ; e_path=1 ; e_contents=2 ; e_engineRuntime=4 ; e_enginePayload=5
-function getepichromeinfo { # (optional) RESULT-VAR EPICHROME-PATH
-    #                         if RESULT-VAR & EPICHROME-PATH are set, populates RESULT-VAR
-    #                         otherwise, populates the following globals:
-    #                             epiCurrentPath -- path to version of Epichrome that corresponds to this app
-    #                             epiLatestVersion -- version of the latest Epichrome found
-    #                             epiLatestPath -- path to the latest Epichrome found
-
-    # $$$ I AM HERE: REWRITE THIS WITHOUT ARRAYS, AND FIX OBSOLETE OTHER USAGE
+function getepichromeinfo {
+    # populates the following globals (if found):
+    #    epiCurrentPath -- path to version of Epichrome that corresponds to this app
+    #    epiLatestVersion -- version of the latest Epichrome found
+    #    epiLatestPath -- path to the latest Epichrome found
     
-    if [[ "$ok" ]]; then
-	
-	# arguments
-	local resultVar="$1" ; shift
-	local epiPath="$1" ; shift
-	
-	# get the instances of Epichrome we're interested in
-	local instances=()
-	if [[ "$resultVar" && "$epiPath" ]] ; then
-
-	    # if we've already got info for this version, just copy it
-	    if [[ "$epiPath" = "${epiCompatible[$e_path]}" ]] ; then
-		eval "$resultVar=( \"\${epiCompatible[@]}\" )"
-		return 0
-	    elif [[ "$epiPath" = "${epiLatest[$e_path]}" ]] ; then
-		eval "$resultVar=( \"\${epiLatest[@]}\" )"
-		return 0
-	    else
-		
-		# only get info on this one specific instance of Epichrome
-		instances=( "$epiPath" )
-	    fi
-	    
-	elif [[ "$resultVar" && ( ! "$epiPath" ) ]] ; then
-
-	    ok= ; errmsg="Bad arguments to getepichromeinfo."
-	    return 1
-	    
-	else
-	    
-	    # search the system for all instances
-	    
-	    # clear arguments
-	    resultVar= ; epiPath=
-	    
-	    # default return values
-	    epiCompatible= ; epiLatest=
-	    
-	    # use spotlight to find Epichrome instances
-	    try 'instances=(n)' /usr/bin/mdfind \
-		"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
-		'error'
-	    if [[ ! "$ok" ]] ; then
-		# ignore mdfind errors
-		ok=1
-		errmsg=
-	    fi
-	    
-	    # if spotlight fails (or is off) try hard-coded locations
-	    if [[ ! "${instances[*]}" ]] ; then
-		instances=( ~/'Applications/Epichrome.app' \
-			      '/Applications/Epichrome.app' )
-	    fi
-	fi
-	
-	# check chosen instances of Epichrome to find the current and latest
-	# or just populate our one variable
-	local curInstance= ; local curVersion= ; local curMinCompatVersion= ; local curInfo=
-	local curVersionScript="$curInstance/Contents/Resources/Scripts/version.sh"
-	for curInstance in "${instances[@]}" ; do
-	    if [[ -d "$curInstance" ]] ; then
-		
-		# get this instance's version
-		curVersion="$( safesource "$curVersionScript" && try echo "$epiVersion" '' )"
-		if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
-		    ok= ; errmsg='Unable to get version.'
-		fi
-
-		# get this instance's minimum compatible version
-		curMinCompatVersion="$( safesource "$curVersionScript" && try echo "$epiMinCompatVersion" '' )"
-		if [[ ( "$?" != 0 ) || ( ! "$curMinCompatVersion" ) ]] ; then
-		    ok= ; errmsg='Unable to get minimum compatible version.'
-		fi
-		
-		if ( [[ "$ok" ]] && vcmp 0.0.0 '<' "$curVersion" ) ; then
-		    
-		    debuglog "found Epichrome $curVersion at '$curInstance'"
-		    
-		    # get all info for this version
-		    curInfo=( "$curVersion" \
-				  "$curMinCompatVersion" \
-				  "$curInstance" \
-				  "$curInstance/Contents" \
-				  "$curInstance/Contents/Resources/Engine/Runtime" \
-				  "$curInstance/Contents/Resources/Engine/Payload" )
-		    
-		    # see if this is newer than the current latest Epichrome
-		    if [[ "$resultVar" ]] ; then
-			eval "$resultVar=( \"\${curInfo[@]}\" )"
-		    else
-			if ( [[ ! "$epiLatest" ]] || \
-				 vcmp "${epiLatest[$e_version]}" '<' "$curVersion" ) ; then
-			    epiLatest=( "${curInfo[@]}" )
-			fi
-			
-			if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-			    # if we haven't already found an instance of a compatible version,
-			    # check that too
-			    if [[ ! "$epiCompatible" ]] || \
-				   ( vcmp "${epiCompatible[$e_version]}" '<' "$curVersion" && \
-					 vcmp "$SSBVersion" '>=' "$curMinCompatVersion" ) ; then
-				epiCompatible=( "${curInfo[@]}" )
-			    fi
-			fi
-		    fi
-		    
-		else
-		    
-		    # failed to get version, so assume this isn't really a version of Epichrome
-		    debuglog "Epichrome not found at '$curInstance'"
-		    
-		    if [[ "$resultVar" ]] ; then
-			ok= ; [[ "$errmsg" ]] && errmsg="$errmsg "
-			errmsg="${errmsg}No Epichrome version found at provided path '$curInstance'."
-		    else
-			ok=1 ; errmsg=
-		    fi
-		fi
-	    fi
-	done
-	
-	if [[ ! "$resultVar" ]] ; then
-
-	    # log versions found
-	    [[ "$epiCompatible" ]] && \
-		debuglog "engine-compatible Epichrome found: ${epiCompatible[$e_version]} at '${epiCompatible[$e_path]}'"
-	    [[ "${epiCompatible[$e_path]}" != "${epiLatest[$e_path]}" ]] && \
-		debuglog "latest Epichrome found: ${epiLatest[$e_version]} at '${epiLatest[$e_path]}'"
-	fi
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # default global return values
+    epiCurrentPath= ; epiLatestVersion= ; epiLatestPath=
+    
+    # use spotlight to search the system for Epichrome instances
+    local instances=()
+    try 'instances=(n)' /usr/bin/mdfind \
+	"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
+	'error'
+    if [[ ! "$ok" ]] ; then
+	# ignore mdfind errors
+	ok=1
+	errmsg=
     fi
     
-    [[ "$ok" ]] && return 0
-    return 1
+    # if spotlight fails (or is off) try hard-coded locations
+    if [[ ! "${instances[*]}" ]] ; then
+	instances=( ~/'Applications/Epichrome.app' \
+		      '/Applications/Epichrome.app' )
+    fi
+    
+    # check instances of Epichrome to find the current and latest
+    local curInstance= ; local curVersion=
+    for curInstance in "${instances[@]}" ; do
+	if [[ -d "$curInstance" ]] ; then
+	    
+	    # get this instance's version
+	    curVersionScript="$curInstance/Contents/Resources/Scripts/version.sh"
+	    curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && try echo "$epiVersion" '' )"
+	    if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
+		curVersion=0.0.0
+	    fi
+	    
+	    if vcmp "$curVersion" '>' 0.0.0 ; then
+		
+		debuglog "Found Epichrome $curVersion at '$curInstance'."
+		
+		# see if this is newer than the current latest Epichrome
+		if ( [[ ! "$epiLatestPath" ]] || \
+			 vcmp "$epiLatestVersion" '<' "$curVersion" ) ; then
+		    epiLatestPath="$curInstance"
+		    epiLatestVersion="$curVersion"
+		fi
+		
+		# if we haven't already found an instance of the current version, check that
+		if [[ ! "$epiCurrentPath" ]] && vcmp "$curVersion" '==' "$SSBVersion" ; then
+		    epiCurrentPath="$curInstance"
+		fi
+		
+	    else
+		
+		# failed to get version, so assume this isn't really a version of Epichrome
+		debuglog "Epichrome at '$curInstance' is not valid."
+	    fi
+	fi
+    done
+    
+    # log versions found
+    if [[ "$debug" ]] ; then
+	[[ "$epiCurrentPath" ]] && \
+	    errlog "Current version of Epichrome ($SSBVersion) found at '$epiCurrentPath'"
+	[[ "$epiLatestPath" && ( "$epiLatestPath" != "$epiCurrentPath" ) ]] && \
+	    errlog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
+    fi
+    
+    # return 
+    [[ "$ok" ]] && return 0 || return 1
 }
 
 

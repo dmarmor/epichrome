@@ -140,7 +140,7 @@ function lockreplace { # ( replacePID )
 # MAIN BODY
 
 # update log name
-logApp="TestLaunch[$$/$myEnginePID]"  # $$$$ FIX THIS
+myLogApp="TestLaunch[$$/$myEnginePID]"  # $$$$ FIX THIS
 
 
 # REPLACE PARENT APP'S LOCK

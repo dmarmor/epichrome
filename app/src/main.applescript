@@ -24,6 +24,14 @@
  *)
 
 
+-- BUILD FLAGS
+
+local debug
+set debug to ""
+local logPreserve
+set logPreserve to ""
+
+
 -- MISC CONSTANTS
 local promptNameLoc
 set promptNameLoc to "Select name and location for the app."
@@ -35,11 +43,30 @@ local iconTypes
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
 
--- SET UP USER DATA PATHS
-local userDataFile
-set userDataFile to (system attribute "HOME") & "/Library/Application Support/Epichrome"
-do shell script "/bin/mkdir -p " & (quoted form of userDataFile)
-set userDataFile to userDataFile & "/epichrome.plist"
+-- SET UP KEY VARIABLES TO EXPORT TO SCRIPTS
+local myDataPath
+set myDataPath to (system attribute "HOME") & "/Library/Application Support/Epichrome"
+try
+	do shell script "/bin/mkdir -p " & (quoted form of myDataPath)
+on error errStr number errNum
+	display dialog "Error accessing application data folder: " & errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+	return
+end try
+local myLogApp
+set myLogApp to "Epichrome"
+try
+	set myLogApp to myLogApp & "[" & (do shell script "/bin/sh -c \"echo $PPID\"") & "]"
+end try
+local myLogFile
+set myLogFile to myDataPath & "/epichrome_log.txt"
+local logNoStderr
+set logNoStderr to "1"
+
+
+-- SETTINGS FILE
+
+local myDataFile
+set myDataFile to myDataPath & "/epichrome.plist"
 
 
 -- GET MY ICON FOR DIALOG BOXES
@@ -48,8 +75,8 @@ set myIcon to path to resource "applet.icns"
 
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
-local runtimeScript
-set runtimeScript to quoted form of (POSIX path of (path to resource "runtime.sh" in directory "Runtime/Resources/Scripts"))
+local coreScript
+set coreScript to POSIX path of (path to resource "core.sh" in directory "Runtime/Resources/Scripts")
 local buildScript
 set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 local pathInfoScript
@@ -58,6 +85,17 @@ local updateCheckScript
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
 local versionScript
 set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
+
+
+-- ENVIRONMENT FOR SCRIPTS THAT LOAD CORE.SH
+
+local scriptEnv
+set scriptEnv to "debug=" & (quoted form of debug)
+set scriptEnv to scriptEnv & " logPreserve=" & (quoted form of logPreserve)
+set scriptEnv to scriptEnv & " myDataPath=" & (quoted form of myDataPath)
+set scriptEnv to scriptEnv & " myLogApp=" & (quoted form of myLogApp)
+set scriptEnv to scriptEnv & " myLogFile=" & (quoted form of myLogFile)
+set scriptEnv to scriptEnv & " logNoStderr=" & (quoted form of logNoStderr)
 
 
 -- PERSISTENT PROPERTIES
@@ -71,12 +109,12 @@ local updateCheckVersion
 
 
 -- WRITEPROPERTIES: write properties back to plist file
-on writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+on writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 	tell application "System Events"
 		
 		try
 			-- create enclosing folder if needed and create empty plist file
-			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:userDataFile}
+			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:myDataFile}
 			
 			-- fill property list
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
@@ -98,7 +136,7 @@ tell application "System Events"
 	
 	-- read in the file
 	try
-		set myProperties to property list file userDataFile
+		set myProperties to property list file myDataFile
 	on error
 		set myProperties to null
 	end try
@@ -203,13 +241,13 @@ set appNameBase to "My Epichrome App"
 set appURLs to {}
 
 
--- SET UP LOG INFO AND INITIALIZE LOG FILE
+-- INITIALIZE LOG FILE
 try
-	set logFile to do shell script "source " & runtimeScript & " && echo \"$myLogFile\" && initlog"
+	do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' && initlog'"
 on error errStr number errNum
-	display dialog "Non-fatal error initializing log: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
-	set logFile to false
+	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
 end try
+
 
 -- CHECK FOR UPDATES TO EPICHROME
 
@@ -226,7 +264,7 @@ if updateCheckDate < curDate then
 		set updateCheckVersion to curVersion
 	else
 		try
-			set updateCheckVersion to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
+			set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
 		on error errStr number errNum
 			display dialog "Non-fatal error getting Epichrome version info: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 			set updateCheckVersion to curVersion
@@ -235,7 +273,7 @@ if updateCheckDate < curDate then
 	
 	-- run the actual update check script
 	try
-		set updateCheckResult to do shell script updateCheckScript & " " & (quoted form of updateCheckVersion)
+		set updateCheckResult to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion)
 	on error errStr number errNum
 		set updateCheckResult to false
 		display dialog "Non-fatal error checking for new version of Epichrome on GitHub: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
@@ -275,7 +313,7 @@ repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			on error number -128
 			end try
@@ -314,7 +352,7 @@ repeat
 				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			end try
 			
@@ -550,7 +588,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set appInfo to do shell script pathInfoScript & " icon " & quoted form of appIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+										writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 										return -- QUIT
 									end try
 									
@@ -648,14 +686,7 @@ App Engine: "
 										repeat
 											set creationSuccess to false
 											try
-												do shell script buildScript & " " & Â
-													(quoted form of appPath) & " " & Â
-													(quoted form of appNameBase) & " " & Â
-													(quoted form of appShortName) & " " & Â
-													(quoted form of appIconSrc) & " " & Â
-													(quoted form of doRegisterBrowser) & " " & Â
-													(quoted form of appEngineType) & " " & Â
-													appCmdLine
+												do shell script scriptEnv & " " & buildScript & " " & (quoted form of appPath) & " " & (quoted form of appNameBase) & " " & (quoted form of appShortName) & " " & (quoted form of appIconSrc) & " " & (quoted form of doRegisterBrowser) & " " & (quoted form of appEngineType) & " " & appCmdLine
 												set creationSuccess to true
 											on error errStr number errNum
 												
@@ -668,15 +699,15 @@ App Engine: "
 													try
 														set dlgButtons to {"Quit", "Back"}
 														try
-															((POSIX file logFile) as alias)
+															((POSIX file myLogFile) as alias)
 															copy "View Log & Quit" to end of dlgButtons
 														end try
 														set dlgResult to button returned of (display dialog "Creation failed: " & errStr with icon stop buttons dlgButtons default button "Quit" cancel button "Back" with title "Application Not Created")
 														if dlgResult is "View Log & Quit" then
-															tell application "Finder" to reveal ((POSIX file logFile) as alias)
+															tell application "Finder" to reveal ((POSIX file myLogFile) as alias)
 															tell application "Finder" to activate
 														end if
-														writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
+														writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
 														return -- QUIT
 													on error number -128 -- Back button
 														exit repeat
@@ -690,7 +721,7 @@ App Engine: "
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 											on error number -128
-												writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
+												writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
 												return -- QUIT
 											end try
 											
@@ -701,7 +732,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 													do shell script "open " & quoted form of (POSIX path of appPath)
 													--tell application appName to activate
 												on error
-													writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+													writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 													return -- QUIT
 												end try
 											else
@@ -710,7 +741,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												tell application "Finder" to activate
 											end if
 											
-											writeProperties(userDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
+											writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
 											return -- QUIT
 											
 										end repeat

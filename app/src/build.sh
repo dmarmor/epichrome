@@ -22,50 +22,57 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# FLAG A CLEAN EXIT
 
-# BUILD FLAGS (CAN BE OVERRIDDEN BY RUNTIME.SH)
+doCleanExit=
 
-debug=
-logPreserve=
+
+# CLEANUP -- clean up any half-made app
+function cleanup {
+    
+    # report premature termination
+    if [[ ! "$doCleanExit" ]] ; then
+	echo "$myLogApp: Unexpected termination." >> "$myLogFile"
+	echo 'Unexpected termination.' 1>&2
+    fi
+    
+    # clean up any temp app bundle we've been working on
+    if [[ -d "$appTmp" ]] ; then
+
+	# try to remove temp app bundle
+	if [[ "$(type -t rmtemp)" = function ]] ; then
+	    rmtemp "$appTmp" 'temporary app bundle'
+	else
+	    if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
+		echo "$myLogApp: Unable to remove temporary app bundle." >> "$myLogFile"
+		echo 'Unable to remove temporary app bundle.' 1>&2
+	    fi
+	fi
+    fi
+}
 
 
 # MYABORT -- exit cleanly on error
 function myabort { # [myErrMsg code]
     
-    # clean up any temp app bundle we've been working on
-    [[ -d "$appTmp" ]] && rmtemp "$appTmp" 'temporary app bundle'
-
     # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
+
+    doCleanExit=1
     
     abortsilent "$@"
 }
 
 
-# BOOTSTRAP UPDATE SCRIPT
+# HANDLE EXIT SIGNAL
 
-# set logging parameters so all stderr output goes to log only
-logNoStderr=1
-
-source "${BASH_SOURCE[0]%/*}/update.sh"
-if [[ "$?" != 0 ]] ; then
-    [[ ! "$myLogFile" ]] && myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
-    /bin/mkdir -p "${myLogFile%/*}"
-    echo 'Unable to load update script.' >> "$myLogFile"
-    exit 1
-fi
-[[ "$ok" ]] || myabort
-
-
-# HANDLE KILL SIGNALS
-
-trap "myabort 'Received termination signal.' 2" SIGHUP SIGINT SIGTERM
+trap cleanup EXIT
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
 
 # path where the app should be created
-appPath="$1"
+myAppPath="$1"
 shift
 
 # long name (for the dock)
@@ -104,13 +111,22 @@ shift
 SSBCommandLine=("${@}")
 
 
-# GET INFO ON THIS INSTANCE OF EPICHROME
+# GET PATH TO MY PARENT EPICHROME RESOURCES
+
+myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
+
+
+# BOOTSTRAP UPDATE SCRIPT
+
+source "$myResourcesPath/Scripts/update.sh"
+[[ "$?" = 0 ]] || ( echo 'Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+[[ "$ok" ]] || myabort
 
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 
 # create the app directory in a temporary location
-appTmp=$(tempname "$appPath")
+appTmp=$(tempname "$myAppPath")
 cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
 if [[ "$?" != 0 ]] ; then
     # if we don't have permission, let the app know to try for admin privileges
@@ -123,24 +139,35 @@ fi
 
 # set ownership of app bundle to this user (only necessary if running as admin)
 try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
+[[ "$ok" ]] || myabort
 
 
 # PREPARE CUSTOM ICON IF WE'RE USING ONE
 
-customIconDir=
-
 if [[ "$iconSource" ]] ; then
-
+    
     # get name for temporary icon directory
-    customIconDir=$(tempname "${appTmp}/icons")
-    try /bin/mkdir -p "$customIconDir" 'Unable to create temporary icon directory.'
-    [[ "$ok" ]] || myabort "$errmsg"
+    customIconDir="$appTmp/Contents/Resources"
+    try /bin/mkdir -p "$customIconDir" 'Unable to create app Resources directory.'
+    [[ "$ok" ]] || myabort
     
-    # convert image into an ICNS
-    makeappicons "$iconSource" "$customIconDir" both
+    # find makeicon.sh
+    makeIconScript="$myResourcesPath/Scripts/makeicon.sh"
+    [[ -e "$makeIconScript" ]] || myabort "Unable to locate icon creation script."
+    [[ -x "$makeIconScript" ]] || myabort "Unable to run icon creation script."
     
-    # handle results
+    # build command-line
+    docArgs=(-c "$myResourcesPath/docbg.png" \
+		256 286 512 "$iconSource" "$customIconDir/$CFBundleTypeIconFile")
+    
+    # run script to convert image into an ICNS
+    makeIconErr=
+    try 'makeIconErr&=' "$makeIconScript" -f -o "$customIconDir/$CFBundleIconFile" "${docArgs[@]}" ''
+    
+    # handle errors
     if [[ ! "$ok" ]] ; then
+	errmsg="${makeIconErr#*Error: }"
+	errmsg="${errmsg%.*}"
 	[[ "$errmsg" ]] && errmsg=" ($errmsg)"
 	myabort "Unable to create icon${errmsg}."
     fi
@@ -149,20 +176,13 @@ fi
 
 # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
-# mark this as the first ever run
-SSBFirstRun=1
-
 # populate the app bundle
-updateapp "$appTmp" "$customIconDir"
-
-[[ "$ok" ]] || myabort "$errmsg"
-
-# delete any temporary custom icon directory (fail silently, as any error here is non-fatal)
-[[ -e "$customIconDir" ]] && /bin/rm -rf "$customIconDir" > /dev/null 2>&1
+updateapp "$appTmp"
+[[ "$ok" ]] || myabort
 
 # move new app to permanent location (overwriting any old app)
-permanent "$appTmp" "$appPath" "app bundle"
+permanent "$appTmp" "$myAppPath" "app bundle"
+[[ "$ok" ]] || myabort
 
-[[ "$ok" ]] || myabort "$errmsg"
-
+doCleanExit=1
 exit 0

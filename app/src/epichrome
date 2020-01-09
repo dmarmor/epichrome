@@ -22,12 +22,6 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# BUILD FLAGS
-
-debug=
-logPreserve=
-export debug logPreserve
-
 
 # CORE APP INFO (FILLED IN BY UPDATEAPP)
 
@@ -40,6 +34,29 @@ SSBCommandLine=APPCOMMANDLINE
 export SSBIdentifier SSBVersion SSBEngineType CFBundleDisplayName CFBundleName SSBCommandLine
 
 
+# CORE APP VARIABLES
+
+# create data directory
+myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
+/bin/mkdir -p "$myDataPath" 2> /dev/null
+[[ "$?" = 0 ]] || exit 1
+
+# logging
+myLogApp="$SSBIdentifier[$$]"
+myLogFile="$myDataPath/epichrome_app_log.txt"
+
+# path to important data directories and paths
+myConfigFile="$myDataPath/config.sh"
+myEnginePath="$myDataPath/Engine.noindex"
+myEnginePayloadPath="$myEnginePath/Payload"
+myEnginePlaceholderPath="$myEnginePath/Placeholder"
+myProfilePath="$myDataPath/UserData"
+
+# export to helper app
+export myDataPath myLogApp myLogFile myConfigFile \
+       myEnginePath myEnginePayloadPath myEnginePlaceholderPath myProfilePath
+
+
 # FUNCTION DEFINITIONS
 
 
@@ -50,6 +67,9 @@ function cleanup {
 
 
 # LOCK FUNCTIONS
+
+# lock file
+myLockFile="$myDataPath/lock" ; export myLockFile
 
 # (do NOT export these -- they should not be inherited)
 lockOn=
@@ -155,17 +175,9 @@ export -f lockset lockrelease
 
 # LOAD CORE SCRIPT
 
-# set log ID
-logApp="$SSBIdentifier[Launch]"
-
 # load core
-source "${BASH_SOURCE[0]%/*}/Scripts/core.sh" app "$myAppPath"
-if [[ "$?" != 0 ]] ; then
-    [[ ! "$myLogFile" ]] && myLogFile="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier/epichrome_app_log.txt"
-    /bin/mkdir -p "${myLogFile%/*}"
-    echo 'Unable to load core script.' >> "$myLogFile"
-    exit 1
-fi
+source "${BASH_SOURCE[0]%/*}/Scripts/core.sh"
+[[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
 [[ "$ok" ]] || abort
 
 
@@ -212,7 +224,21 @@ done
 
 # READ CURRENT APP SETTINGS
 
-readconfig "$mySettingsFile"
+# read config file (if any)
+[[ -f "$myConfigFile" ]] && readconfig "$myConfigFile"
+[[ "$ok" ]] || abort
+
+# determine if this is our first run on a new version
+isFirstRun=false
+if [[ "$SSBVersion" != "$SSBUpdateVersion" ]] ; then
+
+    # mark as first run
+    isFirstRun=true    
+    SSBUpdateVersion="$SSBVersion"
+    
+    # clear extension install error state
+    SSBExtensionInstallError=
+fi
 
 
 # OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
@@ -253,9 +279,9 @@ safesource "${BASH_SOURCE[0]%/*}/Scripts/launch.sh"
 # fi
 
 
-# USEFUL PATHS
-
-myContents="$myAppPath/Contents"
+# UPDATE APP PATH
+    
+SSBAppPath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/core.sh}"
 
 
 # UPDATE ENGINE APP NAME
@@ -264,7 +290,7 @@ myContents="$myAppPath/Contents"
 appNameRe='/([^/]+)\.[aA][pP][pP]$'
 
 # try to use current name of this Epichrome app as engine name
-if [[ "$myAppPath" =~ $appNameRe ]] ; then
+if [[ "$SSBAppPath" =~ $appNameRe ]] ; then
     SSBEngineAppName="${BASH_REMATCH[1]}.app"
 else
     # if app name is unparsable, just use Info.plist display name
@@ -288,6 +314,7 @@ fi
 
 # get path to engine app bundle
 myEngineAppPath="$myEnginePath/$SSBEngineAppName"
+export myEngineAppPath
 
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
@@ -318,7 +345,7 @@ fi
 # POPULATE DATA DIRECTORY
 
 # if this is our first run on a new version, force an update of the data dir
-if [[ "$SSBFirstRunSinceVersion" ]] ; then
+if $isFirstRun ; then
     forcePopulate=1
 else
     forcePopulate=
@@ -326,7 +353,7 @@ fi
 
 # if there's currently no profile directory, trigger first-run welcome message
 if [[ ! -d "$myProfilePath" ]] ; then
-    argsURIs=( "${argsURIs[@]}" "file://$myContents/Resources/FirstRun/welcome.html" )
+    argsURIs=( "${argsURIs[@]}" "file://$SSBAppPath/Contents/Resources/FirstRun/welcome.html" )
 fi
 
 # populate the data directory
@@ -375,8 +402,8 @@ fi
 # flag whether we need to (re)create the engine
 doCreateEngine=
 
-if [[ "$SSBFirstRunSinceVersion" ]] ; then
-
+if $isFirstRun ; then
+    
     # this app was just updated or created, so we need a new engine
     doCreateEngine=1
     
@@ -411,15 +438,14 @@ if [[ "$doCreateEngine" ]] ; then
 elif [[ "$SSBEngineType" = "Google Chrome" ]] ; then
     
     # get info on the installed Google Chrome
-    googlechromeinfo
+    getgooglechromeinfo
     
     # new version of Google Chrome
     if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
 	
 	debuglog "Updating engine payload to Google Chrome version $SSBGoogleChromeVersion."
 	createenginepayload
-
-	[[ "$ok" ]] || abort "$Unable to update engine payload to Google Chrome version $SSBGoogleChromeVersion. ($errmsg)"
+	[[ "$ok" ]] || abort "$Unable to update engine payload to Google Chrome version $SSBGoogleChromeVersion: $errmsg"
     fi
 fi
 
@@ -428,18 +454,6 @@ fi
 
 setenginestate ON
 [[ "$ok" ]] || abort
-
-
-# UPDATE CONFIG FILE IF NECESSARY
-
-# update config variables that may have changed
-SSBFirstRunSinceVersion=
-SSBAppPath="$myAppPath"
-
-# write out config file if anything has changed
-writeconfig "$myContents"
-
-[[ "$ok" ]] || abort "$errmsg" 1
 
 
 # LAUNCH APP ENGINE
@@ -460,8 +474,16 @@ try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir
 	'Unable to launch app.'
 [[ "$ok" ]] || abort
 
-# find PID & launch cleanup process
 
+# UPDATE CONFIG FILE IF NECESSARY
+
+writeconfig "$myConfigFile"
+[[ "$ok" ]] || abort
+
+
+# LAUNCH CLEANUP PROCESS
+
+# get PID of running engine
 sleep 0.5
 getenginepid "$myEngineID" "$myEngineAppPath"
 
@@ -474,8 +496,8 @@ if [[ "$enginePID" ]] ; then
     epiHelperParentPID="$$" ; export epiHelperParentPID
     
     # PID found, so launch cleanup daemon
-    try /usr/bin/open "$myContents/$appCleanupPath" \
-	'Unable to launch cleanup helper. The app engine will not be properly cleaned up upon quitting.'
+    try /usr/bin/open "$SSBAppPath/$appHelperPath" \
+	'Unable to launch Epichrome helper app. The app engine will not be properly cleaned up upon quitting.'
     [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
 
     # disown our lock

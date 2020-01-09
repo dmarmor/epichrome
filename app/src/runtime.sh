@@ -22,12 +22,13 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#  (IN UPDATESSB??)
-# $$$$ LOAD CORE
-# $$$$ POPULATE EPIRUNTIME
-
 # UPDATESSB -- glue to allow update from old versions of Epichrome
 function updatessb { # curAppPath
+    
+    #  (IN UPDATESSB??)
+    # $$$$ LOAD UPDATE.SH
+    safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" 'update script' NORUNTIMELOAD
+    # $$$$ POPULATE EPIRUNTIME
     
     if [[ "$ok" ]] ; then
 
@@ -44,7 +45,7 @@ function updatessb { # curAppPath
 	appDialogIcon="$curAppPath/Contents/Resources/app.icns"
 	
 	# set up new-style logging
-	logApp="$CFBundleName"
+	myLogApp="$CFBundleName"
 	# myLogFile="$epiDataPath/epichrome_log.txt"
 	# stderrTempFile="$epiDataPath/stderr.txt"
 	initlog
@@ -113,12 +114,32 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    fi
 	    
 	    if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
-		
-		# load update script
-		safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" 'update script' NORUNTIMELOAD
-		
+				
 		# data path variable name change
 		SSBDataPath="$SSBProfilePath"
+		
+		# ask user to choose  which engine to use (sticking with Google Chrome is the default)
+		local useChromium=
+		dialog SSBEngineType \
+		       "Switch app engine to Chromium or continue to use Google Chrome?
+
+NOTE: If you don't know what this question means, choose Google Chrome.
+
+Switching an existing app to the Chromium engine will likely log you out of any existing sessions in the app and may require you to reactivate extensions and/or lose extension data.
+
+In the long run, switching to the Chromium engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.
+
+The main advantage of continuing to use the Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
+		       "Choose App Engine" \
+		       "|caution" \
+		       "-Chromium" \
+		       "+Google Chrome"
+		if [[ ! "$ok" ]] ; then
+		    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+		    SSBEngineType="Google Chrome"
+		    ok=1
+		    errmsg=
+		fi
 		
 		# run actual update
 		[[ "$ok" ]] && updateapp "$@"
