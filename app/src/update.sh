@@ -153,6 +153,9 @@ function updateapp { # ( updateAppPath )
     fi
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
+    # set app bundle ID
+    local myAppID="$appIDBase.$SSBIdentifier"
+    
     
     # SET APP VERSION
     
@@ -169,8 +172,34 @@ function updateapp { # ( updateAppPath )
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
 
-    # FILTER APP INFO.PLIST AND EXECUTABLE INTO PLACE
+    # FILTER APP INFO.PLIST INTO PLACE
     
+    # set up default PlistBuddy commands
+    local filterCommands=( "set :CFBundleDisplayName $CFBundleDisplayName" \
+			       "set :CFBundleName $CFBundleName" \
+			       "set :CFBundleIdentifier $myAppID" )
+    
+    # if not registering as browser, delete URI handlers
+    [[ "$SSBRegisterBrowser" = "No" ]] && \
+	filterCommands+=( "Delete :CFBundleURLTypes" )
+    
+    # filter boilerplate Info.plist with info for this app
+    filterplist "$updateEpichromeRuntime/Filter/Info.plist.app" \
+		"$contentsTmp/Info.plist" \
+		"app Info.plist" \
+		"${filterCommands[@]}"
+
+
+    # FILTER APP EXECUTABLE INTO PLACE
+    
+    filterfile "$updateEpichromeRuntime/Filter/Epichrome" \
+	       "$contentsTmp/MacOS/Epichrome" \
+	       'app executable' \
+	       APPID "$SSBIdentifier" \
+	       APPENGINETYPE "$SSBEngineType" \
+	       APPDISPLAYNAME "$CFBundleDisplayName" \
+	       APPBUNDLENAME "$CFBundleName" \
+	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
     
     
     # GET ICON SOURCE
@@ -191,13 +220,21 @@ function updateapp { # ( updateAppPath )
     safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
 	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
     
+    
+    # FILTER NATIVE MESSAGING HOST INTO PLACE
+
+    filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
+	       "$contentsTmp/Resources/NMH/$appNMHFile" \
+	       'native messaging host' \
+	       APPBUNDLEID "$myAppID" \
+	       APPDISPLAYNAME "$CFBundleDisplayName" \
+	       APPBUNDLENAME "$CFBundleName" )
+
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
+
     
-
-
-
-        # for Chromium engine, copy icons to engine as well
+    # for Chromium engine, copy icons to engine as well
     if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
 
 	# copy icons to new app engine placeholder
@@ -242,43 +279,16 @@ function updateapp { # ( updateAppPath )
     # FILTER BOILERPLATE INFO.PLIST WITH APP INFO
 
     if [[ "$ok" ]] ; then
-	# set up default PlistBuddy commands
-	local filterCommands=( "set :CFBundleDisplayName $CFBundleDisplayName" \
-				   "set :CFBundleName $CFBundleName" \
-				   "set :CFBundleIdentifier ${appIDBase}.$SSBIdentifier" )
-	
-	# if not registering as browser, delete URI handlers
-	[[ "$SSBRegisterBrowser" != "Yes" ]] && \
-	    filterCommands+=( "Delete :CFBundleURLTypes" )
-	
-	# filter boilerplate Info.plist with info for this app
-	filterplist "$contentsTmp/Info.plist.in" \
-		    "$contentsTmp/Info.plist" \
-		    "app Info.plist" \
-		    "${filterCommands[@]}"
-	
-	# remove boilerplate input file
-	if [[ "$ok" ]] ; then
-	    try /bin/rm -f "$contentsTmp/Info.plist.in" \
-		'Unable to remove boilerplate Info.plist.'
-	fi
 
 	
-	# WRITE OUT CONFIG FILE
-
 	# $$$ INITIALIZE SSBAppPath???
 
 	# $$$ building host script:
-	#    "s/APPBUNDLEID/${appIDBase}.${SSBIdentifier}/;
+	#    "s/APPBUNDLEID/$myAppID/;
         # s/APPDISPLAYNAME/$CFBundleDisplayName/;
         # s/APPBUNDLENAME/$CFBundleName/;
         # s/APPLOGPATH/${myLogFile//\//\/}/;" \
 
-	writeconfig "$myConfigFile" force
-
-	# $$$ REMOVE THIS WITH AUTH CODE
-	# set ownership of app bundle to this user (only necessary if running as admin)
-	# setowner "$updateAppPath" "$contentsTmp" "app bundle Contents directory"
     fi
     
     

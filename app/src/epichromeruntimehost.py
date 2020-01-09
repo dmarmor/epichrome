@@ -38,10 +38,10 @@ debug = False
 
 # info specific to this host (filled in on install)
 appVersion     = 'EPIVERSION'      # filled in by Makefile
-appBundleID    = 'APPBUNDLEID'     # filled in by Epichrome
-appDisplayName = 'APPDISPLAYNAME'  # filled in by Epichrome
-appBundleName  = 'APPBUNDLENAME'   # filled in by Epichrome
-appLogPath     = 'APPLOGPATH'      # filled in by Epichrome
+appBundleID    = 'APPBUNDLEID'     # filled in by updateapp
+appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
+appBundleName  = 'APPBUNDLENAME'   # filled in by updateapp
+appLogPath     = 'APPLOGPATH'      # filled in by populatedatadir
 
 
 # special mode for communicating version to parent app

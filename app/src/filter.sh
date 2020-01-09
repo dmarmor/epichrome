@@ -23,7 +23,29 @@
 #
 
 
-# FILTERFILE -- filter a file using token-text pairs   $$$$ WRITE THIS
+# FORMATARRAY -- utility function to format an array for variable assignment or eval
+function formatarray { # ( [elem1 ...] )
+    
+    # variable holds an array, so start the array
+    value="("
+    
+    # go through each value and build the array
+    local elem=
+    for elem in "$@" ; do
+	
+	# add array value, escaping specials
+	value="${value} $(printf "%q" "$elem")"
+	
+    done
+    
+    # close the array
+    value="${value} )"
+
+    echo "$value"
+}
+
+
+# FILTERFILE -- filter a file using token-text pairs
 function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text2] ... )
     
     # only run if we're OK

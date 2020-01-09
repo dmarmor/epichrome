@@ -57,6 +57,7 @@ appHelperPath='Resources/EpichromeHelper.app'
 appEnginePath='Resources/Engine'
 appEnginePayloadPath="$appEnginePath/Payload"
 appEnginePlaceholderPath="$appEnginePath/Placeholder"
+appNMHFile='epichromeruntimehost.py'
 
 
 # SET UP CORE INFO

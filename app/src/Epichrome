@@ -23,14 +23,14 @@
 #
 
 
-# CORE APP INFO (FILLED IN BY UPDATEAPP)
+# CORE APP INFO
 
-SSBIdentifier=APPID
-SSBVersion=APPVERSION
-SSBEngineType=APPENGINETYPE
-CFBundleDisplayName=APPDISPLAYNAME
-CFBundleName=APPBUNDLENAME
-SSBCommandLine=APPCOMMANDLINE
+SSBIdentifier=APPID                 # filled in by updateapp
+SSBVersion=EPIVERSION               # filled in by Makefile
+SSBEngineType=APPENGINETYPE         # filled in by updateapp
+CFBundleDisplayName=APPDISPLAYNAME  # filled in by updateapp
+CFBundleName=APPBUNDLENAME          # filled in by updateapp
+SSBCommandLine=APPCOMMANDLINE       # filled in by updateapp
 export SSBIdentifier SSBVersion SSBEngineType CFBundleDisplayName CFBundleName SSBCommandLine
 
 

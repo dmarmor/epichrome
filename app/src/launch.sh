@@ -630,7 +630,7 @@ function populatedatadir { # ( [FORCE] )
 	# set up NMH file paths
 	local hostSourcePath="$SSBAppPath/Contents/Resources/NMH"
 	
-	local hostScriptPath="$hostSourcePath/epichromeruntimehost.py"
+	local hostScriptPath="$hostSourcePath/$appNMHFile"
 	
 	local hostManifest="org.epichrome.runtime.json"
 	local hostManifestOld="org.epichrome.helper.json"
@@ -1101,39 +1101,24 @@ function writevars {  # $1 = destination file
 
 		if isarray "$var" ; then
 		    
-		    # variable holds an array, so start the array
-		    value="("
-		    
 		    # pull out the array value
 		    eval "arr=(\"\${$var[@]}\")"
-		    
-		    # go through each value and build the array
-		    for elem in "${arr[@]}" ; do
-			
-			# escape \ to \\
-			elem="${elem//\\/\\\\}"
-			
-			# add array value, escaping specials
-			value="${value} $(printf "%q" "$elem")"
 
-		    done
+		    # format for printing
+		    value="$(formatarray "${arr[@]}")"
 		    
-		    # close the array
-		    value="${value} )"
 		else
 		    
 		    # scalar value, so pull out the value
 		    eval "value=\"\${$var}\""
 		    
 		    # escape \ to \\
-		    value="${value//\\/\\\\}"
+		    #value="${value//\\/\\\\}"
 		    
 		    # escape spaces and quotes
 		    value=$(printf '%q' "$value")
 
 		fi
-		
-		echo "var=$var, value=$value"
 		
 		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
 		[[ "$ok" ]] || break
