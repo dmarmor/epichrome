@@ -36,6 +36,8 @@ export SSBIdentifier SSBVersion SSBEngineType CFBundleDisplayName CFBundleName S
 
 # CORE APP VARIABLES
 
+myAppPath="{BASH_SOURCE[0]%/Contents/Resources/Scripts/core.sh}"
+
 # create data directory
 myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
 /bin/mkdir -p "$myDataPath" 2> /dev/null
@@ -56,6 +58,19 @@ myProfilePath="$myDataPath/UserData"
 export myDataPath myLogApp myLogFile myConfigFile \
        myEnginePath myEnginePayloadPath myEnginePlaceholderPath myProfilePath
 
+# variables used in config.sh
+myConfigVars=( SSBAppPath \
+		   SSBUpdateVersion \
+		   SSBUpdateCheckDate \
+		   SSBUpdateCheckVersion \
+		   SSBAppPath \
+		   SSBDataPath \
+		   SSBEngineAppName \
+		   SSBCustomIcon \
+		   SSBExtensionInstallError \
+		   APPENGINEVARS )
+export myConfigVars
+
 
 # FUNCTION DEFINITIONS
 
@@ -64,6 +79,50 @@ export myDataPath myLogApp myLogFile myConfigFile \
 function cleanup {
     lockrelease
 }
+
+
+# ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
+function isarray {
+    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
+	return 0
+    else
+	return 1
+    fi
+} ; export -f isarray
+
+
+# READCONFIG: read in config.sh file & save config versions to track changes
+function readconfig { # ( myConfigFile )
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local myConfigFile="$1" ; shift
+    
+    # read in config file
+    safesource "$myConfigFile" 'configuration file'	
+    [[ "$ok" ]] || return 1
+    
+    # save all relevant config variables prefixed with "config"
+    for varname in "${myConfigVars[@]}" ; do
+	
+	if isarray "$varname" ; then
+
+	    # array value
+	    
+	    eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
+	    [[ "$debug" ]] && eval "errlog \"$varname=( \${config$varname[*]} )\""
+	else
+	    
+	    # scalar value
+	    
+	    eval "config$varname=\"\${$varname}\" ; export config$varname"
+	    [[ "$debug" ]] && eval "errlog \"$varname=\$config$varname\""
+	fi	    
+    done
+    
+} ; export -f readconfig
 
 
 # LOCK FUNCTIONS
@@ -176,7 +235,7 @@ export -f lockset lockrelease
 # LOAD CORE SCRIPT
 
 # load core
-source "${BASH_SOURCE[0]%/*}/Scripts/core.sh"
+source "$myAppPath/Contents/Resources/Scripts/core.sh"
 [[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
 [[ "$ok" ]] || abort
 
@@ -229,11 +288,11 @@ done
 [[ "$ok" ]] || abort
 
 # determine if this is our first run on a new version
-isFirstRun=false
+isFirstRun=
 if [[ "$SSBVersion" != "$SSBUpdateVersion" ]] ; then
 
     # mark as first run
-    isFirstRun=true    
+    isFirstRun=1    
     SSBUpdateVersion="$SSBVersion"
     
     # clear extension install error state
@@ -267,7 +326,7 @@ fi
 
 # ENGINE IS NOT RUNNING, SO LOAD LAUNCH SCRIPT
 
-safesource "${BASH_SOURCE[0]%/*}/Scripts/launch.sh"
+safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
 [[ "$ok" ]] || abort
 
 
@@ -281,7 +340,7 @@ safesource "${BASH_SOURCE[0]%/*}/Scripts/launch.sh"
 
 # UPDATE APP PATH
     
-SSBAppPath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/core.sh}"
+SSBAppPath="$myAppPath"
 
 
 # UPDATE ENGINE APP NAME
@@ -345,7 +404,7 @@ fi
 # POPULATE DATA DIRECTORY
 
 # if this is our first run on a new version, force an update of the data dir
-if $isFirstRun ; then
+if [[ "$isFirstRun" ]] ; then
     forcePopulate=1
 else
     forcePopulate=
@@ -402,11 +461,10 @@ fi
 # flag whether we need to (re)create the engine
 doCreateEngine=
 
-if $isFirstRun ; then
+if [[ "$isFirstRun" ]] ; then
     
     # this app was just updated or created, so we need a new engine
     doCreateEngine=1
-    
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion."
 else
@@ -426,27 +484,28 @@ else
 	    createEngineErrMsg='Unable to replace corrupt engine.'
 	fi
     fi
+
+    if [[ ! "$doCreateEngine" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
+	
+	# get info on the installed Google Chrome
+	getgooglechromeinfo
+	
+	# new version of Google Chrome
+	if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
+	    
+	    doCreateEngine=1
+	    debuglog "Updating engine to Google Chrome version $SSBGoogleChromeVersion."
+	    createEngineErrMsg="$Unable to update engine to Google Chrome version $SSBGoogleChromeVersion"
+	fi
+    fi
 fi
 [[ "$ok" ]] || abort
 
-# create whatever needs creating
+# create engine if necessary
 if [[ "$doCreateEngine" ]] ; then
     
     createengine
-    [[ "$ok" ]] || abort "$createEngineErrMsg ($errmsg)"
-    
-elif [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-    
-    # get info on the installed Google Chrome
-    getgooglechromeinfo
-    
-    # new version of Google Chrome
-    if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
-	
-	debuglog "Updating engine payload to Google Chrome version $SSBGoogleChromeVersion."
-	createenginepayload
-	[[ "$ok" ]] || abort "$Unable to update engine payload to Google Chrome version $SSBGoogleChromeVersion: $errmsg"
-    fi
+    [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"    
 fi
 
 

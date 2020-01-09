@@ -1,7 +1,7 @@
 {
     "name": "org.epichrome.runtime",  // filled in by Makefile
     "description": "Epichrome Runtime Host EPIVERSION",  // filled in by Makefile
-    "path": "APPHOSTPATH",  // filled in by Epichrome
+    "path": "APPHOSTPATH",  // filled in by app
     "type": "stdio",
     "allowed_origins": [
         EPIRUNTIMEIDS

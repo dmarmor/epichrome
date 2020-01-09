@@ -34,8 +34,8 @@ coreVersion='EPIVERSION'
 
 # BUILD FLAGS
 
-[[ "$debug" ]]       || debug=
-[[ "$logPreserve" ]] || logPreserve=
+[[ "$debug" ]]       || debug=EPIDEBUG
+[[ "$logPreserve" ]] || logPreserve=EPILOGPRESERVE
 export debug logPreserve
 
 
@@ -143,13 +143,26 @@ export -f errlog_raw errlog debuglog_raw debuglog
 # INITLOG: initialize logging
 function initlog {
 
+    # assume success
+    local result=0
+
+    # initialize log file
     if  [[ ( ! "$logPreserve" ) && ( -f "$myLogFile" ) ]] ; then
-	# we're not saving logs & the logfile exists, so clear it, ignoring failure
+	
+	# we're not preserving logs across runs, so clear the log file, ignoring failure
 	/bin/cat /dev/null > "$myLogFile"
     else
-	# make sure the log file & its path exist
+	
+	# ensure log file exists
 	/bin/mkdir -p "${myLogFile%/*}"
 	/usr/bin/touch "$myLogFile"
+    fi
+    
+    # check if we have a writable log file
+    if [[ ! -w "$myLogFile" ]] ; then
+	errlog "Unable to write to log file -- logging will be to stderr only."
+	logNoFile=1
+	result=1
     fi
     
     # check if we can write to stderr or if we need to disable it
@@ -157,11 +170,15 @@ function initlog {
     if [[ $? != 0 ]] ; then
 	errlog "Unable to direct stderr to '$stderrTempFile' -- stderr output will not be logged."
 	stderrTempFile='/dev/null'
+	result=1
     fi
-    
-    # return code based on whether we have a writable log file
-    [[ -w "$myLogFile" ]] && return 0 || return 1
 
+    # if this gets called again, don't delete logs
+    logPreserve=1
+    
+    # return code
+    return "$result"
+    
 } ; export -f initlog
 
 
@@ -416,43 +433,46 @@ function tryonerr {
 # SAFESOURCE -- safely source a script
 function safesource { # SCRIPT [FILEINFO [ARGS ...]]
     
-    # only run if no error
-    if [[ "$ok" ]]; then
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
 	
-	# get command-line args
-	local script="$1" ; shift
-	local fileinfo="$1" ; shift
+    # get command-line args
+    local script="$1" ; shift
+    local fileinfo="$1" ; shift
+    
+    # get file info string & make try error string
+    if [[ ! "$fileinfo" ]] ; then
 	
-	# get file info string & make try error string
-	if [[ ! "$fileinfo" ]] ; then
-	    
-	    # autocreate file info
-	    if [[ "$script" =~ /([^/]+)$ ]] ; then
-		fileinfo="${BASH_REMATCH[1]}"
-	    else
-		fileinfo='empty path'
-	    fi
-	fi
-	
-	# check that the source file exists & is readable
-	local myErrPrefix="Error loading $fileinfo: "
-	local myErr=
-	[[ ! -e "$script" ]] && myErr="${myErrPrefix}Nothing found at '$script'."
-	[[ ( ! "$myErr" ) && ( ! -f "$script" ) ]] && myErr="${myErrPrefix}'$script' is not a file."
-	[[ ( ! "$myErr" ) && ( ! -r "$script" ) ]] && myErr="${myErrPrefix}'$script' is not readable."
-	
-	if [[ "$myErr" ]] ; then
-	    ok=
-	    errmsg="$myErr"
+	# autocreate file info
+	if [[ "$script" =~ /([^/]+)$ ]] ; then
+	    fileinfo="${BASH_REMATCH[1]}"
 	else
-	    
-	    # try to source the file
-	    try source "$script" "$@" "Unable to load $fileinfo."
+	    fileinfo='empty path'
 	fi
     fi
     
-    [[ "$ok" ]] && return 0
-    return 1
+    # check that the source file exists & is readable
+    local myErrPrefix="Error loading $fileinfo: "
+    local myErr=
+    [[ ! -e "$script" ]] && myErr="${myErrPrefix}Nothing found at '$script'."
+    [[ ( ! "$myErr" ) && ( ! -f "$script" ) ]] && myErr="${myErrPrefix}'$script' is not a file."
+    [[ ( ! "$myErr" ) && ( ! -r "$script" ) ]] && myErr="${myErrPrefix}'$script' is not readable."
+    
+    if [[ "$myErr" ]] ; then
+	ok=
+	errmsg="$myErr"
+    else
+	
+	# try to source the file
+	try source "$script" "$@" ''
+	if [[ ! "$ok" ]] ; then
+	    [[ "$errmsg" ]] && errmsg=" ($errmsg)"
+	    errmsg="Unable to load $fileinfo.$errmsg"
+	fi
+    fi
+
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
     
 } ; export -f safesource
 
@@ -664,66 +684,6 @@ function safecopy {
 } ; export -f safecopy
 
 
-# $$$$ REMOVE THIS???
-# SETOWNER: set the owner of a directory tree or file to the owner of the app
-# function setowner {  # APPPATH THISPATH PATHINFO
-
-#     if [[ "$ok" ]] ; then
-
-# 	# get args
-# 	local appPath="$1"
-# 	local thisPath="$2"
-# 	local pathInfo="$3"
-# 	[[ "$pathInfo" ]] || pathInfo="path \"$2\""
-	
-# 	local appOwner=
-# 	try 'appOwner=' /usr/bin/stat -f '%Su' "$appPath" 'Unable to get owner of app bundle.'
-# 	try /usr/sbin/chown -R "$appOwner" "$thisPath" "Unable to set ownership of $pathInfo."
-#     fi
-
-#     [[ "$ok" ]] && return 0
-#     return 1
-# } ; export -f setowner
-
-
-# DIRLIST: get (and possibly filter) a directory listing
-function dirlist {  # DIRECTORY OUTPUT-VARIABLE FILEINFO FILTER
-
-    if [[ "$ok" ]]; then
-
-	local dir="$1"      ; shift
-	local outvar="$1"   ; shift
-	local fileinfo="$1" ; shift ; [[ "$fileinfo" ]] || fileinfo="$dir"
-	local filter="$1"   ; shift
-	
-	local files=
-	files="$(unset CLICOLOR ; /bin/ls "$dir" 2>&1)"
-	if [[ "$?" != 0 ]] ; then
-	    errmsg="Unable to retrieve $fileinfo list."
-	    ok=
-	    return 1
-	fi
-	
-	local filteredfiles=()
-	local f=
-	while read f ; do
-	    if [[ ! "$filter" || ! ( "$f" =~ $filter ) ]] ; then
-		# escape \ to \\
-		
-		# escape " to \" and <space> to \<space> and add to array
-		filteredfiles=("${filteredfiles[@]}" "$(printf '%q' "$f")")
-	    fi
-	done <<< "$files"
-
-	# copy array to output variable
-	eval "${outvar}=(${filteredfiles[@]})"
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-} ; export -f dirlist
-
-
 # DIALOG -- display a dialog and return the button pressed
 function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first) BUTTON1 BUTTON2 BUTTON3 (+ = default, - = cancel)
 
@@ -844,335 +804,6 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 } ; export -f alert
 
 
-# FILTERFILE -- filter a file using token-text pairs   $$$$ WRITE THIS
-function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text2] ... )
-    
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-    
-    # arguments
-    local sourceFile="$1" ; shift
-    local destFile="$1"   ; shift
-    local fileInfo="$1"   ; shift ; [[ "$fileInfo" ]] || fileInfo="${sourceFile##*/}"
-    
-    # build sed command
-    local sedCommand=
-    local arg=
-    for arg in "$@" ; do
+# INITIALIZE LOG
 
-	if [[ ! "$curToken" ]] ; then
-
-	    # starting a new token-text pair
-	    sedCommand+="s/$arg/"
-	else
-
-	    # finishing a token-text pair
-	    sedCommand+="$arg/g; "
-	fi
-    done
-
-    # filter file
-    local destFileTmp=$(tempname "$destFile")
-    try "$destFileTmp<" /usr/bin/sed "$sedCommand" "$sourceFile" "Unable to filter $fileInfo."
-    
-    # move script to permanent home
-    # on error, remove temporary file
-    if [[ "$ok" ]] ; then
-	permanent "$destFileTmp" "$destFile" "$fileInfo"
-    else
-	rmtemp "$destFileTmp" "$fileInfo"
-    fi
-}
-
-
-# FILTERPLIST: write out a new plist file by filtering an input file with PlistBuddy
-function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
-
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-    
-    # arguments
-    local srcFile="$1"    ; shift
-    local destFile="$1"   ; shift
-    local tryErrorID="$1" ; shift # ID of this plist file for messaging
-    
-    # create command list
-    local pbCommands=( )
-    local curCmd=
-    for curCmd in "$@" ; do
-	pbCommands+=( -c "$curCmd" )
-    done
-    
-    # create name for temp destination file
-    local destFileTmp="$(tempname "$destFile")"
-    
-    # copy source file to temp
-    try cp "$srcFile" "$destFileTmp" "Unable to create temporary $tryErrorID."
-    
-    [[ "$ok" ]] || return 1
-    
-    # use PlistBuddy to filter temp plist
-    try /usr/libexec/PlistBuddy "${pbCommands[@]}" "$destFileTmp" \
-	"Error filtering $tryErrorID."
-    
-    if [[ "$ok" ]] ; then
-	
-	# on success, move temp file to permanent location
-	permanent "$destFileTmp" "$destFile" "$tryErrorID"
-    else
-	
-	# on error, delete the temp file
-	rmtemp "$destFileTmp" "$tryErrorID"
-    fi
-
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
-
-} ; export -f filterplist
-
-
-# ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
-function isarray {
-    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
-	return 0
-    else
-	return 1
-    fi
-} ; export -f isarray
-
-
-# WRITEVARS: write out a set of arbitrary bash variables to a file
-function writevars {  # $1 = destination file
-    #                   $@ = list of vars
-    
-    if [[ "$ok" ]] ; then
-
-	# destination file
-	local dest="$1"
-	shift
-
-	# local variables
-	local var=
-	local value=
-	local arr=()
-	local i
-	
-	# temporary file
-	local tmpDest="$(tempname "$dest")"
-
-	# basename
-	local destBase="${dest##*/}"
-	# start temp vars file
-	local myDate=
-	try 'myDate=' /bin/date ''
-	if [[ ! "$ok" ]] ; then ok=1 ; myDate= ; fi
-	try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
-	    "Unable to create ${destBase}."
-	try "${tmpDest}<<" echo '' "Unable to write to ${destBase}."
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # go through each variable
-	    for var in "$@" ; do
-
-		if isarray "$var" ; then
-		    
-		    # variable holds an array, so start the array
-		    value="("
-		    
-		    # pull out the array value
-		    eval "arr=(\"\${$var[@]}\")"
-		    
-		    # go through each value and build the array
-		    for elem in "${arr[@]}" ; do
-			
-			# escape \ to \\
-			elem="${elem//\\/\\\\}"
-			
-			# add array value, escaping specials
-			value="${value} $(printf "%q" "$elem")"
-
-		    done
-		    
-		    # close the array
-		    value="${value} )"
-		else
-		    
-		    # scalar value, so pull out the value
-		    eval "value=\"\${$var}\""
-		    
-		    # escape \ to \\
-		    value="${value//\\/\\\\}"
-		    
-		    # escape spaces and quotes
-		    value=$(printf '%q' "$value")
-
-		fi
-		
-		echo "var=$var, value=$value"
-		
-		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
-		[[ "$ok" ]] || break
-	    done
-	fi
-	
-	# move the temp file to its permanent place
-	permanent "$tmpDest" "$dest" "${destBase}"
-	
-	# on error, remove temp vars file
-	[[ "$ok" ]] || rmtemp "$tmpDest" "${destBase}"
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-} ; export -f writevars
-
-
-# CONFIGVARS: list of variables in config.sh
-appConfigVarsCommon=( SSBAppPath \
-			  SSBUpdateVersion \
-			  SSBUpdateCheckDate \
-			  SSBUpdateCheckVersion \
-			  SSBAppPath \
-			  SSBDataPath \
-			  SSBEngineAppName \
-			  SSBCustomIcon \
-			  SSBExtensionInstallError )
-appConfigVarsGoogleChrome=( SSBGoogleChromePath \
-				SSBGoogleChromeVersion )
-export appConfigVarsCommon appConfigVarsGoogleChrome
-
-
-# READCONFIG: read in config.sh file & save config versions to track changes
-function readconfig { # ( myConfigFile )
-
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-
-    # arguments
-    local myConfigFile="$1" ; shift
-    
-    # read in config file
-    safesource "$myConfigFile" 'configuration file'	
-    [[ "$ok" ]] || return 1
-    	
-    # create full list of config vars based on engine type
-    local myConfigVars=( "${appConfigVarsCommon[@]}" )
-    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
-    fi
-
-    # export config vars
-    export "${myConfigVars[@]}"
-    
-    # save all relevant config variables prefixed with "config"
-    for varname in "${myConfigVars[@]}" ; do
-	
-	if isarray "$varname" ; then
-
-	    # array value
-	    
-	    eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog \"$varname=( \${config$varname[*]} )\""
-	else
-	    
-	    # scalar value
-	    
-	    eval "config$varname=\"\${$varname}\" ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog \"$varname=\$config$varname\""
-	fi	    
-    done
-    
-} ; export -f readconfig
-
-
-# WRITECONFIG: write out config.sh file
-function writeconfig {  # ( myConfigFile force
-    
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-
-    # arguments
-    local myConfigFile="$1" ; shift
-    local force="$1"        ; shift
-    
-    # create full list of config vars based on engine type
-    local myConfigVars=( "${appConfigVarsCommon[@]}" )
-    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	myConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
-    fi
-    
-    # determine if we need to write the config file
-
-    # we're being told to write no matter what
-    local doWrite="$force"
-    
-    # not being forced, so compare all config variables for changes
-    if [[ ! "$doWrite" ]] ; then
-	local varname=
-	local configname=
-	for varname in "${myConfigVars[@]}" ; do
-	    configname="config${varname}"
-	    
-	    isarray "$varname"
-	    local varisarray="$?"
-	    
-	    # if variables are not the same type
-	    isarray "$configname"
-	    if [[ "$varisarray" != "$?" ]] ; then
-		doWrite=1
-		break
-	    fi
-	    
-	    if [[ "$varisarray" = 0 ]] ; then
-		
-		# variables are arrays, so compare part by part
-		
-		# check for the same length
-		local varlength="$(eval "echo \${#$varname[@]}")"
-		if [[ "$varlength" \
-			  -ne "$(eval "echo \${#$configname[@]}")" ]] ; then
-		    doWrite=1
-		    break
-		fi
-		
-		# compare each element in both arrays
-		local i=0
-		while [[ "$i" -lt "$varlength" ]] ; do
-		    if [[ "$(eval "echo \${$varname[$i]}")" \
-			      != "$(eval "echo \${$configname[$i]}")" ]] ; then
-			doWrite=1
-			break
-		    fi
-		    i=$(($i + 1))
-		done
-		
-		# if we had a mismatch, break out of the outer loop
-		[[ "$doWrite" ]] && break
-	    else
-		
-		# variables are scalar, simple compare
-		if [[ "$(eval "echo \${$varname}")" \
-			  != "$(eval "echo \${$configname}")" ]] ; then
-		    doWrite=1
-		    break
-		fi
-	    fi
-	done
-    fi
-    
-    # if we need to, write out the file
-    if [[ "$doWrite" ]] ; then
-	
-	# write out the config file
-	writevars "$myConfigFile" "${myConfigVars[@]}"
-    fi
-
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
-
-} ; export -f writeconfig
-
-
-# do it $$$$
 initlog

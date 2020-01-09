@@ -23,6 +23,11 @@
 #
 
 
+# REQUIRES FILTER.SH
+
+safesource "$SSBAppPath/Contents/Resources/Scripts/filter.sh"
+
+
 # EPICHROME VERSION-CHECKING FUNCTIONS
 
 # VISBETA -- if version is a beta, return 0, else return 1
@@ -452,75 +457,6 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID files ... )
 }
 
 
-# LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
-function lprojescape { # string
-    s="${1/\\/\\\\\\\\}"  # escape backslashes for both sed & .strings file
-    s="${s//\//\\/}"  # escape forward slashes for sed only
-    echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
-}
-
-
-# FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
-function filterlproj {  # ( basePath errID usageKey
-
-    [[ "$ok" ]] || return 1
-    
-    # turn on nullglob
-    local shoptState=
-    shoptset shoptState nullglob
-    
-    # path to folder containing .lproj folders
-    local basePath="$1" ; shift
-
-    # name to search for in usage description strings
-    local usageKey="$1" ; shift
-    
-    # info about this filtering for error messages
-    local errID="$1" ; shift
-    
-    # escape bundle name strings
-    local displayName="$(lprojescape "$CFBundleDisplayName")"
-    local bundleName="$(lprojescape "$CFBundleName")"
-
-    # create sed command
-    local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
-
-    # if we have a usage key, add command for searching usage descriptions
-    [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$displayName"'\3/'
-    
-    # filter InfoPlist.strings files
-    local curLproj=
-    for curLproj in "$basePath/"*.lproj ; do
-	
-	# get paths for current in & out files
-	local curStringsIn="$curLproj/InfoPlist.strings"
-	local curStringsOutTmp="$(tempname "$curStringsIn")"
-	
-	if [[ -f "$curStringsIn" ]] ; then
-	    # filter current localization
-	    try "$curStringsOutTmp<" /usr/bin/sed -E "$sedCommand" "$curStringsIn" \
-		"Unable to filter $errID localization strings."
-	    
-	    # move file to permanent home
-	    permanent "$curStringsOutTmp" "$curStringsIn" "$errID localization strings"
-
-	    # on any error, abort
-	    if [[ ! "$ok" ]] ; then
-		# remove temp output file on error
-		rmtemp "$curStringsOutTmp" "$errID localization strings"
-		break
-	    fi
-	fi
-    done
-    
-    # restore nullglob
-    shoptrestore shoptState
-    
-    # return success or failure
-    [[ "$ok" ]] && return 0 || return 1
-}
-
-
 # GETGOOGLECHROMEINFO: find Google Chrome on the system & get info on it
 #                      sets the following variables:
 #                         SSBGoogleChromePath, SSBGoogleChromeVersion
@@ -712,9 +648,9 @@ function populatedatadir { # ( [FORCE] )
 	
 	# stream-edit the new manifest into place  $$$ THIS WILL NEED TO HAVE ARGS
 	if [[ "$force" || ! -e "$hostManifestDest" ]] ; then
-	    filterscript "$hostSourcePath/$hostManifest" "$hostManifestDest" \
-			 'native messaging host manifest' \
-			 APPHOSTPATH "$hostScriptPath"
+	    filterfile "$hostSourcePath/$hostManifest" "$hostManifestDest" \
+		       'native messaging host manifest' \
+		       APPHOSTPATH "$hostScriptPath"
 	fi
 	
 	# duplicate the new manifest with the old ID
@@ -920,17 +856,18 @@ function setenginestate {  # ( ON|OFF )
 } ; export -f setenginestate
 
 
-# CREATEENGINEPAYLOAD: create app engine payload
-function createenginepayload {
+# CREATEENGINE -- create Epichrome engine (payload & placeholder)
+function createengine {
     
     [[ "$ok" ]] || return 1
         
-    # clear out any old payload
-    if [[ -d "$myEnginePayloadPath" ]] ; then
-	try /bin/rm -rf "$myEnginePayloadPath" 'Unable to clear old engine payload.'
+    # clear out any old engine
+    if [[ -d "$myEnginePath" ]] ; then
+	try /bin/rm -rf "$myEnginePath" 'Unable to clear old engine.'
+	try /bin/mkdir -p "$myEnginePath" 'Unable to create new engine.'
 	[[ "$ok" ]] || return 1
     fi
-
+    
     
     # CREATE NEW PAYLOAD
     
@@ -1027,7 +964,7 @@ function createenginepayload {
 	    ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
-
+	
 	# path to Epichrome engine
 	local epiPayloadPath="$epiCurrentPath/Contents/$appEnginePayloadPath"
 	
@@ -1036,34 +973,12 @@ function createenginepayload {
 	    'Unable to copy app engine payload.'
 
 	# hard link large payload items from Epichrome
-	linktree "$epiEnginePath/Link" "$myEnginePayloadPath" 'app engine' 'payload'
-	
-	# filter Info.plist with app info
-	filterplist "$myEnginePath/Filter/Info.plist.in" \
-		    "$myEnginePayloadPath/Info.plist" \
-		    "app engine Info.plist" \
-		    "Set :CFBundleDisplayName $CFBundleDisplayName" \
-		    "Set :CFBundleName $CFBundleName" \
-		    "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier" \
-		    "Delete :CFBundleDocumentTypes" \
-		    "Delete :CFBundleURLTypes"
-	
-	# filter localization strings
-	filterlproj "$curPayloadContentsPath/Resources" 'app engine' Chromium
+	linktree "$epiEnginePath/Link" "$myEnginePayloadPath" 'app engine' 'payload'	
     fi
-
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
-}
-
-
-# CREATEENGINE -- create entire Epichrome engine (payload & placeholder)
-function createengine {
-
     [[ "$ok" ]] || return 1
-    
-    # create inactive payload
-    createenginepayload
+
+
+    # CREATE ACTIVE PLACEHOLDER
     
     # path to active engine app
     local myEngineApp="$myEnginePath/$SSBEngineAppName"
@@ -1093,6 +1008,9 @@ function createengine {
 		"$myEngineApp/ContentsPayloadPath/Info.plist" \
 		"app engine placeholder Info.plist" \
 		'Add :LSUIElement bool true'
+    
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
 }
 
 
@@ -1144,4 +1062,173 @@ function getenginepid { # path
 	ok=1
 	return 1
     fi
+}
+
+
+# WRITEVARS: write out a set of arbitrary bash variables to a file
+function writevars {  # $1 = destination file
+    #                   $@ = list of vars
+    
+    if [[ "$ok" ]] ; then
+
+	# destination file
+	local dest="$1"
+	shift
+
+	# local variables
+	local var=
+	local value=
+	local arr=()
+	local i
+	
+	# temporary file
+	local tmpDest="$(tempname "$dest")"
+
+	# basename
+	local destBase="${dest##*/}"
+	# start temp vars file
+	local myDate=
+	try 'myDate=' /bin/date ''
+	if [[ ! "$ok" ]] ; then ok=1 ; myDate= ; fi
+	try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
+	    "Unable to create ${destBase}."
+	try "${tmpDest}<<" echo '' "Unable to write to ${destBase}."
+	
+	if [[ "$ok" ]] ; then
+	    
+	    # go through each variable
+	    for var in "$@" ; do
+
+		if isarray "$var" ; then
+		    
+		    # variable holds an array, so start the array
+		    value="("
+		    
+		    # pull out the array value
+		    eval "arr=(\"\${$var[@]}\")"
+		    
+		    # go through each value and build the array
+		    for elem in "${arr[@]}" ; do
+			
+			# escape \ to \\
+			elem="${elem//\\/\\\\}"
+			
+			# add array value, escaping specials
+			value="${value} $(printf "%q" "$elem")"
+
+		    done
+		    
+		    # close the array
+		    value="${value} )"
+		else
+		    
+		    # scalar value, so pull out the value
+		    eval "value=\"\${$var}\""
+		    
+		    # escape \ to \\
+		    value="${value//\\/\\\\}"
+		    
+		    # escape spaces and quotes
+		    value=$(printf '%q' "$value")
+
+		fi
+		
+		echo "var=$var, value=$value"
+		
+		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
+		[[ "$ok" ]] || break
+	    done
+	fi
+	
+	# move the temp file to its permanent place
+	permanent "$tmpDest" "$dest" "${destBase}"
+	
+	# on error, remove temp vars file
+	[[ "$ok" ]] || rmtemp "$tmpDest" "${destBase}"
+    fi
+    
+    [[ "$ok" ]] && return 0
+    return 1
+} ; export -f writevars
+
+
+# WRITECONFIG: write out config.sh file
+function writeconfig {  # ( myConfigFile force
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local myConfigFile="$1" ; shift
+    local force="$1"        ; shift
+    
+    # determine if we need to write the config file
+
+    # we're being told to write no matter what
+    local doWrite="$force"
+    
+    # not being forced, so compare all config variables for changes
+    if [[ ! "$doWrite" ]] ; then
+	local varname=
+	local configname=
+	for varname in "${myConfigVars[@]}" ; do
+	    configname="config${varname}"
+	    
+	    isarray "$varname"
+	    local varisarray="$?"
+	    
+	    # if variables are not the same type
+	    isarray "$configname"
+	    if [[ "$varisarray" != "$?" ]] ; then
+		doWrite=1
+		break
+	    fi
+	    
+	    if [[ "$varisarray" = 0 ]] ; then
+		
+		# variables are arrays, so compare part by part
+		
+		# check for the same length
+		local varlength="$(eval "echo \${#$varname[@]}")"
+		if [[ "$varlength" \
+			  -ne "$(eval "echo \${#$configname[@]}")" ]] ; then
+		    doWrite=1
+		    break
+		fi
+		
+		# compare each element in both arrays
+		local i=0
+		while [[ "$i" -lt "$varlength" ]] ; do
+		    if [[ "$(eval "echo \${$varname[$i]}")" \
+			      != "$(eval "echo \${$configname[$i]}")" ]] ; then
+			doWrite=1
+			break
+		    fi
+		    i=$(($i + 1))
+		done
+		
+		# if we had a mismatch, break out of the outer loop
+		[[ "$doWrite" ]] && break
+	    else
+		
+		# variables are scalar, simple compare
+		if [[ "$(eval "echo \${$varname}")" \
+			  != "$(eval "echo \${$configname}")" ]] ; then
+		    doWrite=1
+		    break
+		fi
+	    fi
+	done
+    fi
+    
+    # if we need to, write out the file
+    if [[ "$doWrite" ]] ; then
+	
+	# write out the config file
+	writevars "$myConfigFile" "${myConfigVars[@]}"
+    fi
+
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
+
 }

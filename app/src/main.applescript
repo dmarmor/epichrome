@@ -24,12 +24,18 @@
  *)
 
 
+-- VERSION
+
+local myVersion
+set myVersion to "EPIVERSION"
+
+
 -- BUILD FLAGS
 
 local debug
-set debug to ""
+set debug to "EPIDEBUG"
 local logPreserve
-set logPreserve to ""
+set logPreserve to "EPILOGPRESERVE"
 
 
 -- MISC CONSTANTS
@@ -43,7 +49,9 @@ local iconTypes
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
 
--- SET UP KEY VARIABLES TO EXPORT TO SCRIPTS
+-- SET UP KEY VARIABLES
+
+-- set up needed variables
 local myDataPath
 set myDataPath to (system attribute "HOME") & "/Library/Application Support/Epichrome"
 try
@@ -52,15 +60,33 @@ on error errStr number errNum
 	display dialog "Error accessing application data folder: " & errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
 	return
 end try
+
 local myLogApp
 set myLogApp to "Epichrome"
 try
 	set myLogApp to myLogApp & "[" & (do shell script "/bin/sh -c \"echo $PPID\"") & "]"
 end try
+
 local myLogFile
 set myLogFile to myDataPath & "/epichrome_log.txt"
-local logNoStderr
-set logNoStderr to "1"
+
+
+-- SET UP ENVIRONMENT TO EXPORT TO SCRIPTS THAT LOAD CORE.SH
+
+local scriptEnvFirst
+local scriptEnv
+set scriptEnvFirst to "debug=" & (quoted form of debug)
+set scriptEnvFirst to scriptEnvFirst & " myDataPath=" & (quoted form of myDataPath)
+set scriptEnvFirst to scriptEnvFirst & " myLogApp=" & (quoted form of myLogApp)
+set scriptEnvFirst to scriptEnvFirst & " myLogFile=" & (quoted form of myLogFile)
+set scriptEnvFirst to scriptEnvFirst & " logNoStderr='1'"
+
+-- script environment is mostly the same on first and subsequent uses
+set scriptEnv to scriptEnvFirst
+
+-- handle logPreserve differently the first time we use the script environment
+set scriptEnvFirst to scriptEnvFirst & " logNoStderr=" & (quoted form of logNoStderr)
+set scriptEnv to scriptEnv & " logPreserve='1'"
 
 
 -- SETTINGS FILE
@@ -83,19 +109,6 @@ local pathInfoScript
 set pathInfoScript to quoted form of (POSIX path of (path to resource "pathinfo.sh" in directory "Scripts"))
 local updateCheckScript
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
-local versionScript
-set versionScript to quoted form of (POSIX path of (path to resource "version.sh" in directory "Scripts"))
-
-
--- ENVIRONMENT FOR SCRIPTS THAT LOAD CORE.SH
-
-local scriptEnv
-set scriptEnv to "debug=" & (quoted form of debug)
-set scriptEnv to scriptEnv & " logPreserve=" & (quoted form of logPreserve)
-set scriptEnv to scriptEnv & " myDataPath=" & (quoted form of myDataPath)
-set scriptEnv to scriptEnv & " myLogApp=" & (quoted form of myLogApp)
-set scriptEnv to scriptEnv & " myLogFile=" & (quoted form of myLogFile)
-set scriptEnv to scriptEnv & " logNoStderr=" & (quoted form of logNoStderr)
 
 
 -- PERSISTENT PROPERTIES
@@ -243,7 +256,7 @@ set appURLs to {}
 
 -- INITIALIZE LOG FILE
 try
-	do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' && initlog'"
+	do shell script scriptEnvFirst & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 on error errStr number errNum
 	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
 end try
@@ -256,18 +269,15 @@ if updateCheckDate < curDate then
 	-- set next update for 1 week from now
 	set updateCheckDate to (curDate + (7 * days))
 	
-	-- get current version of Epichrome
-	set curVersion to do shell script "source " & versionScript & " ; echo $epiVersion"
-	
 	-- if updateCheckVersion isn't set, or is earlier than the current version, set it to the current version
 	if updateCheckVersion is "" then
-		set updateCheckVersion to curVersion
+		set updateCheckVersion to myVersion
 	else
 		try
-			set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of curVersion)
+			set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of myVersion)
 		on error errStr number errNum
 			display dialog "Non-fatal error getting Epichrome version info: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
-			set updateCheckVersion to curVersion
+			set updateCheckVersion to myVersion
 		end try
 	end if
 	

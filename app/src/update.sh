@@ -22,6 +22,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 # PATH TO THIS SCRIPT'S EPICHROME APP BUNDLE
 
 updateEpichromePath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}"
@@ -38,9 +39,6 @@ source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh"
 
 # RELAUNCH -- relaunch this app ($$$ MOVE INTO UPDATEAPP???)
 function relaunch { # APP-PATH
-    
-    # export debug & log options for relaunch daemon
-    export debug logPreserve
     
     # launch relaunch daemon  $$$ ADD ARGS HERE??
     try /usr/bin/open "$SSBAppPath/$appHelperPath" --args \
@@ -63,52 +61,10 @@ function updateapp { # ( updateAppPath )
     local updateAppPath="$1" ; shift  # path to the app bundle to update
 
     
-    # BEGIN POPULATING APP BUNDLE
-    
-    # put updated bundle in temporary Contents directory
-    local contentsTmp="$(tempname "$updateAppPath/Contents")"
-    
-    # copy in the boilerplate for the app
-    try /bin/cp -a "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    # LOAD FILTER.SH
 
-
-    # ADD ICONS TO APP & SUB-APPS
-
-    # determine source of icons
-    local iconSourcePath=
-    if [[ "$SSBCustomIcon" ]] ; then
-	iconSourcePath="$updateAppPath/Contents/Resources"
-    else
-	iconSourcePath="$updateEpichromeRuntime/Icons"
-    fi
-    
-    # copy icons to main app
-    safecopy "$iconSourcePath/$CFBundleIconFile" \
-	     "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
-    safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
-
-    # for Chromium engine, copy icons to engine as well
-    if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
-
-	# copy icons to new app engine placeholder
-	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleIconFile" \
-		 "engine placeholder app icon"
-	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleTypeIconFile" \
-		 "engine placeholder document icon"
-	
-	# copy icons to new Chromium app engine payload
-	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleIconFile" \
-		 "engine app icon"
-	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
-		 "engine app icon"
-    fi
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/filter.sh"
+    [[ "$ok" ]] || return 1
     
     
     # SET UNIQUE APP ID
@@ -198,19 +154,90 @@ function updateapp { # ( updateAppPath )
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
     
-    # update SSBVersion & SSBUpdateCheckVersion
-    SSBVersion="$coreVersion"
-
-    # $$$$$$$$$ SET ALL HARD-WIRED FILTER VALUES
+    # SET APP VERSION
     
+    SSBVersion="$coreVersion"
+    
+    
+    # BEGIN POPULATING APP BUNDLE
+    
+    # put updated bundle in temporary Contents directory
+    local contentsTmp="$(tempname "$updateAppPath/Contents")"
+    
+    # copy in the boilerplate for the app
+    try /bin/cp -a "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
+    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+
+
+    # FILTER APP INFO.PLIST AND EXECUTABLE INTO PLACE
+    
+    
+    
+    # GET ICON SOURCE
+
+    # determine source of icons
+    local iconSourcePath=
+    if [[ "$SSBCustomIcon" ]] ; then
+	iconSourcePath="$updateAppPath/Contents/Resources"
+    else
+	iconSourcePath="$updateEpichromeRuntime/Icons"
+    fi
+    
+    
+    # COPY ICONS TO MAIN APP
+    
+    safecopy "$iconSourcePath/$CFBundleIconFile" \
+	     "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
+    safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
+    
+    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+
+    
+
+
+
+        # for Chromium engine, copy icons to engine as well
+    if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
+
+	# copy icons to new app engine placeholder
+	safecopy "$iconSourcePath/$CFBundleIconFile" \
+		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleIconFile" \
+		 "engine placeholder app icon"
+	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleTypeIconFile" \
+		 "engine placeholder document icon"
+	
+	# copy icons to new Chromium app engine payload
+	safecopy "$iconSourcePath/$CFBundleIconFile" \
+		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleIconFile" \
+		 "engine app icon"
+	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
+		 "engine app icon"
+    fi
+
     # $$$$$$$$$ FILTER EPICHROME EXECUTABLE
 
     # $$$$$$$$ FILTER MULTIPLE INFO.PLISTS
 
     # $$$$$$$$ FILTER PLACEHOLDER EXECUTABLE INTO PLACE
 
-    # $$$$$$$$
-    
+    # $$$$$$$$ CHROMIUM: FILTER LPROJ FILES AND CREATE ENGINE PAYLOAD
+	# filter Info.plist with app info
+	filterplist "$myEnginePath/Filter/Info.plist.in" \
+		    "$myEnginePayloadPath/Info.plist" \
+		    "app engine Info.plist" \
+		    "Set :CFBundleDisplayName $CFBundleDisplayName" \
+		    "Set :CFBundleName $CFBundleName" \
+		    "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier" \
+		    "Delete :CFBundleDocumentTypes" \
+		    "Delete :CFBundleURLTypes"
+	
+	# filter localization strings
+	filterlproj "$curPayloadContentsPath/Resources" 'app engine' Chromium
+	
+
     
     # FILTER BOILERPLATE INFO.PLIST WITH APP INFO
 
@@ -251,7 +278,7 @@ function updateapp { # ( updateAppPath )
 
 	# $$$ REMOVE THIS WITH AUTH CODE
 	# set ownership of app bundle to this user (only necessary if running as admin)
-	setowner "$updateAppPath" "$contentsTmp" "app bundle Contents directory"
+	# setowner "$updateAppPath" "$contentsTmp" "app bundle Contents directory"
     fi
     
     

@@ -48,7 +48,6 @@ function updatessb { # curAppPath
 	myLogApp="$CFBundleName"
 	# myLogFile="$epiDataPath/epichrome_log.txt"
 	# stderrTempFile="$epiDataPath/stderr.txt"
-	initlog
 	
 	# get our version of Epichrome
 	local epiVersion="${epiRuntime[$e_version]}"
