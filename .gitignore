@@ -11,6 +11,7 @@
 /Patreon/**
 /app/*.app/**
 /app/Chromium/**
+/app/build/**
 /app/icons/**
 /app/runtime/**
 /app/welcome/img/icon*.png
