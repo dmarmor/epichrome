@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+#  PlaceholderExec: Placeholder for an inactive app engine
+#
+#  Copyright (C) 2020  David Marmor
+#
+#  https://github.com/dmarmor/epichrome
+#
+#  Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+
+
+# CORE APP INFO
+
+SSBVersion=EPIVERSION               # filled in by Makefile
+SSBIdentifier=APPID                 # filled in by updateapp
+
+
+# CORE APP VARIABLES
+
+SSBAppPath="{BASH_SOURCE[0]%/Contents/MacOS/*}"
+
+# create data directory
+myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
+/bin/mkdir -p "$myDataPath" 2> /dev/null
+[[ "$?" = 0 ]] || exit 1
+
+# logging
+myLogApp="$SSBIdentifier[$$]"
+myLogFile="$myDataPath/epichrome_app_log.txt"
+
+
+# ATTEMPT TO LAUNCH PARENT APP
+
+/bin/open -b "org.epichrome.app.$SSBIdentifier" --args "$@"
+[[ "$?" = 0 ]] && exit 0
+
+
+# LAUNCH FAILED, SO DISPLAY A WARNING ALERT
+
+echo "$myLogApp: Unable to launch app ID $SSBIdentifier." >> "$myLogFile"
+
+# load core
+source "$SSBAppPath/Contents/Resources/Scripts/core.sh"
+[[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
+
+# display error alert
+[[ "$errmsg" ]] && errmsg=" Also: $errmsg"
+abort 'Unable to launch parent app.$errmsg You should generally NOT try to launch this app directly anyway.'

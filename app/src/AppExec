@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  Epichrome: Run an Epichrome app
+#  AppExec: Run an Epichrome app
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -25,8 +25,8 @@
 
 # CORE APP INFO
 
-SSBIdentifier=APPID                 # filled in by updateapp
 SSBVersion=EPIVERSION               # filled in by Makefile
+SSBIdentifier=APPID                 # filled in by updateapp
 SSBEngineType=APPENGINETYPE         # filled in by updateapp
 CFBundleDisplayName=APPDISPLAYNAME  # filled in by updateapp
 CFBundleName=APPBUNDLENAME          # filled in by updateapp
@@ -64,7 +64,6 @@ myConfigVars=( SSBAppPath \
 		   SSBUpdateCheckDate \
 		   SSBUpdateCheckVersion \
 		   SSBAppPath \
-		   SSBDataPath \
 		   SSBEngineAppName \
 		   SSBCustomIcon \
 		   SSBExtensionInstallError \
@@ -256,6 +255,7 @@ trap handleexitsignal EXIT
 
 argsURIs=()
 argsOptions=()
+export argsURIs argsOptions
 while [[ "$#" -gt 0 ]] ; do
     case "$1" in
         --epichrome-debug)
@@ -544,21 +544,17 @@ writeconfig "$myConfigFile"
 
 # get PID of running engine
 sleep 0.5
-getenginepid "$myEngineID" "$myEngineAppPath"
+getenginepid "$myEngineAppPath"
 
-if [[ "$enginePID" ]] ; then
-
-    # $$$$ MAYBE MANUALLY EXPORT NEEDED LAUNCH.SH FUNCTIONS HERE
-
-    # set state for helper
-    epiHelperMode=LaunchCleanup ; export epiHelperMode
-    epiHelperParentPID="$$" ; export epiHelperParentPID
+if [[ "$myEnginePID" ]] ; then
     
-    # PID found, so launch cleanup daemon
-    try /usr/bin/open "$SSBAppPath/$appHelperPath" \
-	'Unable to launch Epichrome helper app. The app engine will not be properly cleaned up upon quitting.'
-    [[ "$ok" ]] || alert "$errmsg" 'Warning' '|caution'
+    # engine PID found, so launch helper
+    launchhelper Cleanup
 
+    # report any error
+    [[ "$ok" ]] || alert "$errmsg The app engine will not be deactivated upon quitting." \
+			 'Warning' '|caution'
+    
     # disown our lock
     lockOn=
 
@@ -568,3 +564,6 @@ else
     [[ "$errmsg" ]] && errmsg="$errmsg "
     alert "${errmsg}Your app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting." 'Warning' '|caution'
 fi
+
+# exit cleanly
+cleanexit

@@ -36,12 +36,16 @@ import inspect
 debug = False
 
 
-# info specific to this host (filled in on install)
+# info specific to this host
 appVersion     = 'EPIVERSION'      # filled in by Makefile
 appBundleID    = 'APPBUNDLEID'     # filled in by updateapp
 appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
 appBundleName  = 'APPBUNDLENAME'   # filled in by updateapp
-appLogPath     = 'APPLOGPATH'      # filled in by populatedatadir
+
+# log file
+appLogPath     = os.path.join(os.environ['HOME'],
+                                  'Library/Application Support/Epichrome/Apps',
+                                  appBundleID)
 
 
 # special mode for communicating version to parent app

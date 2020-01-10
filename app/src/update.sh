@@ -37,29 +37,24 @@ source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh"
 
 # FUNCTION DEFINITIONS
 
-# RELAUNCH -- relaunch this app ($$$ MOVE INTO UPDATEAPP???)
-function relaunch { # APP-PATH
-    
-    # launch relaunch daemon  $$$ ADD ARGS HERE??
-    try /usr/bin/open "$SSBAppPath/$appHelperPath" --args \
-	RELAUNCH "$$" "$myPath" "$myLogPath" "$stderrTempFile" \
-	'Update succeeded, but unable to lauch updated app. Try launching it manually.'
-
-    # exit
-    [[ "$ok" ]] || abort
-    exit 0
-}
-
-
 # UPDATEAPP: function that populates an app bundle
-function updateapp { # ( updateAppPath )
+function updateapp { # ( [updateAppPath] )
+    #  if updateAppPath is not set, we're updating
+    #  our own app and should relaunch at the end
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # arguments
-    local updateAppPath="$1" ; shift  # path to the app bundle to update
-
+    # set app path, if one provided
+    local updateAppPath="$1" ; shift
+    
+    # if not, then we're updating ourself and should relaunch
+    local doRelaunch=
+    if [[ ! "$updateAppPath" ]] ; then
+	doRelaunch=1
+	updateAppPath="$SSBAppPath"
+    fi
+    
     
     # LOAD FILTER.SH
 
@@ -73,15 +68,11 @@ function updateapp { # ( updateAppPath )
 	
 	# no ID found
 	
-	# if we're coming from an old version, try pulling from CFBundleIdentifier
-	local idre="^${appIDBase//./\\.}"		    
-	if [[ "$CFBundleIdentifier" && ( "$CFBundleIdentifier" =~ $idre ) ]] ; then
+	# see if we can pull it from CFBundleIdentifier
+	SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
+	if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
 	    
-	    # pull ID from our CFBundleIdentifier
-	    SSBIdentifier="${CFBundleIdentifier##*.}"
-	else
-	    
-	    # no CFBundleIdentifier, so create a new ID
+	    # no identifier found, so create a new ID
 	    
 	    # get max length for SSBIdentifier, given that CFBundleIdentifier
 	    # must be 30 characters or less (the extra 1 accounts for the .
@@ -184,16 +175,16 @@ function updateapp { # ( updateAppPath )
 	filterCommands+=( "Delete :CFBundleURLTypes" )
     
     # filter boilerplate Info.plist with info for this app
-    filterplist "$updateEpichromeRuntime/Filter/Info.plist.app" \
+    filterplist "$updateEpichromeRuntime/Filter/Info.plist" \
 		"$contentsTmp/Info.plist" \
 		"app Info.plist" \
 		"${filterCommands[@]}"
 
 
-    # FILTER APP EXECUTABLE INTO PLACE
+    # FILTER APP MAIN SCRIPT INTO PLACE
     
-    filterfile "$updateEpichromeRuntime/Filter/Epichrome" \
-	       "$contentsTmp/MacOS/Epichrome" \
+    filterfile "$updateEpichromeRuntime/Filter/AppExec" \
+	       "$contentsTmp/Resources/script" \
 	       'app executable' \
 	       APPID "$SSBIdentifier" \
 	       APPENGINETYPE "$SSBEngineType" \
@@ -228,80 +219,141 @@ function updateapp { # ( updateAppPath )
 	       'native messaging host' \
 	       APPBUNDLEID "$myAppID" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
-	       APPBUNDLENAME "$CFBundleName" )
+	       APPBUNDLENAME "$CFBundleName"
 
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
 
+    # POPULATE ENGINE
     
-    # for Chromium engine, copy icons to engine as well
-    if [[ "$SSBEngineType" != 'Google Chrome' ]] ; then
+    # path to engine
+    local updateEnginePath="$contentsTmp/Resources/Engine"
+    
+    # create engine directory
+    try mkdir -p "$updateEnginePath" 'Unable to create app engine.'
 
-	# copy icons to new app engine placeholder
-	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleIconFile" \
-		 "engine placeholder app icon"
-	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$contentsTmp/$appEnginePlaceholderPath/Resources/$CFBundleTypeIconFile" \
-		 "engine placeholder document icon"
+    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
+
+	# GOOGLE CHROME ENGINE
+
+	# filter placeholder executable into place
+	filterfile "$updateEpichromeRuntime/Filter/PlaceholderExec" \
+		   "$updateEnginePath/PlaceholderExec" \
+		   'Google Chrome app engine placeholder executable' \
+		   APPBUNDLEID "$myAppID"
 	
-	# copy icons to new Chromium app engine payload
+	# copy in scripts
+	try /bin/cp -a "$updateEpichromeRuntime/Engine/Placeholder/Scripts" \
+	    "$updateEnginePath" \
+	    'Unable to copy scripts to placeholder.'
+
+    else
+	
+	# CHROMIUM ENGINE
+
+	# CREATE PAYLOAD
+	
+	# copy in main payload
+	try /bin/cp -a "$updateEpichromeRuntime/Engine/Payload" \
+	    "$updateEnginePath" \
+	    'Unable to populate app engine payload.'
+
+	# path to payload
+	local updatePayloadPath="$updateEnginePath/Payload"
+	
+	# filter payload Info.plist into place
+	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
+		    "$updatePayloadPath/Info.plist" \
+		"app engine payload Info.plist" \
+		"Set :CFBundleDisplayName $CFBundleDisplayName" \
+		"Set :CFBundleName $CFBundleName" \
+		"Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier" \
+		"Set :CFBundleIconFile $CFBundleIconFile" \
+		"Delete :CFBundleDocumentTypes" \
+		"Delete :CFBundleURLTypes"
+	
+	# filter localization strings in place
+	filterlproj "$updatePayloadPath/Resources" 'app engine' Chromium
+	
+	# copy icons to payload
 	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleIconFile" \
+		 "$updatePayloadPath/Resources/$CFBundleIconFile" \
 		 "engine app icon"
 	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$contentsTmp/$appEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
+		 "$updatePayloadPath/Resources/$CFBundleTypeIconFile" \
 		 "engine app icon"
-    fi
 
-    # $$$$$$$$$ FILTER EPICHROME EXECUTABLE
 
-    # $$$$$$$$ FILTER MULTIPLE INFO.PLISTS
-
-    # $$$$$$$$ FILTER PLACEHOLDER EXECUTABLE INTO PLACE
-
-    # $$$$$$$$ CHROMIUM: FILTER LPROJ FILES AND CREATE ENGINE PAYLOAD
-	# filter Info.plist with app info
-	filterplist "$myEnginePath/Filter/Info.plist.in" \
-		    "$myEnginePayloadPath/Info.plist" \
-		    "app engine Info.plist" \
-		    "Set :CFBundleDisplayName $CFBundleDisplayName" \
-		    "Set :CFBundleName $CFBundleName" \
-		    "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier" \
-		    "Delete :CFBundleDocumentTypes" \
-		    "Delete :CFBundleURLTypes"
+	# CREATE PLACEHOLDER
 	
-	# filter localization strings
-	filterlproj "$curPayloadContentsPath/Resources" 'app engine' Chromium
+	# path to placeholder
+	local updatePlaceholderPath="$updateEnginePath/Placeholder"
 	
-
-    
-    # FILTER BOILERPLATE INFO.PLIST WITH APP INFO
-
-    if [[ "$ok" ]] ; then
-
+	# make sure placeholder exists
+	try /bin/mkdir -p "$updatePlaceholderPath/MacOS" 'Unable to create app engine placeholder.'
 	
-	# $$$ INITIALIZE SSBAppPath???
+	# filter placeholder Info.plist into place
+	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
+		    "$updatePlaceholderPath/Info.plist" \
+		"app engine placeholder Info.plist" \
+		'Add :LSUIElement bool true'
+	
+	# filter placeholder executable into place
+	filterfile "$updateEpichromeRuntime/Filter/PlaceholderExec" \
+		   "$updatePlaceholderPath/MacOS/Chromium" \
+		   'app engine placeholder executable' \
+		   APPBUNDLEID "$myAppID"
+	
+	# copy Resources directory from payload
+	try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
+	    'Unable to copy resources from app engine payload to placeholder.'
 
-	# $$$ building host script:
-	#    "s/APPBUNDLEID/$myAppID/;
-        # s/APPDISPLAYNAME/$CFBundleDisplayName/;
-        # s/APPBUNDLENAME/$CFBundleName/;
-        # s/APPLOGPATH/${myLogFile//\//\/}/;" \
-
+	# copy in scripts
+	try /bin/cp -a "$updateEpichromeRuntime/Engine/Placeholder/Scripts" \
+	    "$updatePlaceholderPath/Resources" \
+	    'Unable to copy scripts to placeholder.'
     fi
     
     
     # MOVE CONTENTS TO PERMANENT HOME
-
+    
     if [[ "$ok" ]] ; then
 	permanent "$contentsTmp" "$updateAppPath/Contents" "app bundle Contents directory"
-    elif [[ "$contentsTmp" && -d "$contentsTmp" ]] ; then
+    else
 	# remove temp contents on error
-	rmtemp "$contentsTmp" 'Contents folder'
-    fi
+	[[ "$contentsTmp" && -d "$contentsTmp" ]] && rmtemp "$contentsTmp" 'Contents folder'
 
-    # return code
+	# return
+	return 1
+    fi
     [[ "$ok" ]] || return 1
+    
+    
+    # IF WE'VE UDPATED OUR OWN APP, RELAUNCH
+    
+    if [[ "$doRelaunch" ]] ; then
+	
+	relaunch
+	
+	# if we got here, relaunch failed, so return semi-success
+	errmsg="Update succeeded, but updated app didn't launch: $errmsg"
+	ok=1
+	return 1
+    fi
+    
     return 0
+}
+
+
+# RELAUNCH -- attempt to relaunch ourself
+function relaunch {
+
+    # assume success
+    local result=0
+
+    # launch helper
+    launchhelper Relaunch
+
+    # exit on success, return code on failure
+    [[ "$ok" ]] && cleanexit || return 1
 }

@@ -657,13 +657,16 @@ function rmtemp {
 
 # SAFECOPY: safely copy a file or directory to a new location
 function safecopy {
-    
-    if [[ "$ok" ]]; then
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
 	
-	# copy in custom icon
-	local src="$1"      ; shift
-	local dst="$1"      ; shift
-	local filetype="$1" ; shift ; [[ "$filetype" ]] || filetype="${src##*/}"
+    # copy in custom icon
+    local src="$1"      ; shift
+    local dst="$1"      ; shift
+    local filetype="$1" ; shift ; [[ "$filetype" ]] || filetype="${src##*/}"
+
+    if [[ ! -e "$dst" ]] ; then
 	
 	# get dirname for destination
 	local dstDir=
@@ -671,17 +674,28 @@ function safecopy {
 	
 	# make sure destination directory exists
 	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."
+
+	# copy file or directory directly
+	try /bin/cp -a "$src" "$dst" "Unable to copy $filetype."
+	
+    else
 	
 	# copy to temporary location
 	local dstTmp="$(tempname "$dst")"
 	try /bin/cp -a "$src" "$dstTmp" "Unable to copy $filetype."
 	
-	# move file to permanent home
-	permanent "$dstTmp" "$dst" "$filetype"
+	if [[ "$ok" ]] ; then
+	    # move file to permanent home
+	    permanent "$dstTmp" "$dst" "$filetype"
+	else
+	    # remove any temp file
+	    rmtemp "$dstTmp" "$filetype"
+	fi
     fi
     
-    [[ "$ok" ]] && return 0
-    return 1
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
+    
 } ; export -f safecopy
 
 

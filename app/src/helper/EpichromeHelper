@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  EpichromeHelper: Helper app to clean up engines & handle app updates
+#  EpichromeHelper: Helper app to clean up engines & relaunch updated apps
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -41,14 +41,31 @@ fi
 function cleanup { # [code]
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
-    
-    # deactivate engine
-    setenginestate OFF
-    if [[ "$ok" ]] ; then
-	debuglog "Cleanup complete."
-    else
-	errlog "$errmsg"
+
+    # check engine state
+    checkengine ON ; local result="$?"
+
+    if [[ "$result" = 0 ]] ; then
+	
+	# deactivate engine
+	setenginestate OFF
+
+	if [[ "$ok" ]] ; then
+	    debuglog "Deactivation complete."
+	else
+	    # error deactivating engine
+	    errlog "$errmsg"
+	    [[ "$myCode" = 0 ]] && myCode=1
+	fi
+    elif [[ "$result" = 2 ]] ; then
+
+	errlog "Engine is in an unknown state. Unable to deactivate."
 	[[ "$myCode" = 0 ]] && myCode=1
+	
+    elif [[ "$epiHelperMode" = Launch ]] ; then
+	
+	# engine is already off, so do nothing
+	errlog "Engine is unexpectedly already deactivated."
     fi
     
     # exit
@@ -140,25 +157,42 @@ function lockreplace { # ( replacePID )
 # MAIN BODY
 
 # update log name
-myLogApp="TestLaunch[$$/$myEnginePID]"  # $$$$ FIX THIS
+myLogApp="$myLogApp|Helper[$$]"  # $$$$ FIX THIS
 
+if [[ "$epiHelperMode" = Relaunch ]] ; then
 
-# REPLACE PARENT APP'S LOCK
+    # RELAUNCH MODE
+    
+    # wait for parent to quit
+    debuglog "Waiting for parent app (PID $epiHelperParentPID) to quit."
+    while kill -0 "$epiHelperParentPID" 2> /dev/null ; do
+	sleep .66
+    done
 
-lockEnginePID="$myEnginePID"
+    # relaunch
+    debuglog "Parent app has quit. Relaunching..."
+    try /usr/bin/open -a "$SSBAppPath" "${argsURIs[@]}" --args "${argsOptions[@]}" \
+	"Unable to relaunch '$SSBAppPath'"
 
-lockreplace "$epiHelperParentPID" || abort "Unable to acquire lock. ($errmsg) The app engine will not be deactivated upon quitting."
+    # exit
+    [[ "$ok" ]] && cleanexit || abort
+    
+else
 
+    # CLEANUP MODE
 
-# WAIT FOR APP TO EXIT
+    # replace parent app's lock
+    lockEnginePID="$myEnginePID"
+    lockreplace "$epiHelperParentPID" || \
+	abort "Unable to acquire lock. ($errmsg) The app engine will not be deactivated upon quitting."
+    
+    # wait for app to exit
+    debuglog "Waiting for engine to quit."
+    while kill -0 "$myEnginePID" 2> /dev/null ; do
+	sleep .66
+    done
 
-debuglog "Waiting for engine to quit."
-while kill -0 "$myEnginePID" 2> /dev/null ; do
-    sleep .66
-done
-
-
-# DEACTIVATE ENGINE AND QUIT
-
-debuglog 'Engine has quit. Cleaning up...'
-cleanexit
+    # deactivate engine and quit
+    debuglog 'Engine has quit. Cleaning up...'
+    cleanexit
+fi

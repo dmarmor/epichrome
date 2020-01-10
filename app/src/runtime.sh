@@ -22,105 +22,118 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 # UPDATESSB -- glue to allow update from old versions of Epichrome
-function updatessb { # curAppPath
+function updatessb { # ( SSBAppPath )
     
-    #  (IN UPDATESSB??)
-    # $$$$ LOAD UPDATE.SH
-    safesource "${epiRuntime[$e_contents]}/Resources/Scripts/update.sh" 'update script' NORUNTIMELOAD
-    # $$$$ POPULATE EPIRUNTIME
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # if we're here, we're updating from a pre-2.3.0 version, so set up
+    # variables we need, then see if we need to redisplay the update dialog,
+    # as the old dialog code has been failing in Mojave
     
-    if [[ "$ok" ]] ; then
+    # set app path
+    SSBAppPath="$1" ; shift
+    
+    # try to pull out identifier
+    SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
+    if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
+	ok= ; errmsg="Unable to determine app ID. This app may be too old to update."
+    else
+	
+	# try to find the old-style profile directory
+	myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
 
-	# if we're here, we're updating from a pre-2.3.0 version, so set up
-	# variables we need, then see if we need to redisplay the update dialog,
-	# as the old dialog code has been failing in Mojave
-	
-	# arguments
-	local curAppPath="$1"
-	
-	local doUpdate=Update
-
-	# set up dialog icon
-	appDialogIcon="$curAppPath/Contents/Resources/app.icns"
-	
-	# set up new-style logging
-	myLogApp="$CFBundleName"
-	# myLogFile="$epiDataPath/epichrome_log.txt"
-	# stderrTempFile="$epiDataPath/stderr.txt"
-	
-	# get our version of Epichrome
-	local epiVersion="${epiRuntime[$e_version]}"
-	if [[ ! "$epiVersion" ]] ; then
-	    ok= ; errmsg="Unable to get Epichrome version for update."
+	if [[ "$myDataPath" != "$myProfilePath" ]] ; then
+	    ok= ; errmsg="Unable to find profile folder. This app may be too old to update."
+	elif [[ -d "$myDataPath/UserData" ]] ; then
+	    ok= ; errmsg="Data folder appears to have already been updated. Please restore old-style profile folder and try again."
 	fi
+    fi
+    [[ "$ok" ]] || return 1
+    
+    # make sure data path exists
+    try /bin/mkdir -p "$myDataPath" 'Unable to create data folder.'
+    [[ "$ok" ]] || return 1
+    
+    # set up new-style logging, but for now log to main Epichrome log
+    myLogApp="$CFBundleName[$$]"
+    myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
+    logPreserve=1
+    
+    # load update.sh
+    safesource "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" \
+	       "update script $mcssbVersion"
+    if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
+    
+    # flag for deciding whether to update
+    local doUpdate=Update
+    
+    # check if the old dialog code is failing
+    local asResult=
+    try 'asResult&=' /usr/bin/osascript -e \
+	'tell application "Finder" to the name extension of ((POSIX file "'"${BASH_SOURCE[0]}"'") as alias)' \
+	'FAILED'
+    
+    # for now, not parsing asResult, would rather risk a double dialog than none
+    if [[ ! "$ok" ]] ; then
 	
-	if [[ "$ok" ]] ; then
-	    
-	    # check if the old dialog code is failing
-	    local asResult=
-	    try 'asResult&=' /usr/bin/osascript -e \
-		'tell application "Finder" to the name extension of ((POSIX file "'"${BASH_SOURCE[0]}"'") as alias)' \
-		'FAILED'
-	    
-	    # for now, not parsing asResult, would rather risk a double dialog than none
-	    if [[ ! "$ok" ]] ; then
+	# OLD DIALOG CODE NOT WORKING, SO SHOW UPDATE DIALOG
 
-		# assume nothing
-		doUpdate=
-		
-		# reset command status
-		ok=1
-		errmsg=
-
-		if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
-		    
-		    # let the app update its Chrome version first
-		    doUpdate=Later
-		else
-		    
-		    local updateMsg="A new version of Epichrome was found ($epiVersion). Would you like to update this app?"
-		    local updateBtnUpdate='Update'
-		    local updateBtnLater='Later'
-		    
-		    if visbeta "$epiVersion" ; then
-			updateMsg="$updateMsg
+	# assume nothing
+	doUpdate=
+	
+	# reset command status
+	ok=1
+	errmsg=
+	
+	if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
+	    
+	    # let the app update its Chrome version first
+	    doUpdate=Later
+	else
+	    
+	    local updateMsg="A new version of Epichrome was found ($coreVersion). Would you like to update this app?"
+	    local updateBtnUpdate='Update'
+	    local updateBtnLater='Later'
+	    
+	    if visbeta "$coreVersion" ; then
+		updateMsg="$updateMsg
 			
 IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myProfilePath) before updating."
-			updateBtnUpdate="-$updateBtnUpdate"
-			updateBtnLater="+$updateBtnLater"
-		    else
-			updateBtnUpdate="+$updateBtnUpdate"
-			updateBtnLater="-$updateBtnLater"
-		    fi
-		    
-		    # show the update choice dialog
-		    dialog doUpdate \
-			   "$updateMsg" \
-			   "Update" \
-			   "|caution" \
-			   "$updateBtnUpdate" \
-			   "$updateBtnLater" \
-			   "Don't Ask Again For This Version"
-		    
-		    if [[ ! "$ok" ]] ; then
-			alert "A new version of the Epichrome runtime was found ($epiVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
-			doUpdate="Update"
-			ok=1
-			errmsg=
-		    fi
-		fi
+		updateBtnUpdate="-$updateBtnUpdate"
+		updateBtnLater="+$updateBtnLater"
+	    else
+		updateBtnUpdate="+$updateBtnUpdate"
+		updateBtnLater="-$updateBtnLater"
 	    fi
 	    
-	    if [[ "$ok" && ( "$doUpdate" = "Update" ) ]] ; then
-				
-		# data path variable name change
-		SSBDataPath="$SSBProfilePath"
-		
-		# ask user to choose  which engine to use (sticking with Google Chrome is the default)
-		local useChromium=
-		dialog SSBEngineType \
-		       "Switch app engine to Chromium or continue to use Google Chrome?
+	    # show the update choice dialog
+	    dialog doUpdate \
+		   "$updateMsg" \
+		   "Update" \
+		   "|caution" \
+		   "$updateBtnUpdate" \
+		   "$updateBtnLater" \
+		   "Don't Ask Again For This Version"
+	    
+	    if [[ ! "$ok" ]] ; then
+		alert "A new version of the Epichrome runtime was found ($coreVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
+		doUpdate="Update"
+		ok=1
+		errmsg=
+	    fi
+	fi
+    fi
+    if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
+    
+    if [[ "$doUpdate" = "Update" ]] ; then
+	
+	# ask user to choose  which engine to use (sticking with Google Chrome is the default)
+	local useChromium=
+	dialog SSBEngineType \
+	       "Switch app engine to Chromium or continue to use Google Chrome?
 
 NOTE: If you don't know what this question means, choose Google Chrome.
 
@@ -129,91 +142,94 @@ Switching an existing app to the Chromium engine will likely log you out of any 
 In the long run, switching to the Chromium engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.
 
 The main advantage of continuing to use the Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
-		       "Choose App Engine" \
-		       "|caution" \
-		       "-Chromium" \
-		       "+Google Chrome"
-		if [[ ! "$ok" ]] ; then
-		    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-		    SSBEngineType="Google Chrome"
-		    ok=1
-		    errmsg=
-		fi
-		
-		# run actual update
-		[[ "$ok" ]] && updateapp "$@"
-		
-		if [[ "$ok" ]] ; then
-
-		    # update existing data directory to new structure
-		    if [[ ( -d "$myProfilePath" ) && ( ! -d "$myProfilePath/$appDataProfileBase" ) ]] ; then
-			
-			# what was the Chrome profile path is now our base data directory
-			local myDataPath="$myProfilePath"
-			
-			# give profile directory temporary name
-			local oldProfilePath="$(tempname "$myProfilePath")"
-			try /bin/mv "$myProfilePath" "$oldProfilePath" \
-			    'Error renaming old profile directory.'
-			
-			# make empty directory where old profile was
-			try /bin/mkdir -p "$myDataPath" \
-			    'Error creating new data directory.'
-			
-			# move profile directory into new data directory
-			try /bin/mv "$oldProfilePath" "$myDataPath/$appDataProfileBase" \
-			    'Error moving old profile into new data directory.'
-
-			# $$$ FIX UP NMH & EXTENSION DIRECTORIES? DELETE OLD NMH SCRIPT FROM NMH DIR AT LEAST
-		    fi
-		    
-		    if [[ ! "$ok" ]] ; then
-			alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
-			      'Warning' 'caution'
-			ok=1 ; errmsg=
-		    fi
-		fi
-		
-		# relaunch after a delay
-		if [[ "$ok" ]] ; then
-		    relaunch "$curAppPath" 1 &
-		    disown -ar
-		    exit 0
-		fi
-	    fi
+	       "Choose App Engine" \
+	       "|caution" \
+	       "-Chromium" \
+	       "+Google Chrome"
+	if [[ ! "$ok" ]] ; then
+	    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+	    SSBEngineType="Google Chrome"
+	    ok=1
+	    errmsg=
 	fi
-    fi
+	
+	# run actual update, but pretend it's not our own app, so updateapp won't relaunch
+	updateapp "$SSBAppPath"
+	if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
+
+	
+	# UPDATE OLD PROFILE DIRECTORY TO NEW DATA DIRECTORY
+	
+	# give profile directory temporary name
+	local oldProfilePath="$(tempname "$myProfilePath")"
+	try /bin/mv "$myProfilePath" "$oldProfilePath" \
+	    'Error renaming old profile folder.'
+	
+	# make empty directory where old profile was
+	try /bin/mkdir -p "$myDataPath" \
+	    'Error creating new data folder.'
+	
+	# move profile directory into new data directory
+	try /bin/mv "$oldProfilePath" "$myDataPath/UserData" \
+	    'Error moving old profile into new data directory.'
+
+	# remove External Extensions and NativeMessagingHosts directories from profile
+	try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
+	    'Unable to remove old external extensions folder.'
+
+	local nmhDir="$myDataPath/UserData/NativeMessagingHosts"
+	try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/epichromeruntimehost.py" \
+	    'Unable to remove old native messaging host.'
+	
+	if [[ ! "$ok" ]] ; then
+	    alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
+		  'Warning' 'caution'
+	    ok=1 ; errmsg=
+	fi
+	
+	# try to relaunch
+	relaunch "$SSBAppPath"
+	
+	# if we got here, relaunch failed		    
+	alert "Update succeeded, but updated app didn't launch: $errmsg" \
+	      'Update' '|caution'
+	exit 0
+    else
     
-    # handle a failed update or non-update
-
-    if [[ ( ! "$ok" ) || ( "$doUpdate" != "Update" ) ]] ; then
-
+	# HANDLE NON-UPDATES
+	
 	# if we chose not to ask again with this version, update config
 	if [[ "$doUpdate" = "Don't Ask Again For This Version" ]] ; then
 	    
 	    # pretend we're already at the new version
-	    SSBVersion="$epiVersion"
+	    SSBVersion="$coreVersion"
 	    updateconfig=1
 	fi
 	
-	# turn this option off again as it interferes with unset in old try function
-	shopt -u nullglob
-	
-	# temporarily turn OK back on & reload old runtime
-	local oldErrmsg="$errmsg" ; errmsg=
-	local oldOK="$ok" ; ok=1
-	safesource "$curAppPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
-	[[ "$ok" ]] && ok="$oldOK"
-	
-	# update error message
-	if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-	    errmsg="$oldErrmsg $errmsg"
-	elif [[ "$oldErrmsg" ]] ; then
-	    errmsg="$oldErrmsg"
-	fi
+	restoreoldruntime
     fi
     
     # return value
-    [[ "$ok" ]] || return 1
-    return 0
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# RESTOREOLDRUNTIME -- roll back to old runtime before exiting updatessb
+function restoreoldruntime {
+    
+    # temporarily turn OK back on & reload old runtime
+    local oldErrmsg="$errmsg" ; errmsg=
+    local oldOK="$ok" ; ok=1
+    safesource "$SSBAppPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
+    [[ "$ok" ]] && ok="$oldOK"
+    
+    # update error message
+    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+	errmsg="$oldErrmsg $errmsg"
+    elif [[ "$oldErrmsg" ]] ; then
+	errmsg="$oldErrmsg"
+    fi
+    
+    # deactivate myself for safety
+    unset -f restoreoldruntime
 }

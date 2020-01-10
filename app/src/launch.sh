@@ -285,15 +285,15 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		# read in the new runtime
 		safesource "${epiLatestPath}/Contents/Resources/Scripts/update.sh" "update script $epiLatestVersion"
 		
-		# use new runtime to update the SSB (and relaunch)
+		# use new runtime to update the app
 		updateapp "$SSBAppPath"
 		
-		# $$$$ MOVE THIS BACK INTO UPDATEAPP???
 		if [[ "$ok" ]] ; then
 		    
-		    # SUCCESS -- relaunch & exit
-		    relaunch "$SSBAppPath"
-		    exit 0  # not necessary, but for clarity
+		    # UPDATE SUCCEEDED BUT RELAUNCH FAILED
+		    
+		    alert "$errmsg" 'Update' '|caution'
+		    cleanexit
 		    
 		else
 		    
@@ -460,7 +460,7 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID files ... )
 # GETGOOGLECHROMEINFO: find Google Chrome on the system & get info on it
 #                      sets the following variables:
 #                         SSBGoogleChromePath, SSBGoogleChromeVersion
-#                         googleChromeAppIconPath, googleChromeDocIconPath
+#                         googleChromeExecutable, googleChromeAppIconPath, googleChromeDocIconPath
 function getgooglechromeinfo {
     
     # only run if we're OK
@@ -541,9 +541,10 @@ function getgooglechromeinfo {
     done
     
     # set globals
+    googleChromeExecutable="${infoPlist[1]}"
     SSBGoogleChromeVersion="${infoPlist[2]}"
     googleChromeAppIconPath="${infoPlist[3]}"
-    googleChromeDocIconPath="${infoPlist[3]}"
+    googleChromeDocIconPath="${infoPlist[4]}"
 
 }
 
@@ -813,7 +814,7 @@ function checkengine {  # ( ON|OFF )
 	return 2
     fi
     
-} ; export -f setenginestate
+} ; export -f checkengine
 
 
 # SETENGINESTATE -- set the engine to the active or inactive state
@@ -948,6 +949,47 @@ function createengine {
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
 	    "$myEnginePayloadPath/Resources/$googleChromeDocIconPath" \
 	    "Unable to copy document icon file to Google Chrome app engine."
+
+
+	# GOOGLE CHROME PLACEHOLDER
+	
+	# path to active engine app
+	local myEngineApp="$myEnginePath/$SSBEngineAppName"
+	
+	# clear out any old active app
+	if [[ -d "$myEngineApp" ]] ; then
+	    try /bin/rm -rf "$myEngineApp" \
+		'Unable to clear old Google Chrome app engine placeholder.'
+	    [[ "$ok" ]] || return 1
+	fi
+	
+	# create active placeholder app bundle
+	try /bin/mkdir -p "$myEngineApp/Contents/MacOS" \
+	    'Unable to create Google Chrome app engine placeholder.'
+	
+	# filter Info.plist from payload
+	filterplist "$myEnginePayloadPath/Info.plist" \
+		    "$myEngineApp/Contents/Info.plist" \
+		    "Google Chrome app engine placeholder Info.plist" \
+		    'Add :LSUIElement bool true'
+
+	# path to placeholder resources in the app
+	local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
+	
+	# copy in placeholder executable
+	try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
+	    "$myEngineApp/Contents/MacOS/$googleChromeExecutable" \
+	    'Unable to copy Google Chrome app engine placeholder executable.'
+	
+	# copy Resources directory from payload
+	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineApp/Contents" \
+	    'Unable to copy resources from Google Chrome app engine payload to placeholder.'
+	
+	# copy in scripts
+	try /bin/cp -a "$myAppPlaceholderPath/Scripts" \
+	    "$myEngineApp/Contents/Resources" \
+	    'Unable to copy scripts to Google Chrome app engine placeholder.'
+
     else
 	
 	# CHROMIUM PAYLOAD
@@ -965,49 +1007,15 @@ function createengine {
 	    return 1
 	fi
 	
-	# path to Epichrome engine
-	local epiPayloadPath="$epiCurrentPath/Contents/$appEnginePayloadPath"
-	
-	# copy main payload from Epichrome
-	try /bin/cp -a "$epiEnginePath/Main" "$myEnginePayloadPath" \
+	# copy main payload from app
+	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePayloadPath" \
+	    "$myEnginePayloadPath" \
 	    'Unable to copy app engine payload.'
-
+	
 	# hard link large payload items from Epichrome
-	linktree "$epiEnginePath/Link" "$myEnginePayloadPath" 'app engine' 'payload'	
+	linktree "$epiCurrentPath/Contents/$appEnginePayloadPath/Link" \
+		 "$myEnginePayloadPath" 'app engine' 'payload'
     fi
-    [[ "$ok" ]] || return 1
-
-
-    # CREATE ACTIVE PLACEHOLDER
-    
-    # path to active engine app
-    local myEngineApp="$myEnginePath/$SSBEngineAppName"
-    
-    # clear out any old active app
-    if [[ -d "$myEngineApp" ]] ; then
-	try /bin/rm -rf "$myEngineApp" 'Unable to clear old app engine placeholder.'
-	[[ "$ok" ]] || return 1
-    fi
-    
-    # create active placeholder
-    safecopy "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
-	     "$myEngineApp/Contents" 'app engine placeholder'
-
-    # if using Google Chrome engine, copy icons into placeholder
-    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
-	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-	    "$myEngineApp/Contents/Resources/$googleChromeAppIconPath" \
-	    "Unable to copy app icon to Google Chrome app engine placeholder."
-	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-	    "$myEngineApp/Contents/Resources/$googleChromeDocIconPath" \
-	    "Unable to copy document icon file to Google Chrome app engine placeholder."
-    fi
-    
-    # filter Info.plist from payload
-    filterplist "$myEnginePayloadPath/Info.plist" \
-		"$myEngineApp/ContentsPayloadPath/Info.plist" \
-		"app engine placeholder Info.plist" \
-		'Add :LSUIElement bool true'
     
     # return code
     [[ "$ok" ]] && return 0 || return 1
@@ -1045,17 +1053,16 @@ function getenginepid { # path
 	re='^"pid" *= *([0-9]+)$'
 	if [[ "$info" =~ $re ]] ; then
 	    myEnginePID="${BASH_REMATCH[1]}"
-	else
-	    echo "got here and info='$info'"
-
 	fi
     fi
     
     # return result
     if [[ "$myEnginePID" ]] ; then
 	ok=1 ; errmsg=
+	debuglog "Found running engine with PID $myEnginePID."
 	return 0
     elif [[ "$ok" ]] ; then
+	debuglog "No running engine found."
 	return 0
     else
 	# errors in this function are nonfatal; just return the error message
@@ -1216,4 +1223,28 @@ function writeconfig {  # ( myConfigFile force
     # return code
     [[ "$ok" ]] && return 0 || return 1
 
+}
+
+
+# LAUNCHHELPER -- launch Epichrome Helper app
+epiHelperMode= ; epiHelperParentPID=
+export epiHelperMode epiHelperParentPID
+function launchhelper { # ( mode )
+
+    # only run if OK
+    [[ "$ok" ]] || return 1
+    
+    # argument
+    local mode="$1" ; shift
+    
+    # set state for helper
+    epiHelperMode="Launch$mode"
+    epiHelperParentPID="$$"
+    
+    # launch helper
+    try /usr/bin/open "$SSBAppPath/$appHelperPath" \
+	'Unable to launch Epichrome helper app.'
+
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
 }

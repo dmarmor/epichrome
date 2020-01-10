@@ -249,6 +249,7 @@ $(APP_ENGN): $(CHROMIUM)
 
 $(APP_RNTM_RSRC)/script: src/epichrome $(APP_RNTM)
 	cp $< $@
+	@echo "$$$$$$$$ GET RID OF THIS & FILTER AppExec to Filter directory, VERSION ONLY??"
 
 $(APP_RNTM_RSRC)/%.icns: icons/%$(BETA).icns $(APP_RNTM)
 	cp $< $@
@@ -267,6 +268,7 @@ $(APP_RNTM_NMHT)/$(HOSTID).json: src/$(HOSTID).json src/version.sh $(APP_RNTM) |
 
 $(APP_RNTM_NMHT)/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh $(APP_RNTM) | $(APP_RNTM_NMHT)
 	sed $(NMH_SED) $< > $@
+	@echo "$$$$$$$$ CHECK THIS FILTERING -- SHOULD DO VERSION ONLY"
 
 $(APP_RNTM_NMEX)/$(EXTENSION_ID).json: src/install-extension.json $(APP_RNTM)
 	mkdir -p $(APP_RNTM_NMEX)
