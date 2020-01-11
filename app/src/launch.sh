@@ -632,9 +632,11 @@ function populatedatadir { # ( [FORCE] )
 	local hostSourcePath="$SSBAppPath/Contents/Resources/NMH"
 	
 	local hostScriptPath="$hostSourcePath/$appNMHFile"
-	
-	local hostManifest="org.epichrome.runtime.json"
-	local hostManifestOld="org.epichrome.helper.json"
+
+	local hostManifestNewID="org.epichrome.runtime"
+	local hostManifestNewFile="$hostManifestID.json"
+	local hostManifestOldID="org.epichrome.helper"
+	local hostManifestOldFile="$hostManifestOldID.json"
 	local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
 	
 	# create the install directory if necessary
@@ -644,22 +646,21 @@ function populatedatadir { # ( [FORCE] )
 	fi
 	
 	# paths to destination for host manifests with new and old IDs
-	local hostManifestDest="$hostManifestDestPath/$hostManifest"
-	local hostManifestOldDest="$hostManifestDestPath/$hostManifestOld"
+	local hostManifestNewDest="$hostManifestDestPath/$hostManifestNewFile"
+	local hostManifestOldDest="$hostManifestDestPath/$hostManifestOldFile"
 	
-	# stream-edit the new manifest into place  $$$ THIS WILL NEED TO HAVE ARGS
-	if [[ "$force" || ! -e "$hostManifestDest" ]] ; then
-	    filterfile "$hostSourcePath/$hostManifest" "$hostManifestDest" \
-		       'native messaging host manifest' \
+	# stream-edit the new manifest into place
+	if [[ "$force" || ! -e "$hostManifestNewDest" ]] ; then
+	    filterfile "$hostSourcePath/$hostManifest" "$hostManifestNewDest" \
+		       'new native messaging host manifest' \
 		       APPHOSTPATH "$hostScriptPath"
 	fi
 	
 	# duplicate the new manifest with the old ID
 	if [[ "$force" || ! -e "$hostManifestOldDest" ]] ; then
-	    try /bin/rm -f "$hostManifestOldDest" \
-		'Unable to remove old native messaging host manifest.'
-	    try /bin/cp "$hostManifestDest" "$hostManifestOldDest" \
-		'Unable to copy native messaging host manifest.'
+	    filterfile "$hostManifestNewDest" "$hostManifestOldDest" \
+		       'old native messaging host manifest' \
+		       "$hostManifestNewID" "$hostManifestOldID"
 	fi
     fi
     

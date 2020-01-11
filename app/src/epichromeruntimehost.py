@@ -33,7 +33,7 @@ import inspect
 
 # BUILD FLAGS
 
-debug = False
+debug = EPIDEBUG                   # filled in by Makefile
 
 
 # info specific to this host

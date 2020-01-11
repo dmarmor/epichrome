@@ -242,10 +242,12 @@ function updateapp { # ( [updateAppPath] )
 		   'Google Chrome app engine placeholder executable' \
 		   APPBUNDLEID "$myAppID"
 	
-	# copy in scripts
-	try /bin/cp -a "$updateEpichromeRuntime/Engine/Placeholder/Scripts" \
-	    "$updateEnginePath" \
-	    'Unable to copy scripts to placeholder.'
+	# copy in core script
+	try /bin/mkdir -p "$updateEnginePath/Scripts" \
+	    'Unable to create Google Chrome app engine placeholder scripts.'
+	try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
+	    "$updateEnginePath/Scripts" \
+	    'Unable to copy core to Google Chrome app engine placeholder.'
 
     else
 	
@@ -267,10 +269,7 @@ function updateapp { # ( [updateAppPath] )
 		"app engine payload Info.plist" \
 		"Set :CFBundleDisplayName $CFBundleDisplayName" \
 		"Set :CFBundleName $CFBundleName" \
-		"Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier" \
-		"Set :CFBundleIconFile $CFBundleIconFile" \
-		"Delete :CFBundleDocumentTypes" \
-		"Delete :CFBundleURLTypes"
+		"Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier"
 	
 	# filter localization strings in place
 	filterlproj "$updatePayloadPath/Resources" 'app engine' Chromium
@@ -281,7 +280,7 @@ function updateapp { # ( [updateAppPath] )
 		 "engine app icon"
 	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
 		 "$updatePayloadPath/Resources/$CFBundleTypeIconFile" \
-		 "engine app icon"
+		 "engine document icon"
 
 
 	# CREATE PLACEHOLDER
@@ -292,8 +291,8 @@ function updateapp { # ( [updateAppPath] )
 	# make sure placeholder exists
 	try /bin/mkdir -p "$updatePlaceholderPath/MacOS" 'Unable to create app engine placeholder.'
 	
-	# filter placeholder Info.plist into place
-	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
+	# filter placeholder Info.plist from payload
+	filterplist "$updatePayloadPath/Info.plist" \
 		    "$updatePlaceholderPath/Info.plist" \
 		"app engine placeholder Info.plist" \
 		'Add :LSUIElement bool true'
@@ -308,10 +307,12 @@ function updateapp { # ( [updateAppPath] )
 	try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
 	    'Unable to copy resources from app engine payload to placeholder.'
 
-	# copy in scripts
-	try /bin/cp -a "$updateEpichromeRuntime/Engine/Placeholder/Scripts" \
-	    "$updatePlaceholderPath/Resources" \
-	    'Unable to copy scripts to placeholder.'
+	# copy in core script
+	try /bin/mkdir -p "$updatePlaceholderPath/Resources/Scripts" \
+	    'Unable to create app engine placeholder scripts.'
+	try /bin/cp "$updateEpichromeRuntime/Contacts/Resources/Scripts/core.sh" \
+	    "$updatePlaceholderPath/Resources/Scripts" \
+	    'Unable to copy core to placeholder.'
     fi
     
     

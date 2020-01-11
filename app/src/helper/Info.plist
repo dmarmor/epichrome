@@ -11,7 +11,7 @@
 	<key>CFBundleName</key>
 	<string>EpichromeHelper</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.epichrome.daemon</string>
+	<string>org.epichrome.helper</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

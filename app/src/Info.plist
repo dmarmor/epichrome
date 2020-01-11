@@ -37,5 +37,7 @@
 	<string>Epichrome needs this access in order to create apps, and will not work without it.</string>
 	<key>NSSystemAdministrationUsageDescription</key>
         <string>Epichrome needs administrator privileges to create an app in the requested location.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2020 David Marmor</string>
 </dict>
 </plist>

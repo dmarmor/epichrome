@@ -3,7 +3,7 @@
 *.pkg
 *.orig
 *.pyc
-**/boneyard/**
+**/sandbox/**
 /*.txt
 /*.xlsx
 /certificates/**
