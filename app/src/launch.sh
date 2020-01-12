@@ -283,16 +283,30 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    Update)
 		
 		# read in the new runtime
-		safesource "${epiLatestPath}/Contents/Resources/Scripts/update.sh" "update script $epiLatestVersion"
+		safesource "${epiLatestPath}/Contents/Resources/Scripts/update.sh" \
+			   "update script $epiLatestVersion"
 		
 		# use new runtime to update the app
 		updateapp "$SSBAppPath"
 		
 		if [[ "$ok" ]] ; then
+
+		    # UPDATE CONFIG & RELAUNCH
 		    
-		    # UPDATE SUCCEEDED BUT RELAUNCH FAILED
+		    # write out config
+		    writeconfig "$myConfigFile"
+		    [[ "$ok" ]] || \
+			abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
 		    
-		    alert "$errmsg" 'Update' '|caution'
+		    # launch helper
+		    launchhelper Relaunch
+		    
+		    # if relaunch failed, report it
+		    [[ "$ok" ]] || \
+			alert "Update succeeded, but updated app didn't launch: $errmsg" \
+			      'Update' '|caution'
+
+		    # no matter what, we have to quit now
 		    cleanexit
 		    
 		else
@@ -1164,7 +1178,7 @@ function writeconfig {  # ( myConfigFile force
     if [[ ! "$doWrite" ]] ; then
 	local varname=
 	local configname=
-	for varname in "${myConfigVars[@]}" ; do
+	for varname in "${appConfigVars[@]}" ; do
 	    configname="config${varname}"
 	    
 	    isarray "$varname"
@@ -1218,7 +1232,7 @@ function writeconfig {  # ( myConfigFile force
     if [[ "$doWrite" ]] ; then
 	
 	# write out the config file
-	writevars "$myConfigFile" "${myConfigVars[@]}"
+	writevars "$myConfigFile" "${appConfigVars[@]}"
     fi
 
     # return code

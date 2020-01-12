@@ -58,18 +58,6 @@ myProfilePath="$myDataPath/UserData"
 export myDataPath myLogApp myLogFile myConfigFile \
        myEnginePath myEnginePayloadPath myEnginePlaceholderPath myProfilePath
 
-# variables used in config.sh
-myConfigVars=( SSBAppPath \
-		   SSBUpdateVersion \
-		   SSBUpdateCheckDate \
-		   SSBUpdateCheckVersion \
-		   SSBAppPath \
-		   SSBEngineAppName \
-		   SSBCustomIcon \
-		   SSBExtensionInstallError \
-		   APPENGINEVARS )
-export myConfigVars
-
 
 # FUNCTION DEFINITIONS
 
@@ -104,7 +92,7 @@ function readconfig { # ( myConfigFile )
     [[ "$ok" ]] || return 1
     
     # save all relevant config variables prefixed with "config"
-    for varname in "${myConfigVars[@]}" ; do
+    for varname in "${appConfigVars[@]}" ; do
 	
 	if isarray "$varname" ; then
 
@@ -282,6 +270,9 @@ done
 
 
 # READ CURRENT APP SETTINGS
+
+# add extra config vars for Google Chrome engine
+[[ "$SSBEngineType" = 'Google Chrome' ]] && appConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
 
 # read config file (if any)
 [[ -f "$myConfigFile" ]] && readconfig "$myConfigFile"

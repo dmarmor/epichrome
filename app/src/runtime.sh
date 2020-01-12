@@ -62,9 +62,11 @@ function updatessb { # ( SSBAppPath )
     myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
     logPreserve=1
     
-    # load update.sh
+    # load update.sh & launch.sh (for launchhelper and writeconfig)
     safesource "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" \
 	       "update script $mcssbVersion"
+    safesource "${BASH_SOURCE[0]%/Resources/Scripts/runtime.sh}/Contents/Resources/Scripts/launch.sh" \
+	       "launch script $mcssbVersion"
     if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
     
     # flag for deciding whether to update
@@ -153,10 +155,10 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	    errmsg=
 	fi
 	
-	# run actual update, but pretend it's not our own app, so updateapp won't relaunch
+	# run actual update
 	updateapp "$SSBAppPath"
 	if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
-
+	
 	
 	# UPDATE OLD PROFILE DIRECTORY TO NEW DATA DIRECTORY
 	
@@ -186,14 +188,29 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 		  'Warning' 'caution'
 	    ok=1 ; errmsg=
 	fi
+
 	
-	# try to relaunch
-	relaunch "$SSBAppPath"
+	# UPDATE CONFIG & RELAUNCH
 	
-	# if we got here, relaunch failed		    
-	alert "Update succeeded, but updated app didn't launch: $errmsg" \
-	      'Update' '|caution'
-	exit 0
+	# add extra config vars for Google Chrome engine
+	[[ "$SSBEngineType" = 'Google Chrome' ]] && \
+	    appConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
+	
+	# write out config
+	writeconfig "$myDataPath/config.sh"
+	[[ "$ok" ]] || \
+	    abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
+	
+	# launch helper
+	launchhelper Relaunch
+	
+	# if relaunch failed, report it
+	[[ "$ok" ]] || \
+	    alert "Update succeeded, but updated app didn't launch: $errmsg" \
+		  'Update' '|caution'
+	
+	# no matter what, we have to quit now
+	cleanexit
     else
     
 	# HANDLE NON-UPDATES

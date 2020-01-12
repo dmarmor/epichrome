@@ -38,22 +38,13 @@ source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh"
 # FUNCTION DEFINITIONS
 
 # UPDATEAPP: function that populates an app bundle
-function updateapp { # ( [updateAppPath] )
-    #  if updateAppPath is not set, we're updating
-    #  our own app and should relaunch at the end
+function updateapp { # ( updateAppPath )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # set app path, if one provided
+    # set app path
     local updateAppPath="$1" ; shift
-    
-    # if not, then we're updating ourself and should relaunch
-    local doRelaunch=
-    if [[ ! "$updateAppPath" ]] ; then
-	doRelaunch=1
-	updateAppPath="$SSBAppPath"
-    fi
     
     
     # LOAD FILTER.SH
@@ -329,34 +320,7 @@ function updateapp { # ( [updateAppPath] )
 	# return
 	return 1
     fi
-    [[ "$ok" ]] || return 1
-    
-    
-    # IF WE'VE UDPATED OUR OWN APP, RELAUNCH
-    
-    if [[ "$doRelaunch" ]] ; then
-	
-	relaunch
-	
-	# if we got here, relaunch failed, so return semi-success
-	errmsg="Update succeeded, but updated app didn't launch: $errmsg"
-	ok=1
-	return 1
-    fi
-    
-    return 0
-}
 
-
-# RELAUNCH -- attempt to relaunch ourself
-function relaunch {
-
-    # assume success
-    local result=0
-
-    # launch helper
-    launchhelper Relaunch
-
-    # exit on success, return code on failure
-    [[ "$ok" ]] && cleanexit || return 1
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
 }

@@ -61,6 +61,21 @@ appEnginePlaceholderPath="$appEnginePath/Placeholder"
 appNMHFile='epichromeruntimehost.py'
 
 
+# CORE CONFIG VARIABLES
+
+# variables used in config.sh
+appConfigVars=( SSBAppPath \
+		    SSBUpdateVersion \
+		    SSBUpdateCheckDate \
+		    SSBUpdateCheckVersion \
+		    SSBAppPath \
+		    SSBEngineAppName \
+		    SSBCustomIcon \
+		    SSBExtensionInstallError )
+appConfigVarsGoogleChrome=( SSBGoogleChromePath SSBGoogleChromeVersion )
+export appConfigVars appConfigVarsGoogleChrome
+
+
 # SET UP CORE INFO
 
 # path to stderr temp file
