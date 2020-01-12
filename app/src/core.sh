@@ -47,10 +47,11 @@ CFBundleTypeIconFile="document.icns"
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-appIDBase="org.epichrome.app"
-appEngineIDBase="org.epichrome.eng"
+appIDRoot='org.epichrome'
+appIDBase="$appIDRoot.app"
+appEngineIDBase="$appIDRoot.eng"
 googleChromeID='com.google.Chrome'
-export appIDBase appEngineIDBase googleChromeID
+export appIDRoot appIDBase appEngineIDBase googleChromeID
 
 # app internal paths
 appHelperPath='Resources/EpichromeHelper.app'
@@ -100,9 +101,12 @@ function errlog_raw {
 }
 function errlog {
 
-    # prefix format: LogID script(line)/function(line)/...:
-    # LogID convention: AppName[PID]|Subname[PID]
+    # prefix format: [PID]LogID(line)/function(line)/...:
 
+    # make sure we have some logID
+    local logID="$myLogApp"
+    [[ "$logID" ]] || logID='EpichromeCore'
+    
     # build function trace
     local trace=()
     local i=1
@@ -110,7 +114,8 @@ function errlog {
     while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
 	curfunc="${FUNCNAME[$i]}"
 	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-	    trace=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+	    # trace=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )  # $$$$
+	    trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    break
 	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
 	    : # skip these functions
@@ -120,17 +125,17 @@ function errlog {
 	i=$(( $i + 1 ))
     done
     
-    # build prefix
-    local prefix="$(join_array '/' "${trace[@]}")"
-    if [[ "$myLogApp" && "$prefix" ]] ; then
-	prefix="$myLogApp|$prefix: "
-    elif [[ "$myLogApp" ]] ; then
-	prefix="$myLogApp: "
-    elif [[ "$prefix" ]] ; then
-	prefix="EpichromeCore[$$]|$prefix: "
-    fi
+    # build prefix  $$$$ DELETE?
+    # local prefix="$(join_array '/' "${trace[@]}")"
+    # if [[ "$myLogApp" && "$prefix" ]] ; then
+    # 	prefix="$myLogApp|$prefix: "
+    # elif [[ "$myLogApp" ]] ; then
+    # 	prefix="$myLogApp: "
+    # elif [[ "$prefix" ]] ; then
+    # 	prefix="EpichromeCore[$$]|$prefix: "
+    # fi
     
-    errlog_raw "$prefix$@"
+    errlog_raw "[$$]$(join_array '/' "${trace[@]}"): $@"
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"

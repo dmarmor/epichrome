@@ -63,7 +63,7 @@ endif
 
 LOGPRESERVE_SH:=
 
-NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",\\\n        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
+NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",\'$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
 
 
 # APP PATHS
@@ -78,6 +78,8 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 # META-TARGETS
 
+.DELETE_ON_ERROR:
+
 .PHONY: internal install clean clean-all
 
 .PRECIOUS: \
@@ -90,7 +92,7 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 # DEFAULT TARGET
 
-internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),\\\n        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
+internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),\'$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 
 internal: $(APP)
 
@@ -221,7 +223,7 @@ main:
 # MAIN APP BUNDLE ELEMENTS
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
-	@mkdir -p $*/Scripts/
+	@mkdir -p $(APP_RNTM)/Contents/Resources/Scripts
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' $< > $@
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh

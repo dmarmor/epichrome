@@ -145,7 +145,7 @@ function updateapp { # ( [updateAppPath] )
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
     # set app bundle ID
-    local myAppID="$appIDBase.$SSBIdentifier"
+    local myAppBundleID="$appIDBase.$SSBIdentifier"
     
     
     # SET APP VERSION
@@ -168,7 +168,7 @@ function updateapp { # ( [updateAppPath] )
     # set up default PlistBuddy commands
     local filterCommands=( "set :CFBundleDisplayName $CFBundleDisplayName" \
 			       "set :CFBundleName $CFBundleName" \
-			       "set :CFBundleIdentifier $myAppID" )
+			       "set :CFBundleIdentifier $myAppBundleID" )
     
     # if not registering as browser, delete URI handlers
     [[ "$SSBRegisterBrowser" = "No" ]] && \
@@ -190,14 +190,14 @@ function updateapp { # ( [updateAppPath] )
 	       APPENGINETYPE "$SSBEngineType" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
 	       APPBUNDLENAME "$CFBundleName" \
-	       APPCOMMANDLINE "$(formatarray sed "${SSBCommandLine[@]}")"
+	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
     
     
     # GET ICON SOURCE
 
     # determine source of icons
     local iconSourcePath=
-    if [[ "$SSBCustomIcon" ]] ; then
+    if [[ "$SSBCustomIcon" = Yes ]] ; then
 	iconSourcePath="$updateAppPath/Contents/Resources"
     else
 	iconSourcePath="$updateEpichromeRuntime/Icons"
@@ -217,7 +217,7 @@ function updateapp { # ( [updateAppPath] )
     filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
 	       "$contentsTmp/Resources/NMH/$appNMHFile" \
 	       'native messaging host' \
-	       APPBUNDLEID "$myAppID" \
+	       APPID "$SSBIdentifier" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
 	       APPBUNDLENAME "$CFBundleName"
 
@@ -240,7 +240,8 @@ function updateapp { # ( [updateAppPath] )
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updateEnginePath/PlaceholderExec" \
 		   'Google Chrome app engine placeholder executable' \
-		   APPBUNDLEID "$myAppID"
+		   APPID "$SSBIdentifier" \
+		   APPBUNDLEID "$myAppBundleID"
 	
 	# copy in core script
 	try /bin/mkdir -p "$updateEnginePath/Scripts" \
@@ -301,7 +302,8 @@ function updateapp { # ( [updateAppPath] )
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updatePlaceholderPath/MacOS/Chromium" \
 		   'app engine placeholder executable' \
-		   APPBUNDLEID "$myAppID"
+		   APPID "$SSBIdentifier" \
+		   APPBUNDLEID "$myAppBundleID"
 	
 	# copy Resources directory from payload
 	try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \

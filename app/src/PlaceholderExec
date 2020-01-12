@@ -25,9 +25,9 @@
 
 # CORE APP INFO
 
-SSBVersion=EPIVERSION               # filled in by Makefile
-SSBIdentifier=APPID                 # filled in by updateapp
-
+SSBVersion='EPIVERSION'               # filled in by Makefile
+SSBIdentifier='APPID'                 # filled in by updateapp
+CFBundleIdentifier='APPBUNDLEID'      # filled in by updateapp
 
 # CORE APP VARIABLES
 
@@ -45,7 +45,7 @@ myLogFile="$myDataPath/epichrome_app_log.txt"
 
 # ATTEMPT TO LAUNCH PARENT APP
 
-/bin/open -b "org.epichrome.app.$SSBIdentifier" --args "$@"
+/bin/open -b "$CFBundleIdentifier" --args "$@"
 [[ "$?" = 0 ]] && exit 0
 
 

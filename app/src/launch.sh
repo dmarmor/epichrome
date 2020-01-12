@@ -1242,8 +1242,8 @@ function launchhelper { # ( mode )
     epiHelperMode="Launch$mode"
     epiHelperParentPID="$$"
     
-    # launch helper
-    try /usr/bin/open "$SSBAppPath/$appHelperPath" \
+    # launch helper (args are just for identification in jobs listings)
+    try /usr/bin/open "$SSBAppPath/$appHelperPath" --args "$SSBIdentifier" "$mode" \
 	'Unable to launch Epichrome helper app.'
 
     # return code

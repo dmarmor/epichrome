@@ -24,14 +24,7 @@
 
 
 # FORMATARRAY -- utility function to format an array for variable assignment or eval
-function formatarray { # ( [sed] [elem1 ...] )
-
-    # argument
-    local escSed=
-    if [[ "$1" = sed ]] ; then
-	escSed=1
-	shift
-    fi
+function formatarray { # ( [elem1 ...] )
     
     # variable holds an array, so start the array
     value="("
@@ -47,10 +40,7 @@ function formatarray { # ( [sed] [elem1 ...] )
     
     # close the array
     value="${value} )"
-    
-    # escape slashes for sed
-    [[ "$escSed" ]] && value="${value//\//\/}"
-    
+        
     echo "$value"
 }
 
@@ -72,6 +62,9 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
     local isToken=1
     for arg in "$@" ; do
 
+	# escape slashes for sed
+	arg="${arg//\//\/}"
+	
 	if [[ "$isToken" ]] ; then
 
 	    # starting a new token-text pair
@@ -165,11 +158,11 @@ function filterlproj {  # ( basePath errID usageKey
     # path to folder containing .lproj folders
     local basePath="$1" ; shift
 
-    # name to search for in usage description strings
-    local usageKey="$1" ; shift
-    
     # info about this filtering for error messages
     local errID="$1" ; shift
+    
+    # name to search for in usage description strings
+    local usageKey="$1" ; shift
     
     # escape bundle name strings
     local displayName="$(lprojescape "$CFBundleDisplayName")"

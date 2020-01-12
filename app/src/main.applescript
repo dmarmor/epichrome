@@ -63,9 +63,9 @@ end try
 
 local myLogApp
 set myLogApp to "Epichrome"
-try
-	set myLogApp to myLogApp & "[" & (do shell script "/bin/sh -c \"echo $PPID\"") & "]"
-end try
+--try
+--	set myLogApp to myLogApp & "[" & (do shell script "/bin/sh -c \"echo $PPID\"") & "]"
+--end try
 
 local myLogFile
 set myLogFile to myDataPath & "/epichrome_log.txt"

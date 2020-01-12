@@ -38,14 +38,14 @@ debug = EPIDEBUG                   # filled in by Makefile
 
 # info specific to this host
 appVersion     = 'EPIVERSION'      # filled in by Makefile
-appBundleID    = 'APPBUNDLEID'     # filled in by updateapp
+appID          = 'APPID'           # filled in by updateapp
 appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
 appBundleName  = 'APPBUNDLENAME'   # filled in by updateapp
 
 # log file
 appLogPath     = os.path.join(os.environ['HOME'],
                                   'Library/Application Support/Epichrome/Apps',
-                                  appBundleID)
+                                  appID)
 
 
 # special mode for communicating version to parent app
@@ -200,7 +200,7 @@ while True:
         send_message(('{ "version": "%s", '+
                      '"ssbID": "%s", '+
                      '"ssbName": "%s", '+
-                     '"ssbShortName": "%s" }') % (appVersion, appBundleID, appDisplayName, appBundleName))
+                     '"ssbShortName": "%s" }') % (appVersion, appID, appDisplayName, appBundleName))
     
     if 'url' in message:
         # open the url
