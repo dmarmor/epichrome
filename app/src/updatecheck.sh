@@ -29,6 +29,9 @@ doCleanExit=
 
 # MYABORT -- exit cleanly on error
 function myabort { # [myErrMsg code]
+
+    # get error message
+    local myErrMsg="$1" ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     
     # send only passed error message to stderr (goes back to main.applescript)
     echo "$myErrMsg" 1>&2
@@ -41,7 +44,7 @@ function myabort { # [myErrMsg code]
 
 # BOOTSTRAP RUNTIME SCRIPT
 
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Resources/Scripts/core.sh"
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh"
 [[ "$?" = 0 ]] || ( echo 'Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
 [[ "$ok" ]] || myabort
 

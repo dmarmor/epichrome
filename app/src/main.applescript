@@ -85,7 +85,7 @@ set scriptEnvFirst to scriptEnvFirst & " logNoStderr='1'"
 set scriptEnv to scriptEnvFirst
 
 -- handle logPreserve differently the first time we use the script environment
-set scriptEnvFirst to scriptEnvFirst & " logNoStderr=" & (quoted form of logNoStderr)
+set scriptEnvFirst to scriptEnvFirst & " logPreserve=" & (quoted form of logPreserve)
 set scriptEnv to scriptEnv & " logPreserve='1'"
 
 
@@ -102,7 +102,7 @@ set myIcon to path to resource "applet.icns"
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
 local coreScript
-set coreScript to POSIX path of (path to resource "core.sh" in directory "Runtime/Resources/Scripts")
+set coreScript to POSIX path of (path to resource "core.sh" in directory "Runtime/Contents/Resources/Scripts")
 local buildScript
 set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 local pathInfoScript
@@ -274,7 +274,8 @@ if updateCheckDate < curDate then
 		set updateCheckVersion to myVersion
 	else
 		try
-			set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of myVersion)
+			set updateCheckVersion to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+			--set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of myVersion)  $$$$DELETE
 		on error errStr number errNum
 			display dialog "Non-fatal error getting Epichrome version info: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
 			set updateCheckVersion to myVersion
@@ -283,7 +284,8 @@ if updateCheckDate < curDate then
 	
 	-- run the actual update check script
 	try
-		set updateCheckResult to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion)
+		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+		--set updateCheckResult to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion)  $$$$DELETE
 	on error errStr number errNum
 		set updateCheckResult to false
 		display dialog "Non-fatal error checking for new version of Epichrome on GitHub: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
@@ -377,7 +379,7 @@ repeat
 			set lastAppPath to (((POSIX file appDir) as alias) as text)
 			
 			
-			-- check if we have permission to write to this directory
+			-- check if we have permission to write to this directory  $$$ REWRITE THIS NATIVE?
 			if (do shell script "#!/bin/sh
 if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
 				display dialog "You don't have permission to write to that folder. Please choose another location for your app." with title "Error" with icon stop buttons {"OK"} default button "OK"
@@ -696,7 +698,8 @@ App Engine: "
 										repeat
 											set creationSuccess to false
 											try
-												do shell script scriptEnv & " " & buildScript & " " & (quoted form of appPath) & " " & (quoted form of appNameBase) & " " & (quoted form of appShortName) & " " & (quoted form of appIconSrc) & " " & (quoted form of doRegisterBrowser) & " " & (quoted form of appEngineType) & " " & appCmdLine
+												do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+												--do shell script scriptEnv & " " & buildScript & " " & (quoted form of appPath) & " " & (quoted form of appNameBase) & " " & (quoted form of appShortName) & " " & (quoted form of appIconSrc) & " " & (quoted form of doRegisterBrowser) & " " & (quoted form of appEngineType) & " " & appCmdLine  $$$$ DELETE
 												set creationSuccess to true
 											on error errStr number errNum
 												
@@ -739,7 +742,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 											if dlgResult is "Launch Now" then
 												delay 1
 												try
-													do shell script "open " & quoted form of (POSIX path of appPath)
+													do shell script "/usr/bin/open " & quoted form of (POSIX path of appPath)
 													--tell application appName to activate
 												on error
 													writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)

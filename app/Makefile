@@ -158,6 +158,7 @@ $(APP):	src/entitlements.plist \
 	$(APP_RNTM_HLPR) \
 	\
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
 	\
 	$(APP_RNTM)/Contents/Resources/External\ Extensions/$(EXTN_ID_RELEASE).json \

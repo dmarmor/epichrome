@@ -24,7 +24,14 @@
 
 
 # FORMATARRAY -- utility function to format an array for variable assignment or eval
-function formatarray { # ( [elem1 ...] )
+function formatarray { # ( [sed] [elem1 ...] )
+
+    # argument
+    local escSed=
+    if [[ "$1" = sed ]] ; then
+	escSed=1
+	shift
+    fi
     
     # variable holds an array, so start the array
     value="("
@@ -34,13 +41,16 @@ function formatarray { # ( [elem1 ...] )
     for elem in "$@" ; do
 	
 	# add array value, escaping specials
-	value="${value} $(printf "%q" "$elem")"
+	value="${value} $(printf "%q" "$elem")"	
 	
     done
     
     # close the array
     value="${value} )"
-
+    
+    # escape slashes for sed
+    [[ "$escSed" ]] && value="${value//\//\/}"
+    
     echo "$value"
 }
 
@@ -59,19 +69,22 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
     # build sed command
     local sedCommand=
     local arg=
+    local isToken=1
     for arg in "$@" ; do
 
-	if [[ ! "$curToken" ]] ; then
+	if [[ "$isToken" ]] ; then
 
 	    # starting a new token-text pair
 	    sedCommand+="s/$arg/"
+	    isToken=
 	else
 
 	    # finishing a token-text pair
 	    sedCommand+="$arg/g; "
+	    isToken=1
 	fi
     done
-
+    
     # filter file
     local destFileTmp=$(tempname "$destFile")
     try "$destFileTmp<" /usr/bin/sed "$sedCommand" "$sourceFile" "Unable to filter $fileInfo."
@@ -163,7 +176,7 @@ function filterlproj {  # ( basePath errID usageKey
     local bundleName="$(lprojescape "$CFBundleName")"
 
     # create sed command
-    local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/' -e 's/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
+    local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/; s/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
 
     # if we have a usage key, add command for searching usage descriptions
     [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$displayName"'\3/'

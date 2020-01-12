@@ -190,7 +190,7 @@ function updateapp { # ( [updateAppPath] )
 	       APPENGINETYPE "$SSBEngineType" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
 	       APPBUNDLENAME "$CFBundleName" \
-	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
+	       APPCOMMANDLINE "$(formatarray sed "${SSBCommandLine[@]}")"
     
     
     # GET ICON SOURCE
@@ -237,7 +237,7 @@ function updateapp { # ( [updateAppPath] )
 	# GOOGLE CHROME ENGINE
 
 	# filter placeholder executable into place
-	filterfile "$updateEpichromeRuntime/Filter/PlaceholderExec" \
+	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updateEnginePath/PlaceholderExec" \
 		   'Google Chrome app engine placeholder executable' \
 		   APPBUNDLEID "$myAppID"
@@ -298,7 +298,7 @@ function updateapp { # ( [updateAppPath] )
 		'Add :LSUIElement bool true'
 	
 	# filter placeholder executable into place
-	filterfile "$updateEpichromeRuntime/Filter/PlaceholderExec" \
+	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updatePlaceholderPath/MacOS/Chromium" \
 		   'app engine placeholder executable' \
 		   APPBUNDLEID "$myAppID"
@@ -310,7 +310,7 @@ function updateapp { # ( [updateAppPath] )
 	# copy in core script
 	try /bin/mkdir -p "$updatePlaceholderPath/Resources/Scripts" \
 	    'Unable to create app engine placeholder scripts.'
-	try /bin/cp "$updateEpichromeRuntime/Contacts/Resources/Scripts/core.sh" \
+	try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
 	    "$updatePlaceholderPath/Resources/Scripts" \
 	    'Unable to copy core to placeholder.'
     fi

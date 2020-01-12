@@ -102,15 +102,15 @@ function errlog {
 
     # prefix format: LogID script(line)/function(line)/...:
     # LogID convention: AppName[PID]|Subname[PID]
-    
+
+    # build function trace
     local trace=()
-    local src=( "$myLogApp" )
     local i=1
     local curfunc=
     while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
 	curfunc="${FUNCNAME[$i]}"
 	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-	    src+=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" )
+	    trace=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    break
 	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
 	    : # skip these functions
@@ -120,14 +120,14 @@ function errlog {
 	i=$(( $i + 1 ))
     done
     
+    # build prefix
     local prefix="$(join_array '/' "${trace[@]}")"
-    src="$(join_array '|' "${src[@]}")"
-    if [[ "$src" && "$prefix" ]] ; then
-	prefix="$src [$prefix]: "
-    elif [[ "$src" ]] ; then
-	prefix="$src: "
+    if [[ "$myLogApp" && "$prefix" ]] ; then
+	prefix="$myLogApp|$prefix: "
+    elif [[ "$myLogApp" ]] ; then
+	prefix="$myLogApp: "
     elif [[ "$prefix" ]] ; then
-	prefix="$prefix: "
+	prefix="EpichromeCore[$$]|$prefix: "
     fi
     
     errlog_raw "$prefix$@"
