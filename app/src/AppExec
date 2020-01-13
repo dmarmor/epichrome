@@ -123,13 +123,10 @@ lockPID=
 lockEnginePID=
 
 # LOCKSET -- set a lock file, or fail if it's already set
-function lockset { # ( [ myLockEnginePID ] )
-    
+function lockset {
+
     if [[ "$ok" ]] ; then
 	
-	# extra info for the lock
-	local myLockEnginePID="$1" ; shift
-
 	# error: lock variable is already set
 	if [[ "$lockOn" ]] ; then
 	    errmsg='Lock variable is already set.'
@@ -153,17 +150,25 @@ function lockset { # ( [ myLockEnginePID ] )
 		
 	    else
 		
-		# we're not replacing this lock, so if the lock PID is still alive, we fail
-		kill -0 "$lockPID" 2> /dev/null && return 1
+		# if either of lock's PIDs is still alive, we fail
+		if kill -0 "$lockPID" 2> /dev/null ; then
+		    debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
+		    return 1
+		fi
+		if kill -0 "$lockEnginePID" 2> /dev/null ; then
+		    debuglog "Can't set lock: This app's engine is alive at $lockPID."
+		    return 1
+		fi
 	    fi
 	fi
 	
 	# if we got here, there's either no lock, or we can stomp on an old one
-	lockPID="$$" ; lockEnginePID="$myLockEnginePID"
+	lockPID="$$" ; lockEnginePID=
 	writevars "$myLockFile" lockPID lockEnginePID
 	[[ "$ok" ]] || return 1
 	
 	# return success
+	debuglog "Lock set."
 	lockOn=1
 	return 0
     fi
@@ -176,15 +181,15 @@ function lockset { # ( [ myLockEnginePID ] )
 function lockrelease {
 
     if [[ "$lockOn" ]] ; then
-
+	
 	# release lock variable
 	lockOn=
-
+	
 	if [[ -f "$myLockFile" ]] ; then
 	    
 	    # command to delete lock file
 	    local myCommand=( /bin/rm -f "$myLockFile" )
-
+	    
 	    if [[ "$ok" ]] ; then
 		
 		try "${myCommand[@]}" 'Unable to delete old lock file.'
@@ -449,8 +454,9 @@ fi
     
 # CREATE OR UPDATE ENGINE IF NECESSARY
 
-# flag whether we need to (re)create the engine
+# flag whether we need to (re)create the engine and/or activate it
 doCreateEngine=
+doNotActivateEngine=
 
 if [[ "$isFirstRun" ]] ; then
     
@@ -466,16 +472,16 @@ else
 	# get engine state
 	local engineState="$?"
 
-	# if engine is good but was left active, reset it
+	# flag if engine is good but was left active
 	if [[ "$engineState" = 2 ]] ; then
-	    setenginestate OFF
+	    doNotActivateEngine=1
 	else
 	    doCreateEngine=1
 	    debuglog "Replacing corrupt engine."
 	    createEngineErrMsg='Unable to replace corrupt engine.'
 	fi
     fi
-
+    
     if [[ ! "$doCreateEngine" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
 	
 	# get info on the installed Google Chrome
@@ -495,15 +501,24 @@ fi
 # create engine if necessary
 if [[ "$doCreateEngine" ]] ; then
     
+    # if engine was left activated, deactivate it before re-creating
+    if [[ "$doNotActivateEngine" ]] ; then
+	setenginestate OFF
+	doNotActivateEngine=
+    fi
+
+    # (re)create engine
     createengine
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"    
 fi
 
 
-# ACTIVATE ENGINE
+# ACTIVATE ENGINE (IF NECESSARY)
 
-setenginestate ON
-[[ "$ok" ]] || abort
+if [[ ! "$doNotActivateEngine" ]] ; then
+    setenginestate ON
+    [[ "$ok" ]] || abort
+fi
 
 
 # LAUNCH APP ENGINE

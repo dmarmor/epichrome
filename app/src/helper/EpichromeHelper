@@ -73,40 +73,40 @@ function cleanup { # [code]
 }
 
 
-# HANDLE KILL SIGNALS
+# HANDLE KILL SIGNALS  $$$ DELETE?? ALLOW THIS TO DIE AND LEAVE ENGINE ACTIVE
 
-function handleexitsignal {
+# function handleexitsignal {
 
-    if kill -0 "$myEnginePID" 2> /dev/null ; then
+#     if kill -0 "$myEnginePID" 2> /dev/null ; then
 
-	# engine is still running, so try to kill it gently
-	errlog 'Terminated prematurely. Quitting engine.'
-	try kill -HUP "$myEnginePID" 'Error sending HUP to engine.'
-	if [[ ! "$ok" ]] ; then
-	    errlog "$errmsg"
-	    ok=1 ; errmsg
-	fi
+# 	# engine is still running, so try to kill it gently
+# 	errlog 'Terminated prematurely. Quitting engine.'
+# 	try kill -HUP "$myEnginePID" 'Error sending HUP to engine.'
+# 	if [[ ! "$ok" ]] ; then
+# 	    errlog "$errmsg"
+# 	    ok=1 ; errmsg
+# 	fi
 
-	# wait a few seconds
-	sleep 5
+# 	# wait a few seconds
+# 	sleep 5
 
-	# if engine has now quit, clean up
-	if ! kill -0 "$myEnginePID" 2> /dev/null ; then
-	    debuglog 'Engine has quit. Cleaning up...'
-	    cleanup
-	else
-	    debuglog 'Engine still running. Giving up and leaving engine active.'
-	fi
-    fi
+# 	# if engine has now quit, clean up
+# 	if ! kill -0 "$myEnginePID" 2> /dev/null ; then
+# 	    debuglog 'Engine has quit. Cleaning up...'
+# 	    cleanup
+# 	else
+# 	    debuglog 'Engine still running. Giving up and leaving engine active.'
+# 	fi
+#     fi
     
-    # if engine is already dead, assume we've already cleaned up
+#     # if engine is already dead, assume we've already cleaned up
     
-    # release lock
-    lockrelease
+#     # release lock
+#     lockrelease
     
-}
-trap '' INT
-trap handleexitsignal EXIT
+# }
+#trap '' INT
+# trap handleexitsignal EXIT
 
 
 # LOCKREPLACE -- replace a lock set by the parent app
@@ -157,7 +157,7 @@ function lockreplace { # ( replacePID )
 # MAIN BODY
 
 # update log name
-myLogApp="$myLogApp|Helper[$$]"  # $$$$ FIX THIS
+myLogApp="$myLogApp|$epiHelperMode"
 
 if [[ "$epiHelperMode" = Relaunch ]] ; then
 
