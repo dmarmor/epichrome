@@ -181,6 +181,7 @@ function updateapp { # ( updateAppPath )
 	       APPENGINETYPE "$SSBEngineType" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
 	       APPBUNDLENAME "$CFBundleName" \
+	       APPCUSTOMICON "$SSBCustomIcon" \
 	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
     
     
@@ -205,12 +206,15 @@ function updateapp { # ( updateAppPath )
     
     # FILTER NATIVE MESSAGING HOST INTO PLACE
 
+    local updateNMHFile="$contentsTmp/Resources/NMH/$appNMHFile"
     filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
-	       "$contentsTmp/Resources/NMH/$appNMHFile" \
+	       "$updateNMHFile" \
 	       'native messaging host' \
 	       APPID "$SSBIdentifier" \
 	       APPDISPLAYNAME "$CFBundleDisplayName" \
 	       APPBUNDLENAME "$CFBundleName"
+    try /bin/chmod 755 "$updateNMHFile" \
+	'Unable to set permissions for native messaging host.'
 
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
@@ -233,6 +237,8 @@ function updateapp { # ( updateAppPath )
 		   'Google Chrome app engine placeholder executable' \
 		   APPID "$SSBIdentifier" \
 		   APPBUNDLEID "$myAppBundleID"
+	try /bin/chmod 755 "$updateEnginePath/PlaceholderExec" \
+	    'Unable to set permissions for Google Chrome app engine placeholder executable.'
 	
 	# copy in core script
 	try /bin/mkdir -p "$updateEnginePath/Scripts" \
@@ -290,11 +296,14 @@ function updateapp { # ( updateAppPath )
 		'Add :LSUIElement bool true'
 	
 	# filter placeholder executable into place
+	local updatePlaceholderExec="$updatePlaceholderPath/MacOS/Chromium"
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
-		   "$updatePlaceholderPath/MacOS/Chromium" \
+		   "$updatePlaceholderExec" \
 		   'app engine placeholder executable' \
 		   APPID "$SSBIdentifier" \
 		   APPBUNDLEID "$myAppBundleID"
+	try /bin/chmod 755 "$updatePlaceholderExec" \
+	    'Unable to set permissions for app engine placeholder executable.'
 	
 	# copy Resources directory from payload
 	try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \

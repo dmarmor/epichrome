@@ -45,7 +45,8 @@ appBundleName  = 'APPBUNDLENAME'   # filled in by updateapp
 # log file
 appLogPath     = os.path.join(os.environ['HOME'],
                                   'Library/Application Support/Epichrome/Apps',
-                                  appID)
+                                  appID,
+                                  'epichrome_app_log.txt')
 
 
 # special mode for communicating version to parent app
@@ -69,10 +70,11 @@ def errlog(msg):
         
     # build log string
     myMsg = (
-        '{app}|{filename}({fileline}){frame}: {msg}\n'.format( app=appBundleName,
+        '[{pid}]{app}|{filename}({fileline}){frame}: {msg}\n'.format( pid=os.getpid(),
+                                                         app=appID,
                                                          filename=os.path.basename(myStack[0][1]),
                                                          fileline=myStack[0][2],
-                                                         frame=(' [{}]'.format('/'.join(
+                                                         frame=('/{}'.format('/'.join(
                                                              ['{}({})'.format(n[3], n[2])
                                                                   for n in myStack[1:-1]]))
                                                                     if len(myStack[1:-1]) else ''),

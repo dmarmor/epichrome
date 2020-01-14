@@ -131,8 +131,7 @@ function getepichromeinfo {
 	if [[ -d "$curInstance" ]] ; then
 	    
 	    # get this instance's version
-	    curVersionScript="$curInstance/Contents/Resources/Scripts/version.sh"
-	    curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && try echo "$epiVersion" '' )"
+	    curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && echo "$epiVersion" )"
 	    if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
 		curVersion=0.0.0
 	    fi
@@ -156,7 +155,7 @@ function getepichromeinfo {
 	    else
 		
 		# failed to get version, so assume this isn't really a version of Epichrome
-		debuglog "Epichrome at '$curInstance' is not valid."
+		debuglog "Epichrome at '$curInstance' is either older than this app or damaged."
 	    fi
 	fi
     done
@@ -444,7 +443,7 @@ function checksamedevice { # ( path1 path2 )
 
 
 # LINKTREE: hard link to a directory or file
-function linktree { # ( sourceDir destDir sourceErrID destErrID files ... )
+function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -454,20 +453,26 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID files ... )
     local destDir="$1"     ; shift
     local sourceErrID="$1" ; shift
     local destErrID="$1"   ; shift
-    local files=( "$@" )   ; [[ "${files[*]}" ]] || files=( * )
+    local items=( "$@" )
     
     # pushd to source directory
-    try '!12' pushd "$sourceDir" "Unable to enter $sourceErrID"
+    try '!1' pushd "$sourceDir" "Unable to navigate to $sourceErrID"
     [[ "$ok" ]] || return 1
     
-    # loop through files creating hard links
-    for curFile in "${files[@]}" ; do	
+    # if no items passed, link all items in source directory
+    local shoptState=
+    shoptset shoptState nullglob
+    [[ "${items[*]}" ]] || items=( * )
+    shoptrestore shoptState
+    
+    # loop through items creating hard links
+    for curFile in "${items[@]}" ; do	
 	try /bin/pax -rwlpp "$curFile" "$destDir" \
 	    "Unable to link $sourceErrID $curFile to $destErrID."
     done
     
     # popd back from source directory
-    try '!12' popd "Unable to exit $sourceErrID."
+    try '!1' popd "Unable to navigate away from $sourceErrID."
 }
 
 
@@ -475,20 +480,32 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID files ... )
 #                      sets the following variables:
 #                         SSBGoogleChromePath, SSBGoogleChromeVersion
 #                         googleChromeExecutable, googleChromeAppIconPath, googleChromeDocIconPath
-function getgooglechromeinfo {
+function getgooglechromeinfo { # ( [myGoogleChromePath] )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
 
+    # argument
+    local myGoogleChromePath="$1" ; shift
+    
     # set up list of search locations/methods
     local searchList=()
-    [[ "$SSBGoogleChromePath" ]] && searchList+=( "$SSBGoogleChromePath" )
-    searchList+=( "$HOME/Applications/Google Chrome.app" \
-		      '/Applications/Google Chrome.app' \
-		      SPOTLIGHT FAIL )
+    if [[ "$myGoogleChromePath" ]] ; then
+
+	# if we were passed a specific path, only check that
+	searchList=( "$myGoogleChromePath" FAIL )
+    else
+	# otherwise, search known locations & spotlight
+	searchList=( "$HOME/Applications/Google Chrome.app" \
+			 '/Applications/Google Chrome.app' \
+			 SPOTLIGHT FAIL )
+    fi
     
     # try various methods to find & validate Chrome
+    SSBGoogleChromePath=
     for curPath in "${searchList[@]}" ; do
+	
+	[[ "$SSBGoogleChromePath" ]] && debuglog "Google Chrome not found at '$SSBGoogleChromePath'."
 	
 	# assume failure
 	SSBGoogleChromePath=
@@ -499,19 +516,20 @@ function getgooglechromeinfo {
 	if [[ "$curPath" = FAIL ]] ; then
 
 	    # failure
+	    debuglog 'Google Chrome not found.'
 	    break
 	    
 	elif [[ "$curPath" = SPOTLIGHT ]] ; then
 		
 	    # search spotlight
 	    try 'SSBGoogleChromePath=()' /usr/bin/mdfind "kMDItemCFBundleIdentifier == '$googleChromeID'" ''
-	    if [[ ! "$ok" ]] ; then
+	    if [[ "$ok" ]] ; then
+		# use the first instance
+		SSBGoogleChromePath="${SSBGoogleChromePath[0]}"
+	    else
 		SSBGoogleChromePath=
 		ok=1 ; errmsg=
 	    fi
-	    
-	    # use the first instance
-	    SSBGoogleChromePath="${SSBGoogleChromePath[0]}"
 	else
 	    
 	    # regular path, so check it
@@ -536,30 +554,29 @@ function getgooglechromeinfo {
 	    -c 'Print CFBundleShortVersionString' \
 	    -c 'Print CFBundleIconFile' \
 	    -c 'Print CFBundleDocumentTypes:0:CFBundleTypeIconFile' \
-	    '$SSBGoogleChromePath/Contents/Info.plist' ''
+	    "$SSBGoogleChromePath/Contents/Info.plist" ''
 	if [[ ! "$ok" ]] ; then
 	    ok=1 ; errmsg=
 	    continue
 	fi
-
+	
 	# check bundle ID
 	[[ "${infoPlist[0]}" = "$googleChromeID" ]] || continue
 	
 	# make sure the executable is in place
 	local curExecPath="$SSBGoogleChromePath/Contents/MacOS/${infoPlist[1]}"
-	[[ -f "$chromeExecPath" && -x "$chromeExecPath" ]] || continue
+	[[ -f "$curExecPath" && -x "$curExecPath" ]] || continue
 	
-	# if we got here, we have a complete copy of Chrome, so break out
-	break
-	    
-    done
-    
-    # set globals
-    googleChromeExecutable="${infoPlist[1]}"
-    SSBGoogleChromeVersion="${infoPlist[2]}"
-    googleChromeAppIconPath="${infoPlist[3]}"
-    googleChromeDocIconPath="${infoPlist[4]}"
+	# if we got here, we have a complete copy of Chrome, so set globals & break out
+	googleChromeExecutable="${infoPlist[1]}"
+	SSBGoogleChromeVersion="${infoPlist[2]}"
+	googleChromeAppIconPath="${infoPlist[3]}"
+	googleChromeDocIconPath="${infoPlist[4]}"
 
+	debuglog "Google Chrome $SSBGoogleChromeVersion found at '$SSBGoogleChromePath'..."
+
+	break	
+    done
 }
 
 
@@ -616,7 +633,7 @@ function populatedatadir { # ( [FORCE] )
     
     if [[ "$force" ]] ; then
 
-	debuglog "Forced data directory update. Installing external extensions."
+	debuglog "Forcing data directory update. Installing external extensions."
 
 	# set up useful variables
 	local extDir="External Extensions"
@@ -648,7 +665,7 @@ function populatedatadir { # ( [FORCE] )
 	local hostScriptPath="$hostSourcePath/$appNMHFile"
 
 	local hostManifestNewID="org.epichrome.runtime"
-	local hostManifestNewFile="$hostManifestID.json"
+	local hostManifestNewFile="$hostManifestNewID.json"
 	local hostManifestOldID="org.epichrome.helper"
 	local hostManifestOldFile="$hostManifestOldID.json"
 	local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
@@ -656,7 +673,7 @@ function populatedatadir { # ( [FORCE] )
 	# create the install directory if necessary
 	if [[ ! -d "$hostManifestDestPath" ]] ; then
 	    try /bin/mkdir -p "$hostManifestDestPath" \
-		'Unable to create NativeMessagingHosts folder.'
+		'Unable to create native messaging host folder.'
 	fi
 	
 	# paths to destination for host manifests with new and old IDs
@@ -665,8 +682,8 @@ function populatedatadir { # ( [FORCE] )
 	
 	# stream-edit the new manifest into place
 	if [[ "$force" || ! -e "$hostManifestNewDest" ]] ; then
-	    filterfile "$hostSourcePath/$hostManifest" "$hostManifestNewDest" \
-		       'new native messaging host manifest' \
+	    filterfile "$hostSourcePath/$hostManifestNewFile" "$hostManifestNewDest" \
+		       'native messaging host manifest' \
 		       APPHOSTPATH "$hostScriptPath"
 	fi
 	
@@ -705,14 +722,11 @@ function linktonmh {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
-
+    
     # turn on nullglob
-    local nullglobOff=
-    if shopt -q nullglob ; then
-	nullglobOff=1
-	shopt -s nullglob
-    fi
-	
+    local shoptState=
+    shoptset shoptState nullglob
+    
     # name for profile NMH folder
     local nmhDir=NativeMessagingHosts
     
@@ -729,12 +743,13 @@ function linktonmh {
     fi
     
     # navigate to our host directory
-    try '!12' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
+    try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
     
     # get list of host files currently installed
     hostFiles=( * )
-    
+
     # remove dead host links
+    local curFile=
     for curFile in "${hostFiles[@]}" ; do
 	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
 	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
@@ -742,14 +757,15 @@ function linktonmh {
     done
     
     # link to hosts from both directories
+    local curHostDir=
     for curHostDir in "${hostDirs[@]}" ; do
 
 	if [[ -d "$curHostDir" ]] ; then
 
 	    # get a list of all hosts in this directory
-	    try '!12' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
+	    try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
 	    hostFiles=( * )
-	    try '!12' popd "Unable to navigate away from ${curHostDir}"
+	    try '!1' popd "Unable to navigate away from ${curHostDir}"
 
 	    # link to any hosts that are not already in our directory
 	    # or are links to a different file -- this way if a given
@@ -773,10 +789,10 @@ function linktonmh {
     done
     
     # silently return to original directory
-    try '!12' popd "Unable to navigate away from '$myHostDir'."
+    try '!1' popd "Unable to navigate away from '$myHostDir'."
     
     # restore nullglob
-    [[ "$nullglobOff" ]] && shopt -u nullglob
+    shoptrestore shoptState
     
     # return success or failure
     [[ "$ok" ]] && return 0 || return 1
@@ -799,18 +815,21 @@ function checkengine {  # ( ON|OFF )
     if [[ -d "$myEnginePayloadPath" && ! -d "$myEnginePlaceholderPath" ]] ; then
 
 	# engine is inactive
+	debuglog "Engine is inactive."
 	curState=OFF
 	inactivePath="$myEnginePayloadPath"
 	
     elif [[ -d "$myEnginePlaceholderPath" && ! -d "$myEnginePayloadPath" ]] ; then
 
 	# engine is active
+	debuglog "Engine is active."
 	curState=ON
 	inactivePath="$myEnginePlaceholderPath"
 	
     else
 
 	# engine is not in either state
+	debuglog "Engine is in an unknown state."
 	return 2
     fi
 
@@ -819,13 +838,14 @@ function checkengine {  # ( ON|OFF )
 	      -f "$inactivePath/Info.plist" && \
 	      -x "$myEngineAppPath/Contents/MacOS/$SSBEngineType" && \
 	      -f "$myEngineAppPath/Contents/Info.plist" ]] ; then
-
+		
 	# return code depending if we match our expected state
 	[[ "$curState" = "$expectedState" ]] && return 0 || return 1
 	
     else
 
 	# either or both app states are damaged
+	debuglog 'Engine is damaged.'
 	return 2
     fi
     
@@ -846,10 +866,14 @@ function setenginestate {  # ( ON|OFF )
     local oldInactiveError= ; local newInactiveError=
     if [[ "$newState" = ON ]] ; then
 	oldInactivePath="$myEnginePayloadPath"
+	oldInactiveError="payload"
 	newInactivePath="$myEnginePlaceholderPath"
+	newInactiveError="placeholder"
     else
 	oldInactivePath="$myEnginePlaceholderPath"
+	oldInactiveError="placeholder"
 	newInactivePath="$myEnginePayloadPath"
+	newInactiveError="payload"
     fi
 
     # engine app contents
@@ -860,32 +884,39 @@ function setenginestate {  # ( ON|OFF )
 	ok= ; errmsg="${newInactivePath##*/} already deactivated."
     fi
     try /bin/mv "$myEngineAppContents" "$newInactivePath" \
-	'Unable to deactivate $newInactiveError.'
+	"Unable to deactivate $newInactiveError."
 
     # move the new contents in
     if [[ -d "$myEngineAppContents" ]] ; then
 	ok= ; errmsg="Unable to empty engine app."
     fi
     try /bin/mv "$oldInactivePath" "$myEngineAppContents" \
-	'Unable to activate $oldInactiveError.'
+	"Unable to activate $oldInactiveError."
     
 } ; export -f setenginestate
 
 
 # CREATEENGINE -- create Epichrome engine (payload & placeholder)
 function createengine {
-    
+
+    # only run if we're OK
     [[ "$ok" ]] || return 1
-        
-    # clear out any old engine
+
+    
+    # CLEAR OUT ANY OLD ENGINE
+    
     if [[ -d "$myEnginePath" ]] ; then
 	try /bin/rm -rf "$myEnginePath" 'Unable to clear old engine.'
-	try /bin/mkdir -p "$myEnginePath" 'Unable to create new engine.'
-	[[ "$ok" ]] || return 1
     fi
     
     
-    # CREATE NEW PAYLOAD
+    # CREATE NEW ENGINE
+    
+    try /bin/mkdir -p "$myEnginePath" 'Unable to create new engine.'
+    [[ "$ok" ]] || return 1
+    
+    # path to active engine app
+    local myEngineApp="$myEnginePath/$SSBEngineAppName"
     
     if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 	
@@ -897,42 +928,41 @@ function createengine {
 	    # we should already have this, so as a last ditch, ask the user to locate it
 	    local myGoogleChromePath=
 	    try 'myGoogleChromePath=' osascript -e \
-		'return POSIX path of (choose application with title "Locate Google Chrome" with prompt "Please locate Google Chrome" as alias)' 'Error showing Locate Google Chrome dialog.'
-	    myGoogleChromePath="${SSBGoogleChromePath%/}"
+		'return POSIX path of (choose application with title "Locate Google Chrome" with prompt "Please locate Google Chrome" as alias)' 'Locate Google Chrome dialog failed.'
+	    myGoogleChromePath="${myGoogleChromePath%/}"
 	    
-	    if [[ ! "$ok" || ! -d "$myGoogleChromePath" ]] ; then
+	    if [[ ! "$ok" ]] ; then
 		
 		# we've failed to find Chrome
-		ok=
 		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
 		errmsg="Unable to find Google Chrome.$errmsg"
 		return 1
 	    fi
 	    
 	    # user selected a path, so check it
-	    SSBGoogleChromePath="$myGoogleChromePath"
-	    getgooglechromeinfo
+	    getgooglechromeinfo "$myGoogleChromePath"
+	    
 	    if [[ ! "$SSBGoogleChromePath" ]] ; then
 		ok= ; errmsg="Selected app is not a valid instance of Google Chrome."
 		return 1
 	    fi
-
+	    
 	    # warn if we're not using the selected app
 	    if [[ "$SSBGoogleChromePath" != "$myGoogleChromePath" ]] ; then
 		alert "Selected app is not a valid instance of Google Chrome. Using '$SSBGoogleChromePath' instead." \
 		      'Warning' '|caution'
 	    fi
 	fi
-
+	
 	# make sure Google Chrome is on the same volume as the engine
-	if ! checksamedevice "$SSBGoogleChromePath" "$myEnginePayloadPath" ; then
+	if ! checksamedevice "$SSBGoogleChromePath" "$myEnginePath" ; then
 	    ok= ; errmsg="Google Chrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
 	
 	# create Payload directory
 	try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
-	    'Unable to create payload folder.'
+	    'Unable to create Google Chrome app engine payload.'
 	
 	# turn on extended glob for copying
 	local shoptState=
@@ -940,11 +970,13 @@ function createengine {
 	
 	# copy all of Google Chrome except Framework and Resources
 	# (note that hard linking executblle causes confusion between apps & real Chrome)
-	try /bin/cp -a "$SSBGoogleChromePath/Contents/"!(Frameworks|Resources) "$myEnginePayloadPath" \
+	local allExcept='!(Frameworks|Resources)'
+	try /bin/cp -a "$SSBGoogleChromePath/Contents/"$allExcept "$myEnginePayloadPath" \
 	    'Unable to copy Google Chrome app engine payload.'
 	
 	# copy Resources, except icons
-	try /bin/cp -a "$SSBGoogleChromePath/Contents/Resources/"!(*.icns) "$myEnginePayloadPath/Resources" \
+	allExcept='!(*.icns)'
+	try /bin/cp -a "$SSBGoogleChromePath/Contents/Resources/"$allExcept "$myEnginePayloadPath/Resources" \
 	    'Unable to copy Google Chrome app engine resources to payload.'
 	
 	# restore extended glob
@@ -955,7 +987,7 @@ function createengine {
 		 'Google Chrome app engine' 'payload' 'Frameworks'
 	
 	# filter localization files
-	filterlproj "$curPayloadContentsPath/Resources" 'Google Chrome app engine'
+	filterlproj "$myEnginePayloadPath/Resources" 'Google Chrome app engine'
 	
 	# link to this app's icons
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
@@ -967,9 +999,6 @@ function createengine {
 
 
 	# GOOGLE CHROME PLACEHOLDER
-	
-	# path to active engine app
-	local myEngineApp="$myEnginePath/$SSBEngineAppName"
 	
 	# clear out any old active app
 	if [[ -d "$myEngineApp" ]] ; then
@@ -1017,7 +1046,7 @@ function createengine {
 	fi
 	
 	# make sure Epichrome is on the same volume as the engine
-	if ! checksamedevice "$epiCurrentPath" "$myEnginePayloadPath" ; then
+	if ! checksamedevice "$epiCurrentPath" "$myEnginePath" ; then
 	    ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
@@ -1028,8 +1057,26 @@ function createengine {
 	    'Unable to copy app engine payload.'
 	
 	# hard link large payload items from Epichrome
-	linktree "$epiCurrentPath/Contents/$appEnginePayloadPath/Link" \
+	linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
 		 "$myEnginePayloadPath" 'app engine' 'payload'
+
+
+	# CHROMIUM PLACEHOLDER
+	
+	# clear out any old active app
+	if [[ -d "$myEngineApp" ]] ; then
+	    try /bin/rm -rf "$myEngineApp" \
+		'Unable to clear old app engine placeholder.'
+	    [[ "$ok" ]] || return 1
+	fi
+	
+	# create active placeholder app bundle
+	try /bin/mkdir -p "$myEngineApp" \
+	    'Unable to create app engine placeholder.'
+	
+	# copy in placeholder
+	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePlaceholderPath" "$myEngineApp/Contents" \
+	    'Unable to populate app engine placeholder.'
     fi
     
     # return code
@@ -1085,78 +1132,6 @@ function getenginepid { # path
 	return 1
     fi
 }
-
-
-# WRITEVARS: write out a set of arbitrary bash variables to a file
-function writevars {  # $1 = destination file
-    #                   $@ = list of vars
-    
-    if [[ "$ok" ]] ; then
-
-	# destination file
-	local dest="$1"
-	shift
-
-	# local variables
-	local var=
-	local value=
-	local arr=()
-	local i
-	
-	# temporary file
-	local tmpDest="$(tempname "$dest")"
-
-	# basename
-	local destBase="${dest##*/}"
-	# start temp vars file
-	local myDate=
-	try 'myDate=' /bin/date ''
-	if [[ ! "$ok" ]] ; then ok=1 ; myDate= ; fi
-	try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
-	    "Unable to create ${destBase}."
-	try "${tmpDest}<<" echo '' "Unable to write to ${destBase}."
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # go through each variable
-	    for var in "$@" ; do
-
-		if isarray "$var" ; then
-		    
-		    # pull out the array value
-		    eval "arr=(\"\${$var[@]}\")"
-
-		    # format for printing
-		    value="$(formatarray "${arr[@]}")"
-		    
-		else
-		    
-		    # scalar value, so pull out the value
-		    eval "value=\"\${$var}\""
-		    
-		    # escape \ to \\
-		    #value="${value//\\/\\\\}"
-		    
-		    # escape spaces and quotes
-		    value=$(printf '%q' "$value")
-
-		fi
-		
-		try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
-		[[ "$ok" ]] || break
-	    done
-	fi
-	
-	# move the temp file to its permanent place
-	permanent "$tmpDest" "$dest" "${destBase}"
-	
-	# on error, remove temp vars file
-	[[ "$ok" ]] || rmtemp "$tmpDest" "${destBase}"
-    fi
-    
-    [[ "$ok" ]] && return 0
-    return 1
-} ; export -f writevars
 
 
 # WRITECONFIG: write out config.sh file
@@ -1253,11 +1228,11 @@ function launchhelper { # ( mode )
     local mode="$1" ; shift
     
     # set state for helper
-    epiHelperMode="Launch$mode"
+    epiHelperMode="Start$mode"
     epiHelperParentPID="$$"
     
     # launch helper (args are just for identification in jobs listings)
-    try /usr/bin/open "$SSBAppPath/$appHelperPath" --args "$SSBIdentifier" "$mode" \
+    try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
 	'Unable to launch Epichrome helper app.'
 
     # return code

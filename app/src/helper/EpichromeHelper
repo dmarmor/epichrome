@@ -25,12 +25,10 @@
 
 # IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
 
-if [[ "${epiHelperMode::6}" =~ ^Launch(.+)$ ]] ; then
+if [[ "$epiHelperMode" =~ ^Start(.+)$ ]] ; then
     epiHelperMode="${BASH_REMATCH[1]}"
     "$0" "$@" &
     exit 0
-else
-    shift
 fi
 
 
@@ -43,9 +41,9 @@ function cleanup { # [code]
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
 
     # check engine state
-    checkengine ON ; local result="$?"
+    checkengine ON ; local engineState="$?"
 
-    if [[ "$result" = 0 ]] ; then
+    if [[ "$engineState" = 0 ]] ; then
 	
 	# deactivate engine
 	setenginestate OFF
@@ -57,9 +55,9 @@ function cleanup { # [code]
 	    errlog "$errmsg"
 	    [[ "$myCode" = 0 ]] && myCode=1
 	fi
-    elif [[ "$result" = 2 ]] ; then
+    elif [[ "$engineState" = 2 ]] ; then
 
-	errlog "Engine is in an unknown state. Unable to deactivate."
+	errlog "Engine is not in an unknown state or damaged. Unable to deactivate."
 	[[ "$myCode" = 0 ]] && myCode=1
 	
     elif [[ "$epiHelperMode" = Launch ]] ; then
@@ -130,7 +128,7 @@ function lockreplace { # ( replacePID )
 	    
 	    # if this is the right lock, replace it
 	    if [[ "$replacePID" = "$lockPID" ]] ; then
-		lockPID="$$"
+		lockPID="$$" lockEnginePID="$myEnginePID"
 		writevars "$myLockFile" lockPID lockEnginePID
 		[[ "$ok" ]] || return 1
 		lockOn=1
@@ -164,7 +162,7 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     # RELAUNCH MODE
     
     # wait for parent to quit
-    debuglog "Waiting for parent app (PID $epiHelperParentPID) to quit."
+    debuglog "Waiting for parent app (PID $epiHelperParentPID) to quit..."
     while kill -0 "$epiHelperParentPID" 2> /dev/null ; do
 	sleep .66
     done
@@ -187,7 +185,7 @@ else
 	abort "Unable to acquire lock. ($errmsg) The app engine will not be deactivated upon quitting."
     
     # wait for app to exit
-    debuglog "Waiting for engine to quit."
+    debuglog "Waiting for engine to quit..."
     while kill -0 "$myEnginePID" 2> /dev/null ; do
 	sleep .66
     done

@@ -42,10 +42,15 @@ function myabort { # [myErrMsg code]
 }
 
 
+# LOGGING INFO
+
+myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
+
+
 # BOOTSTRAP RUNTIME SCRIPT
 
 source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo 'Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
 [[ "$ok" ]] || myabort
 
 

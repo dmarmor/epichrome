@@ -31,7 +31,7 @@ CFBundleIdentifier='APPBUNDLEID'      # filled in by updateapp
 
 # CORE APP VARIABLES
 
-SSBAppPath="{BASH_SOURCE[0]%/Contents/MacOS/*}"
+myAppPath="{BASH_SOURCE[0]%/Contents/MacOS/*}"
 
 # create data directory
 myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
@@ -39,23 +39,28 @@ myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
 [[ "$?" = 0 ]] || exit 1
 
 # logging
-myLogApp="$SSBIdentifier[$$]"
+myLogApp="$SSBIdentifier|Placeholder"
 myLogFile="$myDataPath/epichrome_app_log.txt"
 
 
 # ATTEMPT TO LAUNCH PARENT APP
 
-/bin/open -b "$CFBundleIdentifier" --args "$@"
-[[ "$?" = 0 ]] && exit 0
+output="$(/usr/bin/open -b "$CFBundleIdentifier" --args "$@")"
+result="$?"
+[[ "$output" ]] && echo "[$$]$myLogApp: $output" >> "$myLogFile"
+if [[ "$result" = 0 ]] ; then
+    echo "[$$]$myLogApp: Launched parent app $CFBundleIdentifier." >> "$myLogFile"
+    exit 0
+fi
 
 
 # LAUNCH FAILED, SO DISPLAY A WARNING ALERT
 
-echo "$myLogApp: Unable to launch app ID $SSBIdentifier." >> "$myLogFile"
+echo "[$$]$myLogApp: Unable to launch app ID $CFBundleIdentifier." >> "$myLogFile"
 
 # load core
-source "$SSBAppPath/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
+source "$myAppPath/Contents/Resources/Scripts/core.sh"
+[[ "$?" = 0 ]] || ( echo "[$$]$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
 
 # display error alert
 [[ "$errmsg" ]] && errmsg=" Also: $errmsg"

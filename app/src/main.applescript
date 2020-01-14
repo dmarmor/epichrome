@@ -49,6 +49,13 @@ local iconTypes
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
 
+-- USEFUL UTILITY VARIABLES
+
+local errStr
+local errNum
+local dlgResult
+
+
 -- SET UP KEY VARIABLES
 
 -- set up needed variables
@@ -123,6 +130,9 @@ local updateCheckVersion
 
 -- WRITEPROPERTIES: write properties back to plist file
 on writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+	
+	local myProperties
+	
 	tell application "System Events"
 		
 		try
@@ -136,7 +146,7 @@ on writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doC
 			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doCustomIcon", value:doCustomIcon}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:date, name:"updateCheckDate", value:updateCheckDate}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"updateCheckVersion", value:updateCheckVersion}
-		on error errmsg number errno
+		on error errStr number errNum
 			-- ignore errors, we just won't have persistent properties
 		end try
 	end tell
@@ -146,6 +156,8 @@ end writeProperties
 -- READ PROPERTIES FROM USER DATA OR INITIALIZE THEM IF NONE FOUND
 
 tell application "System Events"
+	
+	local myProperties
 	
 	-- read in the file
 	try
@@ -212,12 +224,14 @@ end step
 -- BUILD REPRESENTATION OF BROWSER TABS
 on tablist(tabs, tabnum)
 	local ttext
+	local t
+	local ti
+	
 	if (count of tabs) is 0 then
 		return "No tabs specified.
 
 Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will determine which tabs to open on startup using its preferences, just as Chrome would."
 	else
-		local t
 		set ttext to (count of tabs) as text
 		if ttext is "1" then
 			set ttext to ttext & " tab"
@@ -228,7 +242,6 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will 
 "
 		
 		-- add tabs themselves to the text
-		local ti
 		set ti to 1
 		repeat with t in tabs
 			if ti is tabnum then
@@ -250,7 +263,9 @@ end tablist
 
 
 -- INITIALIZE IMPORTANT VARIABLES
+local appNameBase
 set appNameBase to "My Epichrome App"
+local appURLs
 set appURLs to {}
 
 
@@ -264,7 +279,9 @@ end try
 
 -- CHECK FOR UPDATES TO EPICHROME
 
+local curDate
 set curDate to current date
+
 if updateCheckDate < curDate then
 	-- set next update for 1 week from now
 	set updateCheckDate to (curDate + (7 * days))
@@ -283,6 +300,7 @@ if updateCheckDate < curDate then
 	end if
 	
 	-- run the actual update check script
+	local updateCheckResult
 	try
 		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 		--set updateCheckResult to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion)  $$$$DELETE
@@ -294,6 +312,8 @@ if updateCheckDate < curDate then
 	-- parse update check results
 	if updateCheckResult is not false then
 		if updateCheckResult is not "" then
+			local newVersion
+			local updateURL
 			set newVersion to paragraph 1 of updateCheckResult
 			set updateURL to paragraph 2 of updateCheckResult
 			try
@@ -337,13 +357,16 @@ repeat
 	repeat
 		-- CHOOSE WHERE TO SAVE THE APP
 		
+		local appPath
 		set appPath to false
+		local tryAgain
 		set tryAgain to true
 		
 		repeat while tryAgain
 			set tryAgain to false -- assume we'll succeed
 			
 			-- show file selection dialog
+			local lastAppPathAlias
 			try
 				set lastAppPathAlias to (lastAppPath as alias)
 			on error
@@ -360,6 +383,7 @@ repeat
 			end try
 			
 			-- break down the path & canonicalize app name
+			local appInfo
 			try
 				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
@@ -368,11 +392,15 @@ repeat
 				return -- QUIT
 			end try
 			
+			local appDir
 			set appDir to (paragraph 1 of appInfo)
 			set appNameBase to (paragraph 2 of appInfo)
+			local appShortName
 			set appShortName to (paragraph 3 of appInfo)
+			local appName
 			set appName to (paragraph 4 of appInfo)
 			set appPath to (paragraph 5 of appInfo)
+			local appExtAdded
 			set appExtAdded to (paragraph 6 of appInfo)
 			
 			-- update the last path info
@@ -388,8 +416,9 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 				-- if no ".app" extension was given, check if they accidentally chose an existing app without confirming
 				if appExtAdded is "TRUE" then
 					-- see if an app with the given base name exists
+					local appExists
+					set appExists to false
 					tell application "Finder"
-						set appExists to false
 						try
 							if exists ((POSIX file appPath) as alias) then set appExists to true
 						end try
@@ -415,10 +444,13 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 			
 			-- STEP 2: SHORT APP NAME
 			
+			local appShortNamePrompt
 			set appShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
 			
 			set tryAgain to true
 			
+			local appShortNameCanceled
+			local appShortNamePrev
 			repeat while tryAgain
 				set tryAgain to false
 				set appShortNameCanceled to false
@@ -450,6 +482,7 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 			set curStep to curStep + 1
 			
 			repeat
+				local appStyle
 				try
 					set appStyle to button returned of (display dialog "Choose App Style:
 
@@ -481,6 +514,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						end try
 					else
 						-- BROWSER TABS
+						local curTab
 						set curTab to 1
 						repeat
 							if curTab > (count of appURLs) then
@@ -506,6 +540,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									exit repeat
 								end if
 							else
+								local backButton
 								set backButton to 0
 								if curTab is 1 then
 									try
@@ -576,11 +611,14 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									-- CHOOSE AN APP ICON
 									
 									-- show file selection dialog
+									local lastIconPathAlias
 									try
 										set lastIconPathAlias to (lastIconPath as alias)
 									on error
 										set lastIconPathAlias to ""
 									end try
+									
+									local appIconSrc
 									try
 										if lastIconPathAlias is not "" then
 											
@@ -605,6 +643,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									end try
 									
 									set lastIconPath to (((POSIX file (paragraph 1 of appInfo)) as alias) as text)
+									local appIconName
 									set appIconName to (paragraph 2 of appInfo)
 									
 								else
@@ -615,6 +654,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								set curStep to curStep + 1
 								
 								repeat
+									local appEngineType
 									try
 										set appEngineType to button returned of (display dialog "Use Chromium app engine?
 
@@ -632,6 +672,7 @@ The only reason to choose Google Chrome is if your app must run on a signed brow
 									set curStep to curStep + 1
 									
 									-- create summary of the app
+									local appSummary
 									set appSummary to "Ready to create!
 
 App: " & appName & "
@@ -675,6 +716,7 @@ App Engine: "
 									set appSummary to appSummary & appEngineType
 									
 									-- set up Chrome command line
+									local appCmdLine
 									set appCmdLine to ""
 									if appStyle is "App Window" then
 										set appCmdLine to quoted form of ("--app=" & (item 1 of appURLs))
@@ -696,6 +738,7 @@ App Engine: "
 										-- CREATE THE APP
 										
 										repeat
+											local creationSuccess
 											set creationSuccess to false
 											try
 												do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
@@ -709,6 +752,7 @@ App Engine: "
 												end if
 												
 												if not creationSuccess then
+												local dlgButtons
 													try
 														set dlgButtons to {"Quit", "Back"}
 														try

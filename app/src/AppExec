@@ -30,13 +30,14 @@ SSBIdentifier='APPID'                 # filled in by updateapp
 SSBEngineType='APPENGINETYPE'         # filled in by updateapp
 CFBundleDisplayName='APPDISPLAYNAME'  # filled in by updateapp
 CFBundleName='APPBUNDLENAME'          # filled in by updateapp
-SSBCommandLine=APPCOMMANDLINE       # filled in by updateapp
+SSBCustomIcon='APPCUSTOMICON'         # filled in by updateapp
+SSBCommandLine=APPCOMMANDLINE         # filled in by updateapp
 export SSBIdentifier SSBVersion SSBEngineType CFBundleDisplayName CFBundleName SSBCommandLine
 
 
 # CORE APP VARIABLES
 
-myAppPath="{BASH_SOURCE[0]%/Contents/Resources/Scripts/core.sh}"
+myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
 # create data directory
 myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
@@ -44,7 +45,7 @@ myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
 [[ "$?" = 0 ]] || exit 1
 
 # logging
-myLogApp="$SSBIdentifier[$$]"
+myLogApp="$SSBIdentifier"
 myLogFile="$myDataPath/epichrome_app_log.txt"
 
 # path to important data directories and paths
@@ -64,18 +65,8 @@ export myDataPath myLogApp myLogFile myConfigFile \
 
 # CLEANUP -- release any lock we've set
 function cleanup {
-    lockrelease
+    [[ "$lockOn" ]] && lockrelease
 }
-
-
-# ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
-function isarray {
-    if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
-	return 0
-    else
-	return 1
-    fi
-} ; export -f isarray
 
 
 # READCONFIG: read in config.sh file & save config versions to track changes
@@ -105,7 +96,7 @@ function readconfig { # ( myConfigFile )
 	    # scalar value
 	    
 	    eval "config$varname=\"\${$varname}\" ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog \"$varname=\$config$varname\""
+	    [[ "$debug" ]] && eval "errlog \"$varname='\$config$varname'\""
 	fi	    
     done
     
@@ -125,55 +116,53 @@ lockEnginePID=
 # LOCKSET -- set a lock file, or fail if it's already set
 function lockset {
 
-    if [[ "$ok" ]] ; then
-	
-	# error: lock variable is already set
-	if [[ "$lockOn" ]] ; then
-	    errmsg='Lock variable is already set.'
-	    ok=
-	    return 1
-	fi
-	
-	# check if there's already a lock file in place    
-	if [[ -f "$myLockFile" ]] ; then
-	    
-	    # read the existing lock file
-	    safesource "$myLockFile" 'lock'
-	    [[ "$ok" ]] || return 1
-	    
-	    if [[ "$lockPID" = "$$" ]] ; then
-		
-		# error: this is already our lock
-		errmsg='Lock is already set.'
-		ok=
-		return 1
-		
-	    else
-		
-		# if either of lock's PIDs is still alive, we fail
-		if kill -0 "$lockPID" 2> /dev/null ; then
-		    debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
-		    return 1
-		fi
-		if kill -0 "$lockEnginePID" 2> /dev/null ; then
-		    debuglog "Can't set lock: This app's engine is alive at $lockPID."
-		    return 1
-		fi
-	    fi
-	fi
-	
-	# if we got here, there's either no lock, or we can stomp on an old one
-	lockPID="$$" ; lockEnginePID=
-	writevars "$myLockFile" lockPID lockEnginePID
-	[[ "$ok" ]] || return 1
-	
-	# return success
-	debuglog "Lock set."
-	lockOn=1
-	return 0
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # error: lock variable is already set
+    if [[ "$lockOn" ]] ; then
+	errmsg='Lock variable is already set.'
+	ok=
+	return 1
     fi
     
-    return 1
+    # check if there's already a lock file in place    
+    if [[ -f "$myLockFile" ]] ; then
+	
+	# read the existing lock file
+	safesource "$myLockFile" 'lock'
+	[[ "$ok" ]] || return 1
+	
+	if [[ "$lockPID" = "$$" ]] ; then
+	    
+	    # error: this is already our lock
+	    errmsg='Lock is already set.'
+	    ok=
+	    return 1
+	    
+	else
+	    
+	    # if either of lock's PIDs is still alive, we fail
+	    if kill -0 "$lockPID" 2> /dev/null ; then
+		debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
+		return 1
+	    fi
+	    if kill -0 "$lockEnginePID" 2> /dev/null ; then
+		debuglog "Can't set lock: This app's engine is alive at $lockPID."
+		return 1
+	    fi
+	fi
+    fi
+    
+    # if we got here, there's either no lock, or we can stomp on an old one
+    lockPID="$$" ; lockEnginePID=
+    writevars "$myLockFile" lockPID lockEnginePID
+    [[ "$ok" ]] || return 1
+    
+    # return success
+    debuglog "Lock set."
+    lockOn=1
+    return 0
 }
 
 
@@ -189,6 +178,8 @@ function lockrelease {
 	    
 	    # command to delete lock file
 	    local myCommand=( /bin/rm -f "$myLockFile" )
+
+	    debuglog "Deleting lock."
 	    
 	    if [[ "$ok" ]] ; then
 		
@@ -206,13 +197,16 @@ function lockrelease {
 	    
 	    return 0
 	else
+	    
 	    # no lock file found
+	    debuglog "Lock file not found."
 	    return 1
 	fi
 	
     else
 	
 	# no lock set
+	debuglog "No lock set."
 	return 1
     fi
 }
@@ -228,7 +222,7 @@ export -f lockset lockrelease
 
 # load core
 source "$myAppPath/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
+[[ "$?" = 0 ]] || ( echo "[$$]$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
 [[ "$ok" ]] || abort
 
 
@@ -320,19 +314,7 @@ if ! lockset ; then
 fi
 
 
-# ENGINE IS NOT RUNNING, SO LOAD LAUNCH SCRIPT
-
-safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
-[[ "$ok" ]] || abort
-
-
-# # get the ID of the engine app   $$$ NOT NEEDED IF REWRITE GETENGINEPID
-# if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-#     myEngineID="$googleChromeID"
-# else
-#     myEngineID="${appEngineIDBase}.${SSBIdentifier}"
-# fi
-
+# ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
 
 # UPDATE APP PATH
     
@@ -354,22 +336,32 @@ fi
 
 # rename engine app bundle
 if [[ "$SSBEngineAppName" != "$configSSBEngineAppName" ]] ; then
-    try mv "$myEnginePath/$configSSBEngineAppName" "$myEnginePath/$SSBEngineAppName" \
-	'Unable to rename engine to match app name.'
-
-    # an error here is non-fatal
-    if [[ "$ok" ]] ; then
-	errlog "$errmsg"
-	ok=1 ; errmsg=
-
-	# set engine app name back to original
-	SSBEngineAppName="$configSSBEngineAppName"
+    if [[ -d "$myEnginePath/$configSSBEngineAppName" ]] ; then
+	try /bin/rm -rf "$myEnginePath/$SSBEngineAppName" \
+	    'Unable to clear old engine app name.'
+	try /bin/mv "$myEnginePath/$configSSBEngineAppName" "$myEnginePath/$SSBEngineAppName" \
+	    'Unable to rename engine to match app name.'
+	
+	# an error here is non-fatal
+	if [[ ! "$ok" ]] ; then
+	    errlog "$errmsg"
+	    ok=1 ; errmsg=
+	    
+	    # set engine app name back to original
+	    SSBEngineAppName="$configSSBEngineAppName"
+	fi
     fi
 fi
 
 # get path to engine app bundle
 myEngineAppPath="$myEnginePath/$SSBEngineAppName"
 export myEngineAppPath
+
+
+# LOAD LAUNCH FUNCTIONS
+
+safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
+[[ "$ok" ]] || abort
 
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
@@ -458,37 +450,40 @@ fi
 doCreateEngine=
 doNotActivateEngine=
 
+# if we're using a Google Chrome engine, get info on Chrome
+if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    getgooglechromeinfo
+fi
+
 if [[ "$isFirstRun" ]] ; then
     
     # this app was just updated or created, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
-    createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion."
+    createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
 else
     
     # check the state of the engine
     if ! checkengine OFF ; then
 
 	# get engine state
-	local engineState="$?"
+	engineState="$?"
 
 	# flag if engine is good but was left active
-	if [[ "$engineState" = 2 ]] ; then
+	if [[ "$engineState" = 1 ]] ; then
 	    doNotActivateEngine=1
 	else
 	    doCreateEngine=1
 	    debuglog "Replacing corrupt engine."
-	    createEngineErrMsg='Unable to replace corrupt engine.'
+	    createEngineErrMsg='Unable to replace corrupt engine'
 	fi
     fi
     
     if [[ ! "$doCreateEngine" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
-	
-	# get info on the installed Google Chrome
-	getgooglechromeinfo
-	
+
 	# new version of Google Chrome
-	if [[ "$SSBEngineVersion" != "$configSSBEngineVersion" ]] ; then
+	if [[ "$SSBGoogleChromeVersion" && \
+		  ( "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ) ]] ; then
 	    
 	    doCreateEngine=1
 	    debuglog "Updating engine to Google Chrome version $SSBGoogleChromeVersion."
@@ -562,8 +557,9 @@ if [[ "$myEnginePID" ]] ; then
 			 'Warning' '|caution'
     
     # disown our lock
+    debuglog 'Leaving lock in place for Epichrome Helper.'
     lockOn=
-
+    
 else
     
     # PID not found, display error message and quit

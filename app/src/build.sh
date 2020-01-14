@@ -119,10 +119,15 @@ SSBCommandLine=("${@}")
 myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
 
 
+# LOGGING INFO
+
+myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
+
+
 # BOOTSTRAP UPDATE SCRIPT
 
 source "$myResourcesPath/Scripts/update.sh"
-[[ "$?" = 0 ]] || ( echo 'Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
 [[ "$ok" ]] || myabort
 
 
