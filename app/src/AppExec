@@ -452,7 +452,12 @@ doNotActivateEngine=
 
 # if we're using a Google Chrome engine, get info on Chrome
 if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-    getgooglechromeinfo
+
+    # try the path we've been using first
+    [[ "$SSBGoogleChromePath" ]] && getgooglechromeinfo "$SSBGoogleChromePath"
+    
+    # if that fails, search the system for Chrome
+    [[ "$SSBGoogleChromePath" ]] || getgooglechromeinfo
 fi
 
 if [[ "$isFirstRun" ]] ; then
@@ -464,20 +469,17 @@ if [[ "$isFirstRun" ]] ; then
 else
     
     # check the state of the engine
-    if ! checkengine OFF ; then
-
-	# get engine state
-	engineState="$?"
-
-	# flag if engine is good but was left active
-	if [[ "$engineState" = 1 ]] ; then
-	    doNotActivateEngine=1
-	else
-	    doCreateEngine=1
-	    debuglog "Replacing corrupt engine."
-	    createEngineErrMsg='Unable to replace corrupt engine'
-	fi
+    checkengine OFF ; engineState="$?"
+    
+    # flag if engine is good but was left active
+    if [[ "$engineState" = 1 ]] ; then
+	doNotActivateEngine=1
+    elif [[ "$engineState" = 2 ]] ; then
+	doCreateEngine=1
+	debuglog "Replacing damaged engine."
+	createEngineErrMsg='Unable to replace damaged engine'
     fi
+    # else engine is in the expected off state
     
     if [[ ! "$doCreateEngine" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
 

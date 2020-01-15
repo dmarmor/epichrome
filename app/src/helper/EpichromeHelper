@@ -103,8 +103,13 @@ function cleanup { # [code]
 #     lockrelease
     
 # }
+function handleexitsignal {
+    if kill -0 "$myEnginePID" 2> /dev/null ; then
+	errlog 'Terminated prematurely. Engine will not be deactivated.'
+    fi
+}
 #trap '' INT
-# trap handleexitsignal EXIT
+trap handleexitsignal EXIT
 
 
 # LOCKREPLACE -- replace a lock set by the parent app

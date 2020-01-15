@@ -25,7 +25,7 @@
 
 # REQUIRES FILTER.SH
 
-safesource "$SSBAppPath/Contents/Resources/Scripts/filter.sh"
+safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
@@ -573,7 +573,7 @@ function getgooglechromeinfo { # ( [myGoogleChromePath] )
 	googleChromeAppIconPath="${infoPlist[3]}"
 	googleChromeDocIconPath="${infoPlist[4]}"
 
-	debuglog "Google Chrome $SSBGoogleChromeVersion found at '$SSBGoogleChromePath'..."
+	debuglog "Google Chrome $SSBGoogleChromeVersion found at '$SSBGoogleChromePath'."
 
 	break	
     done
@@ -892,6 +892,8 @@ function setenginestate {  # ( ON|OFF )
     fi
     try /bin/mv "$oldInactivePath" "$myEngineAppContents" \
 	"Unable to activate $oldInactiveError."
+
+    [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
     
 } ; export -f setenginestate
 
@@ -1015,7 +1017,10 @@ function createengine {
 	filterplist "$myEnginePayloadPath/Info.plist" \
 		    "$myEngineApp/Contents/Info.plist" \
 		    "Google Chrome app engine placeholder Info.plist" \
-		    'Add :LSUIElement bool true'
+		    'Add :LSUIElement bool true' \
+		    "Set :CFBundleShortVersionString $SSBVersion" \
+		    'Delete :CFBundleDocumentTypes' \
+		    'Delete :CFBundleURLTypes'
 
 	# path to placeholder resources in the app
 	local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"

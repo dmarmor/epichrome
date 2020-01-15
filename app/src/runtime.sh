@@ -37,29 +37,16 @@ function updatessb { # ( SSBAppPath )
     SSBAppPath="$1" ; shift
     
     # try to pull out identifier
-    SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
+    SSBIdentifier="${CFBundleIdentifier#org.epichrome.app.}"
     if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
 	ok= ; errmsg="Unable to determine app ID. This app may be too old to update."
-    else
-	
-	# try to find the old-style profile directory
-	myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
-
-	if [[ "$myDataPath" != "$myProfilePath" ]] ; then
-	    ok= ; errmsg="Unable to find profile folder. This app may be too old to update."
-	elif [[ -d "$myDataPath/UserData" ]] ; then
-	    ok= ; errmsg="Data folder appears to have already been updated. Please restore old-style profile folder and try again."
-	fi
+	return 1
     fi
-    [[ "$ok" ]] || return 1
-    
-    # make sure data path exists
-    try /bin/mkdir -p "$myDataPath" 'Unable to create data folder.'
-    [[ "$ok" ]] || return 1
     
     # set up new-style logging, but for now log to main Epichrome log
-    myLogApp="$CFBundleName[$$]"
-    myLogFile="$HOME/Library/Application Support/Epichrome/epichrome_log.txt"
+    myDataPath="$HOME/Library/Application Support/Epichrome"
+    myLogApp="$CFBundleName|Update"
+    myLogFile="$myDataPath/epichrome_log.txt"
     logPreserve=1
     
     # load update.sh & launch.sh (for launchhelper and writeconfig)
@@ -160,35 +147,45 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
 	
 	
-	# UPDATE OLD PROFILE DIRECTORY TO NEW DATA DIRECTORY
+	# UPDATE DATA DIRECTORY
 	
-	# give profile directory temporary name
-	local oldProfilePath="$(tempname "$myProfilePath")"
-	try /bin/mv "$myProfilePath" "$oldProfilePath" \
-	    'Error renaming old profile folder.'
+	# path to data directory
+	myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
 	
-	# make empty directory where old profile was
-	try /bin/mkdir -p "$myDataPath" \
-	    'Error creating new data folder.'
-	
-	# move profile directory into new data directory
-	try /bin/mv "$oldProfilePath" "$myDataPath/UserData" \
-	    'Error moving old profile into new data directory.'
-
-	# remove External Extensions and NativeMessagingHosts directories from profile
-	try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
-	    'Unable to remove old external extensions folder.'
-
-	local nmhDir="$myDataPath/UserData/NativeMessagingHosts"
-	try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/epichromeruntimehost.py" \
-	    'Unable to remove old native messaging host.'
+	if [[ "$myDataPath" != "$myProfilePath" ]] ; then
+	    ok= ; errmsg='Unable to find old profile folder.'
+	elif [[ -d "$myDataPath" && ! -d "$myDataPath/UserData" ]] ; then
+	    
+	    # UPDATE OLD-STYLE PROFILE DIRECTORY
+	    
+	    # give profile directory temporary name
+	    local oldProfilePath="$(tempname "$myProfilePath")"
+	    try /bin/mv "$myProfilePath" "$oldProfilePath" \
+		'Error renaming old profile folder.'
+	    
+	    # make empty directory where old profile was
+	    try /bin/mkdir -p "$myDataPath" \
+		'Error creating new data folder.'
+	    
+	    # move profile directory into new data directory
+	    try /bin/mv "$oldProfilePath" "$myDataPath/UserData" \
+		'Error moving old profile into new data directory.'
+	    
+	    # remove External Extensions and NativeMessagingHosts directories from profile
+	    try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
+		'Unable to remove old external extensions folder.'
+	    
+	    local nmhDir="$myDataPath/UserData/NativeMessagingHosts"
+	    try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/epichromeruntimehost.py" \
+		'Unable to remove old native messaging host.'
+	fi
 	
 	if [[ ! "$ok" ]] ; then
 	    alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
 		  'Warning' 'caution'
 	    ok=1 ; errmsg=
 	fi
-
+	
 	
 	# UPDATE CONFIG & RELAUNCH
 	
@@ -197,11 +194,13 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	    appConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
 	
 	# write out config
+	[[ -d "$myDataPath" ]] || try /bin/mkdir -p "$myDataPath" 'Unable to create data directory.'
 	writeconfig "$myDataPath/config.sh"
 	[[ "$ok" ]] || \
 	    abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
 	
 	# launch helper
+	export SSBAppPath
 	launchhelper Relaunch
 	
 	# if relaunch failed, report it
