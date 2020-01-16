@@ -140,15 +140,22 @@ function getepichromeinfo {
 		
 		debuglog "Found Epichrome $curVersion at '$curInstance'."
 		
-		# see if this is newer than the current latest Epichrome
+		# see if this is newer than the current latest Epichrome, or
+		# the same version but only this one is on the same device as our data directory
 		if ( [[ ! "$epiLatestPath" ]] || \
-			 vcmp "$epiLatestVersion" '<' "$curVersion" ) ; then
+			 vcmp "$epiLatestVersion" '<' "$curVersion" || \
+			 ( issamedevice "$curInstance" "$myDataPath" && \
+			       ! issamedevice "$epiLatestPath" "$myDataPath" ) ) ; then
 		    epiLatestPath="$curInstance"
 		    epiLatestVersion="$curVersion"
 		fi
 		
-		# if we haven't already found an instance of the current version, check that
-		if [[ ! "$epiCurrentPath" ]] && vcmp "$curVersion" '==' "$SSBVersion" ; then
+		# see if we haven't already found an instance of the current version, or if
+		# only this one is on the same device as our data directory
+		if vcmp "$curVersion" '==' "$SSBVersion" && \
+			( [[ ! "$epiCurrentPath" ]] || \
+			      ( issamedevice "$curInstance" "$myDataPath" && \
+				    ! issamedevice "$epiCurrentPath" "$myDataPath" ) ) ; then
 		    epiCurrentPath="$curInstance"
 		fi
 		
@@ -421,8 +428,8 @@ function checkgithubupdate {
 }
 
 
-# CHECKSAMEDEVICE -- check that two paths are on the same device
-function checksamedevice { # ( path1 path2 )
+# ISSAMEDEVICE -- check that two paths are on the same device
+function issamedevice { # ( path1 path2 )
     
     # arguments
     local path1="$1" ; shift
@@ -978,7 +985,7 @@ function createengine {
 	fi
 	
 	# make sure Google Chrome is on the same volume as the engine
-	if ! checksamedevice "$SSBGoogleChromePath" "$myEnginePath" ; then
+	if ! issamedevice "$SSBGoogleChromePath" "$myEnginePath" ; then
 	    ok= ; errmsg="Google Chrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
@@ -1072,7 +1079,7 @@ function createengine {
 	fi
 	
 	# make sure Epichrome is on the same volume as the engine
-	if ! checksamedevice "$epiCurrentPath" "$myEnginePath" ; then
+	if ! issamedevice "$epiCurrentPath" "$myEnginePath" ; then
 	    ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
