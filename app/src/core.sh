@@ -514,7 +514,7 @@ function cleanexit { # [code]
 
 
 # ABORT -- display an error alert and abort
-function abort { # ( [myErrMsg myCode] )
+function abort { # ( [myErrMsg [myCode]] )
 
     # arguments
     local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"

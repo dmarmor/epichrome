@@ -286,36 +286,40 @@ if updateCheckDate < curDate then
 	-- set next update for 1 week from now
 	set updateCheckDate to (curDate + (7 * days))
 	
-	-- if updateCheckVersion isn't set, or is earlier than the current version, set it to the current version
-	if updateCheckVersion is "" then
-		set updateCheckVersion to myVersion
-	else
-		try
-			set updateCheckVersion to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
-			--set updateCheckVersion to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion) & " " & (quoted form of myVersion)  $$$$DELETE
-		on error errStr number errNum
-			display dialog "Non-fatal error getting Epichrome version info: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
-			set updateCheckVersion to myVersion
-		end try
-	end if
-	
-	-- run the actual update check script
+	-- run the update check script
 	local updateCheckResult
 	try
-		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
-		--set updateCheckResult to do shell script scriptEnv & " " & updateCheckScript & " " & (quoted form of updateCheckVersion)  $$$$DELETE
+		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+		--set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 	on error errStr number errNum
-		set updateCheckResult to false
-		display dialog "Non-fatal error checking for new version of Epichrome on GitHub: " & errStr with title "Warning" with icon caution buttons {"OK"} default button "OK"
+		set updateCheckResult to "ERROR
+" & errStr
 	end try
 	
 	-- parse update check results
-	if updateCheckResult is not false then
-		if updateCheckResult is not "" then
+	if updateCheckResult is not "" then
+		-- break up result into items
+		set updateCheckResult to paragraphs of updateCheckResult
+		
+		-- updateCheckVersion is older than the current version, so update it
+		if item 1 of updateCheckResult is "MYVERSION" then
+			set updateCheckVersion to myVersion
+			set updateCheckResult to rest of updateCheckResult
+		end if
+		
+		-- update check error
+		if item 1 of updateCheckResult is "ERROR" then
+		
+			-- fail silently, but check again in 3 days instead of 7
+			set updateCheckDate to (curDate + (3 * days))
+			
+		else if (count of updateCheckResult) is 2 then
+			
+			-- update check found a newer version on GitHub
 			local newVersion
 			local updateURL
-			set newVersion to paragraph 1 of updateCheckResult
-			set updateURL to paragraph 2 of updateCheckResult
+			set newVersion to item 1 of updateCheckResult
+			set updateURL to item 2 of updateCheckResult
 			try
 				set dlgResult to button returned of (display dialog "A new version of Epichrome (" & newVersion & ") is available on GitHub." with title "Update Available" buttons {"Download", "Later", "Ignore This Version"} default button "Download" cancel button "Later" with icon myIcon)
 			on error number -128
@@ -752,7 +756,7 @@ App Engine: "
 												end if
 												
 												if not creationSuccess then
-												local dlgButtons
+													local dlgButtons
 													try
 														set dlgButtons to {"Quit", "Back"}
 														try

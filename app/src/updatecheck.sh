@@ -28,31 +28,20 @@ doCleanExit=
 
 
 # MYABORT -- exit cleanly on error
-function myabort { # [myErrMsg code]
+function myabort { # [myErrMsg]
 
     # get error message
     local myErrMsg="$1" ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     
     # send only passed error message to stderr (goes back to main.applescript)
-    echo "$myErrMsg" 1>&2
-
-    doCleanExit=1
+    echo "ERROR"
+    echo "$myErrMsg"
     
-    abortsilent "$@"
+    doCleanExit=1
+
+    # exit with code 0 so we still get our output
+    abortsilent "$myErrMsg" 0
 }
-
-
-# LOGGING INFO
-
-myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
-
-
-# BOOTSTRAP RUNTIME SCRIPTS
-
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
-[[ "$ok" ]] || myabort
-safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/launch.sh"
 
 
 # HANDLE KILL SIGNALS
@@ -66,34 +55,33 @@ function handleexitsignal {
 trap "handleexitsignal" EXIT
 
 
-myPath="${BASH_SOURCE[0]%/Contents/*}"
+# LOGGING INFO
+
+myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
 
 
-# GET INFO ON MY INSTANCE OF EPICHROME
+# BOOTSTRAP RUNTIME SCRIPTS
 
-# myEpichrome=
-# getepichromeinfo "$myPath"  $$$$$$ FIX THIS
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh"
+[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/launch.sh"
+[[ "$ok" ]] || myabort
 
 
-# COMPARE VERSIONS
+# COMPARE SUPPLIED VERSIONS
 
-if [[ "$ok" ]] ; then
-    if [[ "$2" ]] ; then
-	
-	# compare two versions & echo the latest
-	
-	if vcmp "$1" '<' "$2" ; then
-	    echo "$2"
-	else
-	    echo "$1"
-	fi
-    else
+myUpdateCheckVersion="$1" ; shift
+myVersion="$1" ; shift
 
-	# compare the supplied version against the latest on GitHub
-	
-	checkgithubversion "$1"
-    fi
+if vcmp "$myUpdateCheckVersion" '<' "$myVersion" ; then
+    echo "MYVERSION"
+    myUpdateCheckVersion="$myVersion"
 fi
+
+
+# COMPARE LATEST SUPPLIED VERSION AGAINST GITHUB
+    
+checkgithubversion "$myUpdateCheckVersion"
 
 [[ "$ok" ]] || myabort
 

@@ -186,7 +186,7 @@ function checkgithubversion { # ( curVersion )
     
     # check github for the latest version
     local latestVersion=
-    latestVersion="$(/usr/bin/curl 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
+    latestVersion="$(/usr/bin/curl --connect-timeout 3 --max-time 5 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
     
     if [[ "$?" != 0 ]] ; then
 	
