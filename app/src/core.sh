@@ -65,6 +65,7 @@ appNMHFile='epichromeruntimehost.py'
 
 # variables used in config.sh
 appConfigVars=( SSBAppPath \
+		    SSBLastRunVersion \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \
@@ -72,6 +73,7 @@ appConfigVars=( SSBAppPath \
 		    SSBExtensionInstallError )
 appConfigVarsGoogleChrome=( SSBGoogleChromePath SSBGoogleChromeVersion )
 export appConfigVars appConfigVarsGoogleChrome
+export "${appConfigVars[@]}" "${appConfigVarsGoogleChrome[@]}"
 
 
 # SET UP CORE INFO

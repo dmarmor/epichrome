@@ -200,7 +200,6 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	    abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
 	
 	# launch helper
-	export SSBAppPath
 	launchhelper Relaunch
 	
 	# if relaunch failed, report it

@@ -279,10 +279,11 @@ done
 
 # determine if this is our first run on a new version
 isFirstRun=
-if [[ "$SSBVersion" != "$SSBUpdateVersion" ]] ; then
+if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
 
     # mark as first run
     isFirstRun=1    
+    SSBLastRunVersion="$SSBVersion"
     SSBUpdateVersion="$SSBVersion"
     
     # clear extension install error state

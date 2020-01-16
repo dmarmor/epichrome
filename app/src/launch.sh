@@ -189,7 +189,7 @@ function checkgithubversion { # ( curVersion )
     latestVersion="$(/usr/bin/curl 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
     
     if [[ "$?" != 0 ]] ; then
-
+	
 	# curl returned an error
 	ok=
 	errmsg="Error retrieving data."
@@ -205,6 +205,8 @@ function checkgithubversion { # ( curVersion )
 	    # output new available version number & download URL
 	    echo "$latestVersion"
 	    echo 'https://github.com/dmarmor/epichrome/releases/latest'
+	else
+	    debuglog "Latest Epichrome version on GitHub ($latestVersion) is not newer than $curVersion."
 	fi
     else
 
@@ -374,9 +376,10 @@ function checkgithubupdate {
 	# set next update for 7 days from now
 	SSBUpdateCheckDate=$(($curDate + (7 * 24 * 60 * 60)))
 	
-	# if we haven't set a version to check against, use the latest version
-	[[ "$SSBUpdateCheckVersion" ]] || SSBUpdateCheckVersion="$epiLatestVersion"
-
+	# make sure the version to check against is at least the latest on the system
+	vcmp "$SSBUpdateCheckVersion" '>=' "$epiLatestVersion" || \
+	    SSBUpdateCheckVersion="$epiLatestVersion"
+	
 	# check if there's a new version on Github
 	try 'updateResult=(n)' checkgithubversion "$SSBUpdateCheckVersion" ''
 	[[ "$ok" ]] || return 1
@@ -892,7 +895,25 @@ function setenginestate {  # ( ON|OFF )
     fi
     try /bin/mv "$oldInactivePath" "$myEngineAppContents" \
 	"Unable to activate $oldInactiveError."
-
+    
+    # abort here on failure
+    [[ "$ok" ]] || return 1
+    
+    # sometimes it takes a moment for the move to register
+    if [[ ! -x "$myEngineAppContents/MacOS/$SSBEngineType" ]] ; then
+	ok= ; errmsg="Engine $oldInactiveError executable not found."
+	local attempt=
+	for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
+	    if [[ -x "$myEngineAppContents/MacOS/$SSBEngineType" ]] ; then
+		ok=1 ; errmsg=
+		break
+	    fi
+	    errlog "Waiting for engine $oldInactiveError executable to appear..."
+	    sleep .5
+	done
+	[[ "$ok" ]] || return 1
+    fi
+    
     [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
     
 } ; export -f setenginestate

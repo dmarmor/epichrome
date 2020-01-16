@@ -37,11 +37,13 @@ EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
 VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
 
-VERSIONCODE:=$(shell if [[ "$(VERSION)" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(b([0-9][0-9]))?$$ ]] ; then \
-                       if [[ "$${BASH_REMATCH[2]}" ]] ; then \
-                         printf '%s0%02d' "$${BASH_REMATCH[1]}" "$${BASH_REMATCH[3]}" ; \
-                       else printf '%s100' "$${BASH_REMATCH[1]}" ; fi ; \
-                     else printf '%s' "FAIL" ; fi)
+VERSIONCODE:=$(shell 	if [[ "$(VERSION)" =~ ^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$$ ]] ; then \
+			  if [[ "$${BASH_REMATCH[4]}" ]] ; then \
+			    vExtra=$${BASH_REMATCH[5]} ; \
+			  else vExtra=999 ; fi ; \
+			  printf '%d.%d.%d' $${BASH_REMATCH[1]} $${BASH_REMATCH[2]} \
+				$$(( ($${BASH_REMATCH[3]} * 1000) + $$vExtra )) ; \
+			else printf '%s' "FAIL" ; fi)
 ifeq ($(VERSIONCODE),FAIL)
 $(error Unable to parse version number in version.sh)
 endif
