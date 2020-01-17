@@ -32,6 +32,7 @@ EXTN_ID_RELEASE:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTN_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
 EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
+NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
 
 # VERSION INFO
 
@@ -90,7 +91,8 @@ INSTALL_PATH:=/Applications/Epichrome.app
 	build/icons/epichrome$(BETA).icns \
 	build/img/icon128$(BETA).png
 
-.INTERMEDIATE: main runtime engine
+INTERMEDIATES:=build/engine build/fake.icns build/fake.sh build/Chromium.app build/package build/requirements.plist build/epichrome-$(VERSION)-internal.pkg build/epichrome-$(VERSION)-dist.plist
+.INTERMEDIATE: main runtime engine $(INTERMEDIATES)
 
 # DEFAULT TARGET
 
@@ -98,14 +100,55 @@ internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),\'$$'\n''        "chrome-extension:\/\/$
 
 internal: $(APP)
 
-#package: $(APP)  # $$$$ POPULATE THIS TO MAKE PACKAGE
+package: epichrome-$(VERSION).pkg
+
+epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-internal.pkg build/epichrome-$(VERSION)-dist.plist
+	@rm -f '$@'
+	productbuild --distribution build/$(@:.pkg=)-dist.plist \
+		--package-path build \
+		--sign 'David Marmor' \
+		'$@'
+
+build/epichrome-$(VERSION)-internal.pkg: $(APP)
+	@rm -f '$@'
+	xattr -cr $(APP)
+	mkdir -p build/package/Applications
+	mv $(APP) build/package/Applications
+	pkgbuild --analyze --root build/package $(@:.pkg=).plist
+	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@
+	rm -f $(@:.pkg=).plist
+	mv build/package/Applications/$(APP) $(APP)
+
+build/epichrome-$(VERSION)-dist.plist: build/epichrome-$(VERSION)-internal.pkg build/requirements.plist
+	@rm -f '$@'
+	productbuild --synthesize \
+		--product build/requirements.plist \
+		--package '$<' \
+		'$@'
+	sed -i '' 's/enable_anywhere="false"/enable_anywhere="true"/' '$@'
+
+build/requirements.plist: src/package/requirements.plist
+	@rm -f '$@'
+	cp '$<' '$@'
+	/usr/libexec/PlistBuddy -c 'Set :os:0 '"$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/Contents/Resources/Runtime/Engine/Filter/Info.plist')" build/requirements.plist
+
+notarize: epichrome-$(VERSION).pkg
+	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
+	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
+	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
+		xcrun altool --notarize-app \
+               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION)' \
+               $(NOTARIZE_CREDENTIALS) \
+               --file epichrome-$(VERSION).pkg > '$(<:.pkg=).notarize_request.txt' ; \
+		result=$? ; cat 'build/$(<:.pkg=).notarize_request.txt' ; exit $result ; fi
+# --asc-provider 'HDCPM67D76' \
 
 
 # UTILITY TARGETS
 
 clean:
-	rm -rf $(APP)
-	rm -rf build/main* build/runtime* build/fake.icns build/fake.sh build/Chromium.app build/engine
+	rm -rf $(APP) epichrome-$(VERSION).pkg
+	rm -rf build/main* build/runtime* $(INTERMEDIATES) 'build/epichrome-$(VERSION).notarize_request.txt'
 
 clean-all: clean
 	rm -rf build
@@ -118,11 +161,15 @@ install: $(APP)
 	fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
+notarize-check: build/epichrome-$(VERSION).notarize_request.txt
+	xcrun altool --notarization-info "$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' '$<')" \
+	$(NOTARIZE_CREDENTIALS)
+
 
 # CODESIGNING
 
-%.app:
-	codesign -vv --force --options runtime --entitlements src/entitlements.plist \
+%.app: src/package/entitlements.plist
+	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
 		-s 'David Marmor' $@
 	codesign --verify --deep --strict --verbose=2 $@
 	spctl --assess --type execute --verbose=4 $@
@@ -133,9 +180,7 @@ install: $(APP)
 
 # MAIN APP DEPENDENCIES
 
-$(APP):	src/entitlements.plist \
-	\
-	$(APP_CT)/PkgInfo \
+$(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/MacOS/applet \
 	$(APP_CT)/Resources/applet.rsrc \
 	$(APP_CT)/Resources/Scripts/main.scpt \

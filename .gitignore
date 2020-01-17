@@ -4,6 +4,7 @@
 *.orig
 *.pyc
 **/sandbox/**
+**/private/**
 /*.txt
 /*.xlsx
 /certificates/**
