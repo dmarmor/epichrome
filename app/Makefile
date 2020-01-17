@@ -133,6 +133,7 @@ build/requirements.plist: src/package/requirements.plist
 	/usr/libexec/PlistBuddy -c 'Set :os:0 '"$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/Contents/Resources/Runtime/Engine/Filter/Info.plist')" build/requirements.plist
 
 notarize: epichrome-$(VERSION).pkg
+#	https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
 	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
 	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
@@ -142,6 +143,12 @@ notarize: epichrome-$(VERSION).pkg
                --file epichrome-$(VERSION).pkg > '$(<:.pkg=).notarize_request.txt' ; \
 		result=$? ; cat 'build/$(<:.pkg=).notarize_request.txt' ; exit $result ; fi
 # --asc-provider 'HDCPM67D76' \
+
+notarize-staple: epichrome-$(VERSION).pkg
+	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
+	read -p "Staple notarization? (y/n [n]) " -r ; \
+	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
+		xcrun stapler staple '$<' ; fi
 
 
 # UTILITY TARGETS
