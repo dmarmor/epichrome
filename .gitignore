@@ -10,7 +10,7 @@
 /certificates/**
 /research/**
 /Patreon/**
-/app/*.app/**
+**/*.app/**
 /app/Chromium/**
 /app/build/**
 /app/icons/**
@@ -26,5 +26,7 @@
 /runtime/src/*.gif
 /runtime/store/**
 /runtime/zip/**
+/images/icons/*.png
+/images/package/*.png
 /images/icons/source/**
 /tests/**

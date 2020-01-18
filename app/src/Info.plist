@@ -38,6 +38,6 @@
 	<key>NSSystemAdministrationUsageDescription</key>
         <string>Epichrome needs administrator privileges to create an app in the requested location.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2020 David Marmor</string>
+	<string>© THISYEAR David Marmor</string>
 </dict>
 </plist>

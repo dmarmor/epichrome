@@ -34,6 +34,8 @@ EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
 NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
 
+THISYEAR:=$(shell date '+%Y')
+
 # VERSION INFO
 
 VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
@@ -49,24 +51,33 @@ ifeq ($(VERSIONCODE),FAIL)
 $(error Unable to parse version number in version.sh)
 endif
 
+VERSIONTEXT:=$(shell 	if [[ "$(VERSION)" =~ ^([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)$$ ]] ; then \
+			  printf '%s BETA %s' $${BASH_REMATCH[1]} $${BASH_REMATCH[2]} ; \
+			else echo '$(VERSION)' ; fi)
+
+MIN_OS:="$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/Contents/Resources/Runtime/Engine/Filter/Info.plist')"
+
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
-CHROMIUM:=Chromium/Chromium.78.0.3904.97.sync.app.zip
+#CHROMIUM:=Chromium/Chromium.79.0.3945.117.sync.app.zip
+CHROMIUM:=$(shell ls Chromium/* | sort -r | head -n 1)
 
 
-# FILTERING INFO
+# BETA CONDITIONAL INFO
 
 ifeq ($(BETA),_beta)
 DEBUG_SH:=1
 DEBUG_PY:=True
+PACKAGE_README:=build/resources/readme.rtf
 else
 DEBUG_SH:=
 DEBUG_PY:=False
+PACKAGE_README:=
 endif
 
 LOGPRESERVE_SH:=
 
-NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",\'$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
+NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
 
 
 # APP PATHS
@@ -85,81 +96,52 @@ INSTALL_PATH:=/Applications/Epichrome.app
 
 .PHONY: internal install clean clean-all
 
-.PRECIOUS: \
+.PRECIOUS: $(PRECIOUS_INTERMEDIATES)
+
+INTERMEDIATES:=\
+	build/engine \
+	build/fake.icns \
+	build/fake.sh \
+	build/Chromium.app \
+	build/package \
+	build/epichrome-$(VERSION)-main.plist \
+	build/epichrome-$(VERSION)-dist.xml
+
+PRECIOUS_INTERMEDIATES:=\
 	build/icons/app$(BETA).icns \
 	build/icons/document$(BETA).icns \
 	build/icons/epichrome$(BETA).icns \
-	build/img/icon128$(BETA).png
+	build/img/icon128$(BETA).png \
+	build/epichrome-$(VERSION)-main.pkg \
+	build/resources/background.png \
+	build/resources/license.rtf \
+	build/resources/readme.rtf
 
-INTERMEDIATES:=build/engine build/fake.icns build/fake.sh build/Chromium.app build/package build/requirements.plist build/epichrome-$(VERSION)-internal.pkg build/epichrome-$(VERSION)-dist.plist
-.INTERMEDIATE: main runtime engine $(INTERMEDIATES)
+.INTERMEDIATE: main runtime engine $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
-# DEFAULT TARGET
 
-internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),\'$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
+# INTERNAL BUILD (DEFAULT TARGET)
+
+internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 
 internal: $(APP)
-
-package: epichrome-$(VERSION).pkg
-
-epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-internal.pkg build/epichrome-$(VERSION)-dist.plist
-	@rm -f '$@'
-	productbuild --distribution build/$(@:.pkg=)-dist.plist \
-		--package-path build \
-		--sign 'David Marmor' \
-		'$@'
-
-build/epichrome-$(VERSION)-internal.pkg: $(APP)
-	@rm -f '$@'
-	xattr -cr $(APP)
-	mkdir -p build/package/Applications
-	mv $(APP) build/package/Applications
-	pkgbuild --analyze --root build/package $(@:.pkg=).plist
-	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@
-	rm -f $(@:.pkg=).plist
-	mv build/package/Applications/$(APP) $(APP)
-
-build/epichrome-$(VERSION)-dist.plist: build/epichrome-$(VERSION)-internal.pkg build/requirements.plist
-	@rm -f '$@'
-	productbuild --synthesize \
-		--product build/requirements.plist \
-		--package '$<' \
-		'$@'
-	sed -i '' 's/enable_anywhere="false"/enable_anywhere="true"/' '$@'
-
-build/requirements.plist: src/package/requirements.plist
-	@rm -f '$@'
-	cp '$<' '$@'
-	/usr/libexec/PlistBuddy -c 'Set :os:0 '"$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/Contents/Resources/Runtime/Engine/Filter/Info.plist')" build/requirements.plist
-
-notarize: epichrome-$(VERSION).pkg
-#	https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
-	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
-	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
-	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		xcrun altool --notarize-app \
-               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION)' \
-               $(NOTARIZE_CREDENTIALS) \
-               --file epichrome-$(VERSION).pkg > '$(<:.pkg=).notarize_request.txt' ; \
-		result=$? ; cat 'build/$(<:.pkg=).notarize_request.txt' ; exit $result ; fi
-# --asc-provider 'HDCPM67D76' \
-
-notarize-staple: epichrome-$(VERSION).pkg
-	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
-	read -p "Staple notarization? (y/n [n]) " -r ; \
-	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		xcrun stapler staple '$<' ; fi
 
 
 # UTILITY TARGETS
 
 clean:
-	rm -rf $(APP) epichrome-$(VERSION).pkg
-	rm -rf build/main* build/runtime* $(INTERMEDIATES) 'build/epichrome-$(VERSION).notarize_request.txt'
+	rm -rf $(APP) epichrome-*.pkg
+	rm -rf build/main* build/runtime* $(INTERMEDIATES)
+
+clean-package:
+	rm -f epichrome-*.pkg
+	rm -rf build/resources build/epichrome-*.pkg build/epichrome-*.xml build/main* build/runtime* $(INTERMEDIATES)
 
 clean-all: clean
 	rm -rf build
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
+	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
+		echo rm -f "$${psd%.psd}.png" ; done
 
 install: $(APP)
 	@if [[ -e "$(INSTALL_PATH)" ]] ; then \
@@ -172,10 +154,93 @@ notarize-check: build/epichrome-$(VERSION).notarize_request.txt
 	xcrun altool --notarization-info "$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' '$<')" \
 	$(NOTARIZE_CREDENTIALS)
 
+%.png: %.psd
+	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
+	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
+
+
+# PACKAGE BUILD
+
+package: epichrome-$(VERSION).pkg
+
+epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf $(PACKAGE_README) build/resources/license.rtf
+	@rm -f '$@'
+	productbuild --distribution build/epichrome-$(VERSION)-dist.xml \
+		--package-path build \
+		--resources build/resources \
+		--sign 'David Marmor' \
+		'$@'
+
+build/epichrome-$(VERSION)-main.pkg: $(APP)
+	@rm -f '$@'
+	xattr -cr $(APP)
+	mkdir -p build/package/Applications
+	mv $(APP) build/package/Applications
+	pkgbuild --analyze --root build/package $(@:.pkg=).plist
+	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist
+	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@
+	rm -f $(@:.pkg=).plist
+	mv build/package/Applications/$(APP) $(APP)
+	@cd build ; rmdir -p package/Applications
+
+build/resources/background.png: ../images/package/background$(BETA).png
+	mkdir -p build/resources
+	cp '$<' '$@'
+
+build/resources/welcome.rtf: src/package/welcome.rtf
+	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
+
+build/resources/license.rtf: src/package/license.rtf
+	sed 's/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+
+build/resources/readme.rtf: src/package/readme.rtf
+	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
+
+build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/package/requirements.plist
+	@rm -f '$@'
+	productbuild --synthesize \
+		--product src/package/requirements.plist \
+		--package '$<' \
+		'$@'
+	sed -E -i '' 's/enable_anywhere="true"/enable_anywhere="false"/; '\
+'		s/EPIMINOS/'$(MIN_OS)'/; '\
+'		s/(<pkg-ref id="org.epichrome.Epichrome"\/>.*$$)/\1'\\$$'\n'\
+'    <title>Epichrome $(VERSIONTEXT)<\/title>'\\$$'\n'\
+'    <background file="background.png" mime-type="image\/png" alignment="bottomleft" scaling="proportional"\/>'\\$$'\n'\
+'    <welcome file="welcome.rtf" mime-type="application\/rtf"\/>'\\$$'\n'\
+'    <readme file="readme.rtf" mime-type="application\/rtf"\/>'\\$$'\n'\
+'    <license file="license.rtf" mime-type="application\/rtf"\/>/' '$@'
+
+
+# NOTARIZE PACKAGE
+
+notarize: epichrome-$(VERSION).pkg
+#	https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
+#	sudo xcode-select -r
+#	  # to find ProviderShortname for --asc-provider
+#	xcrun altool --list-providers -u "dmarmor@gmail.com" -p "@keychain:AppleID altool notarize"
+#	  # to store AppleID app password credential in keychain:
+#	xcrun altool --store-password-in-keychain-item 'KEYCHAIN_ITEM' -u 'USERNAME' -p 'PASSWORD'
+	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
+	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
+	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
+		xcrun altool --notarize-app \
+               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION)' \
+               $(NOTARIZE_CREDENTIALS) \
+               --file epichrome-$(VERSION).pkg > '$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"'.txt' ; \
+		result=$? ; cat 'build/$(<:.pkg=).notarize_request.txt' ; exit $result ; fi
+
+notarize-staple: epichrome-$(VERSION).pkg
+	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
+	read -p "Staple notarization? (y/n [n]) " -r ; \
+	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
+		xcrun stapler staple '$<' ; fi
+
 
 # CODESIGNING
 
 %.app: src/package/entitlements.plist
+	xattr -cr '$@'
 	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
 		-s 'David Marmor' $@
 	codesign --verify --deep --strict --verbose=2 $@
@@ -278,11 +343,11 @@ main:
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 	@mkdir -p $(APP_RNTM)/Contents/Resources/Scripts
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' $< > $@
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p $(APP_CT)
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/' -e 's/EPIVERSION/$(VERSION)/' $< > $@
+	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/applet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p $(APP_CT)/Resources
@@ -340,44 +405,12 @@ runtime:
 	@cd build && if ! rmdir -p runtime/Contents/Resources ; then \
 		echo '*** Unexpected files found in Platypus runtime app (check build/runtime).' 1>&2 ; false ; fi
 
-# $(APP_RNTM)/Contents/Resources/MainMenu.nib: build/runtime | $(APP_RNTM)/Contents/Resources/
-# 	cp '$<' '$@'
-
-# $(APP_RNTM)/Contents/Resources/AppSettings.plist: build/runtime | $(APP_RNTM)/Contents/Resources/
-# 	cp '$<' '$@'
-
-# build/runtime/MacOS/Epichrome \
-# build/runtime/Resources/MainMenu.nib \
-# build/runtime/Resources/AppSettings.plist: | build/
-# 	rm -rf build/runtime build/runtime.app
-# 	echo > build/fake.icns
-# 	echo > build/fake.sh
-# 	platypus --name Epichrome \
-# 		 --interface-type None \
-# 		 --app-icon build/fake.icns \
-# 		 --document-icon build/fake.icns \
-# 		 --interpreter /bin/sh \
-# 		 --app-version $(VERSION) \
-# 		 --author 'David Marmor' \
-# 		 --bundle-identifier org.epichrome.APPBUNDLEID \
-# 		 --droppable \
-# 		 --background \
-# 		 --quit-after-execution \
-# 		 --uniform-type-identifiers 'com.compuserve.gif|public.html|public.jpeg|com.netscape.javascript-source|com.microsoft.word.mhtml|org.videolan.ogg-audio|org.videolan.ogg-audio|org.xiph.ogg-video|com.adobe.pdf|public.png|public.svg-image|public.plain-text|org.videolan.webm|public.webp|public.xhtml' \
-# 		 --uri-schemes 'http|https|ftp|file' \
-# 		 --optimize-nib \
-# 		 build/fake.sh build/runtime.app
-# 	rm build/fake.icns build/fake.sh
-# 	mv build/runtime.app/Contents build/runtime
-# 	rm -rf build/runtime.app
-# 	rm build/runtime/Info.plist build/runtime/Resources/*.icns build/runtime/Resources/script
-
 
 # RUNTIME FILTER ELEMENTS
 
 $(APP_RNTM)/Filter/Info.plist: src/Info.plist.runtime src/version.sh
 	@mkdir -p $(APP_RNTM)/Filter
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g' $< > $@
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_RNTM)/Filter/AppExec: src/AppExec src/version.sh
 	@mkdir -p $(APP_RNTM)/Filter
@@ -394,7 +427,7 @@ $(APP_RNTM)/Icons/%.icns: build/icons/%$(BETA).icns
 	@mkdir -p $(APP_RNTM)/Icons
 	cp '$<' '$@' 
 
-build/icons/%.icns: ../images/icons/%.psd
+build/icons/%.icns: ../images/icons/%.png
 	@mkdir -p build/icons
 	src/makeicon.sh -f $< $@
 
@@ -406,7 +439,7 @@ $(APP_RNTM_HLPR): | $(APP_RNTM_HLPR_CT)/Info.plist \
 
 $(APP_RNTM_HLPR_CT)/Info.plist: src/helper/Info.plist
 	@mkdir -p $(APP_RNTM_HLPR_CT)
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g' $< > $@
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
 	@mkdir -p $(APP_RNTM_HLPR_CT)/MacOS
@@ -445,9 +478,9 @@ $(APP_RNTM)/Contents/Resources/FirstRun/img/%.png: welcome/img/%.png
 	@mkdir -p $(APP_RNTM)/Contents/Resources/FirstRun/img
 	cp '$<' '$@' 
 
-build/img/icon128$(BETA).png: ../images/icons/app$(BETA).psd
+build/img/icon128$(BETA).png: ../images/icons/app$(BETA).png
 	@mkdir -p build/img
-	sips -s format png -z 128 128 $< --out $@
+	sips -z 128 128 $< --out $@
 
 
 # *** ENGINE ***
