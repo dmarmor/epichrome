@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-#  org.epichrome.runtime-host.py: native messaging host for Epichrome Runtime
-#  Copyright (C) 2019  David Marmor
+#  epichromeruntimehost.py: native messaging host for Epichrome Runtime
+#
+#  Copyright (C) 2020  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
-#
-#  Full license at: http://www.gnu.org/licenses/ (V3,6/29/2007)
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by

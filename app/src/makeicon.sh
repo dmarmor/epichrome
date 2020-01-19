@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-#  makeicon: create an ICNS file from a square image file
+#  makeicon: create an ICNS file from an image file
 #
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2020  David Marmor
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
