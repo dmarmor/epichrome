@@ -11,6 +11,7 @@
 /research/**
 /Patreon/**
 **/*.app/**
+/app/*.notarize_request_*.txt
 /app/Chromium/**
 /app/build/**
 /app/icons/**

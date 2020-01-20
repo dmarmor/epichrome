@@ -62,6 +62,8 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 #CHROMIUM:=Chromium/Chromium.79.0.3945.117.sync.app.zip
 CHROMIUM:=$(shell ls Chromium/* | sort -r | head -n 1)
 
+NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt | sort | tail -n 1)
+
 
 # BETA CONDITIONAL INFO
 
@@ -150,10 +152,6 @@ install: $(APP)
 	fi
 	cp -a $(APP) "$(INSTALL_PATH)"
 
-notarize-check: build/epichrome-$(VERSION).notarize_request.txt
-	xcrun altool --notarization-info "$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' '$<')" \
-	$(NOTARIZE_CREDENTIALS)
-
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
 	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
@@ -224,11 +222,20 @@ notarize: epichrome-$(VERSION).pkg
 	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
 	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
+		request_file='$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"'.txt' ; \
 		xcrun altool --notarize-app \
                --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION)' \
                $(NOTARIZE_CREDENTIALS) \
-               --file epichrome-$(VERSION).pkg > '$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"'.txt' ; \
-		result=$? ; cat 'build/$(<:.pkg=).notarize_request.txt' ; exit $result ; fi
+               --file epichrome-$(VERSION).pkg > "$$request_file" ; \
+		result=$$? ; cat "$$request_file" ; exit $$result ; fi
+
+notarize-check:
+	@if [[ '$(NOTARIZE_REQUEST_FILE)' ]] ; then \
+		echo 'Checking $(NOTARIZE_REQUEST_FILE)...' ; \
+		xcrun altool --notarization-info \
+		"$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' '$(NOTARIZE_REQUEST_FILE)')" \
+		$(NOTARIZE_CREDENTIALS) ; \
+	else echo 'No request file found.' ; fi
 
 notarize-staple: epichrome-$(VERSION).pkg
 	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
