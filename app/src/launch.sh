@@ -688,7 +688,7 @@ function populatedatadir { # ( [FORCE] )
 	local hostManifestNewDest="$hostManifestDestPath/$hostManifestNewFile"
 	local hostManifestOldDest="$hostManifestDestPath/$hostManifestOldFile"
 	
-	# stream-edit the new manifest into place
+	# stream-edit the new manifest into place  $$$$ ESCAPE DOUBLE QUOTES IN PATH??
 	if [[ "$force" || ! -e "$hostManifestNewDest" ]] ; then
 	    filterfile "$hostSourcePath/$hostManifestNewFile" "$hostManifestNewDest" \
 		       'native messaging host manifest' \

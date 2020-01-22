@@ -33,80 +33,12 @@ fi
 # FUNCTION DEFINITIONS
 
 
-# CLEANUP -- restore launcher  $$$$ REWRITE THIS
-function cleanup { # [code]
-    
-    local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
-
-    # check engine state
-    checkengine ON ; local engineState="$?"
-
-    if [[ "$engineState" = 0 ]] ; then
-	
-	# deactivate engine
-	setenginestate OFF
-
-	if [[ "$ok" ]] ; then
-	    debuglog "Deactivation complete."
-	else
-	    # error deactivating engine
-	    errlog "$errmsg"
-	    [[ "$myCode" = 0 ]] && myCode=1
-	fi
-    elif [[ "$engineState" = 2 ]] ; then
-
-	errlog "Engine is not in an unknown state or damaged. Unable to deactivate."
-	[[ "$myCode" = 0 ]] && myCode=1
-	
-    elif [[ "$epiHelperMode" = Launch ]] ; then
-	
-	# engine is already off, so do nothing
-	errlog "Engine is unexpectedly already deactivated."
-    fi
-    
-    # exit
-    exit "$myCode"
-}
-
-
-# HANDLE KILL SIGNALS  $$$ DELETE?? ALLOW THIS TO DIE AND LEAVE ENGINE ACTIVE
-
-# function handleexitsignal {
-
-#     if kill -0 "$myEnginePID" 2> /dev/null ; then
-
-# 	# engine is still running, so try to kill it gently
-# 	errlog 'Terminated prematurely. Quitting engine.'
-# 	try kill -HUP "$myEnginePID" 'Error sending HUP to engine.'
-# 	if [[ ! "$ok" ]] ; then
-# 	    errlog "$errmsg"
-# 	    ok=1 ; errmsg
-# 	fi
-
-# 	# wait a few seconds
-# 	sleep 5
-
-# 	# if engine has now quit, clean up
-# 	if ! kill -0 "$myEnginePID" 2> /dev/null ; then
-# 	    debuglog 'Engine has quit. Cleaning up...'
-# 	    cleanup
-# 	else
-# 	    debuglog 'Engine still running. Giving up and leaving engine active.'
-# 	fi
-#     fi
-    
-#     # if engine is already dead, assume we've already cleaned up
-    
-#     # release lock
-#     lockrelease
-    
-# }
+# HANDLE PREMATURE EXIT
 function handleexitsignal {
     if kill -0 "$myEnginePID" 2> /dev/null ; then
 	errlog 'Terminated prematurely. Engine will not be deactivated.'
     fi
 }
-#trap '' INT
 trap handleexitsignal EXIT
 
 
@@ -131,6 +63,7 @@ function lockreplace { # ( replacePID )
 	    
 	    # if this is the right lock, replace it
 	    if [[ "$replacePID" = "$lockPID" ]] ; then
+		debuglog "Taking over lock from PID $replacePID."
 		lockPID="$$" lockEnginePID="$myEnginePID"
 		writevars "$myLockFile" lockPID lockEnginePID
 		[[ "$ok" ]] || return 1
@@ -195,5 +128,35 @@ else
 
     # deactivate engine and quit
     debuglog 'Engine has quit. Cleaning up...'
+    
+    # check engine state
+    checkengine ON ; engineState="$?"
+    
+    if [[ "$engineState" = 0 ]] ; then
+	
+	# deactivate engine
+	setenginestate OFF
+	
+	if [[ "$ok" ]] ; then
+	    debuglog "Deactivation complete."
+	else
+	    # error deactivating engine
+	    errlog "$errmsg"
+	    [[ "$myCode" = 0 ]] && myCode=1
+	fi
+    elif [[ "$engineState" = 2 ]] ; then
+
+	# bad engine state
+	errlog "Engine is in an unknown state or damaged. Unable to deactivate."
+	[[ "$myCode" = 0 ]] && myCode=1
+	
+    else
+	
+	# engine is already off, so do nothing
+	errlog "Engine is unexpectedly already deactivated."
+    fi
+
+    # release lock & exit
+    lockrelease
     cleanexit
 fi

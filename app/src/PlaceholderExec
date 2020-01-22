@@ -24,8 +24,8 @@
 # CORE APP INFO
 
 SSBVersion='EPIVERSION'               # filled in by Makefile
-SSBIdentifier='APPID'                 # filled in by updateapp
-CFBundleIdentifier='APPBUNDLEID'      # filled in by updateapp
+SSBIdentifier=APPID                   # filled in by updateapp
+CFBundleIdentifier=APPBUNDLEID        # filled in by updateapp
 
 # CORE APP VARIABLES
 

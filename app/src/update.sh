@@ -175,11 +175,11 @@ function updateapp { # ( updateAppPath )
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
 	       "$contentsTmp/Resources/script" \
 	       'app executable' \
-	       APPID "$SSBIdentifier" \
-	       APPENGINETYPE "$SSBEngineType" \
-	       APPDISPLAYNAME "$CFBundleDisplayName" \
-	       APPBUNDLENAME "$CFBundleName" \
-	       APPCUSTOMICON "$SSBCustomIcon" \
+	       APPID "$(formatscalar "$SSBIdentifier")" \
+	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
+	       APPDISPLAYNAME "$(formatscalar "$CFBundleDisplayName")" \
+	       APPBUNDLENAME "$(formatscalar "$CFBundleName")" \
+	       APPCUSTOMICON "$(formatscalar "$SSBCustomIcon")" \
 	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
     
     
@@ -204,6 +204,7 @@ function updateapp { # ( updateAppPath )
     
     # FILTER NATIVE MESSAGING HOST INTO PLACE
 
+    # $$$$ fix display & bundle names to python-escape things
     local updateNMHFile="$contentsTmp/Resources/NMH/$appNMHFile"
     filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
 	       "$updateNMHFile" \
@@ -233,8 +234,8 @@ function updateapp { # ( updateAppPath )
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updateEnginePath/PlaceholderExec" \
 		   'Google Chrome app engine placeholder executable' \
-		   APPID "$SSBIdentifier" \
-		   APPBUNDLEID "$myAppBundleID"
+		   APPID "$(formatscalar "$SSBIdentifier")" \
+		   APPBUNDLEID "$(formatscalar "$myAppBundleID")"
 	try /bin/chmod 755 "$updateEnginePath/PlaceholderExec" \
 	    'Unable to set permissions for Google Chrome app engine placeholder executable.'
 	
@@ -298,8 +299,8 @@ function updateapp { # ( updateAppPath )
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updatePlaceholderExec" \
 		   'app engine placeholder executable' \
-		   APPID "$SSBIdentifier" \
-		   APPBUNDLEID "$myAppBundleID"
+		   APPID "$(formatscalar "$SSBIdentifier")" \
+		   APPBUNDLEID "$(formatscalar "$myAppBundleID")"
 	try /bin/chmod 755 "$updatePlaceholderExec" \
 	    'Unable to set permissions for app engine placeholder executable.'
 	

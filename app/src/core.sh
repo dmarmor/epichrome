@@ -727,6 +727,41 @@ function isarray {
 } ; export -f isarray
 
 
+# FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval
+function formatscalar { # ( value )
+
+    local quote="\'"
+    
+    # escape single quotes & wrapping in single quotes
+    echo "'${1//\'/'$quote'}'"
+    
+} ; export -f formatscalar
+
+
+# FORMATARRAY -- utility function to format an array for variable assignment or eval
+function formatarray { # ( [elem1 ...] )
+
+    local quote="\'"
+    
+    # variable holds an array, so start the array
+    local value="("
+    
+    # go through each value and build the array
+    local elem=
+    for elem in "$@" ; do
+	
+	# add array value, escaping single quotes & wrapping in single quotes
+	value="${value} '${elem//\'/'$quote'}'"
+	
+    done
+    
+    # close the array
+    value="${value} )"
+        
+    echo "$value"
+} ; export -f formatarray
+
+
 # WRITEVARS: write out a set of arbitrary bash variables to a file
 function writevars {  # $1 = destination file
     #                   $@ = list of vars
@@ -775,11 +810,8 @@ function writevars {  # $1 = destination file
 		# scalar value, so pull out the value
 		eval "value=\"\${$var}\""
 		
-		# escape \ to \\
-		#value="${value//\\/\\\\}"
-		
-		# escape spaces and quotes
-		value=$(printf '%q' "$value")
+		# format for printing
+		value="$(formatscalar "$value")"
 
 	    fi
 	    
