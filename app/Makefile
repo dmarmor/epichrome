@@ -62,7 +62,7 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 #CHROMIUM:=Chromium/Chromium.79.0.3945.117.sync.app.zip
 CHROMIUM:=$(shell ls Chromium/* | sort -r | head -n 1)
 
-NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt | sort | tail -n 1)
+NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2> /dev/null | sort | tail -n 1)
 
 
 # BETA CONDITIONAL INFO
@@ -185,13 +185,13 @@ build/resources/background.png: ../images/package/background$(BETA).png
 	mkdir -p build/resources
 	cp '$<' '$@'
 
-build/resources/welcome.rtf: src/package/welcome.rtf
+build/resources/welcome.rtf: src/package/welcome.rtf src/version.sh
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
-build/resources/license.rtf: src/package/license.rtf
+build/resources/license.rtf: src/package/license.rtf src/version.sh
 	sed 's/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-build/resources/readme.rtf: src/package/readme.rtf
+build/resources/readme.rtf: src/package/readme.rtf src/version.sh
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
 build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/package/requirements.plist
