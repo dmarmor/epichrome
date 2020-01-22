@@ -60,7 +60,7 @@ MIN_OS:="$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/C
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 #CHROMIUM:=Chromium/Chromium.79.0.3945.117.sync.app.zip
-CHROMIUM:=$(shell ls Chromium/* | sort -r | head -n 1)
+CHROMIUM:=$(shell ls Chromium/*.zip 2> /dev/null | sort -r | head -n 1)
 
 NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2> /dev/null | sort | tail -n 1)
 
@@ -222,12 +222,12 @@ notarize: epichrome-$(VERSION).pkg
 	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
 	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		request_file='$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"'.txt' ; \
+		request_id='$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"
 		xcrun altool --notarize-app \
-               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION)' \
+               --primary-bundle-id "$$request_id" \
                $(NOTARIZE_CREDENTIALS) \
-               --file epichrome-$(VERSION).pkg > "$$request_file" ; \
-		result=$$? ; cat "$$request_file" ; exit $$result ; fi
+               --file epichrome-$(VERSION).pkg > "$$request_id"'.txt' ; \
+		result=$$? ; cat "$$request_id"'.txt' ; exit $$result ; fi
 
 notarize-check:
 	@if [[ '$(NOTARIZE_REQUEST_FILE)' ]] ; then \
@@ -500,6 +500,8 @@ $(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engi
 engine:
 	@rm -rf build/Chromium.app build/engine
 	unzip -d build $(CHROMIUM)
+	codesign --remove-signature -v build/Chromium.app
+	rmdir build/Chromium.app/Contents/_CodeSignature
 	mv build/Chromium.app/Contents build/engine
 	rmdir build/Chromium.app
 	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Info.plist)" != 'app.icns' ]] ; then \
