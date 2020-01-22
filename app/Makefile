@@ -222,19 +222,25 @@ notarize: epichrome-$(VERSION).pkg
 	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
 	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		request_id='$(<:.pkg=).notarize_request_'"$$(date '+%Y%m%d_%H%M%S')"
+		request_id='notarize-request.'"$$(date '+%Y%m%d-%H%M%S')" ; \
 		xcrun altool --notarize-app \
-               --primary-bundle-id "$$request_id" \
+               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION).'"$$request_id" \
                $(NOTARIZE_CREDENTIALS) \
-               --file epichrome-$(VERSION).pkg > "$$request_id"'.txt' ; \
-		result=$$? ; cat "$$request_id"'.txt' ; exit $$result ; fi
+               --file epichrome-$(VERSION).pkg > '$(<:.pkg=).'"$$request_id"'.txt' ; \
+		result=$$? ; cat '$(<:.pkg=).'"$$request_id"'.txt' ; exit $$result ; fi
 
 notarize-check:
-	@if [[ '$(NOTARIZE_REQUEST_FILE)' ]] ; then \
-		echo 'Checking $(NOTARIZE_REQUEST_FILE)...' ; \
+	@request_file="$$(ls epichrome-$(VERSION).notarize*.txt 2> /dev/null | sort | tail -n 1)" ; \
+	if [[ "$$request_file" ]] ; then \
+		echo "Checking $$request_file..." ; \
 		xcrun altool --notarization-info \
-		"$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' '$(NOTARIZE_REQUEST_FILE)')" \
-		$(NOTARIZE_CREDENTIALS) ; \
+		"$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' "$$request_file")" \
+		$(NOTARIZE_CREDENTIALS) > "$${request_file%.txt}.check.txt" ; \
+		cat "$${request_file%.txt}.check.txt" ; \
+		curl --silent --show-error \
+			"$$(sed -En 's/^ *LogFileURL: *(.+)$$/\1/p' "$${request_file%.txt}.check.txt")" > \
+			"$${request_file%.txt}.json" ; \
+		echo 'Created check file & issues manifest.' ; \
 	else echo 'No request file found.' ; fi
 
 notarize-staple: epichrome-$(VERSION).pkg
