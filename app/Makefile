@@ -24,7 +24,7 @@
 
 # BASIC INFO
 
-APP:=Epichrome.app
+APP:=Epichrome/Epichrome.app
 
 NMH_ID:=org.epichrome.runtime
 
@@ -59,8 +59,18 @@ MIN_OS:="$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/C
 
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
-#CHROMIUM:=Chromium/Chromium.79.0.3945.117.sync.app.zip
+
+# CHROMIUM VERSION
+# (Using Marmaduke build with Google APIs and Widevine from https://chromium.woolyss.com/)
+
 CHROMIUM:=$(shell ls Chromium/*.zip 2> /dev/null | sort -r | head -n 1)
+ifeq ($(CHROMIUM),)
+$(error Unable to find Chromium zip file)
+endif
+CHROMIUM_VERSION:=$(patsubst Chromium/Chromium.%.sync.app.zip,%,$(CHROMIUM))
+
+
+# NOTARIZE INFO
 
 NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2> /dev/null | sort | tail -n 1)
 
@@ -88,8 +98,6 @@ APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
 APP_RNTM_HLPR:=$(APP_RNTM)/Contents/Resources/EpichromeHelper.app
 APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
-
-INSTALL_PATH:=/Applications/Epichrome.app
 
 
 # META-TARGETS
@@ -132,7 +140,7 @@ internal: $(APP)
 # UTILITY TARGETS
 
 clean:
-	rm -rf $(APP) epichrome-*.pkg
+	rm -rf Epichrome/* epichrome-*.pkg
 	rm -rf build/main* build/runtime* $(INTERMEDIATES)
 
 clean-package:
@@ -145,12 +153,14 @@ clean-all: clean
 	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
 		echo rm -f "$${psd%.psd}.png" ; done
 
+# $$$$ FIX THIS
 install: $(APP)
-	@if [[ -e "$(INSTALL_PATH)" ]] ; then \
-		echo 'rm -rf "$(INSTALL_PATH)"' ; \
-		rm -rf "$(INSTALL_PATH)" ; \
-	fi
-	cp -a $(APP) "$(INSTALL_PATH)"
+	rm -rf '/Applications/$(APP)'
+	mkdir -p '/Applications/Epichrome'
+	cp -a '$(APP)' '/Applications/$(APP)'
+	mkdir '/Applications/Epichrome/EpichromeEngines.noindex'
+	chmod 1777 '/Applications/Epichrome/EpichromeEngines.noindex'
+	touch '/Applications/Epichrome/EpichromeEngines.noindex/.preserve'
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -158,6 +168,7 @@ install: $(APP)
 
 
 # PACKAGE BUILD
+# (adapted from http://thegreyblog.blogspot.com/2014/06/os-x-creating-packages-from-command_2.html)
 
 package: epichrome-$(VERSION).pkg
 
@@ -172,26 +183,33 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 build/epichrome-$(VERSION)-main.pkg: $(APP)
 	@rm -f '$@'
 	xattr -cr $(APP)
-	mkdir -p build/package/Applications
-	mv $(APP) build/package/Applications
+	rm -rf build/package/Applications
+	@mkdir -p build/package/Applications/Epichrome/EpichromeEngines.noindex
+	chmod 1777 build/package/Applications/Epichrome/EpichromeEngines.noindex
+	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
+	mv $(APP) build/package/Applications/$(APP)
 	pkgbuild --analyze --root build/package $(@:.pkg=).plist
 	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist
 	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@
 	rm -f $(@:.pkg=).plist
 	mv build/package/Applications/$(APP) $(APP)
-	@cd build ; rmdir -p package/Applications
+	rm build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
+	@cd build ; rmdir -p package/Applications/Epichrome/EpichromeEngines.noindex
 
 build/resources/background.png: ../images/package/background$(BETA).png
-	mkdir -p build/resources
+	@mkdir -p build/resources
 	cp '$<' '$@'
 
 build/resources/welcome.rtf: src/package/welcome.rtf src/version.sh
+	@mkdir -p build/resources
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
 build/resources/license.rtf: src/package/license.rtf src/version.sh
+	@mkdir -p build/resources
 	sed 's/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 build/resources/readme.rtf: src/package/readme.rtf src/version.sh
+	@mkdir -p build/resources
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
 build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/package/requirements.plist
@@ -407,6 +425,7 @@ runtime:
 		 --uri-schemes 'http|https|ftp|file' \
 		 --optimize-nib \
 		 build/fake.sh build/runtime.app
+#	alt:	--suffixes 'gif|html|htm|xhtml|js|jpg|jpeg|mhtml|mht|oga|ogg|ogv|png|svg|txt|text|webm|webp|pdf|'
 	mv build/runtime.app build/runtime
 	@rm build/fake.icns build/fake.sh
 	@cd build/runtime/Contents && rm -f Info.plist Resources/*.icns Resources/script
@@ -508,6 +527,13 @@ engine:
 	unzip -d build $(CHROMIUM)
 	codesign --remove-signature -v build/Chromium.app
 	rmdir build/Chromium.app/Contents/_CodeSignature
+	codesign --remove-signature -v \
+		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework' \
+		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/XPCServices/AlertNotificationService.xpc' \
+		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/Helpers/'*.app
+	rmdir 'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/_CodeSignature' \
+		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/XPCServices/AlertNotificationService.xpc/Contents/_CodeSignature' \
+		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/Helpers/'*.app/Contents/_CodeSignature
 	mv build/Chromium.app/Contents build/engine
 	rmdir build/Chromium.app
 	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Info.plist)" != 'app.icns' ]] ; then \

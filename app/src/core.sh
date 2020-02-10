@@ -67,6 +67,7 @@ appConfigVars=( SSBAppPath \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \
+		    SSBEnginePath \
 		    SSBEngineAppName \
 		    SSBExtensionInstallError )
 appConfigVarsGoogleChrome=( SSBGoogleChromePath SSBGoogleChromeVersion )
@@ -410,6 +411,8 @@ function try {
 	if [[ "$result" != 0 ]]; then
 	    [[ "$myerrmsg" ]] && errmsg="$myerrmsg"
 	    ok=
+	    [[ ( ! ( "$dropStdout" && "$dropStderr" ) ) && ! "$myStderr" ]] && \
+		errlog "${args[0]} returned code $result with no stderr output."
 	    return "$result"
 	fi
     fi
@@ -906,6 +909,11 @@ end try"
     # close button list
     buttonlist="{ ${buttonlist:2} }"
 
+    # log the dialog
+    local logmsg="${msg%%$'\n'*}"
+    [[ "$logmsg" = "$msg" ]] && logmsg="with text '$msg'" || logmsg="starting '$logmsg'..."
+    errlog "Showing dialog '$title' $logmsg"
+    
     # run the dialog
     
     try "${var}=" /usr/bin/osascript -e "$icon_set

@@ -13,6 +13,7 @@
 **/*.app/**
 /app/epichrome-*.notarize*
 /app/Chromium/**
+/app/Epichrome
 /app/build/**
 /app/icons/**
 /app/runtime/**

@@ -271,13 +271,13 @@ function updateapp { # ( updateAppPath )
 	# filter localization strings in place
 	filterlproj "$updatePayloadPath/Resources" 'app engine' Chromium
 	
-	# copy icons to payload
-	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$updatePayloadPath/Resources/$CFBundleIconFile" \
-		 "engine app icon"
-	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$updatePayloadPath/Resources/$CFBundleTypeIconFile" \
-		 "engine document icon"
+	# # copy icons to payload  $$$ MOVED TO LAUNCH
+	# safecopy "$iconSourcePath/$CFBundleIconFile" \
+	# 	 "$updatePayloadPath/Resources/$CFBundleIconFile" \
+	# 	 "engine app icon"
+	# safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+	# 	 "$updatePayloadPath/Resources/$CFBundleTypeIconFile" \
+	# 	 "engine document icon"
 
 
 	# CREATE PLACEHOLDER
@@ -304,16 +304,16 @@ function updateapp { # ( updateAppPath )
 	try /bin/chmod 755 "$updatePlaceholderExec" \
 	    'Unable to set permissions for app engine placeholder executable.'
 	
-	# copy Resources directory from payload
-	try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
-	    'Unable to copy resources from app engine payload to placeholder.'
+	# # copy Resources directory from payload  $$$$ MOVED TO LAUNCH
+	# try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
+	#     'Unable to copy resources from app engine payload to placeholder.'
 
-	# copy in core script
-	try /bin/mkdir -p "$updatePlaceholderPath/Resources/Scripts" \
-	    'Unable to create app engine placeholder scripts.'
-	try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
-	    "$updatePlaceholderPath/Resources/Scripts" \
-	    'Unable to copy core to placeholder.'
+	# # copy in core script
+	# try /bin/mkdir -p "$updatePlaceholderPath/Resources/Scripts" \
+	#     'Unable to create app engine placeholder scripts.'
+	# try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
+	#     "$updatePlaceholderPath/Resources/Scripts" \
+	#     'Unable to copy core to placeholder.'
     fi
     
     

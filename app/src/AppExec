@@ -48,14 +48,10 @@ myLogFile="$myDataPath/epichrome_app_log.txt"
 
 # path to important data directories and paths
 myConfigFile="$myDataPath/config.sh"
-myEnginePath="$myDataPath/Engine.noindex"
-myEnginePayloadPath="$myEnginePath/Payload"
-myEnginePlaceholderPath="$myEnginePath/Placeholder"
 myProfilePath="$myDataPath/UserData"
 
 # export to helper app
-export myDataPath myLogApp myLogFile myConfigFile \
-       myEnginePath myEnginePayloadPath myEnginePlaceholderPath myProfilePath
+export myDataPath myLogApp myLogFile myConfigFile myProfilePath
 
 
 # FUNCTION DEFINITIONS
@@ -110,6 +106,7 @@ myLockFile="$myDataPath/lock" ; export myLockFile
 lockOn=
 lockPID=
 lockEnginePID=
+lockEnginePath=
 
 # LOCKSET -- set a lock file, or fail if it's already set
 function lockset {
@@ -146,15 +143,15 @@ function lockset {
 		return 1
 	    fi
 	    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-		debuglog "Can't set lock: This app's engine is alive at $lockPID."
+		debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
 		return 1
 	    fi
 	fi
     fi
     
     # if we got here, there's either no lock, or we can stomp on an old one
-    lockPID="$$" ; lockEnginePID=
-    writevars "$myLockFile" lockPID lockEnginePID
+    lockPID="$$" ; lockEnginePID= ; lockEnginePath=
+    writevars "$myLockFile" lockPID lockEnginePID lockEnginePath
     [[ "$ok" ]] || return 1
     
     # return success
@@ -218,10 +215,17 @@ export -f lockset lockrelease
 
 # LOAD CORE SCRIPT
 
+# for now, preserve log, in case this app is already running
+tempLogPreserve="$logPreserve"
+logPreserve=1
+
 # load core
 source "$myAppPath/Contents/Resources/Scripts/core.sh"
 [[ "$?" = 0 ]] || ( echo "[$$]$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
 [[ "$ok" ]] || abort
+
+# restore logPreserve
+logPreserve="$tempLogPreserve"
 
 
 # HANDLE KILL SIGNALS
@@ -266,6 +270,36 @@ while [[ "$#" -gt 0 ]] ; do
 done
 
 
+# OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
+
+if ! lockset ; then
+    
+    # lock already in use -- see if it's a live engine
+    if kill -0 "$lockEnginePID" 2> /dev/null ; then
+	
+	# engine is already running, so just send any files or URLs to it &
+	# don't run the usual command-line
+	debuglog "Activating already-running engine at '$lockEnginePath'"
+	try /usr/bin/open -a "$lockEnginePath" "${argsURIs[@]}" \
+	    'Unable to connect to running app engine.'
+	
+	# we're done, so exit one way or the other
+	[[ "$ok" ]] && exit 0 || abort
+    else
+	
+	# locked but not with a running engine, so log error & quit
+	abortsilent 'Unable to set lock.'
+    fi
+fi
+
+
+# ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
+
+# REINITIALIZE LOG
+
+initlog
+
+
 # READ CURRENT APP SETTINGS
 
 # add extra config vars for Google Chrome engine
@@ -289,35 +323,58 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
 fi
 
 
-# OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
-
-if ! lockset ; then
-    
-    # lock already in use -- see if it's a live engine
-    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-	
-	# engine is already running, so just send any files or URLs to it &
-	# don't run the usual command-line
-	
-	try /usr/bin/open -a "$myEnginePath/$SSBEngineAppName" "${argsURIs[@]}" \
-	    'Unable to connect to running app engine.'
-	
-	# we're done, so exit
-	[[ "$ok" ]] && exit 0
-	exit 1
-    else
-
-	# locked but not with a running engine, so log error & quit
-	abortsilent 'Unable to set lock.'
-    fi
-fi
-
-
-# ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
-
 # UPDATE APP PATH
     
 SSBAppPath="$myAppPath"
+
+
+# LOAD LAUNCH FUNCTIONS
+
+safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
+[[ "$ok" ]] || abort
+
+
+# GET EPICHROME INFO
+
+getepichromeinfo
+
+
+# UPDATE ENGINE PATH
+
+if [[ ! -d "$SSBEnginePath" ]] ; then
+    
+    # start with Epichrome.app location
+    if [[ -d "$epiCurrentPath" ]] ; then
+	SSBEnginePath="$epiCurrentPath"
+    elif [[ -d "$epiLatestPath" ]] ; then
+	SSBEnginePath="$epiLatestPath"
+    else
+	# last ditch -- use default install location
+	SSBEnginePath='/Applications/Epichrome/Epichrome.app'
+    fi
+
+    # get directory path
+    SSBEnginePath="${SSBEnginePath%/*}/EpichromeEngines.noindex"
+    
+    # determine if path is in our user path
+    if [[ "${SSBEnginePath::${#HOME}}" = "$HOME" ]] ; then
+	# path is user-level, so just add our app ID
+	SSBEnginePath+="/$SSBIdentifier"
+    else
+	# path is root-level, so add our user ID & app ID  $$$ STICKY BIT SHOULD TAKE CARE OF THIS
+	SSBEnginePath+="/$USER/$SSBIdentifier"
+	# try /bin/mkdir -p "$SSBEnginePath" \
+	#     "Unable to create user engine directory at '${SSBEnginePath%/$USER}'"
+	# try /bin/chmod 700 "$SSBEnginePath" \
+	#     "Unable to set permissions for user engine directory at '${SSBEnginePath%/$USER}'"
+	# SSBEnginePath+="/$SSBIdentifier"
+    fi
+fi
+
+# subsidiary paths
+myEnginePayloadPath="$SSBEnginePath/Payload"
+myEnginePlaceholderPath="$SSBEnginePath/Placeholder"
+export myEnginePayloadPath myEnginePlaceholderPath
 
 
 # UPDATE ENGINE APP NAME
@@ -334,11 +391,12 @@ else
 fi
 
 # rename engine app bundle
-if [[ "$SSBEngineAppName" != "$configSSBEngineAppName" ]] ; then
-    if [[ -d "$myEnginePath/$configSSBEngineAppName" ]] ; then
-	try /bin/rm -rf "$myEnginePath/$SSBEngineAppName" \
+if [[ "$configSSBEngineAppName" && \
+	  ( "$SSBEngineAppName" != "$configSSBEngineAppName" ) ]] ; then
+    if [[ -d "$SSBEnginePath/$configSSBEngineAppName" ]] ; then
+	try /bin/rm -rf "$SSBEnginePath/$SSBEngineAppName" \
 	    'Unable to clear old engine app name.'
-	try /bin/mv "$myEnginePath/$configSSBEngineAppName" "$myEnginePath/$SSBEngineAppName" \
+	try /bin/mv "$SSBEnginePath/$configSSBEngineAppName" "$SSBEnginePath/$SSBEngineAppName" \
 	    'Unable to rename engine to match app name.'
 	
 	# an error here is non-fatal
@@ -353,14 +411,8 @@ if [[ "$SSBEngineAppName" != "$configSSBEngineAppName" ]] ; then
 fi
 
 # get path to engine app bundle
-myEngineAppPath="$myEnginePath/$SSBEngineAppName"
+myEngineAppPath="$SSBEnginePath/$SSBEngineAppName"
 export myEngineAppPath
-
-
-# LOAD LAUNCH FUNCTIONS
-
-safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
-[[ "$ok" ]] || abort
 
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
@@ -519,15 +571,15 @@ fi
 
 # LAUNCH APP ENGINE
 
-# export Google API keys for Chromium engine
+# export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
 if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
     export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
     export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
     export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
 fi
 
-# build command line
-myArgs=( "${argsOptions[@]}" "${SSBCommandLine[@]}" )
+# build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
+myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLine[@]}" )
 
 # engine is not running, so launch as usual (still sending URIs to engine)
 
@@ -545,8 +597,14 @@ writeconfig "$myConfigFile"
 # LAUNCH CLEANUP PROCESS
 
 # get PID of running engine
-sleep 0.5
-getenginepid "$myEngineAppPath"
+attempt=
+for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
+    # break on error or if we found a PID
+    getengineinfo "$myEngineAppPath" || break
+    [[ "$myEnginePID" ]] && break
+    errlog "Waiting for app engine to launch..."
+    sleep .5
+done
 
 if [[ "$myEnginePID" ]] ; then
     

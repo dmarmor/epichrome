@@ -106,9 +106,13 @@ function getepichromeinfo {
     # default global return values
     epiCurrentPath= ; epiLatestVersion= ; epiLatestPath=
     
+    # start with preferred install locations
+    local preferred=( ~/'Applications/Epichrome/Epichrome.app' \
+			'/Applications/Epichrome/Epichrome.app' )
+    
     # use spotlight to search the system for Epichrome instances
-    local instances=()
-    try 'instances=(n)' /usr/bin/mdfind \
+    local spotlight=()
+    try 'spotlight=(n)' /usr/bin/mdfind \
 	"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
 	'error'
     if [[ ! "$ok" ]] ; then
@@ -117,11 +121,42 @@ function getepichromeinfo {
 	errmsg=
     fi
     
-    # if spotlight fails (or is off) try hard-coded locations
-    if [[ ! "${instances[*]}" ]] ; then
-	instances=( ~/'Applications/Epichrome.app' \
-		      '/Applications/Epichrome.app' )
-    fi
+    # merge spotlight instances with preferred ones
+    local instances=()
+    local pref=
+
+    # go through preferred paths
+    for pref in "${preferred[@]}" ; do
+	
+	# check current preferred path against each spotlight path
+	local i=0 ; local path= ; local found=
+	for path in "${spotlight[@]}" ; do
+
+	    # path found by spotlight
+	    if [[ "$pref" = "$path" ]] ; then
+		found="$i"
+		break
+	    fi
+	    
+	    i=$(($i + 1))
+	done
+
+	if [[ "$found" ]] ; then
+	    
+	    # remove matching path from spotlight list & add to instances
+	    instances+=( "$pref" )
+	    spotlight=( "${spotlight[@]::$found}" "${spotlight[@]:$(($found + 1))}" )
+	    
+	elif [[ -d "$pref" ]] ; then
+
+	    # path not found by spotlight, but it exists, so check it
+	    instances+=( "$pref" )
+	fi
+	
+    done
+    
+    # add all remaining spotlight paths
+    instances+=( "${spotlight[@]}" )
     
     # check instances of Epichrome to find the current and latest
     local curInstance= ; local curVersion=
@@ -138,22 +173,15 @@ function getepichromeinfo {
 		
 		debuglog "Found Epichrome $curVersion at '$curInstance'."
 		
-		# see if this is newer than the current latest Epichrome, or
-		# the same version but only this one is on the same device as our data directory
-		if ( [[ ! "$epiLatestPath" ]] || \
-			 vcmp "$epiLatestVersion" '<' "$curVersion" || \
-			 ( issamedevice "$curInstance" "$myDataPath" && \
-			       ! issamedevice "$epiLatestPath" "$myDataPath" ) ) ; then
+		# see if this is newer than the current latest Epichrome
+		if [[ ! "$epiLatestPath" ]] || \
+		       vcmp "$epiLatestVersion" '<' "$curVersion" ; then
 		    epiLatestPath="$curInstance"
 		    epiLatestVersion="$curVersion"
 		fi
 		
-		# see if we haven't already found an instance of the current version, or if
-		# only this one is on the same device as our data directory
-		if vcmp "$curVersion" '==' "$SSBVersion" && \
-			( [[ ! "$epiCurrentPath" ]] || \
-			      ( issamedevice "$curInstance" "$myDataPath" && \
-				    ! issamedevice "$epiCurrentPath" "$myDataPath" ) ) ; then
+		# see if this is the first instance we've found of the current version
+		if [[ ! "$epiCurrentPath" ]] && vcmp "$curVersion" '==' "$SSBVersion" ; then
 		    epiCurrentPath="$curInstance"
 		fi
 		
@@ -173,8 +201,14 @@ function getepichromeinfo {
 	    errlog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
     fi
     
-    # return 
-    [[ "$ok" ]] && return 0 || return 1
+    # return code based on what we found
+    if [[ "$epiCurrentPath" && "$epiLatestPath" ]] ; then
+	return 0
+    elif [[ "$epiLatestPath" ]] ; then
+	return 2
+    else
+	return 1
+    fi	
 }
 
 
@@ -231,17 +265,8 @@ function checkappupdate {
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # get info on latest Epichrome version
-    [[ "$epiLatestPath" && "$epiLatestVersion" ]] || getepichromeinfo
-    if [[ ! "$ok" ]] ; then
-	ok=1
-	errmsg="Unable to get info on installed Epichrome versions. ($errmsg)"
-	return 1
-    elif [[ ! "$epiLatestVersion" ]] ; then
-
-	# no Epichrome found on the system, so we're done
-	return 0
-    fi
+    # if no Epichrome on the system, we're done
+    [[ "$epiLatestVersion" ]] || return 0
     
     # assume success
     local result=0
@@ -256,27 +281,30 @@ function checkappupdate {
 	local updateMsg="A new version of Epichrome was found ($epiLatestVersion). Would you like to update this app?"
 	local updateBtnUpdate='Update'
 	local updateBtnLater='Later'
+	local updateButtonList=( )
 
 	# update dialog info if the new version is beta
 	if visbeta "$epiLatestVersion" ; then
 	    updateMsg="$updateMsg
 
 IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
-	    updateBtnUpdate="-$updateBtnUpdate"
-	    updateBtnLater="+$updateBtnLater"
+	    updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
 	else
-	    updateBtnUpdate="+$updateBtnUpdate"
-	    updateBtnLater="-$updateBtnLater"
+	    updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 	fi
-
+	
+	# if the Epichrome version corresponding to this app's version is not found, and
+	# the app uses the Chromium engine, don't allow the user to ignore this version
+	if [[ "$epiCurrentPath" || ( "$SSBEngineType" != 'Chromium' ) ]] ; then
+	    updateButtonList+=( "Don't Ask Again For This Version" )
+	fi
+	
 	# display update dialog
 	dialog doUpdate \
 	       "$updateMsg" \
 	       "Update" \
 	       "|caution" \
-	       "$updateBtnUpdate" \
-	       "$updateBtnLater" \
-	       "Don't Ask Again For This Version"
+	       "${updateButtonList[@]}"
 	if [[ ! "$ok" ]] ; then
 	    alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
 	    doUpdate="Update"
@@ -611,7 +639,7 @@ function populatedatadir { # ( [FORCE] )
 
     # path to First Run file
     local firstRunFile="$myProfilePath/First Run"
-
+    
     # make sure directory exists and is minimally populated
     if [[ ! -e "$firstRunFile" ]] ; then
 	
@@ -636,11 +664,20 @@ function populatedatadir { # ( [FORCE] )
     # if we couldn't create the directory, that's a fatal error
     [[ "$ok" ]] || return 1
 
-    
+
     # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE ONLY ON FORCE
     
     if [[ "$force" ]] ; then
 
+	# $$$ temporary -- remove old engine directory
+	debuglog "Removing old engine directory."
+	try /bin/rm -rf "$myDataPath/Engine.noindex" \
+	    'Unable to remove old engine directory'
+	if [[ ! "$ok" ]] ; then
+	    errlog "$errmsg"
+	    ok=1 ; errmsg=
+	fi
+	
 	debuglog "Forcing data directory update. Installing external extensions."
 
 	# set up useful variables
@@ -933,18 +970,15 @@ function createengine {
     
     # CLEAR OUT ANY OLD ENGINE
     
-    if [[ -d "$myEnginePath" ]] ; then
-	try /bin/rm -rf "$myEnginePath" 'Unable to clear old engine.'
+    if [[ -d "$SSBEnginePath" ]] ; then
+	try /bin/rm -rf "$SSBEnginePath" 'Unable to clear old engine.'
     fi
     
     
     # CREATE NEW ENGINE
     
-    try /bin/mkdir -p "$myEnginePath" 'Unable to create new engine.'
+    try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
     [[ "$ok" ]] || return 1
-    
-    # path to active engine app
-    local myEngineApp="$myEnginePath/$SSBEngineAppName"
     
     if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
 	
@@ -983,7 +1017,7 @@ function createengine {
 	fi
 	
 	# make sure Google Chrome is on the same volume as the engine
-	if ! issamedevice "$SSBGoogleChromePath" "$myEnginePath" ; then
+	if ! issamedevice "$SSBGoogleChromePath" "$SSBEnginePath" ; then
 	    ok= ; errmsg="Google Chrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
@@ -1029,19 +1063,19 @@ function createengine {
 	# GOOGLE CHROME PLACEHOLDER
 	
 	# clear out any old active app
-	if [[ -d "$myEngineApp" ]] ; then
-	    try /bin/rm -rf "$myEngineApp" \
+	if [[ -d "$myEngineAppPath" ]] ; then
+	    try /bin/rm -rf "$myEngineAppPath" \
 		'Unable to clear old Google Chrome app engine placeholder.'
 	    [[ "$ok" ]] || return 1
 	fi
 	
 	# create active placeholder app bundle
-	try /bin/mkdir -p "$myEngineApp/Contents/MacOS" \
+	try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
 	    'Unable to create Google Chrome app engine placeholder.'
 	
 	# filter Info.plist from payload
 	filterplist "$myEnginePayloadPath/Info.plist" \
-		    "$myEngineApp/Contents/Info.plist" \
+		    "$myEngineAppPath/Contents/Info.plist" \
 		    "Google Chrome app engine placeholder Info.plist" \
 		    'Add :LSUIElement bool true' \
 		    "Set :CFBundleShortVersionString $SSBVersion" \
@@ -1053,16 +1087,16 @@ function createengine {
 	
 	# copy in placeholder executable
 	try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
-	    "$myEngineApp/Contents/MacOS/$googleChromeExecutable" \
+	    "$myEngineAppPath/Contents/MacOS/$googleChromeExecutable" \
 	    'Unable to copy Google Chrome app engine placeholder executable.'
 	
 	# copy Resources directory from payload
-	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineApp/Contents" \
+	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
 	    'Unable to copy resources from Google Chrome app engine payload to placeholder.'
 	
 	# copy in scripts
 	try /bin/cp -a "$myAppPlaceholderPath/Scripts" \
-	    "$myEngineApp/Contents/Resources" \
+	    "$myEngineAppPath/Contents/Resources" \
 	    'Unable to copy scripts to Google Chrome app engine placeholder.'
 
     else
@@ -1072,12 +1106,17 @@ function createengine {
 	# make sure we have the current version of Epichrome
 	if [[ ! -d "$epiCurrentPath" ]] ; then
 	    ok=
-	    errmsg="Unable to find this app's version of Epichrome."
+	    errmsg="Unable to find this app's version of Epichrome ($SSBVersion)."
+	    if vcmp "$epiLatestVersion" '>' "$SSBVersion" ; then
+		errmsg+=" The app can't be run until it's reinstalled or the app is updated."
+	    else
+		errmsg+=" It must be reinstalled before the app can run."
+	    fi
 	    return 1
 	fi
 	
 	# make sure Epichrome is on the same volume as the engine
-	if ! issamedevice "$epiCurrentPath" "$myEnginePath" ; then
+	if ! issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
 	    ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
 	    return 1
 	fi
@@ -1087,6 +1126,14 @@ function createengine {
 	    "$myEnginePayloadPath" \
 	    'Unable to copy app engine payload.'
 	
+	# copy icons to payload  $$$ MOVED FROM UPDATE
+	safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
+		 "$myEnginePayloadPath/Resources/$CFBundleIconFile" \
+		 "engine app icon"
+	safecopy "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
+		 "$myEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
+		 "engine document icon"
+	
 	# hard link large payload items from Epichrome
 	linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
 		 "$myEnginePayloadPath" 'app engine' 'payload'
@@ -1095,19 +1142,31 @@ function createengine {
 	# CHROMIUM PLACEHOLDER
 	
 	# clear out any old active app
-	if [[ -d "$myEngineApp" ]] ; then
-	    try /bin/rm -rf "$myEngineApp" \
+	if [[ -d "$myEngineAppPath" ]] ; then
+	    try /bin/rm -rf "$myEngineAppPath" \
 		'Unable to clear old app engine placeholder.'
 	    [[ "$ok" ]] || return 1
 	fi
 	
 	# create active placeholder app bundle
-	try /bin/mkdir -p "$myEngineApp" \
+	try /bin/mkdir -p "$myEngineAppPath" \
 	    'Unable to create app engine placeholder.'
 	
-	# copy in placeholder
-	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePlaceholderPath" "$myEngineApp/Contents" \
+	# copy in app placeholder
+	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
+	    "$myEngineAppPath/Contents" \
 	    'Unable to populate app engine placeholder.'
+
+	# copy Resources directory from payload  $$$$ MOVED FROM UPDATE
+	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
+	    'Unable to copy resources from app engine payload to placeholder.'
+	
+	# copy in core script
+	try /bin/mkdir -p "$myEngineAppPath/Contents/Resources/Scripts" \
+	    'Unable to create app engine placeholder scripts.'
+	try /bin/cp "$SSBAppPath/Contents/Resources/Scripts/core.sh" \
+	    "$myEngineAppPath/Contents/Resources/Scripts" \
+	    'Unable to copy core to placeholder.'
     fi
     
     # return code
@@ -1115,24 +1174,28 @@ function createengine {
 }
 
 
-# GETENGINEPID: get the PID of the running engine   $$$$ DO THIS EXPORT IN EPICHROME??
-myEnginePID= ; export myEnginePID
-function getenginepid { # path
+# GETENGINEINFO: get the PID and canonical path of the running engine
+myEnginePID= ; myEngineCanonicalPath= ; export myEnginePID myEngineCanonicalPath
+function getengineinfo { # path
 
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
     # assume no PID
     myEnginePID=
-
-    # args
-    local path="$1" ; shift
-
+    
+    # args (canonicalize path)
+    local path="$(unset CDPATH && try cd "$1" '' && try 'rp=' pwd -P '' && echo "$rp")" ; shift
+    if [[ ! -d "$path" ]] ; then
+	errmsg="Unable to get canonical engine path for '$1'."
+	return 1
+    fi
+    
     # get ASN associated with the engine's bundle path
     local asn=
     try 'asn=' /usr/bin/lsappinfo find "bundlepath=$path" \
 	'Error while attempting to find running engine.'
     
-    # no engine found, just don't return a PID
-    [[ "$ok" && ! "$asn" ]] && return 0
-
     # search for PID
     if [[ "$ok" ]] ; then
 	
@@ -1146,19 +1209,21 @@ function getenginepid { # path
 	re='^"pid" *= *([0-9]+)$'
 	if [[ "$info" =~ $re ]] ; then
 	    myEnginePID="${BASH_REMATCH[1]}"
+	    myEngineCanonicalPath="$path"
 	fi
     fi
     
     # return result
     if [[ "$myEnginePID" ]] ; then
 	ok=1 ; errmsg=
-	debuglog "Found running engine with PID $myEnginePID."
+	debuglog "Found running engine '$myEngineCanonicalPath' with PID $myEnginePID."
 	return 0
     elif [[ "$ok" ]] ; then
 	debuglog "No running engine found."
 	return 0
     else
 	# errors in this function are nonfatal; just return the error message
+	errlog "$errmsg"
 	ok=1
 	return 1
     fi

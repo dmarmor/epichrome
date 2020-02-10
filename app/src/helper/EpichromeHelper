@@ -23,8 +23,12 @@
 
 # IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
 
+# update log name
+myLogApp="$myLogApp|$epiHelperMode"
+
 if [[ "$epiHelperMode" =~ ^Start(.+)$ ]] ; then
     epiHelperMode="${BASH_REMATCH[1]}"
+    debuglog "Forking child daemon..."
     "$0" "$@" &
     exit 0
 fi
@@ -64,8 +68,8 @@ function lockreplace { # ( replacePID )
 	    # if this is the right lock, replace it
 	    if [[ "$replacePID" = "$lockPID" ]] ; then
 		debuglog "Taking over lock from PID $replacePID."
-		lockPID="$$" lockEnginePID="$myEnginePID"
-		writevars "$myLockFile" lockPID lockEnginePID
+		lockPID="$$" ; lockEnginePID="$myEnginePID" ; lockEnginePath="$myEngineCanonicalPath"
+		writevars "$myLockFile" lockPID lockEnginePID lockEnginePath
 		[[ "$ok" ]] || return 1
 		lockOn=1
 		return 0
@@ -89,9 +93,6 @@ function lockreplace { # ( replacePID )
 
 
 # MAIN BODY
-
-# update log name
-myLogApp="$myLogApp|$epiHelperMode"
 
 if [[ "$epiHelperMode" = Relaunch ]] ; then
 

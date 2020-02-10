@@ -89,7 +89,7 @@ function updatessb { # ( SSBAppPath )
 		updateMsg="$updateMsg
 			
 IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myProfilePath) before updating."
-		updateBtnUpdate="-$updateBtnUpdate"
+		#updateBtnUpdate="-$updateBtnUpdate"
 		updateBtnLater="+$updateBtnLater"
 	    else
 		updateBtnUpdate="+$updateBtnUpdate"
@@ -120,7 +120,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	# ask user to choose  which engine to use (sticking with Google Chrome is the default)
 	local useChromium=
 	dialog SSBEngineType \
-	       "Switch app engine to Chromium or continue to use Google Chrome?
+	       "Continue to use Google Chrome app engine, or switch to Chromium?
 
 NOTE: If you don't know what this question means, choose Google Chrome.
 
@@ -131,8 +131,8 @@ In the long run, switching to the Chromium engine has many advantages, including
 The main advantage of continuing to use the Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
 	       "Choose App Engine" \
 	       "|caution" \
-	       "-Chromium" \
-	       "+Google Chrome"
+	       "+Google Chrome" \
+	       "-Chromium"
 	if [[ ! "$ok" ]] ; then
 	    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
 	    SSBEngineType="Google Chrome"
