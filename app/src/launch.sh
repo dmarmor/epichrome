@@ -26,6 +26,11 @@
 safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 
+# CONSTANTS
+
+appEnginePathBase='EpichromeEngines.noindex'
+
+
 # EPICHROME VERSION-CHECKING FUNCTIONS
 
 # VISBETA -- if version is a beta, return 0, else return 1
@@ -107,8 +112,10 @@ function getepichromeinfo {
     epiCurrentPath= ; epiLatestVersion= ; epiLatestPath=
     
     # start with preferred install locations
-    local preferred=( ~/'Applications/Epichrome/Epichrome.app' \
-			'/Applications/Epichrome/Epichrome.app' )
+    local preferred=()
+    [[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$appEnginePathBase/*}" )
+    preferred+=( ~/'Applications/Epichrome/Epichrome.app' \
+		   '/Applications/Epichrome/Epichrome.app' )
     
     # use spotlight to search the system for Epichrome instances
     local spotlight=()
@@ -176,13 +183,13 @@ function getepichromeinfo {
 		# see if this is newer than the current latest Epichrome
 		if [[ ! "$epiLatestPath" ]] || \
 		       vcmp "$epiLatestVersion" '<' "$curVersion" ; then
-		    epiLatestPath="$curInstance"
+		    epiLatestPath="$(canonicalize "$curInstance")"
 		    epiLatestVersion="$curVersion"
 		fi
 		
 		# see if this is the first instance we've found of the current version
 		if [[ ! "$epiCurrentPath" ]] && vcmp "$curVersion" '==' "$SSBVersion" ; then
-		    epiCurrentPath="$curInstance"
+		    epiCurrentPath="$(canonicalize "$curInstance")"
 		fi
 		
 	    else
@@ -451,6 +458,14 @@ function checkgithubupdate {
     fi
     
     return 0
+}
+
+
+# CANONICALIZE -- canonicalize a path
+function canonicalize { # ( path )
+    local rp=
+    local result=$(unset CDPATH && try '!12' cd "$1" '' && try 'rp=' pwd -P '' && echo "$rp")
+    [[ "$result" ]] && echo "$result" || echo "$1"
 }
 
 
@@ -1185,7 +1200,7 @@ function getengineinfo { # path
     myEnginePID=
     
     # args (canonicalize path)
-    local path="$(unset CDPATH && try cd "$1" '' && try 'rp=' pwd -P '' && echo "$rp")" ; shift
+    local path="$(canonicalize "$1")" ; shift
     if [[ ! -d "$path" ]] ; then
 	errmsg="Unable to get canonical engine path for '$1'."
 	return 1

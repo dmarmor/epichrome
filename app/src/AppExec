@@ -341,6 +341,17 @@ getepichromeinfo
 
 # UPDATE ENGINE PATH
 
+if [[ ( -d "$SSBEnginePath" ) && \
+	  ( "$epiCurrentPath" && \
+		( "${SSBEnginePath%/$appEnginePathBase/*}" != "${epiCurrentPath%/*}" ) ) ||
+	      ( ( ! "$epiCurrentPath" ) && "$epiLatestPath" && \
+		    ( "${SSBEnginePath%/$appEnginePathBase/*}" != "${epiLatestPath%/*}" ) ) ]] ; then
+    
+    # engine path is not next to the current Epichrome (or latest one if no current), so we'll move it
+    debuglog "Engine path '$SSBEnginePath' is not alongside Epichrome."
+    try /bin/rm -rf "$SSBEnginePath" '' ; ok=1 ; errmsg=
+
+fi
 if [[ ! -d "$SSBEnginePath" ]] ; then
     
     # start with Epichrome.app location
@@ -354,7 +365,7 @@ if [[ ! -d "$SSBEnginePath" ]] ; then
     fi
 
     # get directory path
-    SSBEnginePath="${SSBEnginePath%/*}/EpichromeEngines.noindex"
+    SSBEnginePath="${SSBEnginePath%/*}/$appEnginePathBase"
     
     # determine if path is in our user path
     if [[ "${SSBEnginePath::${#HOME}}" = "$HOME" ]] ; then
@@ -369,6 +380,8 @@ if [[ ! -d "$SSBEnginePath" ]] ; then
 	#     "Unable to set permissions for user engine directory at '${SSBEnginePath%/$USER}'"
 	# SSBEnginePath+="/$SSBIdentifier"
     fi
+
+    debuglog "Setting engine path to '$SSBEnginePath'"
 fi
 
 # subsidiary paths

@@ -151,7 +151,17 @@ function updateapp { # ( updateAppPath )
     try /bin/cp -a "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
-
+    # decrypt executable into place
+    try /bin/mkdir -p "$contentsTmp/MacOS" \
+	'Unable to create app executable directory.'
+    try /usr/bin/openssl AES-128-CBC -d -k data \
+	-in "$updateEpichromeRuntime/epichrome_data" \
+	-out "$contentsTmp/MacOS/Epichrome" \
+	'Unable to copy app executable.'
+    try /bin/chmod +x "$contentsTmp/MacOS/Epichrome" \
+	'Unable to set app executable permissions.'
+    
+    
     # FILTER APP INFO.PLIST INTO PLACE
     
     # set up default PlistBuddy commands
@@ -259,6 +269,16 @@ function updateapp { # ( updateAppPath )
 
 	# path to payload
 	local updatePayloadPath="$updateEnginePath/Payload"
+	
+	# decrypt executable into place
+	try /bin/mkdir -p "$updatePayloadPath/MacOS" \
+	    'Unable to create app engine payload executable directory.'
+	try /usr/bin/openssl AES-128-CBC -d -k data \
+	    -in "$updateEpichromeRuntime/Engine/chromium_data" \
+	    -out "$updatePayloadPath/MacOS/Chromium" \
+	    'Unable to copy app engine payload executable.'
+	try /bin/chmod +x "$updatePayloadPath/MacOS/Chromium" \
+	    'Unable to set app engine payload executable permissions.'
 	
 	# filter payload Info.plist into place
 	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \

@@ -63,11 +63,17 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 # CHROMIUM VERSION
 # (Using Marmaduke build with Google APIs and Widevine from https://chromium.woolyss.com/)
 
-CHROMIUM:=$(shell ls Chromium/*.zip 2> /dev/null | sort -r | head -n 1)
+CHROMIUM:=$(shell ls Chromium/Chromium.*.sync.app.* 2> /dev/null | sort -r | head -n 1)
 ifeq ($(CHROMIUM),)
-$(error Unable to find Chromium zip file)
+$(error Unable to find Chromium archive)
 endif
-CHROMIUM_VERSION:=$(patsubst Chromium/Chromium.%.sync.app.zip,%,$(CHROMIUM))
+ifneq ($(suffix $(CHROMIUM)),.tgz)
+ifneq ($(suffix $(CHROMIUM)),.zip)
+$(error Unrecognized file in Chromium directory: $(CHROMIUM))
+endif
+CHROMIUM:=$(CHROMIUM:.zip=.tgz)
+endif
+CHROMIUM_VERSION:=$(patsubst Chromium/Chromium.%.sync.app.tgz,%,$(CHROMIUM))
 
 
 # NOTARIZE INFO
@@ -238,7 +244,7 @@ notarize: epichrome-$(VERSION).pkg
 #	  # to store AppleID app password credential in keychain:
 #	xcrun altool --store-password-in-keychain-item 'KEYCHAIN_ITEM' -u 'USERNAME' -p 'PASSWORD'
 	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
-	read -p "Send to Apple for notarization? (y/n [n]) " -r ; \
+	read -p "Send $< to Apple for notarization? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
 		request_id='notarize-request.'"$$(date '+%Y%m%d-%H%M%S')" ; \
 		xcrun altool --notarize-app \
@@ -263,7 +269,7 @@ notarize-check:
 
 notarize-staple: epichrome-$(VERSION).pkg
 	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
-	read -p "Staple notarization? (y/n [n]) " -r ; \
+	read -p "Staple notarization for $<? (y/n [n]) " -r ; \
 	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
 		xcrun stapler staple '$<' ; fi
 
@@ -307,7 +313,10 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Icons/app.icns \
 	$(APP_RNTM)/Icons/document.icns \
 	\
-	$(APP_RNTM_HLPR) \
+	$(APP_RNTM)/epichrome_data \
+	\
+	$(APP_RNTM)/Contents/Resources/MainMenu.nib \
+	$(APP_RNTM)/Contents/Resources/AppSettings.plist \
 	\
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
@@ -326,18 +335,14 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/FirstRun/img/m2s2.png \
 	$(APP_RNTM)/Contents/Resources/FirstRun/img/m3s1.png \
 	\
+	$(APP_RNTM_HLPR) \
+	\
 	$(APP_RNTM)/Engine/Filter/PlaceholderExec \
-	\
-	$(APP_RNTM)/Resources/Scripts/runtime.sh \
-	\
-	$(APP_RNTM)/Contents/MacOS/Epichrome \
-	$(APP_RNTM)/Contents/Resources/MainMenu.nib \
-	$(APP_RNTM)/Contents/Resources/AppSettings.plist \
-	\
 	$(APP_RNTM)/Engine/Filter/Info.plist \
 	$(APP_RNTM)/Engine/Payload \
-	$(APP_RNTM)/Engine/Link/Frameworks
-
+	$(APP_RNTM)/Engine/Link/Frameworks \
+	\
+	$(APP_RNTM)/Resources/Scripts/runtime.sh
 
 # MAIN APP CORE
 
@@ -402,12 +407,12 @@ $(APP_CT)/Resources/Scripts/%: src/%
 
 # RUNTIME CORE
 
-$(APP_RNTM)/Contents/MacOS/Epichrome \
+$(APP_RNTM)/epichrome_data \
 $(APP_RNTM)/Contents/Resources/MainMenu.nib \
 $(APP_RNTM)/Contents/Resources/AppSettings.plist: runtime
 
 runtime:
-	@rm -rf build/runtime.app
+	@rm -rf build/runtime.app build/runtime
 	@echo > build/fake.icns
 	@echo > build/fake.sh
 	platypus --name Epichrome \
@@ -429,10 +434,11 @@ runtime:
 	mv build/runtime.app build/runtime
 	@rm build/fake.icns build/fake.sh
 	@cd build/runtime/Contents && rm -f Info.plist Resources/*.icns Resources/script
-	@mkdir -p $(APP_RNTM)/Contents/MacOS $(APP_RNTM)/Contents/Resources
-	mv -f build/runtime/Contents/MacOS/Epichrome $(APP_RNTM)/Contents/MacOS/Epichrome
+	@mkdir -p $(APP_RNTM)/Contents/Resources
 	mv -f build/runtime/Contents/Resources/MainMenu.nib $(APP_RNTM)/Contents/Resources/MainMenu.nib
 	mv -f build/runtime/Contents/Resources/AppSettings.plist $(APP_RNTM)/Contents/Resources/AppSettings.plist
+	openssl AES-128-CBC -k data -in 'build/runtime/Contents/MacOS/Epichrome' -out '$(APP_RNTM)/epichrome_data'
+	@rm build/runtime/Contents/MacOS/Epichrome
 	@rmdir build/runtime/Contents/MacOS
 	@cd build && if ! rmdir -p runtime/Contents/Resources ; then \
 		echo '*** Unexpected files found in Platypus runtime app (check build/runtime).' 1>&2 ; false ; fi
@@ -517,25 +523,45 @@ build/img/icon128$(BETA).png: ../images/icons/app$(BETA).png
 
 # *** ENGINE ***
 
+# CODESIGNED CHROMIUM
+
+build/engine: $(CHROMIUM)
+	@rm -rf build/engine
+	tar xzvf $(CHROMIUM) --cd build
+
+CHROMIUM_FRAMEWORK:=build/chromium/Contents/Frameworks/Chromium Framework.framework
+# find Chromium.app -exec bash -c 'codesign --verify --deep --strict "{}" 2> /dev/null && codesign --verify --deep --strict --verbose=2 "{}"' ';'
+$(CHROMIUM): $(CHROMIUM:.tgz=.zip)
+	@mkdir -p build/chromium
+	tar xzvf '$<' --cd build/chromium --strip-components 1
+	codesign --remove-signature -vv build/chromium
+	rmdir build/chromium/Contents/_CodeSignature
+# codesign --remove-signature -vv \
+# 	'$(CHROMIUM_FRAMEWORK)' \
+# 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
+# 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/Helpers/'*
+# rmdir '$(CHROMIUM_FRAMEWORK)/Versions/Current/_CodeSignature' \
+# 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc/Contents/_CodeSignature' \
+# 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/Helpers/'*.app/Contents/_CodeSignature
+	src/signmatch.sh '/Applications/Google Chrome.app' build/chromium \
+		'$(CHROMIUM_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
+		'$(CHROMIUM_FRAMEWORK)/Versions/Current/Helpers/'* \
+		'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
+		'$(CHROMIUM_FRAMEWORK)'
+#		'build/chromium'
+	@rm -rf build/engine
+	mv build/chromium/Contents build/engine
+	rmdir build/chromium
+	tar czvf '$@' --cd build engine
+	@touch build/engine
+
+
 # ENGINE FILTER ELEMENTS
 
 $(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engine/Link/Frameworks: \
 		$(CHROMIUM) src/version.sh engine
 
-engine:
-	@rm -rf build/Chromium.app build/engine
-	unzip -d build $(CHROMIUM)
-	codesign --remove-signature -v build/Chromium.app
-	rmdir build/Chromium.app/Contents/_CodeSignature
-	codesign --remove-signature -v \
-		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework' \
-		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/XPCServices/AlertNotificationService.xpc' \
-		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/Helpers/'*.app
-	rmdir 'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/_CodeSignature' \
-		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/XPCServices/AlertNotificationService.xpc/Contents/_CodeSignature' \
-		'build/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/$(CHROMIUM_VERSION)/Helpers/'*.app/Contents/_CodeSignature
-	mv build/Chromium.app/Contents build/engine
-	rmdir build/Chromium.app
+engine: build/engine
 	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Info.plist)" != 'app.icns' ]] ; then \
 		echo '*** Chromium app icon name has changed.' 1>&2 ; false ; fi
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString $(VERSION)' \
@@ -549,6 +575,9 @@ engine:
 	mv build/engine/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
 	@touch $(APP_RNTM)/Engine/Link/Frameworks
 	rm -f build/engine/Resources/*.icns
+	openssl AES-128-CBC -k data -in 'build/engine/MacOS/Chromium' -out '$(APP_RNTM)/Engine/chromium_data'
+	rm build/engine/MacOS/Chromium
+	rmdir build/engine/MacOS
 	mv build/engine $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
 
@@ -562,16 +591,3 @@ $(APP_RNTM)/Engine/Filter/PlaceholderExec: src/PlaceholderExec src/version.sh
 $(APP_RNTM)/Resources/Scripts/runtime.sh: src/runtime.sh
 	@mkdir -p $(APP_RNTM)/Resources/Scripts
 	cp '$<' '$@'
-
-
-# $(APP_ENGN): $(CHROMIUM)
-# 	@rm -rf $(APP_ENGN)
-# 	mkdir -p $(APP_ENGN)/Payload/Contents/Resources
-# 	unzip -d $(APP_ENGN) $(CHROMIUM)
-# 	mv $(APP_ENGN)/Chromium.app/Contents $(APP_ENGN)/Runtime
-# 	rmdir $(APP_ENGN)/Chromium.app
-# 	mv $(APP_ENGN)/Runtime/Info.plist $(APP_ENGN)/Payload/Contents/Info.plist.in
-# 	mv $(APP_ENGN)/Runtime/MacOS $(APP_ENGN)/Payload/Contents
-# 	mv $(APP_ENGN)/Runtime/Resources/*.lproj $(APP_ENGN)/Payload/Contents/Resources
-# 	rm -f $(APP_ENGN)/Runtime/Resources/*.icns
-
