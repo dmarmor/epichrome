@@ -40,23 +40,23 @@ export debug logPreserve
 # CONSTANTS
 
 # icon names
-CFBundleIconFile="app.icns"
-CFBundleTypeIconFile="document.icns"
+readonly CFBundleIconFile="app.icns"
+readonly CFBundleTypeIconFile="document.icns"
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-appIDRoot='org.epichrome'
-appIDBase="$appIDRoot.app"
-appEngineIDBase="$appIDRoot.eng"
-googleChromeID='com.google.Chrome'
+readonly appIDRoot='org.epichrome'
+readonly appIDBase="$appIDRoot.app"
+readonly appEngineIDBase="$appIDRoot.eng"
+readonly googleChromeID='com.google.Chrome'
 export appIDRoot appIDBase appEngineIDBase googleChromeID
 
 # app internal paths
-appHelperPath='Resources/EpichromeHelper.app'
-appEnginePath='Resources/Engine'
-appEnginePayloadPath="$appEnginePath/Payload"
-appEnginePlaceholderPath="$appEnginePath/Placeholder"
-appNMHFile='epichromeruntimehost.py'
+readonly appHelperPath='Resources/EpichromeHelper.app'
+readonly appEnginePath='Resources/Engine'
+readonly appEnginePayloadPath="$appEnginePath/Payload"
+readonly appEnginePlaceholderPath="$appEnginePath/Placeholder"
+readonly appNMHFile='epichromeruntimehost.py'
 
 
 # CORE CONFIG VARIABLES
