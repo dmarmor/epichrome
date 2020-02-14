@@ -1048,12 +1048,12 @@ function createengine {
 	# copy all of Google Chrome except Framework and Resources
 	# (note that hard linking executblle causes confusion between apps & real Chrome)
 	local allExcept='!(Frameworks|Resources)'
-	try /bin/cp -a "$SSBGoogleChromePath/Contents/"$allExcept "$myEnginePayloadPath" \
+	try /bin/cp -PR "$SSBGoogleChromePath/Contents/"$allExcept "$myEnginePayloadPath" \
 	    'Unable to copy Google Chrome app engine payload.'
 	
 	# copy Resources, except icons
 	allExcept='!(*.icns)'
-	try /bin/cp -a "$SSBGoogleChromePath/Contents/Resources/"$allExcept "$myEnginePayloadPath/Resources" \
+	try /bin/cp -PR "$SSBGoogleChromePath/Contents/Resources/"$allExcept "$myEnginePayloadPath/Resources" \
 	    'Unable to copy Google Chrome app engine resources to payload.'
 	
 	# restore extended glob
@@ -1106,11 +1106,11 @@ function createengine {
 	    'Unable to copy Google Chrome app engine placeholder executable.'
 	
 	# copy Resources directory from payload
-	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
+	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
 	    'Unable to copy resources from Google Chrome app engine payload to placeholder.'
 	
 	# copy in scripts
-	try /bin/cp -a "$myAppPlaceholderPath/Scripts" \
+	try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
 	    "$myEngineAppPath/Contents/Resources" \
 	    'Unable to copy scripts to Google Chrome app engine placeholder.'
 
@@ -1137,7 +1137,7 @@ function createengine {
 	fi
 	
 	# copy main payload from app
-	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePayloadPath" \
+	try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePayloadPath" \
 	    "$myEnginePayloadPath" \
 	    'Unable to copy app engine payload.'
 	
@@ -1168,12 +1168,12 @@ function createengine {
 	    'Unable to create app engine placeholder.'
 	
 	# copy in app placeholder
-	try /bin/cp -a "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
+	try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
 	    "$myEngineAppPath/Contents" \
 	    'Unable to populate app engine placeholder.'
 
 	# copy Resources directory from payload  $$$$ MOVED FROM UPDATE
-	try /bin/cp -a "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
+	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
 	    'Unable to copy resources from app engine payload to placeholder.'
 	
 	# copy in core script

@@ -697,13 +697,13 @@ function safecopy {
 	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."
 
 	# copy file or directory directly
-	try /bin/cp -a "$src" "$dst" "Unable to copy $filetype."
+	try /bin/cp -PR "$src" "$dst" "Unable to copy $filetype."
 	
     else
 	
 	# copy to temporary location
 	local dstTmp="$(tempname "$dst")"
-	try /bin/cp -a "$src" "$dstTmp" "Unable to copy $filetype."
+	try /bin/cp -PR "$src" "$dstTmp" "Unable to copy $filetype."
 	
 	if [[ "$ok" ]] ; then
 	    # move file to permanent home

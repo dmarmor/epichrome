@@ -148,7 +148,7 @@ function updateapp { # ( updateAppPath )
     local contentsTmp="$(tempname "$updateAppPath/Contents")"
     
     # copy in the boilerplate for the app
-    try /bin/cp -a "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
+    try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
     # decrypt executable into place
@@ -263,7 +263,7 @@ function updateapp { # ( updateAppPath )
 	# CREATE PAYLOAD
 	
 	# copy in main payload
-	try /bin/cp -a "$updateEpichromeRuntime/Engine/Payload" \
+	try /bin/cp -PR "$updateEpichromeRuntime/Engine/Payload" \
 	    "$updateEnginePath" \
 	    'Unable to populate app engine payload.'
 
@@ -325,7 +325,7 @@ function updateapp { # ( updateAppPath )
 	    'Unable to set permissions for app engine placeholder executable.'
 	
 	# # copy Resources directory from payload  $$$$ MOVED TO LAUNCH
-	# try /bin/cp -a "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
+	# try /bin/cp -PR "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
 	#     'Unable to copy resources from app engine payload to placeholder.'
 
 	# # copy in core script

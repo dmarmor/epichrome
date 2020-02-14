@@ -132,7 +132,7 @@ The main advantage of continuing to use the Google Chrome engine is if your app 
 	       "Choose App Engine" \
 	       "|caution" \
 	       "+Google Chrome" \
-	       "-Chromium"
+	       "Chromium"
 	if [[ ! "$ok" ]] ; then
 	    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
 	    SSBEngineType="Google Chrome"

@@ -12,6 +12,7 @@
 /Patreon/**
 **/*.app/**
 /app/epichrome-*.notarize*
+/app/Chrome/**
 /app/Chromium/**
 /app/Epichrome
 /app/build/**

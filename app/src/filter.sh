@@ -90,7 +90,7 @@ function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
     local destFileTmp="$(tempname "$destFile")"
     
     # copy source file to temp
-    try cp "$srcFile" "$destFileTmp" "Unable to create temporary $tryErrorID."
+    try /bin/cp "$srcFile" "$destFileTmp" "Unable to create temporary $tryErrorID."
     
     [[ "$ok" ]] || return 1
     
