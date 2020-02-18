@@ -155,7 +155,7 @@ function updateapp { # ( updateAppPath )
     try /bin/mkdir -p "$contentsTmp/MacOS" \
 	'Unable to create app executable directory.'
     try /usr/bin/openssl AES-128-CBC -d -k data \
-	-in "$updateEpichromeRuntime/epichrome_data" \
+	-in "$updateEpichromeRuntime/epichrome.dat" \
 	-out "$contentsTmp/MacOS/Epichrome" \
 	'Unable to copy app executable.'
     try /bin/chmod +x "$contentsTmp/MacOS/Epichrome" \
@@ -181,16 +181,20 @@ function updateapp { # ( updateAppPath )
 
 
     # FILTER APP MAIN SCRIPT INTO PLACE
-    
+
+    local appExecEngineSource=
+    [[ "$SSBEngineType" = internal ]] && \
+	appExecEngineSource="SSBEngineSource=$(formatarray "${SSBEngineSource[@]}") ; readonly SSBEngineSource"
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
 	       "$contentsTmp/Resources/script" \
 	       'app executable' \
 	       APPID "$(formatscalar "$SSBIdentifier")" \
-	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
 	       APPDISPLAYNAME "$(formatscalar "$CFBundleDisplayName")" \
 	       APPBUNDLENAME "$(formatscalar "$CFBundleName")" \
 	       APPCUSTOMICON "$(formatscalar "$SSBCustomIcon")" \
-	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")"
+	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
+	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
+	       APPENGINESOURCE "$appExecEngineSource"
     
     
     # GET ICON SOURCE
@@ -235,30 +239,30 @@ function updateapp { # ( updateAppPath )
     
     # create engine directory
     try mkdir -p "$updateEnginePath" 'Unable to create app engine.'
-
-    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
-
-	# GOOGLE CHROME ENGINE
-
+    
+    if [[ "$SSBEngineType" != internal ]] ; then
+	
+	# EXTERNAL ENGINE
+	
 	# filter placeholder executable into place
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updateEnginePath/PlaceholderExec" \
-		   'Google Chrome app engine placeholder executable' \
+		   "${SSBEngineSource[$iDisplayName]} app engine placeholder executable" \
 		   APPID "$(formatscalar "$SSBIdentifier")" \
 		   APPBUNDLEID "$(formatscalar "$myAppBundleID")"
 	try /bin/chmod 755 "$updateEnginePath/PlaceholderExec" \
-	    'Unable to set permissions for Google Chrome app engine placeholder executable.'
+	    "Unable to set permissions for ${SSBEngineSource[$iDisplayName]} app engine placeholder executable."
 	
 	# copy in core script
 	try /bin/mkdir -p "$updateEnginePath/Scripts" \
-	    'Unable to create Google Chrome app engine placeholder scripts.'
+	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine placeholder scripts."
 	try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
 	    "$updateEnginePath/Scripts" \
-	    'Unable to copy core to Google Chrome app engine placeholder.'
+	    "Unable to copy core to ${SSBEngineSource[$iDisplayName]} app engine placeholder."
 
     else
 	
-	# CHROMIUM ENGINE
+	# INTERNAL ENGINE
 
 	# CREATE PAYLOAD
 	
@@ -274,39 +278,33 @@ function updateapp { # ( updateAppPath )
 	try /bin/mkdir -p "$updatePayloadPath/MacOS" \
 	    'Unable to create app engine payload executable directory.'
 	try /usr/bin/openssl AES-128-CBC -d -k data \
-	    -in "$updateEpichromeRuntime/Engine/chromium_data" \
-	    -out "$updatePayloadPath/MacOS/Chromium" \
+	    -in "$updateEpichromeRuntime/Engine/exec.dat" \
+	    -out "$updatePayloadPath/MacOS/${SSBEngineSource[$iExecutable]}" \
 	    'Unable to copy app engine payload executable.'
-	try /bin/chmod +x "$updatePayloadPath/MacOS/Chromium" \
+	try /bin/chmod +x "$updatePayloadPath/MacOS/${SSBEngineSource[$iExecutable]}" \
 	    'Unable to set app engine payload executable permissions.'
 	
 	# filter payload Info.plist into place
 	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
 		    "$updatePayloadPath/Info.plist" \
-		"app engine payload Info.plist" \
-		"Set :CFBundleDisplayName $CFBundleDisplayName" \
-		"Set :CFBundleName $CFBundleName" \
-		"Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier"
+		    "app engine payload Info.plist" \
+		    "Set :CFBundleDisplayName $CFBundleDisplayName" \
+		    "Set :CFBundleName $CFBundleName" \
+		    "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier"
 	
 	# filter localization strings in place
-	filterlproj "$updatePayloadPath/Resources" 'app engine' Chromium
+	filterlproj "$updatePayloadPath/Resources" 'app engine' \
+		    "${SSBEngineSource[$iName]}"
 	
-	# # copy icons to payload  $$$ MOVED TO LAUNCH
-	# safecopy "$iconSourcePath/$CFBundleIconFile" \
-	# 	 "$updatePayloadPath/Resources/$CFBundleIconFile" \
-	# 	 "engine app icon"
-	# safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-	# 	 "$updatePayloadPath/Resources/$CFBundleTypeIconFile" \
-	# 	 "engine document icon"
-
-
+	
 	# CREATE PLACEHOLDER
 	
 	# path to placeholder
 	local updatePlaceholderPath="$updateEnginePath/Placeholder"
 	
 	# make sure placeholder exists
-	try /bin/mkdir -p "$updatePlaceholderPath/MacOS" 'Unable to create app engine placeholder.'
+	try /bin/mkdir -p "$updatePlaceholderPath/MacOS" \
+	    'Unable to create app engine placeholder.'
 	
 	# filter placeholder Info.plist from payload
 	filterplist "$updatePayloadPath/Info.plist" \
@@ -315,7 +313,7 @@ function updateapp { # ( updateAppPath )
 		'Add :LSUIElement bool true'
 	
 	# filter placeholder executable into place
-	local updatePlaceholderExec="$updatePlaceholderPath/MacOS/Chromium"
+	local updatePlaceholderExec="$updatePlaceholderPath/MacOS/${SSBEngineSource[$iExecutable]}"
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updatePlaceholderExec" \
 		   'app engine placeholder executable' \
@@ -323,17 +321,6 @@ function updateapp { # ( updateAppPath )
 		   APPBUNDLEID "$(formatscalar "$myAppBundleID")"
 	try /bin/chmod 755 "$updatePlaceholderExec" \
 	    'Unable to set permissions for app engine placeholder executable.'
-	
-	# # copy Resources directory from payload  $$$$ MOVED TO LAUNCH
-	# try /bin/cp -PR "$updatePayloadPath/Resources" "$updatePlaceholderPath" \
-	#     'Unable to copy resources from app engine payload to placeholder.'
-
-	# # copy in core script
-	# try /bin/mkdir -p "$updatePlaceholderPath/Resources/Scripts" \
-	#     'Unable to create app engine placeholder scripts.'
-	# try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
-	#     "$updatePlaceholderPath/Resources/Scripts" \
-	#     'Unable to copy core to placeholder.'
     fi
     
     

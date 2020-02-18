@@ -23,14 +23,21 @@
 
 # CORE APP INFO
 
-SSBVersion='EPIVERSION'               # filled in by Makefile
-SSBIdentifier=APPID                   # filled in by updateapp
-SSBEngineType=APPENGINETYPE           # filled in by updateapp
-CFBundleDisplayName=APPDISPLAYNAME    # filled in by updateapp
-CFBundleName=APPBUNDLENAME            # filled in by updateapp
-SSBCustomIcon=APPCUSTOMICON           # filled in by updateapp
-SSBCommandLine=APPCOMMANDLINE         # filled in by updateapp
-export SSBIdentifier SSBVersion SSBEngineType CFBundleDisplayName CFBundleName SSBCommandLine
+# filled in by Makefile
+SSBVersion='EPIVERSION'               
+readonly SSBVersion
+
+# filled in by updateapp
+SSBIdentifier=APPID
+CFBundleDisplayName=APPDISPLAYNAME
+CFBundleName=APPBUNDLENAME
+SSBCustomIcon=APPCUSTOMICON
+SSBCommandLine=APPCOMMANDLINE
+SSBEngineType=APPENGINETYPE
+APPENGINESOURCE
+readonly SSBIdentifier CFBundleDisplayName CFBundleName SSBCustomIcon SSBCommandLine SSBEngineType
+
+export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine SSBEngineType SSBEngineSource
 
 
 # CORE APP VARIABLES
@@ -302,12 +309,16 @@ initlog
 
 # READ CURRENT APP SETTINGS
 
-# add extra config vars for Google Chrome engine
-[[ "$SSBEngineType" = 'Google Chrome' ]] && appConfigVars+=( "${appConfigVarsGoogleChrome[@]}" )
+# add extra config vars for external engine
+[[ "$SSBEngineType" != internal ]] && appConfigVars+=( SSBEngineSource )
 
 # read config file (if any)
-[[ -f "$myConfigFile" ]] && readconfig "$myConfigFile"
-[[ "$ok" ]] || abort
+if [[ -f "$myConfigFile" ]] ; then
+    readconfig "$myConfigFile"
+    [[ "$ok" ]] || abort
+else
+    debuglog "No configuration file found."
+fi
 
 # determine if this is our first run on a new version
 isFirstRun=
@@ -514,14 +525,14 @@ fi
 doCreateEngine=
 doNotActivateEngine=
 
-# if we're using a Google Chrome engine, get info on Chrome
-if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-
-    # try the path we've been using first
-    [[ "$SSBGoogleChromePath" ]] && getgooglechromeinfo "$SSBGoogleChromePath"
+# if we're using an external engine, get info on it
+if [[ "$SSBEngineType" != internal ]] ; then
     
-    # if that fails, search the system for Chrome
-    [[ "$SSBGoogleChromePath" ]] || getgooglechromeinfo
+    # try the path we've been using first
+    [[ "${SSBEngineSource[$iPath]}" ]] && getextenginesrcinfo "${SSBEngineSource[$iPath]}"
+    
+    # if that fails, search the system for external engine
+    [[ "${SSBEngineSource[$iPath]}" ]] || getextenginesrcinfo
 fi
 
 if [[ "$isFirstRun" ]] ; then
@@ -545,15 +556,15 @@ else
     fi
     # else engine is in the expected off state
     
-    if [[ ! "$doCreateEngine" && ( "$SSBEngineType" = "Google Chrome" ) ]] ; then
+    if [[ ! "$doCreateEngine" && ( "$SSBEngineType" != internal ) ]] ; then
 
-	# new version of Google Chrome
-	if [[ "$SSBGoogleChromeVersion" && \
-		  ( "$SSBGoogleChromeVersion" != "$configSSBGoogleChromeVersion" ) ]] ; then
+	# new version of external engine app
+	if [[ "${SSBEngineSource[$iVersion]}" && \
+		  ( "${SSBEngineSource[$iVersion]}" != "${configSSBEngineSource[$iVersion]}" ) ]] ; then
 	    
 	    doCreateEngine=1
-	    debuglog "Updating engine to Google Chrome version $SSBGoogleChromeVersion."
-	    createEngineErrMsg="$Unable to update engine to Google Chrome version $SSBGoogleChromeVersion"
+	    debuglog "Updating engine to ${SSBEngineSource[$iDisplayName]} version ${SSBEngineSource[$iVersion]}."
+	    createEngineErrMsg="Unable to update engine to ${SSBEngineSource[$iDisplayName]} version ${SSBEngineSource[$iVersion]}."
 	fi
     fi
 fi
@@ -583,13 +594,6 @@ fi
 
 
 # LAUNCH APP ENGINE
-
-# export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
-if [[ "$SSBEngineType" != "Google Chrome" ]] ; then
-    export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
-    export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
-    export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
-fi
 
 # build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
 myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLine[@]}" )

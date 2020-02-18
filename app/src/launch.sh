@@ -29,6 +29,17 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 # CONSTANTS
 
 appEnginePathBase='EpichromeEngines.noindex'
+readonly appEnginePathBase
+
+# external engine info
+appExtEngineInfo=( "com.microsoft.edgemac|1|Microsoft Edge|2|Microsoft Edge" \
+				"com.vivaldi.Vivaldi|1|Vivaldi|2|Vivaldi" \
+				"com.operasoftware.Opera|1|Opera|2|com.operasoftware.Opera" \
+				"com.brave.Browser|1|Brave Browser|2|BraveSoftware/Brave-Browser" \
+				"org.chromium.Chromium|1|Chromium|2|Chromium" \
+				"com.google.Chrome|1|Google Chrome|2|Google/Chrome" \
+			  )
+readonly appExtEngineInfo
 
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
@@ -301,8 +312,8 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	fi
 	
 	# if the Epichrome version corresponding to this app's version is not found, and
-	# the app uses the Chromium engine, don't allow the user to ignore this version
-	if [[ "$epiCurrentPath" || ( "$SSBEngineType" != 'Chromium' ) ]] ; then
+	# the app uses an internal engine, don't allow the user to ignore this version
+	if [[ "$epiCurrentPath" || ( "$SSBEngineType" != internal ) ]] ; then
 	    updateButtonList+=( "Don't Ask Again For This Version" )
 	fi
 	
@@ -421,7 +432,7 @@ function checkgithubupdate {
 	    SSBUpdateCheckVersion="$epiLatestVersion"
 	
 	# check if there's a new version on Github
-	try 'updateResult=(n)' checkgithubversion "$SSBUpdateCheckVersion" ''
+	try '-2' 'updateResult=(n)' checkgithubversion "$SSBUpdateCheckVersion" ''
 	[[ "$ok" ]] || return 1
 	
 	# if there's an update available, display a dialog
@@ -527,105 +538,159 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 }
 
 
-# GETGOOGLECHROMEINFO: find Google Chrome on the system & get info on it
-#                      sets the following variables:
-#                         SSBGoogleChromePath, SSBGoogleChromeVersion
-#                         googleChromeExecutable, googleChromeAppIconPath, googleChromeDocIconPath
-function getgooglechromeinfo { # ( [myGoogleChromePath] )
+# GETENGINEDISPLAYNAME: try to return the display name of our engine
+function getenginedisplayname { # ( [fallback] )
+
+    # fallback name to use on failure
+    local fallback="$1" ; shift
+
+    # first try configured name
+    local result="${SSBEngineSource[$iDisplayName]}"
+
+    # no configured name
+    if [[ ! "$result" ]] ; then
+
+	# search database of compatible engines
+	local curEngine=
+	
+	for curEngine in "${appExtEngineInfo[@]}" ; do
+	    if [[ "${curEngine%%|1|*}" = "$SSBEngineType" ]] ; then
+		result="${curEngine#*|1|}"
+		result="${result%%|2|*}"
+		break
+	    fi
+	done
+    fi
+
+    # if not found in database, use fallback
+    [[ "$result" ]] || result="$fallback"
+
+    # print the result
+    echo "$result"
+}
+
+
+# GETEXTENGINESRCINFO: find external engine source app on the system & get info on it
+#                      if successful, it sets the SSBEngineSource variable
+function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
 
     # argument
-    local myGoogleChromePath="$1" ; shift
+    local myExtEngineSrcPath="$1" ; shift
     
     # set up list of search locations/methods
     local searchList=()
-    if [[ "$myGoogleChromePath" ]] ; then
+    if [[ "$myExtEngineSrcPath" ]] ; then
 
 	# if we were passed a specific path, only check that
-	searchList=( "$myGoogleChromePath" FAIL )
+	searchList=( "$myExtEngineSrcPath" FAIL )
     else
 	# otherwise, search known locations & spotlight
-	searchList=( "$HOME/Applications/Google Chrome.app" \
-			 '/Applications/Google Chrome.app' \
-			 SPOTLIGHT FAIL )
+	
+	# try to get the display name of the engine app
+	local engineDispName="$(getenginedisplayname)"
+	
+	# if we know the name of the app, search in the usual places
+	if [[ "$engineDispName" ]] ; then
+	    searchList=( "$HOME/Applications/$engineDispName.app" \
+			     "/Applications/$engineDispName.app" )
+	else
+	    engineDispName="$SSBEngineType"
+	fi
+	
+	# always search with spotlight
+	searchList+=( SPOTLIGHT FAIL )
     fi
     
-    # try various methods to find & validate Chrome
-    SSBGoogleChromePath=
+    # assume failure
+    SSBEngineSource=()
+    
+    # try various methods to find & validate external engine browser
+    local myEngineSourcePath=
     for curPath in "${searchList[@]}" ; do
-	
-	[[ "$SSBGoogleChromePath" ]] && debuglog "Google Chrome not found at '$SSBGoogleChromePath'."
-	
-	# assume failure
-	SSBGoogleChromePath=
-	SSBGoogleChromeVersion=
-	googleChromeAppIconPath=
-	googleChromeDocIconPath=
 	
 	if [[ "$curPath" = FAIL ]] ; then
 
 	    # failure
-	    debuglog 'Google Chrome not found.'
+	    debuglog 'External engine $engineDispName not found.'
 	    break
 	    
 	elif [[ "$curPath" = SPOTLIGHT ]] ; then
-		
+
+	    debuglog "Searching Spotlight for instances of $engineDispName..."
+	    
 	    # search spotlight
-	    try 'SSBGoogleChromePath=()' /usr/bin/mdfind "kMDItemCFBundleIdentifier == '$googleChromeID'" ''
+	    try 'myEngineSourcePath=(n)' /usr/bin/mdfind \
+		"kMDItemCFBundleIdentifier == '$SSBEngineType'" ''
 	    if [[ "$ok" ]] ; then
+		
 		# use the first instance
-		SSBGoogleChromePath="${SSBGoogleChromePath[0]}"
+		myEngineSourcePath="${myEngineSourcePath[0]}"
 	    else
-		SSBGoogleChromePath=
+		debuglog "Spotlight found no instances of $engineDispName."
+		myEngineSourcePath=
 		ok=1 ; errmsg=
 	    fi
 	else
+
+	    debuglog "Trying path '$curPath'..."
 	    
 	    # regular path, so check it
 	    if [[ -d "$curPath" ]] ; then
-		SSBGoogleChromePath="$curPath"
+		myEngineSourcePath="$curPath"
 	    fi
 	fi
-	    
+	
 	# if nothing found, try next
-	[[ "$SSBGoogleChromePath" ]] || continue
+	[[ "$myEngineSourcePath" ]] || continue
 	
 	# validate any found path
 	
 	# check that Info.plist exists
-	[[ -e "$SSBGoogleChromePath/Contents/Info.plist" ]] || continue
+	if [[ ! -e "$myEngineSourcePath/Contents/Info.plist" ]] ; then
+	    debuglog "No app found at '$myEngineSourcePath'"
+	    continue
+	fi
 	
 	# parse Info.plist
 	local infoPlist=()
 	try 'infoPlist=(n)' /usr/libexec/PlistBuddy \
-	    -c 'Print CFBundleIdentifier' \
 	    -c 'Print CFBundleExecutable' \
+	    -c 'Print CFBundleName' \
+	    -c 'Print CFBundleDisplayName' \
 	    -c 'Print CFBundleShortVersionString' \
 	    -c 'Print CFBundleIconFile' \
 	    -c 'Print CFBundleDocumentTypes:0:CFBundleTypeIconFile' \
-	    "$SSBGoogleChromePath/Contents/Info.plist" ''
+	    -c 'Print CFBundleIdentifier' \
+	    "$myEngineSourcePath/Contents/Info.plist" ''
 	if [[ ! "$ok" ]] ; then
 	    ok=1 ; errmsg=
+	    debuglog "Unable to parse Info.plist at '$myEngineSourcePath'"
 	    continue
 	fi
 	
 	# check bundle ID
-	[[ "${infoPlist[0]}" = "$googleChromeID" ]] || continue
+	if [[ "${infoPlist[6]}" != "$SSBEngineType" ]] ; then
+	    debuglog "Found ID ${infoPlist[6]} instead of $SSBEngineType at '$myEngineSourcePath'"
+	    continue
+	fi
 	
 	# make sure the executable is in place
-	local curExecPath="$SSBGoogleChromePath/Contents/MacOS/${infoPlist[1]}"
-	[[ -f "$curExecPath" && -x "$curExecPath" ]] || continue
+	local curExecPath="$myEngineSourcePath/Contents/MacOS/${infoPlist[$iExecutable]}"
+	if [[ ! ( -f "$curExecPath" && -x "$curExecPath" ) ]] ; then
+	    debuglog "No valid executable at '$myEngineSourcePath'"
+	    continue
+	fi
 	
-	# if we got here, we have a complete copy of Chrome, so set globals & break out
-	googleChromeExecutable="${infoPlist[1]}"
-	SSBGoogleChromeVersion="${infoPlist[2]}"
-	googleChromeAppIconPath="${infoPlist[3]}"
-	googleChromeDocIconPath="${infoPlist[4]}"
-
-	debuglog "Google Chrome $SSBGoogleChromeVersion found at '$SSBGoogleChromePath'."
-
+	# if we got here, we have a complete copy of the browser,
+	# so set SSBEngineSource & break out
+	SSBEngineSource=( "${infoPlist[@]}" )
+	SSBEngineSource[$iPath]="$myEngineSourcePath"
+	
+	debuglog "External engine ${SSBEngineSource[$iDisplayName]} ${SSBEngineSource[$iVersion]} found at '${SSBEngineSource[$iPath]}'."
+	
 	break	
     done
 }
@@ -665,7 +730,7 @@ function populatedatadir { # ( [FORCE] )
 	    
 	    # $$$ GET RID OF THIS AND USE MASTER PREFS??
 	    
-	    # set First Run file so Chrome/Chromium doesn't think it's a new profile (fail silently)
+	    # set First Run file so engine doesn't think it's a new profile (fail silently)
 	    try /usr/bin/touch "$myProfilePath/First Run" 'Unable to create first run marker.'
 	    
 	    # non-fatal
@@ -777,9 +842,9 @@ function populatedatadir { # ( [FORCE] )
 }
 
 
-# LINKTONMH -- link to Google Chrome and Chromium native message hosts
+# LINKTONMH -- link to native message hosts from compatible browsers
 function linktonmh {
-
+    
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
@@ -787,19 +852,37 @@ function linktonmh {
     local shoptState=
     shoptset shoptState nullglob
     
-    # name for profile NMH folder
+    # useful constants for profile NMH folders
     local nmhDir=NativeMessagingHosts
+    local supportDir="${HOME}/Library/Application Support"
     
-    # get paths to source and destination NMH manifest directories
-    local googleChromeHostDir="${HOME}/Library/Application Support/Google/Chrome/$nmhDir"
-    local chromiumHostDir="${HOME}/Library/Application Support/Chromium/$nmhDir"
+    # paths to NMH directories for compatible browsers
+    
+    # get path to destination NMH manifest directory
     local myHostDir="$myProfilePath/$nmhDir"
     
     # favor hosts from whichever browser our engine is using
-    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
-	hostDirs=( "$chromiumHostDir" "$googleChromeHostDir" )
-    else
-	hostDirs=( "$googleChromeHostDir" "$chromiumHostDir" )
+    if [[ "$SSBEngineType" != internal ]] ; then
+
+	# see if the current engine is in the list
+	local curBrowser= ; local i=0
+	local browserNMHDirs=()
+	for curBrowser in "${appExtEngineInfo[@]}" ; do
+	    if [[ "$SSBEngineType" = "$curBrowser%%|1|*" ]] ; then
+
+		debuglog "Prioritizing $SSBEngineType native messaging hosts."
+		
+		# engine found, so bump it to the end of the list (giving it top priority)
+		browserNMHDirs=( "${appExtEngineInfo[@]::$i}" \
+				     "${appExtEngineInfo[@]:$(($i + 1))}" \
+				     "$curBrowser" )
+		break
+	    fi
+	    i=$(($i + 1))
+	done
+
+	# if engine not found, use vanilla list
+	[[ "${browserNMHDirs[*]}" ]] || browserNMHDirs=( "${appExtEngineInfo[@]}" )
     fi
     
     # navigate to our host directory
@@ -818,23 +901,26 @@ function linktonmh {
     
     # link to hosts from both directories
     local curHostDir=
-    for curHostDir in "${hostDirs[@]}" ; do
+    for curHostDir in "${browserNMHDirs[@]}" ; do
 
+	# get only the directory
+	curHostDir="${HOME}/$supportDir/${curHostDir#*|2|}/$nmhDir"
+	
 	if [[ -d "$curHostDir" ]] ; then
-
+	    
 	    # get a list of all hosts in this directory
 	    try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
 	    hostFiles=( * )
 	    try '!1' popd "Unable to navigate away from ${curHostDir}"
 
-	    # link to any hosts that are not already in our directory
-	    # or are links to a different file -- this way if a given
-	    # host is in both the Chrome & Chromium directories, whichever
-	    # we hit second will win
+	    # link to any hosts that are not already in our directory or are
+	    # links to a different file -- this way if a given host is in
+	    # multiple NMH directories, whichever we hit last wins
 	    for curFile in "${hostFiles[@]}" ; do
 		if [[ ( ! -e "$curFile" ) || \
 			  ( -L "$curFile" && \
 				! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
+		    debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
 		    try ln -sf "${curHostDir}/$curFile" "$curFile" \
 			"Unable to link to native messaging host ${curFile}."
 		    
@@ -894,9 +980,9 @@ function checkengine {  # ( ON|OFF )
     fi
 
     # engine is in a known state, so make sure both app bundles are complete
-    if [[ -x "$inactivePath/MacOS/$SSBEngineType" && \
+    if [[ -x "$inactivePath/MacOS/${SSBEngineSource[$iExecutable]}" && \
 	      -f "$inactivePath/Info.plist" && \
-	      -x "$myEngineAppPath/Contents/MacOS/$SSBEngineType" && \
+	      -x "$myEngineAppPath/Contents/MacOS/${SSBEngineSource[$iExecutable]}" && \
 	      -f "$myEngineAppPath/Contents/Info.plist" ]] ; then
 		
 	# return code depending if we match our expected state
@@ -957,11 +1043,11 @@ function setenginestate {  # ( ON|OFF )
     [[ "$ok" ]] || return 1
     
     # sometimes it takes a moment for the move to register
-    if [[ ! -x "$myEngineAppContents/MacOS/$SSBEngineType" ]] ; then
+    if [[ ! -x "$myEngineAppContents/MacOS/${SSBEngineSource[$iExecutable]}" ]] ; then
 	ok= ; errmsg="Engine $oldInactiveError executable not found."
 	local attempt=
 	for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
-	    if [[ -x "$myEngineAppContents/MacOS/$SSBEngineType" ]] ; then
+	    if [[ -x "$myEngineAppContents/MacOS/${SSBEngineSource[$iExecutable]}" ]] ; then
 		ok=1 ; errmsg=
 		break
 	    fi
@@ -995,129 +1081,133 @@ function createengine {
     try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
     [[ "$ok" ]] || return 1
     
-    if [[ "$SSBEngineType" = "Google Chrome" ]] ; then
+    if [[ "$SSBEngineType" != internal ]] ; then
 	
-	# GOOGLE CHROME PAYLOAD
+	# EXTERNAL ENGINE PAYLOAD
 	
 	# make sure we have a source for the payload
-	if [[ ! -d "$SSBGoogleChromePath" ]] ; then
+	if [[ ! -d "${SSBEngineSource[$iPath]}" ]] ; then
 	    
 	    # we should already have this, so as a last ditch, ask the user to locate it
-	    local myGoogleChromePath=
-	    try 'myGoogleChromePath=' osascript -e \
-		'return POSIX path of (choose application with title "Locate Google Chrome" with prompt "Please locate Google Chrome" as alias)' 'Locate Google Chrome dialog failed.'
-	    myGoogleChromePath="${myGoogleChromePath%/}"
+	    local myExtEngineSourcePath=
+	    local myExtEngineName="$(getenginedisplayname "$SSBEngineType")"
+	    try 'myExtEngineSourcePath=' osascript -e \
+		"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
+		"Locate engine app dialog failed."
+	    myExtEngineSourcePath="${myExtEngineSourcePath%/}"
 	    
 	    if [[ ! "$ok" ]] ; then
 		
-		# we've failed to find Chrome
+		# we've failed to find the engine browser
 		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-		errmsg="Unable to find Google Chrome.$errmsg"
+		errmsg="Unable to find $myExtEngineName.$errmsg"
 		return 1
 	    fi
 	    
 	    # user selected a path, so check it
-	    getgooglechromeinfo "$myGoogleChromePath"
+	    getextenginesrcinfo "$myExtEngineSourcePath"
 	    
-	    if [[ ! "$SSBGoogleChromePath" ]] ; then
-		ok= ; errmsg="Selected app is not a valid instance of Google Chrome."
+	    if [[ ! "${SSBEngineSource[$iPath]}" ]] ; then
+		ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
 		return 1
 	    fi
 	    
-	    # warn if we're not using the selected app
-	    if [[ "$SSBGoogleChromePath" != "$myGoogleChromePath" ]] ; then
-		alert "Selected app is not a valid instance of Google Chrome. Using '$SSBGoogleChromePath' instead." \
-		      'Warning' '|caution'
-	    fi
+	    # # warn if we're not using the selected app  $$$ IRRELEVANT NOW
+	    # if [[ "${SSBEngineSource[$iPath]}" != "$myExtEngineSourcePath" ]] ; then
+	    # 	alert "Selected app is not a valid instance of Google Chrome. Using '$SSBExtEngineSrcPath' instead." \
+	    # 	      'Warning' '|caution'
+	    # fi
 	fi
 	
-	# make sure Google Chrome is on the same volume as the engine
-	if ! issamedevice "$SSBGoogleChromePath" "$SSBEnginePath" ; then
-	    ok= ; errmsg="Google Chrome is not on the same volume as this app's data directory."
+	# make sure external browser is on the same volume as the engine
+	if ! issamedevice "${SSBEngineSource[$iPath]}" "$SSBEnginePath" ; then
+	    ok= ; errmsg="${SSBEngineSource[$iDisplayName]} is not on the same volume as this app's data directory."
 	    return 1
 	fi
 	
 	# create Payload directory
 	try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
-	    'Unable to create Google Chrome app engine payload.'
+	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine payload."
 	
 	# turn on extended glob for copying
 	local shoptState=
 	shoptset shoptState extglob
 	
-	# copy all of Google Chrome except Framework and Resources
-	# (note that hard linking executblle causes confusion between apps & real Chrome)
+	# copy all of the external browser except Framework and Resources
 	local allExcept='!(Frameworks|Resources)'
-	try /bin/cp -PR "$SSBGoogleChromePath/Contents/"$allExcept "$myEnginePayloadPath" \
-	    'Unable to copy Google Chrome app engine payload.'
+	try /bin/cp -PR "${SSBEngineSource[$iPath]}/Contents/"$allExcept \
+	    "$myEnginePayloadPath" \
+	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine payload."
 	
 	# copy Resources, except icons
 	allExcept='!(*.icns)'
-	try /bin/cp -PR "$SSBGoogleChromePath/Contents/Resources/"$allExcept "$myEnginePayloadPath/Resources" \
-	    'Unable to copy Google Chrome app engine resources to payload.'
+	try /bin/cp -PR "${SSBEngineSource[$iPath]}/Contents/Resources/"$allExcept \
+	    "$myEnginePayloadPath/Resources" \
+	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine resources to payload."
 	
 	# restore extended glob
 	shoptrestore shoptState
 	
-	# hard link to Google Chrome Frameworks
-	linktree "$SSBGoogleChromePath/Contents" "$myEnginePayloadPath" \
-		 'Google Chrome app engine' 'payload' 'Frameworks'
+	# hard link to external engine browser Frameworks
+	linktree "${SSBEngineSource[$iPath]}/Contents" "$myEnginePayloadPath" \
+		 "${SSBEngineSource[$iDisplayName]} app engine" 'payload' 'Frameworks'
 	
 	# filter localization files
-	filterlproj "$myEnginePayloadPath/Resources" 'Google Chrome app engine'
+	filterlproj "$myEnginePayloadPath/Resources" \
+		    "${SSBEngineSource[$iDisplayName]} app engine"
 	
 	# link to this app's icons
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-	    "$myEnginePayloadPath/Resources/$googleChromeAppIconPath" \
-	    "Unable to copy app icon to Google Chrome app engine."
+	    "$myEnginePayloadPath/Resources/${SSBEngineSource[$iAppIconFile]}" \
+	    "Unable to copy app icon to ${SSBEngineSource[$iDisplayName]} app engine."
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-	    "$myEnginePayloadPath/Resources/$googleChromeDocIconPath" \
-	    "Unable to copy document icon file to Google Chrome app engine."
+	    "$myEnginePayloadPath/Resources/${SSBEngineSource[$iDocIconFile]}" \
+	    "Unable to copy document icon file to ${SSBEngineSource[$iDisplayName]} app engine."
 
 
-	# GOOGLE CHROME PLACEHOLDER
+	# EXTERNAL ENGINE PLACEHOLDER
 	
 	# clear out any old active app
 	if [[ -d "$myEngineAppPath" ]] ; then
 	    try /bin/rm -rf "$myEngineAppPath" \
-		'Unable to clear old Google Chrome app engine placeholder.'
+		"Unable to clear old ${SSBEngineSource[$iDisplayName]} app engine placeholder."
 	    [[ "$ok" ]] || return 1
 	fi
 	
 	# create active placeholder app bundle
 	try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
-	    'Unable to create Google Chrome app engine placeholder.'
+	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine placeholder."
 	
 	# filter Info.plist from payload
 	filterplist "$myEnginePayloadPath/Info.plist" \
 		    "$myEngineAppPath/Contents/Info.plist" \
-		    "Google Chrome app engine placeholder Info.plist" \
+		    "${SSBEngineSource[$iDisplayName]} app engine placeholder Info.plist" \
 		    'Add :LSUIElement bool true' \
-		    "Set :CFBundleShortVersionString $SSBVersion" \
 		    'Delete :CFBundleDocumentTypes' \
 		    'Delete :CFBundleURLTypes'
-
+#		    "Set :CFBundleShortVersionString $SSBVersion" \   $$$$ BAD IDEA?
+	
 	# path to placeholder resources in the app
 	local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
 	
 	# copy in placeholder executable
 	try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
-	    "$myEngineAppPath/Contents/MacOS/$googleChromeExecutable" \
-	    'Unable to copy Google Chrome app engine placeholder executable.'
+	    "$myEngineAppPath/Contents/MacOS/${SSBEngineSource[$iExecutable]}" \
+	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine placeholder executable."
 	
 	# copy Resources directory from payload
 	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-	    'Unable to copy resources from Google Chrome app engine payload to placeholder.'
+	    "Unable to copy resources from ${SSBEngineSource[$iDisplayName]} app engine payload to placeholder."
 	
 	# copy in scripts
 	try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
 	    "$myEngineAppPath/Contents/Resources" \
-	    'Unable to copy scripts to Google Chrome app engine placeholder.'
-
+	    "Unable to copy scripts to ${SSBEngineSource[$iDisplayName]} app engine placeholder."
+	
     else
 	
-	# CHROMIUM PAYLOAD
-
+	# INTERNAL ENGINE PAYLOAD
+	
 	# make sure we have the current version of Epichrome
 	if [[ ! -d "$epiCurrentPath" ]] ; then
 	    ok=
@@ -1141,7 +1231,7 @@ function createengine {
 	    "$myEnginePayloadPath" \
 	    'Unable to copy app engine payload.'
 	
-	# copy icons to payload  $$$ MOVED FROM UPDATE
+	# copy icons to payload
 	safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
 		 "$myEnginePayloadPath/Resources/$CFBundleIconFile" \
 		 "engine app icon"
@@ -1154,7 +1244,7 @@ function createengine {
 		 "$myEnginePayloadPath" 'app engine' 'payload'
 
 
-	# CHROMIUM PLACEHOLDER
+	# INTERNAL ENGINE PLACEHOLDER
 	
 	# clear out any old active app
 	if [[ -d "$myEngineAppPath" ]] ; then
@@ -1172,7 +1262,7 @@ function createengine {
 	    "$myEngineAppPath/Contents" \
 	    'Unable to populate app engine placeholder.'
 
-	# copy Resources directory from payload  $$$$ MOVED FROM UPDATE
+	# copy Resources directory from payload
 	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
 	    'Unable to copy resources from app engine payload to placeholder.'
 	
@@ -1246,7 +1336,7 @@ function getengineinfo { # path
 
 
 # WRITECONFIG: write out config.sh file
-function writeconfig {  # ( myConfigFile force
+function writeconfig {  # ( myConfigFile force )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -1345,7 +1435,7 @@ function launchhelper { # ( mode )
     # launch helper (args are just for identification in jobs listings)
     try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
 	'Unable to launch Epichrome helper app.'
-
+    
     # return code
     [[ "$ok" ]] && return 0 || return 1
 }

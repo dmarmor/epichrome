@@ -148,7 +148,7 @@ function filterlproj {  # ( basePath errID usageKey
     local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/; s/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
 
     # if we have a usage key, add command for searching usage descriptions
-    [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$displayName"'\3/'
+    [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$bundleName"'\3/'
     
     # filter InfoPlist.strings files
     local curLproj=

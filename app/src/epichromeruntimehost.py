@@ -179,7 +179,7 @@ if os.path.isfile(launchsvc):
                 httpHandler = handler['LSHandlerRoleAll']
                 break
 
-        # if it's Chrome, set a flag
+        # if it's Chrome, set a flag   $$$$ GENERALIZE THIS FOR WHATEVER -- maybe always use /usr/bin/open -b ??? 
         if httpHandler.lower() == 'com.google.chrome':
             defaultIsChrome = True
             

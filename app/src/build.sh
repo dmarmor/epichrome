@@ -70,6 +70,24 @@ function myabort { # [myErrMsg code]
 trap cleanup EXIT
 
 
+# GET PATH TO MY PARENT EPICHROME RESOURCES
+
+myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
+
+
+# LOGGING INFO
+
+myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
+
+
+# BOOTSTRAP UPDATE SCRIPT
+
+source "$myResourcesPath/Scripts/update.sh"
+[[ "$?" = 0 ]] || \
+    ( echo '[$$]$myLogApp: Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+[[ "$ok" ]] || myabort
+
+
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
 
 # path where the app should be created
@@ -100,33 +118,17 @@ shift
 
 # specify app engine
 if [[ "$1" = "Google Chrome" ]] ; then
-    SSBEngineType="Google Chrome"
+    SSBEngineType='com.google.Chrome'
+    readonly SSBEngineType
 else
-    SSBEngineType="Chromium"
+    SSBEngineType=internal
+    SSBEngineSource=( "${epiEngineSource[@]}" )
+    readonly SSBEngineType SSBEngineSource
 fi
 shift
 
-# profile path may eventually come here as a command-line argument
-
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
-
-
-# GET PATH TO MY PARENT EPICHROME RESOURCES
-
-myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
-
-
-# LOGGING INFO
-
-myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
-
-
-# BOOTSTRAP UPDATE SCRIPT
-
-source "$myResourcesPath/Scripts/update.sh"
-[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
-[[ "$ok" ]] || myabort
 
 
 # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION

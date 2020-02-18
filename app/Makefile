@@ -313,7 +313,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Icons/app.icns \
 	$(APP_RNTM)/Icons/document.icns \
 	\
-	$(APP_RNTM)/epichrome_data \
+	$(APP_RNTM)/epichrome.dat \
 	\
 	$(APP_RNTM)/Contents/Resources/MainMenu.nib \
 	$(APP_RNTM)/Contents/Resources/AppSettings.plist \
@@ -407,7 +407,7 @@ $(APP_CT)/Resources/Scripts/%: src/%
 
 # RUNTIME CORE
 
-$(APP_RNTM)/epichrome_data \
+$(APP_RNTM)/epichrome.dat \
 $(APP_RNTM)/Contents/Resources/MainMenu.nib \
 $(APP_RNTM)/Contents/Resources/AppSettings.plist: runtime
 
@@ -431,16 +431,17 @@ runtime:
 		 --optimize-nib \
 		 build/fake.sh build/runtime.app
 #	alt:	--suffixes 'gif|html|htm|xhtml|js|jpg|jpeg|mhtml|mht|oga|ogg|ogv|png|svg|txt|text|webm|webp|pdf|'
-	mv build/runtime.app build/runtime
+	mv build/runtime.app/Contents build/runtime
+	rmdir build/runtime.app
 	@rm build/fake.icns build/fake.sh
-	@cd build/runtime/Contents && rm -f Info.plist Resources/*.icns Resources/script
+	@cd build/runtime && rm -f Info.plist Resources/*.icns Resources/script
 	@mkdir -p $(APP_RNTM)/Contents/Resources
-	mv -f build/runtime/Contents/Resources/MainMenu.nib $(APP_RNTM)/Contents/Resources/MainMenu.nib
-	mv -f build/runtime/Contents/Resources/AppSettings.plist $(APP_RNTM)/Contents/Resources/AppSettings.plist
-	openssl AES-128-CBC -k data -in 'build/runtime/Contents/MacOS/Epichrome' -out '$(APP_RNTM)/epichrome_data'
-	@rm build/runtime/Contents/MacOS/Epichrome
-	@rmdir build/runtime/Contents/MacOS
-	@cd build && if ! rmdir -p runtime/Contents/Resources ; then \
+	mv -f build/runtime/Resources/MainMenu.nib $(APP_RNTM)/Contents/Resources/MainMenu.nib
+	mv -f build/runtime/Resources/AppSettings.plist $(APP_RNTM)/Contents/Resources/AppSettings.plist
+	openssl AES-128-CBC -k data -in 'build/runtime/MacOS/Epichrome' -out '$(APP_RNTM)/epichrome.dat'
+	@rm build/runtime/MacOS/Epichrome
+	@rmdir build/runtime/MacOS
+	@cd build && if ! rmdir -p runtime/Resources ; then \
 		echo '*** Unexpected files found in Platypus runtime app (check build/runtime).' 1>&2 ; false ; fi
 
 
@@ -575,7 +576,7 @@ engine: build/engine
 	mv build/engine/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
 	@touch $(APP_RNTM)/Engine/Link/Frameworks
 	rm -f build/engine/Resources/*.icns
-	openssl AES-128-CBC -k data -in 'build/engine/MacOS/Chromium' -out '$(APP_RNTM)/Engine/chromium_data'
+	openssl AES-128-CBC -k data -in 'build/engine/MacOS/Chromium' -out '$(APP_RNTM)/Engine/exec.dat'
 	rm build/engine/MacOS/Chromium
 	rmdir build/engine/MacOS
 	mv build/engine $(APP_RNTM)/Engine/Payload

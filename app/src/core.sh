@@ -40,23 +40,41 @@ export debug logPreserve
 # CONSTANTS
 
 # icon names
-readonly CFBundleIconFile="app.icns"
-readonly CFBundleTypeIconFile="document.icns"
+CFBundleIconFile="app.icns"
+CFBundleTypeIconFile="document.icns"
+readonly CFBundleIconFile CFBundleTypeIconFile
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-readonly appIDRoot='org.epichrome'
-readonly appIDBase="$appIDRoot.app"
-readonly appEngineIDBase="$appIDRoot.eng"
-readonly googleChromeID='com.google.Chrome'
-export appIDRoot appIDBase appEngineIDBase googleChromeID
+appIDRoot='org.epichrome'
+appIDBase="$appIDRoot.app"
+appEngineIDBase="$appIDRoot.eng"
+readonly appIDRoot appIDBase appEngineIDBase
+export appIDRoot appIDBase appEngineIDBase
 
 # app internal paths
-readonly appHelperPath='Resources/EpichromeHelper.app'
-readonly appEnginePath='Resources/Engine'
-readonly appEnginePayloadPath="$appEnginePath/Payload"
-readonly appEnginePlaceholderPath="$appEnginePath/Placeholder"
-readonly appNMHFile='epichromeruntimehost.py'
+appHelperPath='Resources/EpichromeHelper.app'
+appEnginePath='Resources/Engine'
+appEnginePayloadPath="$appEnginePath/Payload"
+appEnginePlaceholderPath="$appEnginePath/Placeholder"
+appNMHFile='epichromeruntimehost.py'
+readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
+
+# indices for SSBEngineSource
+iExecutable=0
+iName=1
+iDisplayName=2
+iVersion=3
+iAppIconFile=4
+iDocIconFile=5
+iPath=6
+readonly iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
+export iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
+
+# internal Epichrome engines
+epiEngineSource=( Chromium Chromium Chromium )
+readonly epiEngineSource
+#readonly epiEngineSource=( 'Brave Browser' Brave 'Brave Browser' )
 
 
 # CORE CONFIG VARIABLES
@@ -70,9 +88,9 @@ appConfigVars=( SSBAppPath \
 		    SSBEnginePath \
 		    SSBEngineAppName \
 		    SSBExtensionInstallError )
-appConfigVarsGoogleChrome=( SSBGoogleChromePath SSBGoogleChromeVersion )
-export appConfigVars appConfigVarsGoogleChrome
-export "${appConfigVars[@]}" "${appConfigVarsGoogleChrome[@]}"
+# appConfigVarsExtEngine=( SSBEngineSrcExecutable SSBEngineSrcDisplayName SSBEngineSrcNameSSBExtEngineSrcPath SSBExtEngineSrcVersion )  $$$$ DELETE
+export appConfigVars "${appConfigVars[@]}"
+# export appConfigVarsExtEngine "${appConfigVarsExtEngine[@]}"  $$$$ DELETE
 
 
 # SET UP CORE INFO
@@ -205,16 +223,24 @@ function initlog {
 # TRY: try to run a command, as long as no errors have already been thrown
 #
 #      usage:
-#        try 'varname=' cmd args ... 'Error message.'        [scalar var]
-#        try 'varname+=' cmd args ... 'Error message.'        [append scalar]
-#        try 'varname=([tn]|anything)' cmd args ... 'Error message.'      [array var]
-#        try 'varname+=([tn]|anything)' cmd args ... 'Error message.'     [append array]
-#        try 'filename.txt<' cmd args ... 'Error message.'   [overwrite file]
-#        try 'filename.txt<<' cmd args ... 'Error message.'  [append file]
-#            for any of the above put & before the specifier to
-#            also capture stderr
-#        try cmd args ... 'Error message.'  [log stdout/stderr together]
-#        try '![1|2|12]' cmd args ... 'Error message.' [don't log stdout/stderr or both]
+#        try [(!|-)(1|2|12)] [target] cmd args ...  'Error message.'
+#
+#        if no drop command or target, stdout and stderr are logged together
+#
+#        (!|-)(1|2|12): either don't log or suppress stdout, stderr, or both
+#            (will be overridden by targets that need them)
+#            - = don't log
+#            ! = suppress
+#
+#        'varname=':                 store stdout in scalar var
+#        'varname+=':                append stdout to scalar var
+#        'varname=([tn]|anything)':  store stdout in array var
+#        'varname+=([tn]|anything)': append stdout to array var
+#            for array targets: t=tab-delimited, n=newline-delimited
+#        'filename.txt<':            store stdout in file (overwrite)
+#        'filename.txt<<':           append stdout to file
+#
+#        for all targets, add & to the end to also capture stderr
 #
 # get first line of a variable: "${x%%$'\n'*}"
 #
@@ -225,13 +251,39 @@ function try {
     # only run if no prior error
     if [[ "$ok" ]]; then
 
-	# see if we're storing output
+	# see what output we're storing & how
 	local target="$1"
 	local type=
 	local doAppend=
 	local ifscode=
 	local storeStderr=
 	local dropStdout= ; local dropStderr=
+
+	# see if we're to drop stdout and/or stderr
+	if [[ "$target" =~ ^(\!|-)(1|2|12|21)$ ]] ; then
+	    
+	    # this is a drop command, so next arg might be target
+	    shift
+	    target="$1"
+
+	    # don't log or suppress
+	    local dropAction=suppress
+	    [[ "${BASH_REMATCH[1]}" = '-' ]] && dropAction=ignore
+	    
+	    # select streams
+	    case "${BASH_REMATCH[2]}" in
+		1)
+		    dropStdout="$dropAction"
+		    ;;
+		2)
+		    dropStderr="$dropAction"
+		    ;;
+		12|21)
+		    dropStdout="$dropAction"
+		    dropStderr="$dropAction"
+		    ;;
+	    esac
+	fi
 	
 	# figure out which type of storage to do
 	if [[ "$target" =~ (\+?)=$ ]]; then
@@ -257,30 +309,11 @@ function try {
 	    target="${target::${#target}-1}"
 	    type=file
 	    shift
-	elif [[ ( "${target::1}" = '!' ) && \
-		    "${target:1:${#target}-1}" =~ ^(1|2|12|21)$ ]] ; then
-	    	    
-	    target=
-	    shift
-	    
-	    # not storing, and dropping stdout or stderr or both
-	    case "${BASH_REMATCH[0]}" in
-		1)
-		    dropStdout=1
-		    ;;
-		2)
-		    dropStderr=1
-		    ;;
-		12|21)
-		    dropStdout=1
-		    dropStderr=1
-		    ;;
-	    esac
 	else
 	    # not storing, logging both stdout & stderr
 	    target=
 	fi
-
+	
 	# handle special ifscode values
 	if [[ "$ifscode" = t ]] ; then
 	    ifscode=$'\t\n'
@@ -315,8 +348,10 @@ function try {
 	    if [[ ! "$storeStderr" ]] ; then
 		if [[ ! "$dropStderr" ]] ; then
 		    temp="$( "${args[@]}" 2> "$stderrTempFile" )"
-		else
+		elif [[ "$dropStderr" = ignore ]] ; then
 		    temp="$( "${args[@]}" )"
+		else
+		    temp="$( "${args[@]}" 2> /dev/null )"
 		fi
 		result="$?"
 	    else
@@ -354,8 +389,10 @@ function try {
 	    if [[ ! "$storeStderr" ]] ; then
 		if [[ ! "$dropStderr" ]] ; then
 		    "${args[@]}" >> "$target" 2> "$stderrTempFile"
-		else
+		elif [[ "$dropStderr" = ignore ]] ; then
 		    "${args[@]}" >> "$target"
+		else
+		    "${args[@]}" >> "$target" 2> /dev/null		    
 		fi
 		result="$?"
 	    else
@@ -367,8 +404,10 @@ function try {
 	    if [[ ! "$storeStderr" ]] ; then
 		if [[ ! "$dropStderr" ]] ; then
 		    "${args[@]}" > "$target" 2> "$stderrTempFile"
-		else
+		elif [[ "$dropStderr" = ignore ]] ; then
 		    "${args[@]}" > "$target"
+		else
+		    "${args[@]}" > "$target" 2> /dev/null		    
 		fi
 		result="$?"
 	    else
@@ -376,6 +415,7 @@ function try {
 		result="$?"
 	    fi
 	else
+	    
 	    # not storing, so put both stdout & stderr into stderr log
 	    # unless we're dropping either or both
 	    if [[ ( ! "$dropStdout" ) && ( ! "$dropStderr" ) ]] ; then
@@ -385,18 +425,34 @@ function try {
 		
 	    elif [[ ! "$dropStdout" ]] ; then
 		
-		# log stdout & drop stderr
-		"${args[@]}" > "$stderrTempFile" 2> /dev/null
+		if [[ "$dropStderr" = ignore ]] ; then
+		    # log stdout & ignore stderr
+		    "${args[@]}" > "$stderrTempFile"
+		else
+		    # log stdout & suppress stderr
+		    "${args[@]}" > "$stderrTempFile" 2> /dev/null
+		fi
 		
 	    elif [[ ! "$dropStderr" ]] ; then
-
-		# log stderr & drop stdout
-		"${args[@]}" > /dev/null 2> "$stderrTempFile"
-
+		
+		if [[ "$dropStdout" = ignore ]] ; then
+		    # log stderr & ignore stdout
+		    "${args[@]}" 2> "$stderrTempFile"
+		else
+		    # log stderr & suppress stdout
+		    "${args[@]}" > /dev/null 2> "$stderrTempFile"
+		fi
+		
 	    else
 
-		# drop both stdout & stderr
-		"${args[@]}" > /dev/null 2>&1
+		# ignoring or suppressing both (always the same)
+		if [[ "$dropStdout" = ignore ]] ; then
+		    # ignore both stdout & stderr
+		    "${args[@]}"
+		else
+		    # suppress both stdout & stderr
+		    "${args[@]}" > /dev/null 2>&1
+		fi
 		
 	    fi
 	    result="$?"
