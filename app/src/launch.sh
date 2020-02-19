@@ -38,8 +38,18 @@ appExtEngineInfo=( "com.microsoft.edgemac|1|Microsoft Edge|2|Microsoft Edge" \
 				"com.brave.Browser|1|Brave Browser|2|BraveSoftware/Brave-Browser" \
 				"org.chromium.Chromium|1|Chromium|2|Chromium" \
 				"com.google.Chrome|1|Google Chrome|2|Google/Chrome" \
-			  )
-readonly appExtEngineInfo
+		 )
+iGoogle=5
+readonly appExtEngineInfo iGoogle
+
+# native messaging host manifests
+userSupportPath="${HOME}/Library/Application Support"
+nmhDirName=NativeMessagingHosts
+nmhManifestNewID="org.epichrome.runtime"
+nmhManifestOldID="org.epichrome.helper"
+nmhManifestNewFile="$nmhManifestNewID.json"
+nmhManifestOldFile="$nmhManifestOldID.json"
+readonly userSupportPath nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
 
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
@@ -780,14 +790,9 @@ function populatedatadir { # ( [FORCE] )
     # INSTALL OR UPDATE NATIVE MESSAGING HOST
     
     # paths to host manifests with new and old IDs
-    local hostManifestNewID="org.epichrome.runtime"
-    local hostManifestNewFile="$hostManifestNewID.json"
-    local hostManifestOldID="org.epichrome.helper"
-    local hostManifestOldFile="$hostManifestOldID.json"
-    local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
-    
-    local hostManifestNewDest="$hostManifestDestPath/$hostManifestNewFile"
-    local hostManifestOldDest="$hostManifestDestPath/$hostManifestOldFile"
+    local nmhManifestDestPath="$myProfilePath/$nmhDirName"    
+    local nmhManifestNewDest="$nmhManifestDestPath/$nmhManifestNewFile"
+    local nmhManifestOldDest="$nmhManifestDestPath/$nmhManifestOldFile"
 
     # determine which manifests to update
     local updateOldManifest=
@@ -800,8 +805,8 @@ function populatedatadir { # ( [FORCE] )
     else
 	
 	# update any that are missing
-	[[ ! -e "$hostManifestOldDest" ]] && updateOldManifest=1
-	[[ ! -e "$hostManifestNewDest" ]] && updateNewManifest=1
+	[[ ! -e "$nmhManifestOldDest" ]] && updateOldManifest=1
+	[[ ! -e "$nmhManifestNewDest" ]] && updateNewManifest=1
     fi
 
     if [[ "$updateOldManifest" || "$updateNewManifest" ]] ; then
@@ -811,23 +816,25 @@ function populatedatadir { # ( [FORCE] )
 	local hostScriptPath="$hostSourcePath/$appNMHFile"
 	
 	# create the install directory if necessary
-	if [[ ! -d "$hostManifestDestPath" ]] ; then
-	    try /bin/mkdir -p "$hostManifestDestPath" \
+	if [[ ! -d "$nmhManifestDestPath" ]] ; then
+	    try /bin/mkdir -p "$nmhManifestDestPath" \
 		'Unable to create native messaging host folder.'
 	fi
 	
 	# stream-edit the new manifest into place  $$$$ ESCAPE DOUBLE QUOTES IN PATH??
 	if [[ "$updateNewManifest" ]] ; then
-	    filterfile "$hostSourcePath/$hostManifestNewFile" "$hostManifestNewDest" \
+	    debuglog "Installing host manifest for $nmhManifestNewID."
+	    filterfile "$hostSourcePath/$nmhManifestNewFile" "$nmhManifestNewDest" \
 		       'native messaging host manifest' \
 		       APPHOSTPATH "$hostScriptPath"
 	fi
 	
 	# duplicate the new manifest with the old ID
 	if [[ "$updateOldManifest" ]] ; then
-	    filterfile "$hostManifestNewDest" "$hostManifestOldDest" \
+	    debuglog "Installing host manifest for $nmhManifestOldID."
+	    filterfile "$nmhManifestNewDest" "$nmhManifestOldDest" \
 		       'old native messaging host manifest' \
-		       "$hostManifestNewID" "$hostManifestOldID"
+		       "$nmhManifestNewID" "$nmhManifestOldID"
 	fi
     fi
     
@@ -863,14 +870,10 @@ function linktonmh {
     local shoptState=
     shoptset shoptState nullglob
     
-    # useful constants for profile NMH folders
-    local nmhDir=NativeMessagingHosts
-    local supportDir="${HOME}/Library/Application Support"
-    
     # paths to NMH directories for compatible browsers
     
     # get path to destination NMH manifest directory
-    local myHostDir="$myProfilePath/$nmhDir"
+    local myHostDir="$myProfilePath/$nmhDirName"
 
     # list of NMH directories to search
     local browserNMHDirs=()
@@ -917,7 +920,7 @@ function linktonmh {
     for curHostDir in "${browserNMHDirs[@]}" ; do
 
 	# get only the directory
-	curHostDir="$supportDir/${curHostDir#*|2|}/$nmhDir"
+	curHostDir="$userSupportPath/${curHostDir#*|2|}/$nmhDirName"
 	
 	if [[ -d "$curHostDir" ]] ; then
 	    
@@ -1317,6 +1320,99 @@ function updateenginemanifest {
 }' 'Unable to write engine manifest.'
     fi
     
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# UPDATECENTRALNMH
+function updatecentralnmh {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # relevant paths
+    local centralNMHPath="$userSupportPath/${appExtEngineInfo[$iGoogle]#*|2|}/$nmhDirName"
+    local oldManifestPath="$centralNMHPath/$nmhManifestOldFile"
+    local newManifestPath="$centralNMHPath/$nmhManifestNewFile"
+
+    # Epichrome version and path to pull new manifest from
+    local sourceVersion="$epiCurrentVersion"
+    local sourcePath="$epiCurrentPath"
+    if [[ ! "$sourceVersion" ]] ; then
+	sourceVersion="$epiLatestVersion"
+	sourcePath="$epiLatestPath"
+    fi
+    
+    # assume no update
+    local doUpdate=
+    
+    # if either is missing, update both
+    [[ ! ( ( -f "$oldManifestPath" ) && ( -f "$newManifestPath" ) ) ]] && doUpdate=1
+
+    if [[ ! "$doUpdate" ]] ; then
+	
+	# regex for version and path
+	local info_re='Host ([0-9.a-zA-Z]+)".*"path": *"([^"]+)"'
+
+	# read in one of the manifests
+	try 'curManifest=' /bin/cat "$newManifestPath" 'Unable to read central manifest.'
+	[[ "$ok" ]] || return 1
+	
+	# check current manifest version & path
+	if [[ "$curManifest" =~ $info_re ]] ; then
+
+	    # bad path
+	    if [[ -x "${BASH_REMATCH[2]}" ]] ; then
+		doUpdate=1
+	    else
+		local curManifestVersion="${BASH_REMATCH[1]}"
+	    fi
+	else
+	    
+	    # unreadable manifest
+	    doUpdate=1
+	fi
+    fi
+
+    # we're supposed to update but there's no Epichrome
+    if [[ "$doUpdate" && ! "$sourceVersion" ]] ; then
+	ok=
+	errmsg='Epichrome not found.'
+	return 1
+    fi
+
+    # manifests still look OK, so check if version is out of date
+    if [[ ! "$doUpdate" ]] ; then
+	vcmp "$curManifestVersion" '<' "$SSBVersion" && doUpdate=1
+    fi
+
+    # if any of the above triggered an update, do it now
+    if [[ "$doUpdate" ]] ; then
+
+	debuglog "Installing central native messaginge host manifests."
+	
+	# path to Epichrome NMH items
+	local nmhScript="$sourcePath/Contents/Resources/Scripts/$appNMHFile"
+	local sourceManifest="$sourcePath/Contents/Resources/Runtime/Contents/Resources/NMH/$nmhManifestNewFile"
+
+	# make sure directory exists
+	try /bin/mkdir -p "$centralNMHPath" \
+	    'Unable to create central native messaging host directory.'
+	
+	# new ID
+	filterfile "$sourceManifest" \
+		   "$newManifestPath" \
+		   "$nmhManifestNewFile" \
+		   APPHOSTPATH "$nmhScript"
+	
+	# old ID
+	filterfile "$sourceManifest" \
+		   "$oldManifestPath" \
+		   "$nmhManifestOldFile" \
+		   APPHOSTPATH "$nmhScript" \
+		   "$nmhManifestNewID" "$nmhManifestOldID"
+    fi
+
     [[ "$ok" ]] && return 0 || return 1
 }
 

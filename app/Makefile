@@ -329,6 +329,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Scripts/updatecheck.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
+	$(APP_CT)/Resources/Scripts/epichromeruntimehost.py \
 	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
@@ -422,9 +423,19 @@ $(APP_CT)/Resources/Scripts/version.sh: src/version.sh
 	touch -c build/icons/*
 	cp '$<' '$@'
 
-$(APP_CT)/Resources/Scripts/%: src/%
+$(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p $(APP_CT)/Resources/Scripts
 	cp '$<' '$@'
+
+$(APP_CT)/Resources/Scripts/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+	@mkdir -p $(APP_CT)/Resources/Scripts
+	sed -e 's/EPIVERSION/$(VERSION)/g' \
+		-e 's/EPIDEBUG/$(DEBUG_PY)/g' \
+		-e 's/APPID//g' \
+		-e 's/APPBUNDLENAME//g' \
+		-e 's/APPDISPLAYNAME//g' \
+		'$<' > '$@'
+	chmod 755 '$@'
 
 
 # *** RUNTIME CORE ***

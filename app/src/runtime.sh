@@ -176,8 +176,8 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
 		'Unable to remove old external extensions folder.'
 	    
-	    local nmhDir="$myDataPath/UserData/NativeMessagingHosts"
-	    try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/epichromeruntimehost.py" \
+	    local nmhDir="$myDataPath/UserData/$nmhDirName"
+	    try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/$appNMHFile" \
 		'Unable to remove old native messaging host.'
 	fi
 	

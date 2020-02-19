@@ -514,11 +514,11 @@ linktonmh
 
 # report non-fatal error
 if [[ ! "$ok" ]] ; then
-    alert "Warning: $errmsg." 'Unable to Link to Native Messaging Hosts' '|caution'
+    alert "Unable to link to native messaging hosts. ($errmsg) Extensions that use native messaging may not work." 'Warning' '|caution'
     ok=1 ; errmsg=
 fi
 
-    
+
 # CREATE OR UPDATE ENGINE IF NECESSARY
 
 # flag whether we need to (re)create the engine and/or activate it
@@ -589,13 +589,34 @@ fi
 
 if [[ ! "$doNotActivateEngine" ]] ; then
     setenginestate ON
-    [[ "$ok" ]] || abort
 fi
+[[ "$ok" ]] || abort
 
 
 # UPDATE/CREATE ENGINE MANIFEST IF NECESSARY
 
 updateenginemanifest
+
+# report non-fatal error
+if [[ ! "$ok" ]] ; then
+    alert "Unable to create engine info manifest. ($errmsg) The Epichrome extension may not work." 'Warning' '|caution'
+    ok=1 ; errmsg=
+fi
+
+
+# UPDATE/CREATE CENTRAL NATIVE MESSAGING HOST MANIFESTS
+
+if [[ ( "$SSBEngineType" = internal ) && \
+	  ( "${SSBEngineSource[$iName]}" = Brave ) ]] ; then
+    
+    updatecentralnmh
+    
+    if [[ ! "$ok" ]] ; then
+	alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work." \
+	      'Warning' '|caution'
+	ok=1 ; errmsg=
+    fi
+fi
 
 
 # LAUNCH APP ENGINE
