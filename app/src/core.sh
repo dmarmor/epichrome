@@ -72,9 +72,9 @@ readonly iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
 export iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
 
 # internal Epichrome engines
-epiEngineSource=( Chromium Chromium Chromium )
+#epiEngineSource=( Chromium Chromium Chromium )
+epiEngineSource=( 'Brave Browser' Brave 'Brave Browser' )
 readonly epiEngineSource
-#readonly epiEngineSource=( 'Brave Browser' Brave 'Brave Browser' )
 
 
 # CORE CONFIG VARIABLES

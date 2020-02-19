@@ -778,22 +778,37 @@ function populatedatadir { # ( [FORCE] )
     fi
     
     # INSTALL OR UPDATE NATIVE MESSAGING HOST
+    
+    # paths to host manifests with new and old IDs
+    local hostManifestNewID="org.epichrome.runtime"
+    local hostManifestNewFile="$hostManifestNewID.json"
+    local hostManifestOldID="org.epichrome.helper"
+    local hostManifestOldFile="$hostManifestOldID.json"
+    local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
+    
+    local hostManifestNewDest="$hostManifestDestPath/$hostManifestNewFile"
+    local hostManifestOldDest="$hostManifestDestPath/$hostManifestOldFile"
 
-    # we need to do this if we're updating everything, or if the app has moved
+    # determine which manifests to update
+    local updateOldManifest=
+    local updateNewManifest=
     if [[ "$force" || ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
 
-        debuglog "Updating native messaging host manifests."
+	# we're in force mode or app has moved, so update both
+	updateOldManifest=1
+	updateNewManifest=1
+    else
 	
-	# set up NMH file paths
-	local hostSourcePath="$SSBAppPath/Contents/Resources/NMH"
-	
-	local hostScriptPath="$hostSourcePath/$appNMHFile"
+	# update any that are missing
+	[[ ! -e "$hostManifestOldDest" ]] && updateOldManifest=1
+	[[ ! -e "$hostManifestNewDest" ]] && updateNewManifest=1
+    fi
 
-	local hostManifestNewID="org.epichrome.runtime"
-	local hostManifestNewFile="$hostManifestNewID.json"
-	local hostManifestOldID="org.epichrome.helper"
-	local hostManifestOldFile="$hostManifestOldID.json"
-	local hostManifestDestPath="$myProfilePath/NativeMessagingHosts"
+    if [[ "$updateOldManifest" || "$updateNewManifest" ]] ; then
+	
+	# get source NMH script path
+	local hostSourcePath="$SSBAppPath/Contents/Resources/NMH"
+	local hostScriptPath="$hostSourcePath/$appNMHFile"
 	
 	# create the install directory if necessary
 	if [[ ! -d "$hostManifestDestPath" ]] ; then
@@ -801,19 +816,15 @@ function populatedatadir { # ( [FORCE] )
 		'Unable to create native messaging host folder.'
 	fi
 	
-	# paths to destination for host manifests with new and old IDs
-	local hostManifestNewDest="$hostManifestDestPath/$hostManifestNewFile"
-	local hostManifestOldDest="$hostManifestDestPath/$hostManifestOldFile"
-	
 	# stream-edit the new manifest into place  $$$$ ESCAPE DOUBLE QUOTES IN PATH??
-	if [[ "$force" || ! -e "$hostManifestNewDest" ]] ; then
+	if [[ "$updateNewManifest" ]] ; then
 	    filterfile "$hostSourcePath/$hostManifestNewFile" "$hostManifestNewDest" \
 		       'native messaging host manifest' \
 		       APPHOSTPATH "$hostScriptPath"
 	fi
 	
 	# duplicate the new manifest with the old ID
-	if [[ "$force" || ! -e "$hostManifestOldDest" ]] ; then
+	if [[ "$updateOldManifest" ]] ; then
 	    filterfile "$hostManifestNewDest" "$hostManifestOldDest" \
 		       'old native messaging host manifest' \
 		       "$hostManifestNewID" "$hostManifestOldID"
@@ -860,13 +871,15 @@ function linktonmh {
     
     # get path to destination NMH manifest directory
     local myHostDir="$myProfilePath/$nmhDir"
+
+    # list of NMH directories to search
+    local browserNMHDirs=()
     
     # favor hosts from whichever browser our engine is using
     if [[ "$SSBEngineType" != internal ]] ; then
 
 	# see if the current engine is in the list
 	local curBrowser= ; local i=0
-	local browserNMHDirs=()
 	for curBrowser in "${appExtEngineInfo[@]}" ; do
 	    if [[ "$SSBEngineType" = "$curBrowser%%|1|*" ]] ; then
 
@@ -880,10 +893,10 @@ function linktonmh {
 	    fi
 	    i=$(($i + 1))
 	done
-
-	# if engine not found, use vanilla list
-	[[ "${browserNMHDirs[*]}" ]] || browserNMHDirs=( "${appExtEngineInfo[@]}" )
     fi
+    
+    # for internal engine, or if external engine not found, use vanilla list
+    [[ "${browserNMHDirs[*]}" ]] || browserNMHDirs=( "${appExtEngineInfo[@]}" )
     
     # navigate to our host directory
     try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
@@ -904,7 +917,7 @@ function linktonmh {
     for curHostDir in "${browserNMHDirs[@]}" ; do
 
 	# get only the directory
-	curHostDir="${HOME}/$supportDir/${curHostDir#*|2|}/$nmhDir"
+	curHostDir="$supportDir/${curHostDir#*|2|}/$nmhDir"
 	
 	if [[ -d "$curHostDir" ]] ; then
 	    
@@ -1275,6 +1288,35 @@ function createengine {
     fi
     
     # return code
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# UPDATEENGINEMANIFEST: check the status of the engine info manifest and create/update as necessary
+function updateenginemanifest {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # path to manifest
+    local myEngineManifest="$SSBEnginePath/info.json"
+
+    # if no manifest, or if main app has moved, create a new one
+    if [[ ( ! -f "$myEngineManifest" ) || \
+	      ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
+
+	debuglog "Writing new engine manifest."
+	
+	try "$myEngineManifest<" echo \
+'{
+	"version": "'"$SSBVersion"'",
+	"appID": "'"$SSBIdentifier"'",
+	"appName": "'"$CFBundleName"'",
+	"appDisplayName": "'"$CFBundleDisplayName"'",
+	"appPath": "'"$SSBAppPath"'"
+}' 'Unable to write engine manifest.'
+    fi
+    
     [[ "$ok" ]] && return 0 || return 1
 }
 

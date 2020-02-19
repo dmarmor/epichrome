@@ -35,25 +35,24 @@ import inspect
 debug = EPIDEBUG                   # filled in by Makefile
 
 
-# info specific to this host
-appVersion     = 'EPIVERSION'      # filled in by Makefile
+# CORE APP INFO
+
+epiVersion     = 'EPIVERSION'      # filled in by Makefile
 appID          = 'APPID'           # filled in by updateapp
+appName        = 'APPBUNDLENAME'   # filled in by updateapp
 appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
-appBundleName  = 'APPBUNDLENAME'   # filled in by updateapp
-
-# log file
-appLogPath     = os.path.join(os.environ['HOME'],
-                                  'Library/Application Support/Epichrome/Apps',
-                                  appID,
-                                  'epichrome_app_log.txt')
 
 
-# special mode for communicating version to parent app
-if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
-    print appVersion
-    exit(0)
+# FUNCTION DEFINITIONS
 
+# SETLOGPATH: set path to this app's log file
+def getlogpath():
+    return os.path.join(os.environ['HOME'],
+                            'Library/Application Support/Epichrome/Apps',
+                            appID,
+                            'epichrome_app_log.txt')
 
+        
 # ERRLOG: log to stderr and log file
 def errlog(msg):
 
@@ -128,7 +127,7 @@ def receive_message():
     try:
         # read the message length (first 4 bytes)
         text_length_bytes = sys.stdin.read(4)
-
+        
         # read returned nothing -- the pipe is closed
         if len(text_length_bytes) == 0:
             return False
@@ -148,6 +147,79 @@ def receive_message():
     debuglog('received message from app: {}'.format(json_text))
 
     return result
+
+
+# === MAIN BODY ===
+
+
+# MAKE SURE WE HAVE APP INFO
+
+if appID:
+
+    # we're running from this app's bundle
+
+    # set path to this app's log file
+    appLogPath = getlogpath()
+
+    # in this case, app version is the same is Epichrome version
+    appVersion = epiVersion
+    
+    # determine parent app path from this script's path
+    appPath = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../..'))
+
+else:
+
+    # we're running from Epichrome.app
+
+    # temporarily log to the main Epichrome log
+    appLogPath = os.path.join(os.environ['HOME'],
+                                  'Library/Application Support/Epichrome',
+                                  'epichrome_log.txt')
+    appID = '<UnknownEpichromeApp>'
+
+    # get parent process ID & use that to get engine path
+    try:
+        enginepath = subprocess.check_output(['/bin/ps', '-o', 'comm',
+                                                  '-p', str(os.getppid())]).split('\n')[1]
+    except:
+        
+        errlog("Unable to get path of parent engine.")
+        exit(1)
+        
+    # read engine manifest
+    try:
+        with open(os.path.join(os.path.dirname(enginepath), '../../../info.json')) as fp:
+            json_info = json.load(fp)
+                
+    except Exception as e:
+        errlog(e)
+        exit(1)
+
+    # set app info from manifest
+    appVersion     = json_info['version']
+    appID          = json_info['appID']
+    appName        = json_info['appName']
+    appDisplayName = json_info['appDisplayName']
+    appPath        = json_info['appPath']
+    
+    # set permanent log path
+    appLogPath = getlogpath()
+    
+    debuglog("App info set: ID={} version={} name='{}' displayName='{}' path='{}'".format(appVersion,
+                                                                                              appID,
+                                                                                              appName,
+                                                                                              appDisplayName,
+                                                                                              appPath))
+
+
+# SPECIAL MODE FOR COMMUNICATING VERSION TO PARENT APP
+
+if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
+    print appVersion
+    exit(0)
+    
+
+debuglog("Native messaging host running.")
 
 
 # SPECIAL CASE -- if default browser is Chrome we need to specify that when opening links
@@ -186,9 +258,6 @@ if os.path.isfile(launchsvc):
     except: # $$$$$ subprocess.CalledProcessError + plistlib err
         errlog('Error getting list of browsers.')
 
-
-debuglog("native message host running")
-
     
 # MAIN LOOP -- just keep on receiving messages until stdin closes
 while True:
@@ -201,7 +270,7 @@ while True:
         send_message(('{ "version": "%s", '+
                      '"ssbID": "%s", '+
                      '"ssbName": "%s", '+
-                     '"ssbShortName": "%s" }') % (appVersion, appID, appDisplayName, appBundleName))
+                     '"ssbShortName": "%s" }') % (appVersion, appID, appDisplayName, appName))
     
     if 'url' in message:
         # open the url

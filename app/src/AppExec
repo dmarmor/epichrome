@@ -556,7 +556,7 @@ else
     fi
     # else engine is in the expected off state
     
-    if [[ ! "$doCreateEngine" && ( "$SSBEngineType" != internal ) ]] ; then
+    if [[ ( ! "$doCreateEngine" ) && ( "$SSBEngineType" != internal ) ]] ; then
 
 	# new version of external engine app
 	if [[ "${SSBEngineSource[$iVersion]}" && \
@@ -591,6 +591,11 @@ if [[ ! "$doNotActivateEngine" ]] ; then
     setenginestate ON
     [[ "$ok" ]] || abort
 fi
+
+
+# UPDATE/CREATE ENGINE MANIFEST IF NECESSARY
+
+updateenginemanifest
 
 
 # LAUNCH APP ENGINE

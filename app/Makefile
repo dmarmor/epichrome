@@ -137,6 +137,7 @@ APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
 INTERMEDIATES:=\
+	build/engine/Brave \
 	build/engine/Chromium \
 	build/fake.icns \
 	build/fake.sh \
@@ -547,12 +548,15 @@ build/img/icon128$(BETA).png: ../images/icons/app$(BETA).png
 
 # *** ENGINE ***
 
+build/engine/%:
+	@rm -rf build/engine/$*
+	@mkdir -p build/engine
+	tar xzvf '$<' --cd build/engine
+
+
 # CODESIGNED CHROMIUM
 
 build/engine/Chromium: $(CHROMIUM)
-	@rm -rf build/engine/Chromium
-	@mkdir -p build/engine
-	tar xzvf $(CHROMIUM) --cd build/engine
 
 CHROMIUM_FRAMEWORK:=build/chromium/Contents/Frameworks/Chromium Framework.framework
 # find Chromium.app -exec bash -c 'codesign --verify --deep --strict "{}" 2> /dev/null && codesign --verify --deep --strict --verbose=2 "{}"' ';'
@@ -561,6 +565,7 @@ $(CHROMIUM): $(CHROMIUM:.tgz=.zip)
 	tar xzvf '$<' --cd build/chromium --strip-components 1
 	codesign --remove-signature -vv build/chromium
 	rm -rf build/chromium/Contents/_CodeSignature
+	rm build/chromium/Contents/CodeResources
 # codesign --remove-signature -vv \
 # 	'$(CHROMIUM_FRAMEWORK)' \
 # 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
@@ -581,6 +586,11 @@ $(CHROMIUM): $(CHROMIUM:.tgz=.zip)
 	tar czvf '$@' --cd build/engine Chromium
 	@touch build/engine/Chromium
 
+
+# BRAVE MINUS SPARKLE
+
+build/engine/Brave: $(BRAVE)
+
 BRAVE_FRAMEWORK:=build/brave/Contents/Frameworks/Brave Browser Framework.framework
 $(BRAVE): $(BRAVE:.tgz=.dmg)
 	@rm -rf build/brave
@@ -589,18 +599,22 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 	hdiutil detach build/bravedmg
 	codesign --remove-signature -vv build/brave
 	rmdir build/brave/Contents/_CodeSignature
+	rm build/brave/Contents/CodeResources
 	@if [[ ! -d '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework' ]] ; then \
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
 	xattr -cr build/brave
 	src/signmatch.sh '' \
+		'$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
+		'$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
+		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
 		'$(BRAVE_FRAMEWORK)'
 #		'build/brave'
-	@rm -rf build/braveengine
-	mv build/brave/Contents build/braveengine
+	@rm -rf build/engine/Brave
+	mv build/brave/Contents build/engine/Brave
 	rmdir build/brave
-#	tar czvf '$@' --cd build braveengine
-	@touch build/braveengine
+	tar czvf '$@' --cd build/engine Brave
+	@touch build/engine/Brave
 
 
 # ENGINE FILTER ELEMENTS
@@ -608,24 +622,24 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 $(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engine/Link/Frameworks: \
 		$(CHROMIUM) src/version.sh engine
 
-engine: build/engine/Chromium
-	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Chromium/Info.plist)" != 'app.icns' ]] ; then \
+engine: build/engine/Brave
+	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Brave/Info.plist)" != 'app.icns' ]] ; then \
 		echo '*** Internal engine app icon name has changed.' 1>&2 ; false ; fi
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString $(VERSION)' \
 				-c 'Delete :CFBundleDocumentTypes' \
 				-c 'Delete :CFBundleURLTypes' \
-				build/engine/Chromium/Info.plist
+				build/engine/Brave/Info.plist
 	@mkdir -p $(APP_RNTM)/Engine/Filter
-	mv -f build/engine/Chromium/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
+	mv -f build/engine/Brave/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
 	rm -rf $(APP_RNTM)/Engine/Link $(APP_RNTM)/Engine/Payload
 	mkdir -p $(APP_RNTM)/Engine/Link
-	mv build/engine/Chromium/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
+	mv build/engine/Brave/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
 	@touch $(APP_RNTM)/Engine/Link/Frameworks
-	rm -f build/engine/Chromium/Resources/*.icns
-	openssl AES-128-CBC -k data -in 'build/engine/Chromium/MacOS/Chromium' -out '$(APP_RNTM)/Engine/exec.dat'
-	rm build/engine/Chromium/MacOS/Chromium
-	rmdir build/engine/Chromium/MacOS
-	mv build/engine/Chromium $(APP_RNTM)/Engine/Payload
+	rm -f build/engine/Brave/Resources/*.icns
+	openssl AES-128-CBC -k data -in 'build/engine/Brave/MacOS/Brave Browser' -out '$(APP_RNTM)/Engine/exec.dat'
+	rm 'build/engine/Brave/MacOS/Brave Browser'
+	rmdir build/engine/Brave/MacOS
+	mv build/engine/Brave $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
 
 $(APP_RNTM)/Engine/Filter/PlaceholderExec: src/PlaceholderExec src/version.sh
