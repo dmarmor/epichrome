@@ -141,6 +141,18 @@ function updateapp { # ( updateAppPath )
     
     SSBVersion="$coreVersion"
     
+
+    # UPDATE ENGINE VARIABLE FORMAT (TEMPORARY FOR 2.3.0b1-6)
+
+    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
+	SSBEngineType='com.google.Chrome'
+	readonly SSBEngineType
+    elif [[ "$SSBEngineType" = 'Chromium' ]] ; then
+	SSBEngineType=internal
+	SSBEngineSource=( "${epiEngineSource[@]}" )
+	readonly SSBEngineType SSBEngineSource
+    fi
+    
     
     # BEGIN POPULATING APP BUNDLE
     
@@ -179,7 +191,7 @@ function updateapp { # ( updateAppPath )
 		"app Info.plist" \
 		"${filterCommands[@]}"
 
-
+    
     # FILTER APP MAIN SCRIPT INTO PLACE
 
     local appExecEngineSource=

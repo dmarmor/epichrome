@@ -63,13 +63,13 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 # CHROMIUM ENGINE
 # (Using Marmaduke build with Google APIs and Widevine from https://chromium.woolyss.com/)
 
-CHROMIUM:=$(shell ls Engine/Chromium* 2> /dev/null | sort -r | head -n 1)
+CHROMIUM:=$(shell ls Engines/Chromium* 2> /dev/null | sort -r | head -n 1)
 ifeq ($(CHROMIUM),)
 $(error Unable to find Chromium archive)
 endif
 ifneq ($(suffix $(CHROMIUM)),.tgz)
 ifneq ($(suffix $(CHROMIUM)),.zip)
-$(error Unrecognized file in Engine directory: $(CHROMIUM))
+$(error Unrecognized file in Engines directory: $(CHROMIUM))
 endif
 CHROMIUM:=$(CHROMIUM:.zip=.tgz)
 endif
@@ -81,13 +81,13 @@ endif
 
 # BRAVE ENGINE
 
-BRAVE:=$(shell ls Engine/Brave* 2> /dev/null | sort -r | head -n 1)
+BRAVE:=$(shell ls Engines/Brave* 2> /dev/null | sort -r | head -n 1)
 ifeq ($(BRAVE),)
 $(error Unable to find Brave archive)
 endif
 ifneq ($(suffix $(BRAVE)),.tgz)
 ifneq ($(suffix $(BRAVE)),.dmg)
-$(error Unrecognized file in Engine directory: $(BRAVE))
+$(error Unrecognized file in Engines directory: $(BRAVE))
 endif
 BRAVE:=$(BRAVE:.dmg=.tgz)
 endif
@@ -132,7 +132,7 @@ APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 
 .DELETE_ON_ERROR:
 
-.PHONY: engine runtime internal install clean clean-all
+.PHONY: internal install clean clean-all
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
@@ -155,7 +155,7 @@ PRECIOUS_INTERMEDIATES:=\
 	build/resources/license.rtf \
 	build/resources/readme.rtf
 
-.INTERMEDIATE: main $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # INTERNAL BUILD (DEFAULT TARGET)

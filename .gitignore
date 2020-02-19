@@ -12,7 +12,7 @@
 /Patreon/**
 **/*.app/**
 /app/epichrome-*.notarize*
-/app/Engine/**
+/app/Engines/**
 /app/Epichrome
 /app/build/**
 /app/icons/**
