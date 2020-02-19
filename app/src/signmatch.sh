@@ -1,28 +1,46 @@
 #!/bin/sh
 
-chrome="$1" ; shift
-prefix="$1" ; shift
+# info for matching signature to a different app
+ref_app="$1" ; shift
+if [[ "$ref_app" ]] ; then
+    ref_name="${ref_app##*/}"
+    ref_name="${ref_name%.[aA][pP][pP]}"
+    
+    prefix="$1" ; shift
+    
+    path_re='/([^/]*) Framework'
+fi
 
 tmpentitlementsfile=build/curentitlements.plist
 
 for path in "$@" ; do
 
-    relpath="${path#$prefix}"
-    relpath="${relpath#/}"
-    if [[ "$relpath" ]] ; then
-	chromepath="$chrome/${relpath//Chromium/Google Chrome}"
+    if [[ "$ref_app" ]] ; then
+	relpath="${path#$prefix}"
+	relpath="${relpath#/}"
+	
+	if [[ "$relpath" ]] ; then
+	    if [[ "$relpath" =~ $path_re ]] ; then
+		ref_app_path="$ref_app/${relpath//${BASH_REMATCH[1]}/$ref_name}"
+	    else
+		ref_app_path="$ref_app/$relpath"
+	    fi
+	else
+	    ref_app_path="$ref_app"
+	fi
     else
-	chromepath="$chrome"
+	# no other ref app, so just look at the existing signature
+	ref_app_path="$path"
     fi
     
     cmdline=( --verbose=2 --force -s 'David Marmor' )
 
     entitlements=
     
-    opts="$(codesign --display --verbose=1 "$chromepath" 2>&1)"
+    opts="$(codesign --display --verbose=1 "$ref_app_path" 2>&1)"
     if [[ "$?" != 0 ]] ; then
 	if [[ "${opts%: No such file or directory}" != "$opts" ]] ; then
-	    echo "'$chromepath' not found, signing with no options"
+	    echo "'$ref_app_path' not found, signing with no options"
 	    opts='flags=0x0(none)'
 	else
 	    echo "$opts" 1>&2
@@ -40,7 +58,7 @@ for path in "$@" ; do
 	    
 	    if [[ "$opts" =~ runtime ]] ; then
 		
-		disp="$(codesign --display --entitlements - --verbose=0 "$chromepath" 2>&1)"
+		disp="$(codesign --display --entitlements - --verbose=0 "$ref_app_path" 2>&1)"
 		if [[ "$?" != 0 ]] ; then
 		    echo "$disp" 1>&2
 		    exit 1
@@ -49,7 +67,7 @@ for path in "$@" ; do
 		entitlements="${disp#*<?xml}"
 		if [[ "$entitlements" != "$disp" ]] ; then
 		    echo "<?xml$entitlements" > "$tmpentitlementsfile" || exit 1
-		    /usr/libexec/PlistBuddy -c 'Delete :com.apple.application-identifier' -c 'Delete :keychain-access-groups' "$tmpentitlementsfile"
+		    #/usr/libexec/PlistBuddy -c 'Delete :com.apple.application-identifier' -c 'Delete :keychain-access-groups' "$tmpentitlementsfile"
 		    cmdline+=( --entitlements "$tmpentitlementsfile" )
 		else
 		    entitlements=
@@ -64,7 +82,7 @@ for path in "$@" ; do
 	rm -f "$tmpentitlementsfile"
 	[[ "$result" = 0 ]] || exit 1
     else
-	echo "*** Can't parse code signature for '$chromepath'" 1>&2
+	echo "*** Can't parse code signature for '$ref_app_path'" 1>&2
 	exit 1
     fi
 done

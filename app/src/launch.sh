@@ -1402,11 +1402,15 @@ function writeconfig {  # ( myConfigFile force )
 		fi
 	    fi
 	done
+	
+	[[ "$doWrite" ]] && debuglog "Updating config.sh: Configuration variables have changed."
+    else
+	debuglog "Updating config.sh: Forced update."
     fi
     
     # if we need to, write out the file
     if [[ "$doWrite" ]] ; then
-	
+
 	# write out the config file
 	writevars "$myConfigFile" "${appConfigVars[@]}"
     fi

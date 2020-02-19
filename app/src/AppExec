@@ -595,6 +595,14 @@ fi
 
 # LAUNCH APP ENGINE
 
+# export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
+if [[ ( "$SSBEngineType" = internal ) && \
+    ( "${SSBEngineSource[$iName]}" = Chromium ) ]] ; then
+    export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
+    export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
+    export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
+fi
+
 # build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
 myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLine[@]}" )
 
