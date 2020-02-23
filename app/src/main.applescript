@@ -54,36 +54,11 @@ local errNum
 local dlgResult
 
 
--- SET UP KEY VARIABLES
-
--- set up needed variables
-local myDataPath
-set myDataPath to (system attribute "HOME") & "/Library/Application Support/Epichrome"
-try
-	do shell script "/bin/mkdir -p " & (quoted form of myDataPath)
-on error errStr number errNum
-	display dialog "Error accessing application data folder: " & errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-	return
-end try
-
-local myLogApp
-set myLogApp to "Epichrome"
---try
---	set myLogApp to myLogApp & "[" & (do shell script "/bin/sh -c \"echo $PPID\"") & "]"
---end try
-
-local myLogFile
-set myLogFile to myDataPath & "/epichrome_log.txt"
-
-
 -- SET UP ENVIRONMENT TO EXPORT TO SCRIPTS THAT LOAD CORE.SH
 
 local scriptEnvFirst
 local scriptEnv
 set scriptEnvFirst to "debug=" & (quoted form of debug)
-set scriptEnvFirst to scriptEnvFirst & " myDataPath=" & (quoted form of myDataPath)
-set scriptEnvFirst to scriptEnvFirst & " myLogApp=" & (quoted form of myLogApp)
-set scriptEnvFirst to scriptEnvFirst & " myLogFile=" & (quoted form of myLogFile)
 set scriptEnvFirst to scriptEnvFirst & " logNoStderr='1'"
 
 -- script environment is mostly the same on first and subsequent uses
@@ -92,12 +67,6 @@ set scriptEnv to scriptEnvFirst
 -- handle logPreserve differently the first time we use the script environment
 set scriptEnvFirst to scriptEnvFirst & " logPreserve=" & (quoted form of logPreserve)
 set scriptEnv to scriptEnv & " logPreserve='1'"
-
-
--- SETTINGS FILE
-
-local myDataFile
-set myDataFile to myDataPath & "/epichrome.plist"
 
 
 -- GET MY ICON FOR DIALOG BOXES
@@ -116,6 +85,37 @@ local updateCheckScript
 set updateCheckScript to quoted form of (POSIX path of (path to resource "updatecheck.sh" in directory "Scripts"))
 
 
+-- INITIALIZE LOGGING & DATA DIRECTORY
+
+
+local coreOutput
+local myDataPath
+local myLogFile
+
+-- run core.sh to initialize logging & get key paths
+try
+	set coreOutput to do shell script scriptEnvFirst & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
+	set myDataPath to paragraph 1 of coreOutput
+	set myLogFile to paragraph 2 of coreOutput
+on error errStr number errNum
+	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
+end try
+
+-- ensure we have a data directory
+try
+	do shell script "if [[ ! -w " & (quoted form of myDataPath) & " ]] ; then false ; fi"
+on error errStr number errNum
+	display dialog "Error accessing application data folder: " & errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
+	return
+end try
+
+
+-- SETTINGS FILE
+
+local mySettingsFile
+set mySettingsFile to myDataPath & "/epichrome.plist"
+
+
 -- PERSISTENT PROPERTIES
 
 local lastIconPath
@@ -127,7 +127,7 @@ local updateCheckVersion
 
 
 -- WRITEPROPERTIES: write properties back to plist file
-on writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+on writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 	
 	local myProperties
 	
@@ -135,7 +135,7 @@ on writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doC
 		
 		try
 			-- create enclosing folder if needed and create empty plist file
-			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:myDataFile}
+			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:mySettingsFile}
 			
 			-- fill property list
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
@@ -159,7 +159,7 @@ tell application "System Events"
 	
 	-- read in the file
 	try
-		set myProperties to property list file myDataFile
+		set myProperties to property list file mySettingsFile
 	on error
 		set myProperties to null
 	end try
@@ -267,14 +267,6 @@ local appURLs
 set appURLs to {}
 
 
--- INITIALIZE LOG FILE
-try
-	do shell script scriptEnvFirst & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
-on error errStr number errNum
-	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
-end try
-
-
 -- CHECK FOR UPDATES TO EPICHROME
 
 local curDate
@@ -346,7 +338,7 @@ repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			on error number -128
 			end try
@@ -389,7 +381,7 @@ repeat
 				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			end try
 			
@@ -639,7 +631,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set appInfo to do shell script pathInfoScript & " icon " & quoted form of appIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+										writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 										return -- QUIT
 									end try
 									
@@ -657,13 +649,13 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								repeat
 									local appEngineType
 									try
-										set appEngineType to button returned of (display dialog "Use Chromium app engine?
+										set appEngineType to button returned of (display dialog "Use built-in app engine, or external browser engine?
 
-NOTE: If you don't know what this question means, choose Chromium.
+NOTE: If you don't know what this question means, choose Built-In.
 
-In almost all cases, using a Chromium engine will result in a more functional app. Using Google Chrome as its engine has MANY disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.
+In almost all cases, using the built-in engine will result in a more functional app. Using an external browser engine has several disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.
 
-The only reason to choose Google Chrome is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step(curStep) with icon myIcon buttons {"Chromium", "Google Chrome", "Back"} default button "Chromium" cancel button "Back")
+The main reason to choose the external browser engine is if your app must run on a signed browser (for things like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step(curStep) with icon myIcon buttons {"Built-In (Brave)", "External (Google Chrome)", "Back"} default button "Built-In (Brave)" cancel button "Back")
 									on error number -128 -- Back button
 										set curStep to curStep - 1
 										exit repeat
@@ -716,6 +708,13 @@ Icon: "
 App Engine: "
 									set appSummary to appSummary & appEngineType
 									
+									-- format app engine
+																			if appEngineType starts with "External" then
+											set appEngineType to "external|com.google.Chrome"
+										else
+											set appEngineType to "internal|com.brave.Browser"
+										end if
+										
 									-- set up Chrome command line
 									local appCmdLine
 									set appCmdLine to ""
@@ -765,7 +764,7 @@ App Engine: "
 															tell application "Finder" to reveal ((POSIX file myLogFile) as alias)
 															tell application "Finder" to activate
 														end if
-														writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
+														writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
 														return -- QUIT
 													on error number -128 -- Back button
 														exit repeat
@@ -779,7 +778,7 @@ App Engine: "
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 											on error number -128
-												writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
+												writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
 												return -- QUIT
 											end try
 											
@@ -790,7 +789,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 													do shell script "/usr/bin/open " & quoted form of (POSIX path of appPath)
 													--tell application appName to activate
 												on error
-													writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+													writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 													return -- QUIT
 												end try
 											else
@@ -799,7 +798,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												tell application "Finder" to activate
 											end if
 											
-											writeProperties(myDataFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
+											writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
 											return -- QUIT
 											
 										end repeat

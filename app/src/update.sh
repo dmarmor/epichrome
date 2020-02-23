@@ -21,6 +21,11 @@
 #
 
 
+# VERSION
+
+updateVersion='EPIVERSION'
+
+
 # PATH TO THIS SCRIPT'S EPICHROME APP BUNDLE
 
 updateEpichromePath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}"
@@ -29,8 +34,12 @@ updateEpichromeRuntime="$updateEpichromePath/Contents/Resources/Runtime"
 
 # BOOTSTRAP MY VERSION OF CORE.SH
 
-source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo "$myLogApp: Unable to load core script into update script." >> "$myLogFile" ; exit 1 )
+if [[ "$updateVersion" != "$coreVersion" ]] ; then
+    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" PRESERVELOG ; then
+	ok=
+	errmsg="Unable to load core $updateVersion."
+    fi
+fi
 
 
 # FUNCTION DEFINITIONS
@@ -44,6 +53,47 @@ function updateapp { # ( updateAppPath )
     # set app path
     local updateAppPath="$1" ; shift
     
+    
+    # UPDATE ENGINE VARIABLE FORMAT ($$$ TEMPORARY FOR 2.3.0b1-6)
+    
+    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
+
+	# update to current variable semantics
+	SSBEngineType='external|com.google.Chrome'
+	SSBLastRunEngineType="$SSBEngineType"
+	#readonly SSBEngineType
+	
+    elif [[ "$SSBEngineType" = 'Chromium' ]] ; then
+	
+	# $$$$$ TEMPORARY EXTRA WARNING FOR CHROMIUM->BRAVE SWITCH
+	
+	local engineWarning='IMPORTANT: This version changes the internal engine from Chromium to Brave. Your settings should mostly transition properly, including extensions, but saved passwords WILL be lost. Before completing this update, please back up any passwords. Instructions are in the Patreon post for this release.'
+	local doAbort=
+	
+	dialog doAbort \
+	       "$engineWarning" \
+	       "Warning" \
+	       "|caution" \
+	       '+Update Later' 'Update Now'
+	if [[ ! "$ok" ]] ; then
+	    alert "$engineWarning The warning dialog also failed, so if you want to update later, you'll need to kill the application manually." 'Update' '|caution'
+	    ok=1
+	    errmsg=
+	fi
+	
+	if [[ "$doAbort" != 'Update Now' ]] ; then
+	    ok=
+	    errmsg='Update canceled.'
+	    return 1
+	fi
+
+	# if we got here, we're going ahead with the update
+	SSBLastRunEngineType='internal|org.chromium.Chromium'
+	SSBEngineType="internal|${epiEngineSource[$iID]}"
+	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
+	#readonly SSBEngineType SSBEngineSourceInfo
+    fi
+
     
     # LOAD FILTER.SH
 
@@ -136,22 +186,10 @@ function updateapp { # ( updateAppPath )
     # set app bundle ID
     local myAppBundleID="$appIDBase.$SSBIdentifier"
     
-    
+
     # SET APP VERSION
     
     SSBVersion="$coreVersion"
-    
-
-    # UPDATE ENGINE VARIABLE FORMAT (TEMPORARY FOR 2.3.0b1-6)
-
-    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
-	SSBEngineType='com.google.Chrome'
-	readonly SSBEngineType
-    elif [[ "$SSBEngineType" = 'Chromium' ]] ; then
-	SSBEngineType=internal
-	SSBEngineSource=( "${epiEngineSource[@]}" )
-	readonly SSBEngineType SSBEngineSource
-    fi
     
     
     # BEGIN POPULATING APP BUNDLE
@@ -195,8 +233,8 @@ function updateapp { # ( updateAppPath )
     # FILTER APP MAIN SCRIPT INTO PLACE
 
     local appExecEngineSource=
-    [[ "$SSBEngineType" = internal ]] && \
-	appExecEngineSource="SSBEngineSource=$(formatarray "${SSBEngineSource[@]}") ; readonly SSBEngineSource"
+    [[ "${SSBEngineType%%|*}" = internal ]] && \
+	appExecEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")" # ; readonly SSBEngineSourceInfo
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
 	       "$contentsTmp/Resources/script" \
 	       'app executable' \
@@ -252,25 +290,25 @@ function updateapp { # ( updateAppPath )
     # create engine directory
     try mkdir -p "$updateEnginePath" 'Unable to create app engine.'
     
-    if [[ "$SSBEngineType" != internal ]] ; then
+    if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 	
 	# EXTERNAL ENGINE
 	
 	# filter placeholder executable into place
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updateEnginePath/PlaceholderExec" \
-		   "${SSBEngineSource[$iDisplayName]} app engine placeholder executable" \
+		   "${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable" \
 		   APPID "$(formatscalar "$SSBIdentifier")" \
 		   APPBUNDLEID "$(formatscalar "$myAppBundleID")"
 	try /bin/chmod 755 "$updateEnginePath/PlaceholderExec" \
-	    "Unable to set permissions for ${SSBEngineSource[$iDisplayName]} app engine placeholder executable."
+	    "Unable to set permissions for ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
 	
 	# copy in core script
 	try /bin/mkdir -p "$updateEnginePath/Scripts" \
-	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine placeholder scripts."
+	    "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder scripts."
 	try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
 	    "$updateEnginePath/Scripts" \
-	    "Unable to copy core to ${SSBEngineSource[$iDisplayName]} app engine placeholder."
+	    "Unable to copy core to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
 
     else
 	
@@ -291,9 +329,9 @@ function updateapp { # ( updateAppPath )
 	    'Unable to create app engine payload executable directory.'
 	try /usr/bin/openssl AES-128-CBC -d -k data \
 	    -in "$updateEpichromeRuntime/Engine/exec.dat" \
-	    -out "$updatePayloadPath/MacOS/${SSBEngineSource[$iExecutable]}" \
+	    -out "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
 	    'Unable to copy app engine payload executable.'
-	try /bin/chmod +x "$updatePayloadPath/MacOS/${SSBEngineSource[$iExecutable]}" \
+	try /bin/chmod +x "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
 	    'Unable to set app engine payload executable permissions.'
 	
 	# filter payload Info.plist into place
@@ -306,7 +344,7 @@ function updateapp { # ( updateAppPath )
 	
 	# filter localization strings in place
 	filterlproj "$updatePayloadPath/Resources" 'app engine' \
-		    "${SSBEngineSource[$iName]}"
+		    "${SSBEngineSourceInfo[$iName]}"
 	
 	
 	# CREATE PLACEHOLDER
@@ -325,7 +363,7 @@ function updateapp { # ( updateAppPath )
 		'Add :LSUIElement bool true'
 	
 	# filter placeholder executable into place
-	local updatePlaceholderExec="$updatePlaceholderPath/MacOS/${SSBEngineSource[$iExecutable]}"
+	local updatePlaceholderExec="$updatePlaceholderPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}"
 	filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
 		   "$updatePlaceholderExec" \
 		   'app engine placeholder executable' \
@@ -347,7 +385,59 @@ function updateapp { # ( updateAppPath )
 	# return
 	return 1
     fi
+    
 
+    # UPDATE DATA DIRECTORY TO DEAL WITH ENGINE CHANGES
+    
+    if [[ -d "$appDataPathBase/$SSBIdentifier" && \
+	      "$SSBLastRunEngineType" && \
+	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
+	
+	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up data directory."
+	
+	# delete config.sh
+	try /bin/rm -f "$appDataPathBase/$SSBIdentifier/config.sh" \
+	    'Unable to remove old config file. The updated app may not run.'
+	
+	# turn on extended glob
+	local shoptState=
+	shoptset shoptState extglob
+	
+	# remove all of the UserData directory except Default
+	local allExcept='!(Default)'
+	try /bin/rm -rf "$appDataPathBase/$SSBIdentifier/UserData/"$allExcept \
+	    'Unable to remove old profile files. The updated app may not run.'
+	
+	if [[ "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ]] ; then
+
+	    # switching from Chrome to Chromium-based engine
+
+	    debuglog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
+
+	    # delete everything from Default except Local Extension Settings
+	    allExcept='!(Local?Extension?Settings)'
+	    try /bin/rm -rf "$appDataPathBase/$SSBIdentifier/UserData/Default/"$allExcept \
+		'Unable to remove old profile settings. The updated app may not run.'
+	    
+	    # $$$$ TO DO: make entries in External Extensions for everything in Default/Extensions
+	    
+	else
+	    
+	    # for now this catch-all assumes we're going from one flavor of Chromium to another
+	    
+	    debuglog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to ${SSBEngineSourceInfo[$iName]} engine."
+	    
+	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
+	    try /bin/rm -f "$appDataPathBase/$SSBIdentifier/UserData/Default/Login Data"* \
+		'Unable to remove old login data. The updated app may not run.'
+	fi
+	
+	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
+	
+	# restore extended glob
+	shoptrestore shoptState
+    fi
+    
     # return code
     [[ "$ok" ]] && return 0 || return 1
 }

@@ -24,7 +24,7 @@
 # IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
 
 # update log name
-myLogApp="${myLogApp%|*}|$epiHelperMode"
+myLogID="${myLogID%|*}|$epiHelperMode"
 
 if [[ "$epiHelperMode" =~ ^Start(.+)$ ]] ; then
     epiHelperMode="${BASH_REMATCH[1]}"

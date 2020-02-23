@@ -423,6 +423,10 @@ $(APP_CT)/Resources/Scripts/version.sh: src/version.sh
 	touch -c build/icons/*
 	cp '$<' '$@'
 
+$(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
+	@mkdir -p $(APP_CT)/Resources/Scripts
+	sed -e 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
+
 $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p $(APP_CT)/Resources/Scripts
 	cp '$<' '$@'

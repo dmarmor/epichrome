@@ -42,14 +42,14 @@ export debug logPreserve
 # icon names
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
-readonly CFBundleIconFile CFBundleTypeIconFile
+#readonly CFBundleIconFile CFBundleTypeIconFile
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
 appIDRoot='org.epichrome'
 appIDBase="$appIDRoot.app"
 appEngineIDBase="$appIDRoot.eng"
-readonly appIDRoot appIDBase appEngineIDBase
+#readonly appIDRoot appIDBase appEngineIDBase
 export appIDRoot appIDBase appEngineIDBase
 
 # app internal paths
@@ -58,23 +58,31 @@ appEnginePath='Resources/Engine'
 appEnginePayloadPath="$appEnginePath/Payload"
 appEnginePlaceholderPath="$appEnginePath/Placeholder"
 appNMHFile='epichromeruntimehost.py'
-readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
+#readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
 
-# indices for SSBEngineSource
-iExecutable=0
-iName=1
-iDisplayName=2
-iVersion=3
-iAppIconFile=4
-iDocIconFile=5
-iPath=6
-readonly iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
-export iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
+# data paths
+userSupportPath="${HOME}/Library/Application Support"
+epiDataPath="$userSupportPath/Epichrome"
+appDataPathBase="$epiDataPath/Apps"
+#readonly userSupportPath epiDataPath appDataPath
+export userSupportPath epiDataPath appDataPath
+
+# indices for SSBEngineSourceInfo
+iID=0
+iExecutable=1
+iName=2
+iDisplayName=3
+iVersion=4
+iAppIconFile=5
+iDocIconFile=6
+iPath=7
+#readonly iID iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
+export iID iExecutable iName iDisplayName iVersion iPath iAppIconPath iDocIconPath
 
 # internal Epichrome engines
-#epiEngineSource=( Chromium Chromium Chromium )
-epiEngineSource=( 'Brave Browser' Brave 'Brave Browser' )
-readonly epiEngineSource
+#epiEngineSource=( org.chromium.Chromium Chromium Chromium Chromium )
+epiEngineSource=( com.brave.Browser 'Brave Browser' Brave 'Brave Browser' )
+#readonly epiEngineSource
 
 
 # CORE CONFIG VARIABLES
@@ -82,21 +90,52 @@ readonly epiEngineSource
 # variables used in config.sh
 appConfigVars=( SSBAppPath \
 		    SSBLastRunVersion \
+		    SSBLastRunEngineType \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \
 		    SSBEnginePath \
 		    SSBEngineAppName \
 		    SSBExtensionInstallError )
-# appConfigVarsExtEngine=( SSBEngineSrcExecutable SSBEngineSrcDisplayName SSBEngineSrcNameSSBExtEngineSrcPath SSBExtEngineSrcVersion )  $$$$ DELETE
 export appConfigVars "${appConfigVars[@]}"
-# export appConfigVarsExtEngine "${appConfigVarsExtEngine[@]}"  $$$$ DELETE
 
 
 # SET UP CORE INFO
 
+if [[ "$SSBIdentifier" ]] ; then
+
+    # we're running from an app
+
+    # set up this app's data path
+    [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
+    
+    # logging
+    [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
+    [[ "$myLogFile" ]] || myLogFile="$myDataPath/epichrome_app_log.txt"
+    
+    # path to important data directories and paths
+    myConfigFile="$myDataPath/config.sh"
+    myProfilePath="$myDataPath/UserData"
+    
+    # export all to helper
+    export myDataPath myLogID myLogFile myConfigFile myProfilePath
+else
+
+    # we're running from Epichrome.app
+    
+    # set up Epichrome's data path
+    [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
+    
+    # logging
+    [[ "$myLogID" ]] || myLogID='Epichrome'
+    [[ "$myLogFile" ]] || myLogFile="$myDataPath/epichrome_log.txt"
+        
+    # export all to helper
+    export myDataPath myLogID myLogFile
+fi
+
 # path to stderr temp file
-stderrTempFile="${myDataPath}/stderr.txt" ; export stderrTempFile
+stderrTempFile="$myDataPath/stderr.txt" ; export stderrTempFile
 
 # variables to suppress logging to stderr or file
 [[ "$logNoStderr" ]] || logNoStderr=  # set this in calling script to prevent logging to stderr
@@ -136,7 +175,7 @@ function errlog {
     # prefix format: [PID]LogID(line)/function(line)/...:
 
     # make sure we have some logID
-    local logID="$myLogApp"
+    local logID="$myLogID"
     [[ "$logID" ]] || logID='EpichromeCore'
     
     # build function trace
@@ -159,10 +198,10 @@ function errlog {
     
     # build prefix  $$$$ DELETE?
     # local prefix="$(join_array '/' "${trace[@]}")"
-    # if [[ "$myLogApp" && "$prefix" ]] ; then
-    # 	prefix="$myLogApp|$prefix: "
-    # elif [[ "$myLogApp" ]] ; then
-    # 	prefix="$myLogApp: "
+    # if [[ "$myLogID" && "$prefix" ]] ; then
+    # 	prefix="$myLogID|$prefix: "
+    # elif [[ "$myLogID" ]] ; then
+    # 	prefix="$myLogID: "
     # elif [[ "$prefix" ]] ; then
     # 	prefix="EpichromeCore[$$]|$prefix: "
     # fi
@@ -179,13 +218,17 @@ export -f errlog_raw errlog debuglog_raw debuglog
 
 
 # INITLOG: initialize logging
-function initlog {
+function initlog {  # ( [overrideLogPreserve] )
 
+    # possibly override logPreserve
+    local myLogPreserve="$logPreserve"
+    [[ "$1" ]] && myLogPreserve=1
+    
     # assume success
     local result=0
-
+    
     # initialize log file
-    if  [[ ( ! "$logPreserve" ) && ( -f "$myLogFile" ) ]] ; then
+    if  [[ ( ! "$myLogPreserve" ) && ( -f "$myLogFile" ) ]] ; then
 	
 	# we're not preserving logs across runs, so clear the log file, ignoring failure
 	/bin/cat /dev/null > "$myLogFile"
@@ -211,8 +254,8 @@ function initlog {
 	result=1
     fi
 
-    # if this gets called again, don't delete logs
-    logPreserve=1
+    # announce initialization
+    debuglog "Core $coreVersion initialized."
     
     # return code
     return "$result"
@@ -1018,6 +1061,6 @@ function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
 } ; export -f alert
 
 
-# INITIALIZE LOG
+# INITIALIZE LOGGING
 
-initlog
+initlog "$@"

@@ -29,7 +29,7 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 # CONSTANTS
 
 appEnginePathBase='EpichromeEngines.noindex'
-readonly appEnginePathBase
+#readonly appEnginePathBase
 
 # external engine info
 appExtEngineInfo=( "com.microsoft.edgemac|1|Microsoft Edge|2|Microsoft Edge" \
@@ -40,16 +40,15 @@ appExtEngineInfo=( "com.microsoft.edgemac|1|Microsoft Edge|2|Microsoft Edge" \
 				"com.google.Chrome|1|Google Chrome|2|Google/Chrome" \
 		 )
 iGoogle=5
-readonly appExtEngineInfo iGoogle
+#readonly appExtEngineInfo iGoogle
 
 # native messaging host manifests
-userSupportPath="${HOME}/Library/Application Support"
 nmhDirName=NativeMessagingHosts
 nmhManifestNewID="org.epichrome.runtime"
 nmhManifestOldID="org.epichrome.helper"
 nmhManifestNewFile="$nmhManifestNewID.json"
 nmhManifestOldFile="$nmhManifestOldID.json"
-readonly userSupportPath nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
+#readonly userSupportPath nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
 
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
@@ -323,7 +322,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	
 	# if the Epichrome version corresponding to this app's version is not found, and
 	# the app uses an internal engine, don't allow the user to ignore this version
-	if [[ "$epiCurrentPath" || ( "$SSBEngineType" != internal ) ]] ; then
+	if [[ "$epiCurrentPath" || ( "${SSBEngineType%%|*}" != internal ) ]] ; then
 	    updateButtonList+=( "Don't Ask Again For This Version" )
 	fi
 	
@@ -378,11 +377,11 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		    # temporarily turn OK back on & reload old runtime
 		    oldErrmsg="$errmsg" ; errmsg=
 		    oldOK="$ok" ; ok=1
-		    safesource "$SSBAppPath/Contents/Resources/Scripts/core.sh" "core script $SSBVersion"
-		    if [[ "$ok" ]] ; then
+		    source "$SSBAppPath/Contents/Resources/Scripts/core.sh" PRESERVELOG || ok=
+		    if [[ ! "$ok" ]] ; then
 
 			# fatal error
-			errmsg="Update failed and unable to reload current app. ($errmsg)"
+			errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
 			return 1
 		    fi
 		    
@@ -555,7 +554,7 @@ function getenginedisplayname { # ( [fallback] )
     local fallback="$1" ; shift
 
     # first try configured name
-    local result="${SSBEngineSource[$iDisplayName]}"
+    local result="${SSBEngineSourceInfo[$iDisplayName]}"
 
     # no configured name
     if [[ ! "$result" ]] ; then
@@ -564,7 +563,7 @@ function getenginedisplayname { # ( [fallback] )
 	local curEngine=
 	
 	for curEngine in "${appExtEngineInfo[@]}" ; do
-	    if [[ "${curEngine%%|1|*}" = "$SSBEngineType" ]] ; then
+	    if [[ "${curEngine%%|1|*}" = "${SSBEngineType#*|}" ]] ; then
 		result="${curEngine#*|1|}"
 		result="${result%%|2|*}"
 		break
@@ -581,7 +580,7 @@ function getenginedisplayname { # ( [fallback] )
 
 
 # GETEXTENGINESRCINFO: find external engine source app on the system & get info on it
-#                      if successful, it sets the SSBEngineSource variable
+#                      if successful, it sets the SSBEngineSourceInfo variable
 function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
     
     # only run if we're OK
@@ -607,7 +606,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	    searchList=( "$HOME/Applications/$engineDispName.app" \
 			     "/Applications/$engineDispName.app" )
 	else
-	    engineDispName="$SSBEngineType"
+	    engineDispName="${SSBEngineType#*|}"
 	fi
 	
 	# always search with spotlight
@@ -615,7 +614,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
     fi
     
     # assume failure
-    SSBEngineSource=()
+    SSBEngineSourceInfo=()
     
     # try various methods to find & validate external engine browser
     local myEngineSourcePath=
@@ -633,7 +632,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	    
 	    # search spotlight
 	    try 'myEngineSourcePath=(n)' /usr/bin/mdfind \
-		"kMDItemCFBundleIdentifier == '$SSBEngineType'" ''
+		"kMDItemCFBundleIdentifier == '${SSBEngineType#*|}'" ''
 	    if [[ "$ok" ]] ; then
 		
 		# use the first instance
@@ -664,16 +663,16 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	    continue
 	fi
 	
-	# parse Info.plist
+	# parse Info.plist -- create list in same order as SSBEngineSourceInfo
 	local infoPlist=()
 	try 'infoPlist=(n)' /usr/libexec/PlistBuddy \
+	    -c 'Print CFBundleIdentifier' \
 	    -c 'Print CFBundleExecutable' \
 	    -c 'Print CFBundleName' \
 	    -c 'Print CFBundleDisplayName' \
 	    -c 'Print CFBundleShortVersionString' \
 	    -c 'Print CFBundleIconFile' \
 	    -c 'Print CFBundleDocumentTypes:0:CFBundleTypeIconFile' \
-	    -c 'Print CFBundleIdentifier' \
 	    "$myEngineSourcePath/Contents/Info.plist" ''
 	if [[ ! "$ok" ]] ; then
 	    ok=1 ; errmsg=
@@ -682,8 +681,8 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	fi
 	
 	# check bundle ID
-	if [[ "${infoPlist[6]}" != "$SSBEngineType" ]] ; then
-	    debuglog "Found ID ${infoPlist[6]} instead of $SSBEngineType at '$myEngineSourcePath'"
+	if [[ "${infoPlist[$iID]}" != "${SSBEngineType#*|}" ]] ; then
+	    debuglog "Found ID ${infoPlist[$iID]} instead of ${SSBEngineType#*|} at '$myEngineSourcePath'"
 	    continue
 	fi
 	
@@ -695,11 +694,11 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	fi
 	
 	# if we got here, we have a complete copy of the browser,
-	# so set SSBEngineSource & break out
-	SSBEngineSource=( "${infoPlist[@]}" )
-	SSBEngineSource[$iPath]="$myEngineSourcePath"
+	# so set SSBEngineSourceInfo & break out
+	SSBEngineSourceInfo=( "${infoPlist[@]}" )
+	SSBEngineSourceInfo[$iPath]="$myEngineSourcePath"
 	
-	debuglog "External engine ${SSBEngineSource[$iDisplayName]} ${SSBEngineSource[$iVersion]} found at '${SSBEngineSource[$iPath]}'."
+	debuglog "External engine ${SSBEngineSourceInfo[$iDisplayName]} ${SSBEngineSourceInfo[$iVersion]} found at '${SSBEngineSourceInfo[$iPath]}'."
 	
 	break	
     done
@@ -879,14 +878,14 @@ function linktonmh {
     local browserNMHDirs=()
     
     # favor hosts from whichever browser our engine is using
-    if [[ "$SSBEngineType" != internal ]] ; then
+    if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 
 	# see if the current engine is in the list
 	local curBrowser= ; local i=0
 	for curBrowser in "${appExtEngineInfo[@]}" ; do
-	    if [[ "$SSBEngineType" = "$curBrowser%%|1|*" ]] ; then
+	    if [[ "${SSBEngineType#*|}" = "$curBrowser%%|1|*" ]] ; then
 
-		debuglog "Prioritizing $SSBEngineType native messaging hosts."
+		debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
 		
 		# engine found, so bump it to the end of the list (giving it top priority)
 		browserNMHDirs=( "${appExtEngineInfo[@]::$i}" \
@@ -996,9 +995,9 @@ function checkengine {  # ( ON|OFF )
     fi
 
     # engine is in a known state, so make sure both app bundles are complete
-    if [[ -x "$inactivePath/MacOS/${SSBEngineSource[$iExecutable]}" && \
+    if [[ -x "$inactivePath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" && \
 	      -f "$inactivePath/Info.plist" && \
-	      -x "$myEngineAppPath/Contents/MacOS/${SSBEngineSource[$iExecutable]}" && \
+	      -x "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" && \
 	      -f "$myEngineAppPath/Contents/Info.plist" ]] ; then
 		
 	# return code depending if we match our expected state
@@ -1059,11 +1058,11 @@ function setenginestate {  # ( ON|OFF )
     [[ "$ok" ]] || return 1
     
     # sometimes it takes a moment for the move to register
-    if [[ ! -x "$myEngineAppContents/MacOS/${SSBEngineSource[$iExecutable]}" ]] ; then
+    if [[ ! -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ]] ; then
 	ok= ; errmsg="Engine $oldInactiveError executable not found."
 	local attempt=
 	for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
-	    if [[ -x "$myEngineAppContents/MacOS/${SSBEngineSource[$iExecutable]}" ]] ; then
+	    if [[ -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ]] ; then
 		ok=1 ; errmsg=
 		break
 	    fi
@@ -1097,16 +1096,16 @@ function createengine {
     try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
     [[ "$ok" ]] || return 1
     
-    if [[ "$SSBEngineType" != internal ]] ; then
+    if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 	
 	# EXTERNAL ENGINE PAYLOAD
 	
 	# make sure we have a source for the payload
-	if [[ ! -d "${SSBEngineSource[$iPath]}" ]] ; then
+	if [[ ! -d "${SSBEngineSourceInfo[$iPath]}" ]] ; then
 	    
 	    # we should already have this, so as a last ditch, ask the user to locate it
 	    local myExtEngineSourcePath=
-	    local myExtEngineName="$(getenginedisplayname "$SSBEngineType")"
+	    local myExtEngineName="$(getenginedisplayname "${SSBEngineType#*|}")"
 	    try 'myExtEngineSourcePath=' osascript -e \
 		"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
 		"Locate engine app dialog failed."
@@ -1123,27 +1122,27 @@ function createengine {
 	    # user selected a path, so check it
 	    getextenginesrcinfo "$myExtEngineSourcePath"
 	    
-	    if [[ ! "${SSBEngineSource[$iPath]}" ]] ; then
+	    if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
 		ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
 		return 1
 	    fi
 	    
 	    # # warn if we're not using the selected app  $$$ IRRELEVANT NOW
-	    # if [[ "${SSBEngineSource[$iPath]}" != "$myExtEngineSourcePath" ]] ; then
+	    # if [[ "${SSBEngineSourceInfo[$iPath]}" != "$myExtEngineSourcePath" ]] ; then
 	    # 	alert "Selected app is not a valid instance of Google Chrome. Using '$SSBExtEngineSrcPath' instead." \
 	    # 	      'Warning' '|caution'
 	    # fi
 	fi
 	
 	# make sure external browser is on the same volume as the engine
-	if ! issamedevice "${SSBEngineSource[$iPath]}" "$SSBEnginePath" ; then
-	    ok= ; errmsg="${SSBEngineSource[$iDisplayName]} is not on the same volume as this app's data directory."
+	if ! issamedevice "${SSBEngineSourceInfo[$iPath]}" "$SSBEnginePath" ; then
+	    ok= ; errmsg="${SSBEngineSourceInfo[$iDisplayName]} is not on the same volume as this app's data directory."
 	    return 1
 	fi
 	
 	# create Payload directory
 	try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
-	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine payload."
+	    "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
 	
 	# turn on extended glob for copying
 	local shoptState=
@@ -1151,34 +1150,34 @@ function createengine {
 	
 	# copy all of the external browser except Framework and Resources
 	local allExcept='!(Frameworks|Resources)'
-	try /bin/cp -PR "${SSBEngineSource[$iPath]}/Contents/"$allExcept \
+	try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/"$allExcept \
 	    "$myEnginePayloadPath" \
-	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine payload."
+	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
 	
 	# copy Resources, except icons
 	allExcept='!(*.icns)'
-	try /bin/cp -PR "${SSBEngineSource[$iPath]}/Contents/Resources/"$allExcept \
+	try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/Resources/"$allExcept \
 	    "$myEnginePayloadPath/Resources" \
-	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine resources to payload."
+	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine resources to payload."
 	
 	# restore extended glob
 	shoptrestore shoptState
 	
 	# hard link to external engine browser Frameworks
-	linktree "${SSBEngineSource[$iPath]}/Contents" "$myEnginePayloadPath" \
-		 "${SSBEngineSource[$iDisplayName]} app engine" 'payload' 'Frameworks'
+	linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myEnginePayloadPath" \
+		 "${SSBEngineSourceInfo[$iDisplayName]} app engine" 'payload' 'Frameworks'
 	
 	# filter localization files
 	filterlproj "$myEnginePayloadPath/Resources" \
-		    "${SSBEngineSource[$iDisplayName]} app engine"
+		    "${SSBEngineSourceInfo[$iDisplayName]} app engine"
 	
 	# link to this app's icons
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-	    "$myEnginePayloadPath/Resources/${SSBEngineSource[$iAppIconFile]}" \
-	    "Unable to copy app icon to ${SSBEngineSource[$iDisplayName]} app engine."
+	    "$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \
+	    "Unable to copy app icon to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
 	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-	    "$myEnginePayloadPath/Resources/${SSBEngineSource[$iDocIconFile]}" \
-	    "Unable to copy document icon file to ${SSBEngineSource[$iDisplayName]} app engine."
+	    "$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
+	    "Unable to copy document icon file to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
 
 
 	# EXTERNAL ENGINE PLACEHOLDER
@@ -1186,18 +1185,18 @@ function createengine {
 	# clear out any old active app
 	if [[ -d "$myEngineAppPath" ]] ; then
 	    try /bin/rm -rf "$myEngineAppPath" \
-		"Unable to clear old ${SSBEngineSource[$iDisplayName]} app engine placeholder."
+		"Unable to clear old ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
 	    [[ "$ok" ]] || return 1
 	fi
 	
 	# create active placeholder app bundle
 	try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
-	    "Unable to create ${SSBEngineSource[$iDisplayName]} app engine placeholder."
+	    "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
 	
 	# filter Info.plist from payload
 	filterplist "$myEnginePayloadPath/Info.plist" \
 		    "$myEngineAppPath/Contents/Info.plist" \
-		    "${SSBEngineSource[$iDisplayName]} app engine placeholder Info.plist" \
+		    "${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder Info.plist" \
 		    'Add :LSUIElement bool true' \
 		    'Delete :CFBundleDocumentTypes' \
 		    'Delete :CFBundleURLTypes'
@@ -1208,17 +1207,17 @@ function createengine {
 	
 	# copy in placeholder executable
 	try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
-	    "$myEngineAppPath/Contents/MacOS/${SSBEngineSource[$iExecutable]}" \
-	    "Unable to copy ${SSBEngineSource[$iDisplayName]} app engine placeholder executable."
+	    "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
 	
 	# copy Resources directory from payload
 	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-	    "Unable to copy resources from ${SSBEngineSource[$iDisplayName]} app engine payload to placeholder."
+	    "Unable to copy resources from ${SSBEngineSourceInfo[$iDisplayName]} app engine payload to placeholder."
 	
 	# copy in scripts
 	try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
 	    "$myEngineAppPath/Contents/Resources" \
-	    "Unable to copy scripts to ${SSBEngineSource[$iDisplayName]} app engine placeholder."
+	    "Unable to copy scripts to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
 	
     else
 	
@@ -1347,13 +1346,16 @@ function updatecentralnmh {
     local doUpdate=
     
     # if either is missing, update both
-    [[ ! ( ( -f "$oldManifestPath" ) && ( -f "$newManifestPath" ) ) ]] && doUpdate=1
+    if [[ ! ( ( -f "$oldManifestPath" ) && ( -f "$newManifestPath" ) ) ]] ; then
+	doUpdate=1
+	debuglog 'One or more manifests missing.'
+    fi
 
     if [[ ! "$doUpdate" ]] ; then
 	
 	# regex for version and path
 	local info_re='Host ([0-9.a-zA-Z]+)".*"path": *"([^"]+)"'
-
+	
 	# read in one of the manifests
 	try 'curManifest=' /bin/cat "$newManifestPath" 'Unable to read central manifest.'
 	[[ "$ok" ]] || return 1
@@ -1362,8 +1364,9 @@ function updatecentralnmh {
 	if [[ "$curManifest" =~ $info_re ]] ; then
 
 	    # bad path
-	    if [[ -x "${BASH_REMATCH[2]}" ]] ; then
+	    if [[ ! -e "${BASH_REMATCH[2]}" ]] ; then
 		doUpdate=1
+		debuglog 'Central native messaging host has moved.'
 	    else
 		local curManifestVersion="${BASH_REMATCH[1]}"
 	    fi
@@ -1371,6 +1374,7 @@ function updatecentralnmh {
 	    
 	    # unreadable manifest
 	    doUpdate=1
+	    debuglog 'Unable to parse central manifest.'
 	fi
     fi
 
@@ -1383,13 +1387,16 @@ function updatecentralnmh {
 
     # manifests still look OK, so check if version is out of date
     if [[ ! "$doUpdate" ]] ; then
-	vcmp "$curManifestVersion" '<' "$SSBVersion" && doUpdate=1
+	if vcmp "$curManifestVersion" '<' "$SSBVersion" ; then
+	    doUpdate=1
+	    debuglog 'Central manifest version is out of date.'
+	fi
     fi
-
+    
     # if any of the above triggered an update, do it now
     if [[ "$doUpdate" ]] ; then
 
-	debuglog "Installing central native messaginge host manifests."
+	debuglog 'Installing central native messaging host manifests.'
 	
 	# path to Epichrome NMH items
 	local nmhScript="$sourcePath/Contents/Resources/Scripts/$appNMHFile"

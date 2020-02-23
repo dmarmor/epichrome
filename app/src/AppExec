@@ -25,7 +25,7 @@
 
 # filled in by Makefile
 SSBVersion='EPIVERSION'               
-readonly SSBVersion
+#readonly SSBVersion
 
 # filled in by updateapp
 SSBIdentifier=APPID
@@ -35,30 +35,35 @@ SSBCustomIcon=APPCUSTOMICON
 SSBCommandLine=APPCOMMANDLINE
 SSBEngineType=APPENGINETYPE
 APPENGINESOURCE
-readonly SSBIdentifier CFBundleDisplayName CFBundleName SSBCustomIcon SSBCommandLine SSBEngineType
+#readonly SSBIdentifier CFBundleDisplayName CFBundleName SSBCustomIcon SSBCommandLine SSBEngineType
 
-export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine SSBEngineType SSBEngineSource
+export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine SSBEngineType SSBEngineSourceInfo
 
 
 # CORE APP VARIABLES
 
 myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
-# create data directory
-myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
-/bin/mkdir -p "$myDataPath" 2> /dev/null
-[[ "$?" = 0 ]] || exit 1
 
-# logging
-myLogApp="$SSBIdentifier"
-myLogFile="$myDataPath/epichrome_app_log.txt"
+# LOAD CORE SCRIPT
 
-# path to important data directories and paths
-myConfigFile="$myDataPath/config.sh"
-myProfilePath="$myDataPath/UserData"
+source "$myAppPath/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
+[[ "$ok" ]] || abort
 
-# export to helper app
-export myDataPath myLogApp myLogFile myConfigFile myProfilePath
+# ensure we have a data directory
+[[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
+
+
+# HANDLE KILL SIGNALS
+
+function handleexitsignal {
+    if [[ "$lockOn" ]] ; then
+	errlog 'Terminated prematurely. Cleaning up.'
+	lockrelease
+    fi
+}
+trap '' INT
+trap handleexitsignal EXIT
 
 
 # FUNCTION DEFINITIONS
@@ -220,33 +225,6 @@ export -f lockset lockrelease
 # MAIN BODY
 
 
-# LOAD CORE SCRIPT
-
-# for now, preserve log, in case this app is already running
-tempLogPreserve="$logPreserve"
-logPreserve=1
-
-# load core
-source "$myAppPath/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo "[$$]$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
-[[ "$ok" ]] || abort
-
-# restore logPreserve
-logPreserve="$tempLogPreserve"
-
-
-# HANDLE KILL SIGNALS
-
-function handleexitsignal {
-    if [[ "$lockOn" ]] ; then
-	errlog 'Terminated prematurely. Cleaning up.'
-	lockrelease
-    fi
-}
-trap '' INT
-trap handleexitsignal EXIT
-
-
 # PARSE COMMAND-LINE ARGUMENTS
 
 argsURIs=()
@@ -304,13 +282,14 @@ fi
 
 # REINITIALIZE LOG
 
-initlog
+# if we're not keeping logs, clear it now
+[[ "$logPreserve" ]] || initlog
 
 
 # READ CURRENT APP SETTINGS
 
 # add extra config vars for external engine
-[[ "$SSBEngineType" != internal ]] && appConfigVars+=( SSBEngineSource )
+[[ "${SSBEngineType%%|*}" != internal ]] && appConfigVars+=( SSBEngineSourceInfo )
 
 # read config file (if any)
 if [[ -f "$myConfigFile" ]] ; then
@@ -320,17 +299,29 @@ else
     debuglog "No configuration file found."
 fi
 
-# determine if this is our first run on a new version
+# determine if this is our first run on a new version or new engine
 isFirstRun=
 if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
-
     # mark as first run
-    isFirstRun=1    
+    isFirstRun=1
+
+    # update last run variables
     SSBLastRunVersion="$SSBVersion"
     SSBUpdateVersion="$SSBVersion"
     
     # clear extension install error state
     SSBExtensionInstallError=
+fi
+if [[ "$SSBEngineType" != "$SSBLastRunEngineType" ]] ; then
+    
+    # mark as first run
+    isFirstRun=1
+    
+    # clear extension install error state
+    SSBExtensionInstallError=
+    
+    # update last run variable
+    SSBLastRunEngineType="$SSBEngineType"
 fi
 
 
@@ -526,13 +517,13 @@ doCreateEngine=
 doNotActivateEngine=
 
 # if we're using an external engine, get info on it
-if [[ "$SSBEngineType" != internal ]] ; then
+if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     
     # try the path we've been using first
-    [[ "${SSBEngineSource[$iPath]}" ]] && getextenginesrcinfo "${SSBEngineSource[$iPath]}"
+    [[ "${SSBEngineSourceInfo[$iPath]}" ]] && getextenginesrcinfo "${SSBEngineSourceInfo[$iPath]}"
     
     # if that fails, search the system for external engine
-    [[ "${SSBEngineSource[$iPath]}" ]] || getextenginesrcinfo
+    [[ "${SSBEngineSourceInfo[$iPath]}" ]] || getextenginesrcinfo
 fi
 
 if [[ "$isFirstRun" ]] ; then
@@ -556,15 +547,15 @@ else
     fi
     # else engine is in the expected off state
     
-    if [[ ( ! "$doCreateEngine" ) && ( "$SSBEngineType" != internal ) ]] ; then
+    if [[ ( ! "$doCreateEngine" ) && ( "${SSBEngineType%%|*}" != internal ) ]] ; then
 
 	# new version of external engine app
-	if [[ "${SSBEngineSource[$iVersion]}" && \
-		  ( "${SSBEngineSource[$iVersion]}" != "${configSSBEngineSource[$iVersion]}" ) ]] ; then
+	if [[ "${SSBEngineSourceInfo[$iVersion]}" && \
+		  ( "${SSBEngineSourceInfo[$iVersion]}" != "${configSSBEngineSourceInfo[$iVersion]}" ) ]] ; then
 	    
 	    doCreateEngine=1
-	    debuglog "Updating engine to ${SSBEngineSource[$iDisplayName]} version ${SSBEngineSource[$iVersion]}."
-	    createEngineErrMsg="Unable to update engine to ${SSBEngineSource[$iDisplayName]} version ${SSBEngineSource[$iVersion]}."
+	    debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+	    createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
 	fi
     fi
 fi
@@ -606,8 +597,7 @@ fi
 
 # UPDATE/CREATE CENTRAL NATIVE MESSAGING HOST MANIFESTS
 
-if [[ ( "$SSBEngineType" = internal ) && \
-	  ( "${SSBEngineSource[$iName]}" = Brave ) ]] ; then
+if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
     
     updatecentralnmh
     
@@ -622,8 +612,8 @@ fi
 # LAUNCH APP ENGINE
 
 # export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
-if [[ ( "$SSBEngineType" = internal ) && \
-    ( "${SSBEngineSource[$iName]}" = Chromium ) ]] ; then
+if [[ ( "${SSBEngineType%%|*}" = internal ) && \
+    ( "${SSBEngineSourceInfo[$iName]}" = Chromium ) ]] ; then
     export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
     export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
     export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"

@@ -46,7 +46,7 @@ function myabort { # [myErrMsg]
 
 function handleexitsignal {
     if [[ ! "$doCleanExit" ]] ; then
-	echo "$myLogApp: Unexpected termination." >> "$myLogFile"
+	echo "$myLogID: Unexpected termination." >> "$myLogFile"
 	echo 'Unexpected termination.' 1>&2
     fi
 }
@@ -55,13 +55,14 @@ trap "handleexitsignal" EXIT
 
 # LOGGING INFO
 
-myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
+myLogID="$myLogID|${BASH_SOURCE[0]##*/}"
 
 
 # BOOTSTRAP RUNTIME SCRIPTS
 
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo '[$$]$myLogApp: Unable to load core script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
+[[ "$ok" ]] || myabort
+
 safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/launch.sh"
 [[ "$ok" ]] || myabort
 

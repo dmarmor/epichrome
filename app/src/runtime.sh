@@ -41,18 +41,28 @@ function updatessb { # ( SSBAppPath )
 	return 1
     fi
     
-    # set up new-style logging, but for now log to main Epichrome log
-    myDataPath="$HOME/Library/Application Support/Epichrome"
-    myLogApp="$CFBundleName|Update"
-    myLogFile="$myDataPath/epichrome_log.txt"
+    # don't overwrite log on core.sh load
     logPreserve=1
+
+    # save old profile path (for restoreoldruntime)
+    saveProfilePath="$myProfilePath"
     
-    # load update.sh & launch.sh (for launchhelper and writeconfig)
-    safesource "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" \
-	       "update script $mcssbVersion"
-    safesource "${BASH_SOURCE[0]%/Resources/Scripts/runtime.sh}/Contents/Resources/Scripts/launch.sh" \
-	       "launch script $mcssbVersion"
-    if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
+    # load update.sh
+    if ! source "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" ; then
+	ok= ; errmsg='Unable to load update script $mcssbVersion.'
+	restoreoldruntime
+	return 1
+    fi
+    
+    # we now have core, so set logging ID
+    myLogID="$CFBundleName|Update"
+    
+    # load launch.sh (for launchhelper and writeconfig)
+    if ! source "${BASH_SOURCE[0]%/Resources/Scripts/runtime.sh}/Contents/Resources/Scripts/launch.sh" ; then
+	ok= ; errmsg='Unable to load launch script $updateVersion.'
+	restoreoldruntime
+	return 1
+    fi
     
     # flag for deciding whether to update
     local doUpdate=Update
@@ -88,7 +98,7 @@ function updatessb { # ( SSBAppPath )
 	    if visbeta "$coreVersion" ; then
 		updateMsg="$updateMsg
 			
-IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myProfilePath) before updating."
+IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
 		#updateBtnUpdate="-$updateBtnUpdate"
 		updateBtnLater="+$updateBtnLater"
 	    else
@@ -114,10 +124,10 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	fi
     fi
     if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
-    
+        
     if [[ "$doUpdate" = "Update" ]] ; then
 
-	SSBEngineType='com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
+	SSBEngineType='external|com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
 	
 	# $$$$ PROBABLY DELETE THIS
 	# ask user to choose  which engine to use (sticking with Google Chrome is the default)
@@ -138,7 +148,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 # 	       "Chromium"
 # 	if [[ ! "$ok" ]] ; then
 # 	    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-# 	    SSBEngineType='com.google.Chrome'
+# 	    SSBEngineType='external|com.google.Chrome'
 # 	    ok=1
 # 	    errmsg=
 # 	fi
@@ -150,23 +160,44 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	
 	# UPDATE DATA DIRECTORY
 	
-	# path to data directory
-	myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
-	
-	if [[ "$myDataPath" != "$myProfilePath" ]] ; then
-	    ok= ; errmsg='Unable to find old profile folder.'
-	elif [[ -d "$myDataPath" && ! -d "$myDataPath/UserData" ]] ; then
+	if [[ ( -d "$myDataPath" ) && ! -d "$myProfilePath" ]] ; then
 	    
 	    # UPDATE OLD-STYLE PROFILE DIRECTORY
 	    
 	    # give profile directory temporary name
-	    local oldProfilePath="$(tempname "$myProfilePath")"
-	    try /bin/mv "$myProfilePath" "$oldProfilePath" \
-		'Error renaming old profile folder.'
+	    local oldProfilePath="$(tempname "$myDataPath")"
+	    
+	    # don't use try to avoid logging problems
+	    errmsg=
+	    /bin/mv "$myDataPath" "$oldProfilePath" || errmsg='Error renaming old profile folder.'
+
+	    if [[ ! "$errmsg" ]] ; then
+    		local saveStderrFile="$stderrTempFile"
+		local saveLogFile="$myLogFile"
+		myLogFile="$oldProfilePath/${myLogFile##*/}"
+		stderrTempFile="$oldProfilePath/${stderrTempFile##*/}"
+	    else
+		ok=
+	    fi
+
+	    debuglog "GOT HERE OK: $myLogFile   $stderrTempFile"
 	    
 	    # make empty directory where old profile was
-	    try /bin/mkdir -p "$myDataPath" \
-		'Error creating new data folder.'
+	    try /bin/mkdir -p "$myDataPath" 'Error creating new data folder.'
+	    
+	    # move log file back into place
+	    if [[ "$ok" ]] ; then
+		errmsg=
+		/bin/mv "$myLogFile" "$saveLogFile" || \
+		    errmsg='Unable to move log file back into place.'
+		
+		if [[ ! "$errmsg" ]] ; then
+    		    myLogFile="$saveLogFile"
+    		    stderrTempFile="$saveStderrFile"
+		else
+		    ok=
+		fi
+	    fi
 	    
 	    # move profile directory into new data directory
 	    try /bin/mv "$oldProfilePath" "$myDataPath/UserData" \
@@ -191,7 +222,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	# UPDATE CONFIG & RELAUNCH
 	
 	# add extra config vars for external engine
-	[[ "$SSBEngineType" != internal ]] && appConfigVars+=( SSBEngineSource )
+	[[ "${SSBEngineType%%|*}" != internal ]] && appConfigVars+=( SSBEngineSourceInfo )
 	
 	# write out config
 	[[ -d "$myDataPath" ]] || try /bin/mkdir -p "$myDataPath" 'Unable to create data directory.'
@@ -231,20 +262,24 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 
 # RESTOREOLDRUNTIME -- roll back to old runtime before exiting updatessb
 function restoreoldruntime {
+
+    # restore old profile path
+    myProfilePath="$saveProfilePath"
     
     # temporarily turn OK back on & reload old runtime
-    local oldErrmsg="$errmsg" ; errmsg=
-    local oldOK="$ok" ; ok=1
-    safesource "$SSBAppPath/Contents/Resources/Scripts/runtime.sh" "runtime script $SSBVersion"
-    [[ "$ok" ]] && ok="$oldOK"
-    
-    # update error message
-    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-	errmsg="$oldErrmsg $errmsg"
-    elif [[ "$oldErrmsg" ]] ; then
-	errmsg="$oldErrmsg"
+    if ! source "$SSBAppPath/Contents/Resources/Scripts/runtime.sh" ; then
+	ok=
+	
+	# update error message
+	if [[ "$errmsg" ]] ; then
+	    errmsg="$errmsg Also unable"
+	else
+	    errmsg="Unable"
+	fi
+	errmsg="$errmsg to restore old runtime. You may have to restart the app."
     fi
     
     # deactivate myself for safety
     unset -f restoreoldruntime
+    unset saveProfilePath
 }

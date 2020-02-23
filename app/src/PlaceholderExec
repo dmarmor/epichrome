@@ -27,39 +27,30 @@ SSBVersion='EPIVERSION'               # filled in by Makefile
 SSBIdentifier=APPID                   # filled in by updateapp
 CFBundleIdentifier=APPBUNDLEID        # filled in by updateapp
 
+
 # CORE APP VARIABLES
 
 myAppPath="{BASH_SOURCE[0]%/Contents/MacOS/*}"
 
-# create data directory
-myDataPath="$HOME/Library/Application Support/Epichrome/Apps/$SSBIdentifier"
-/bin/mkdir -p "$myDataPath" 2> /dev/null
-[[ "$?" = 0 ]] || exit 1
 
-# logging
-myLogApp="$SSBIdentifier|Placeholder"
-myLogFile="$myDataPath/epichrome_app_log.txt"
+# LOAD CORE SCRIPT
+
+source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
+myLogID="$myLogID|Placeholder"
+[[ "$ok" ]] || abort
+
+# ensure we have a data directory
+[[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
 
 
 # ATTEMPT TO LAUNCH PARENT APP
 
-output="$(/usr/bin/open -b "$CFBundleIdentifier" --args "$@")"
-result="$?"
-[[ "$output" ]] && echo "[$$]$myLogApp: $output" >> "$myLogFile"
-if [[ "$result" = 0 ]] ; then
-    echo "[$$]$myLogApp: Launched parent app $CFBundleIdentifier." >> "$myLogFile"
+try /usr/bin/open -b "$CFBundleIdentifier" --args "$@" \
+    'Unable to launch parent app.'
+if [[ "$ok" ]] ; then
+    debuglog 'Launched parent app.'
     exit 0
+else
+    # launch failed, so display error alert
+    abort "$errmsg Unless you know what you're doing, you shouldn't try to launch the engine app directly anyway."
 fi
-
-
-# LAUNCH FAILED, SO DISPLAY A WARNING ALERT
-
-echo "[$$]$myLogApp: Unable to launch app ID $CFBundleIdentifier." >> "$myLogFile"
-
-# load core
-source "$myAppPath/Contents/Resources/Scripts/core.sh"
-[[ "$?" = 0 ]] || ( echo "[$$]$myLogApp: Unable to load core script." >> "$myLogFile" ; exit 1 )
-
-# display error alert
-[[ "$errmsg" ]] && errmsg=" Also: $errmsg"
-abort 'Unable to launch parent app.$errmsg You should generally NOT try to launch this app directly anyway.'

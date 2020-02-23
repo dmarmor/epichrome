@@ -30,7 +30,7 @@ function cleanup {
     
     # report premature termination
     if [[ ! "$doCleanExit" ]] ; then
-	echo "$myLogApp: Unexpected termination." >> "$myLogFile"
+	echo "$myLogID: Unexpected termination." >> "$myLogFile"
 	echo 'Unexpected termination.' 1>&2
     fi
     
@@ -42,7 +42,7 @@ function cleanup {
 	    rmtemp "$appTmp" 'temporary app bundle'
 	else
 	    if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
-		echo "$myLogApp: Unable to remove temporary app bundle." >> "$myLogFile"
+		echo "$myLogID: Unable to remove temporary app bundle." >> "$myLogFile"
 		echo 'Unable to remove temporary app bundle.' 1>&2
 	    fi
 	fi
@@ -75,17 +75,13 @@ trap cleanup EXIT
 myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
 
 
-# LOGGING INFO
+# LOAD SCRIPTS
 
-myLogApp="$myLogApp|${BASH_SOURCE[0]##*/}"
-
-
-# BOOTSTRAP UPDATE SCRIPT
-
-source "$myResourcesPath/Scripts/update.sh"
-[[ "$?" = 0 ]] || \
-    ( echo '[$$]$myLogApp: Unable to load update script.' >> "$myLogFile" ; doCleanExit=1 ; exit 1 )
+source "$myResourcesPath/Runtime/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
+myLogID="$myLogID|${BASH_SOURCE[0]##*/}"
 [[ "$ok" ]] || myabort
+
+safesource "$myResourcesPath/Scripts/update.sh" || myabort
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER
@@ -117,15 +113,12 @@ SSBRegisterBrowser="$1"
 shift
 
 # specify app engine
-if [[ "$1" = "Google Chrome" ]] ; then
-    SSBEngineType='com.google.Chrome'
-    readonly SSBEngineType
-else
-    SSBEngineType=internal
-    SSBEngineSource=( "${epiEngineSource[@]}" )
-    readonly SSBEngineType SSBEngineSource
-fi
+SSBEngineType="$1"
 shift
+if [[ "${SSBEngineType%|*}" = internal ]] ; then
+    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )  # $$$ FIX THIS TO CHOOSE RIGHT SOURCEINFO
+    #readonly SSBEngineType SSBEngineSourceInfo
+fi
 
 # the rest is the command line maybe --app + URLs
 SSBCommandLine=("${@}")
