@@ -30,7 +30,7 @@ CFBundleIdentifier=APPBUNDLEID        # filled in by updateapp
 
 # CORE APP VARIABLES
 
-myAppPath="{BASH_SOURCE[0]%/Contents/MacOS/*}"
+myAppPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
 
 
 # LOAD CORE SCRIPT

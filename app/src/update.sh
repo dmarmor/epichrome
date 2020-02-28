@@ -58,10 +58,41 @@ function updateapp { # ( updateAppPath )
     
     if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
 
-	# update to current variable semantics
+	# update engine variables
 	SSBEngineType='external|com.google.Chrome'
 	SSBLastRunEngineType="$SSBEngineType"
-	#readonly SSBEngineType
+	
+    elif [[ ( "$SSBEngineType" = 'Chromium' ) && \
+		( "$SSBVersion" = '2.3.0b6' ) ]] ; then
+
+	# $$$$$ TEMPORARY EXTRA WARNING FOR EXPERIMENTAL B6 CHROME->BRAVE SWITCH
+	
+	local engineWarning='IMPORTANT: Updating will change the app engine from the experimental beta 6 Chrome engine to Brave. All of your preferences, login sessions and saved passwords WILL be lost!
+	
+Before completing this update, please back up any passwords. Instructions are in the Patreon post for this release. On first run, the app will open tabs for each of your extensions to give you a chance to reinstall them. Once they are reinstalled, their settings should be restored.'
+	local doAbort=
+	
+	dialog doAbort \
+	       "$engineWarning" \
+	       "Warning" \
+	       "|caution" \
+	       '+Update Later' 'Update Now'
+	if [[ ! "$ok" ]] ; then
+	    alert "$engineWarning The warning dialog also failed, so if you want to update later, you'll need to kill the app manually." 'Update' '|caution'
+	    ok=1
+	    errmsg=
+	fi
+	
+	if [[ "$doAbort" != 'Update Now' ]] ; then
+	    ok=
+	    errmsg='Update canceled.'
+	    return 1
+	fi
+	
+	# if we got here, we're going ahead with the update
+	SSBLastRunEngineType='external|com.google.Chrome'
+	SSBEngineType="internal|${epiEngineSource[$iID]}"
+	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 	
     elif [[ "$SSBEngineType" = 'Chromium' ]] ; then
 	
@@ -91,7 +122,6 @@ function updateapp { # ( updateAppPath )
 	SSBLastRunEngineType='internal|org.chromium.Chromium'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
-	#readonly SSBEngineType SSBEngineSourceInfo
     fi
 
     
@@ -386,58 +416,22 @@ function updateapp { # ( updateAppPath )
 	return 1
     fi
     
+    # # delete old config.sh if it exists
+    # local oldConfigFile="$appDataPathBase/$SSBIdentifier/config.sh"
+    # if [[ -e "$oldConfigFile" ]] ; then
 
-    # UPDATE DATA DIRECTORY TO DEAL WITH ENGINE CHANGES
+    # 	debuglog "Removing old config file '$oldConfigFile'"
+	
+    # 	try /bin/rm -f "$oldConfigFile" \
+    # 	    'Unable to remove old config file. The updated app may not run.'
+	
+    # 	# failure here is nonfatal
+    # 	if [[ ! "$ok" ]] ; then
+    # 	    ok=1
+    # 	    return 1
+    # 	fi
+    # fi
     
-    if [[ -d "$appDataPathBase/$SSBIdentifier" && \
-	      "$SSBLastRunEngineType" && \
-	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
-	
-	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up data directory."
-	
-	# delete config.sh
-	try /bin/rm -f "$appDataPathBase/$SSBIdentifier/config.sh" \
-	    'Unable to remove old config file. The updated app may not run.'
-	
-	# turn on extended glob
-	local shoptState=
-	shoptset shoptState extglob
-	
-	# remove all of the UserData directory except Default
-	local allExcept='!(Default)'
-	try /bin/rm -rf "$appDataPathBase/$SSBIdentifier/UserData/"$allExcept \
-	    'Unable to remove old profile files. The updated app may not run.'
-	
-	if [[ "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ]] ; then
-
-	    # switching from Chrome to Chromium-based engine
-
-	    debuglog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
-
-	    # delete everything from Default except Local Extension Settings
-	    allExcept='!(Local?Extension?Settings)'
-	    try /bin/rm -rf "$appDataPathBase/$SSBIdentifier/UserData/Default/"$allExcept \
-		'Unable to remove old profile settings. The updated app may not run.'
-	    
-	    # $$$$ TO DO: make entries in External Extensions for everything in Default/Extensions
-	    
-	else
-	    
-	    # for now this catch-all assumes we're going from one flavor of Chromium to another
-	    
-	    debuglog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to ${SSBEngineSourceInfo[$iName]} engine."
-	    
-	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
-	    try /bin/rm -f "$appDataPathBase/$SSBIdentifier/UserData/Default/Login Data"* \
-		'Unable to remove old login data. The updated app may not run.'
-	fi
-	
-	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
-	
-	# restore extended glob
-	shoptrestore shoptState
-    fi
-    
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
+    # if we got here, all is OK
+    return 0
 }

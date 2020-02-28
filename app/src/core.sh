@@ -37,27 +37,27 @@ coreVersion='EPIVERSION'
 export debug logPreserve
 
 
-# CONSTANTS
+# CONSTANTS   $$$$ [[ "$X" ]] || X=  TEMPORARY TO FIX BETA 6 BUG
 
 # icon names
-CFBundleIconFile="app.icns"
-CFBundleTypeIconFile="document.icns"
+[[ "$CFBundleIconFile" ]] || CFBundleIconFile="app.icns"
+[[ "$CFBundleTypeIconFile" ]] || CFBundleTypeIconFile="document.icns"
 #readonly CFBundleIconFile CFBundleTypeIconFile
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-appIDRoot='org.epichrome'
-appIDBase="$appIDRoot.app"
-appEngineIDBase="$appIDRoot.eng"
+[[ "$appIDRoot" ]] || appIDRoot='org.epichrome'
+[[ "$appIDBase" ]] || appIDBase="$appIDRoot.app"
+[[ "$appEngineIDBase" ]] || appEngineIDBase="$appIDRoot.eng"
 #readonly appIDRoot appIDBase appEngineIDBase
 export appIDRoot appIDBase appEngineIDBase
 
 # app internal paths
-appHelperPath='Resources/EpichromeHelper.app'
-appEnginePath='Resources/Engine'
-appEnginePayloadPath="$appEnginePath/Payload"
-appEnginePlaceholderPath="$appEnginePath/Placeholder"
-appNMHFile='epichromeruntimehost.py'
+[[ "$appHelperPath" ]] || appHelperPath='Resources/EpichromeHelper.app'
+[[ "$appEnginePath" ]] || appEnginePath='Resources/Engine'
+[[ "$appEnginePayloadPath" ]] || appEnginePayloadPath="$appEnginePath/Payload"
+[[ "$appEnginePlaceholderPath" ]] || appEnginePlaceholderPath="$appEnginePath/Placeholder"
+[[ "$appNMHFile" ]] || appNMHFile='epichromeruntimehost.py'
 #readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
 
 # data paths
@@ -916,6 +916,8 @@ function writevars {  # $1 = destination file
 		value="$(formatscalar "$value")"
 
 	    fi
+
+	    debuglog "Writing to ${destBase}: ${var}=${value}"
 	    
 	    try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
 	    [[ "$ok" ]] || break

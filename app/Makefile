@@ -94,7 +94,7 @@ endif
 BRAVE_VERSION:=$(shell if [[ '$(BRAVE)' =~ [0-9][0-9.]*[0-9] ]] ; then \
 				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
 ifeq ($(BRAVE_VERSION),ERROR)
-$(error Unable to retrieve Brave version from $(CHROMIUM))
+$(error Unable to retrieve Brave version from $(BRAVE))
 endif
 
 
@@ -169,7 +169,7 @@ internal: $(APP)
 # UTILITY TARGETS
 
 clean:
-	rm -rf Epichrome/* epichrome-*.pkg
+	rm -rf Epichrome/Epichrome.app epichrome-*.pkg
 	rm -rf build/main* build/runtime* $(INTERMEDIATES)
 	@hdiutil detach build/brave 2> /dev/null || true
 
@@ -580,7 +580,7 @@ $(CHROMIUM): $(CHROMIUM:.tgz=.zip)
 	tar xzvf '$<' --cd build/chromium --strip-components 1
 	codesign --remove-signature -vv build/chromium
 	rm -rf build/chromium/Contents/_CodeSignature
-	rm build/chromium/Contents/CodeResources
+	rm -f build/chromium/Contents/CodeResources
 # codesign --remove-signature -vv \
 # 	'$(CHROMIUM_FRAMEWORK)' \
 # 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
@@ -635,7 +635,7 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 # ENGINE FILTER ELEMENTS
 
 $(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engine/Link/Frameworks: \
-		$(CHROMIUM) src/version.sh engine
+		$(BRAVE) src/version.sh engine
 
 engine: build/engine/Brave
 	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Brave/Info.plist)" != 'app.icns' ]] ; then \

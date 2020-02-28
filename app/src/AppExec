@@ -299,7 +299,7 @@ else
     debuglog "No configuration file found."
 fi
 
-# determine if this is our first run on a new version or new engine
+# determine if this is our first run on a new version
 isFirstRun=
 if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     # mark as first run
@@ -311,17 +311,6 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     
     # clear extension install error state
     SSBExtensionInstallError=
-fi
-if [[ "$SSBEngineType" != "$SSBLastRunEngineType" ]] ; then
-    
-    # mark as first run
-    isFirstRun=1
-    
-    # clear extension install error state
-    SSBExtensionInstallError=
-    
-    # update last run variable
-    SSBLastRunEngineType="$SSBEngineType"
 fi
 
 
@@ -455,6 +444,24 @@ if [[ ! "$ok" ]] ; then
 fi
 
 
+# HANDLE ENGINE CHANGE
+
+if [[ "$SSBEngineType" != "$SSBLastRunEngineType" ]] ; then
+
+    # update data directory to handle engine change
+    cleandatadir
+    
+    # mark as first run
+    isFirstRun=1
+    
+    # clear extension install error state
+    SSBExtensionInstallError=
+    
+    # update last run variable
+    SSBLastRunEngineType="$SSBEngineType"
+fi
+
+
 # POPULATE DATA DIRECTORY
 
 # if this is our first run on a new version, force an update of the data dir
@@ -466,7 +473,7 @@ fi
 
 # if there's currently no profile directory, trigger first-run welcome message
 if [[ ! -d "$myProfilePath" ]] ; then
-    argsURIs=( "${argsURIs[@]}" "file://$SSBAppPath/Contents/Resources/FirstRun/welcome.html" )
+    argsURIs+=( "file://$SSBAppPath/Contents/Resources/FirstRun/welcome.html" )
 fi
 
 # populate the data directory
@@ -612,8 +619,7 @@ fi
 # LAUNCH APP ENGINE
 
 # export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
-if [[ ( "${SSBEngineType%%|*}" = internal ) && \
-    ( "${SSBEngineSourceInfo[$iName]}" = Chromium ) ]] ; then
+if [[ "$SSBEngineType" = 'internal|org.chromium.Chromium' ]] ; then
     export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
     export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
     export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
@@ -625,8 +631,15 @@ myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLin
 # engine is not running, so launch as usual (still sending URIs to engine)
 
 try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \
-	'Unable to launch app.'
+    'Unable to launch app.'
 [[ "$ok" ]] || abort
+# sleep 1.5   #  $$$$$ FIX OR REMOVE
+# try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args --new-window \
+# 	'Unable to open extra URLs.'
+# if [[ ! "$ok" ]] ; then
+#     alert "$errmsg You may need to install or enable the Epichrome extension manually." 'Warning' '|caution'
+#     ok=1 ; errmsg=
+# fi
 
 
 # UPDATE CONFIG FILE IF NECESSARY

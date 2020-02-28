@@ -481,6 +481,81 @@ function checkgithubupdate {
 }
 
 
+# CLEANDATADIR -- check for engine change and clean up the data directory
+function cleandatadir {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # check if we need to clean up the data directory
+    if [[ -d "$myProfilePath" && \
+	      "$SSBLastRunEngineType" && \
+	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
+	
+	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up data directory."
+	
+	# turn on extended glob
+	local shoptState=
+	shoptset shoptState extglob
+	
+	# remove all of the UserData directory except Default
+	local allExcept='!(Default)'
+	try /bin/rm -rf "$myProfilePath/"$allExcept \
+	    "Unable to remove old profile files. The app's settings may be corrupted."
+	
+	if [[ "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ]] ; then
+	    
+	    
+	    # SWITCHING FROM CHROME TO CHROMIUM-BASED ENGINE
+	    
+	    debuglog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
+	    
+	    # move into extensions directory
+	    try '!1' pushd "$myProfilePath/Default/Extensions" \
+		'Unable to navigate to extensions directory.'
+	    
+	    # save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
+	    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+	    local oldExtensions=()
+	    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
+	    
+	    # move back out of extensions directory
+	    try '!1' popd 'Unable to navigate away from extensions directory.'
+	    
+	    # delete everything from Default except Local Extension Settings
+	    allExcept='!(Local?Extension?Settings)'
+	    try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
+		'Unable to remove old profile settings. The updated app may not run.'
+
+	    # add URL for each extension
+	    local curExt=
+	    for curExt in "${oldExtensions[@]}" ; do
+		if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
+		    debuglog "Adding URL for extension ID $curExt."
+		    argsURIs+=( "https://chrome.google.com/webstore/detail/$curExt" )
+		fi
+	    done
+
+	else
+	    
+	    
+	    # CATCH-ALL FOR SWITCHING FROM ONE FLAVOR OF CHROMIUM TO ANOTHER
+	    
+	    debuglog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to ${SSBEngineSourceInfo[$iName]} engine."
+	    
+	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
+	    try /bin/rm -f "$myProfilePath/Default/Login Data"* \
+		'Unable to remove old login data. The updated app may not run.'
+	fi
+	
+	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
+	
+	# restore extended glob
+	shoptrestore shoptState
+    fi
+}
+
+
 # CANONICALIZE -- canonicalize a path
 function canonicalize { # ( path )
     local rp=
@@ -1548,14 +1623,14 @@ function writeconfig {  # ( myConfigFile force )
 	    fi
 	done
 	
-	[[ "$doWrite" ]] && debuglog "Updating config.sh: Configuration variables have changed."
+	[[ "$doWrite" ]] && debuglog "Configuration variables have changed."
     else
-	debuglog "Updating config.sh: Forced update."
+	debuglog "Forced update."
     fi
     
     # if we need to, write out the file
     if [[ "$doWrite" ]] ; then
-
+	
 	# write out the config file
 	writevars "$myConfigFile" "${appConfigVars[@]}"
     fi
