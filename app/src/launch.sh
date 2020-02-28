@@ -503,19 +503,33 @@ function cleandatadir {
 	try /bin/rm -rf "$myProfilePath/"$allExcept \
 	    "Unable to remove old profile files. The app's settings may be corrupted."
 	
-	if [[ "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ]] ; then
+	if [[ ( "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ) || \
+		  ( "${SSBEngineType#*|}" = 'com.google.Chrome' ) ]] ; then
 	    
 	    
-	    # SWITCHING FROM CHROME TO CHROMIUM-BASED ENGINE
+	    # SWITCHING BETWEEN GOOGLE CHROME AND CHROMIUM-BASED ENGINE
 	    
-	    debuglog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
+	    if [[ "$debug" ]] ; then
+		if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
+		    errlog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to Google Chrome engine."
+		else
+		    errlog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
+		fi
+	    fi
 	    
 	    # move into extensions directory
 	    try '!1' pushd "$myProfilePath/Default/Extensions" \
 		'Unable to navigate to extensions directory.'
+
+	    # save extension IDs
+	    if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
+		# going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
+		allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
+	    else
+		# going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
+		allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+	    fi
 	    
-	    # save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
-	    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
 	    local oldExtensions=()
 	    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
 	    

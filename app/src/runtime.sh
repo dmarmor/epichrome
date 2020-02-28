@@ -128,30 +128,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
     if [[ "$doUpdate" = "Update" ]] ; then
 
 	SSBEngineType='external|com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
-	
-	# $$$$ PROBABLY DELETE THIS
-	# ask user to choose  which engine to use (sticking with Google Chrome is the default)
-# 	local useChromium=
-# 	dialog SSBEngineType \
-# 	       "Continue to use Google Chrome app engine, or switch to Chromium?
-
-# NOTE: If you don't know what this question means, choose Google Chrome.
-
-# Switching an existing app to the Chromium engine will likely log you out of any existing sessions in the app and may require you to reactivate extensions and/or lose extension data.
-
-# In the long run, switching to the Chromium engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.
-
-# The main advantage of continuing to use the Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." \
-# 	       "Choose App Engine" \
-# 	       "|caution" \
-# 	       "+Google Chrome" \
-# 	       "Chromium"
-# 	if [[ ! "$ok" ]] ; then
-# 	    alert "The app engine choice dialog failed. Attempting to update the app with the existing Google Chrome engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
-# 	    SSBEngineType='external|com.google.Chrome'
-# 	    ok=1
-# 	    errmsg=
-# 	fi
+	SSBLastRunEngineType="$SSBEngineType"
 	
 	# run actual update
 	updateapp "$SSBAppPath"

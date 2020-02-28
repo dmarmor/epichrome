@@ -124,6 +124,59 @@ Before completing this update, please back up any passwords. Instructions are in
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
     fi
 
+    # $$$$ temp patch -- this has been added to AppExec
+    [[ "$SSBLastRunEngineType" ]] || SSBLastRunEngineType="$SSBEngineType"
+    
+    # $$$ EXPERIMENTAL -- ALLOW ENGINE SWITCH
+
+    # $$$$ EVENTUALLY DELETE THIS
+    if [[ "$SSBAllowEngineSwitch" ]] ; then
+	
+	# ask user to choose  which engine to use (sticking with current is the default)
+	if [[ "${SSBEngineType%%|*}" = internal ]] ; then
+	    local keepButton="+Keep Built-In (${epiEngineSource[$iName]})"
+	    local changeButton='Switch to External (Chrome)'
+	    local keepText="built-in ${epiEngineSource[$iName]}"
+	    local changeText='external Google Chrome'
+	else
+	    local keepButton='+Keep External (Chrome)'
+	    local changeButton="Switch to Built-In (${epiEngineSource[$iName]})"
+	    local keepText='external Google Chrome'
+	    local changeText="built-in ${epiEngineSource[$iName]}"
+	fi
+	local engineChoice=
+	dialog engineChoice \
+	       "Keep using $keepText app engine, or switch to $changeText engine?
+
+NOTE: If you don't know what this question means, choose Keep.
+
+Switching an existing app's engine will log you out of any existing sessions in the app and require you to reinstall all your extensions. (The first time you run the updated app, it will open the Chrome Web Store page for each extension you had installed to give you a chance to reinstall them. Once reinstalled, any extension settings should reappear.)
+
+The built-in ${epiEngineSource[$iName]} engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.
+
+The main advantage of the external Google Chrome engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is not needed for the 1PasswordX extension)." \
+	       "Choose App Engine" \
+	       "|caution" \
+	       "$keepButton" \
+	       "$changeButton"
+	if [[ "$ok" ]] ; then
+	    if [[ "$engineChoice" = "$changeButton" ]] ; then
+		
+		if [[ "${SSBEngineType%%|*}" = internal ]] ; then
+		    SSBEngineType='external|com.google.Chrome'
+		else
+		    SSBEngineType="internal|${epiEngineSource[$iID]}"
+		    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )		    
+		fi
+	    fi
+	else
+	    alert "The app engine choice dialog failed. Attempting to update the app with the existing $keepText engine. If this is not what you want, you must abort the app now." 'Update' '|caution'
+	    ok=1
+	    errmsg=
+	fi
+	
+    fi
+    
     
     # LOAD FILTER.SH
 

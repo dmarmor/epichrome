@@ -313,6 +313,9 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     SSBExtensionInstallError=
 fi
 
+# if nothing configured for last-run engine, set it to current engine
+[[ "$SSBLastRunEngineType" ]] || SSBLastRunEngineType="$SSBEngineType"
+
 
 # UPDATE APP PATH
     
