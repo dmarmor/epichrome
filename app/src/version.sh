@@ -1,3 +1,3 @@
 # Epichrome version (#.#.# = release version, #.#.#b# = beta)
-epiVersion=2.3.0b8
+epiVersion=2.3.0b9
 mcssbVersion="$epiVersion"  # backward compatibility

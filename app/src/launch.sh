@@ -118,6 +118,30 @@ function vcmp { # ( version1 operator version2 )
 }
 
 
+# ENCODEURL -- encode a string for URL
+function encodeurl {
+    # argument
+    local input="$1"
+    
+    # input string info
+    local inputLength=${#input}
+    local encoded=""
+    local pos c o
+    
+    for (( pos=0 ; pos < inputLength ; pos++ )); do
+	c=${input:$pos:1}
+	case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * )               printf -v o '%%%02x' "'$c"
+	esac
+	encoded+="${o}"
+    done
+    
+    # echo result
+    echo "${encoded}"
+}
+
+
 # GETEPICHROMEINFO: find Epichrome instances on the system & get info on them
 function getepichromeinfo {
     # populates the following globals (if found):
@@ -131,13 +155,15 @@ function getepichromeinfo {
     # default global return values
     epiCurrentPath= ; epiLatestVersion= ; epiLatestPath=
     
-    # start with preferred install locations
+    # start with preferred install locations: the engine path & default user & global paths
     local preferred=()
-    [[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$appEnginePathBase/*}" )
-    preferred+=( ~/'Applications/Epichrome/Epichrome.app' \
-		   '/Applications/Epichrome/Epichrome.app' )
+    [[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$appEnginePathBase/*}/Epichrome.app" )
+    local globalDefaultEpichrome='/Applications/Epichrome/Epichrome.app'
+    local userDefaultEpichrome="${HOME}$globalDefaultEpichrome"
+    [[ "${preferred[0]}" != "$userDefaultEpichrome" ]] && preferred+=( "$userDefaultEpichrome" )
+    [[ "${preferred[0]}" != "$globalDefaultEpichrome" ]] && preferred+=( "$globalDefaultEpichrome" )
     
-    # use spotlight to search the system for Epichrome instances
+    # use spotlight to search the system for all Epichrome instances
     local spotlight=()
     try 'spotlight=(n)' /usr/bin/mdfind \
 	"kMDItemCFBundleIdentifier == '${appIDRoot}.Epichrome'" \
@@ -191,12 +217,12 @@ function getepichromeinfo {
 	if [[ -d "$curInstance" ]] ; then
 	    
 	    # get this instance's version
-	    curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && echo "$epiVersion" )"
+	    curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi )"
 	    if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
 		curVersion=0.0.0
 	    fi
 	    
-	    if vcmp "$curVersion" '>' 0.0.0 ; then
+	    if vcmp "$curVersion" '>=' "$SSBVersion" ; then
 		
 		debuglog "Found Epichrome $curVersion at '$curInstance'."
 		
@@ -212,10 +238,14 @@ function getepichromeinfo {
 		    epiCurrentPath="$(canonicalize "$curInstance")"
 		fi
 		
-	    else
-		
-		# failed to get version, so assume this isn't really a version of Epichrome
-		debuglog "Epichrome at '$curInstance' is either older than this app or damaged."
+	    elif [[ "$debug" ]] ; then
+		if vcmp "$curVersion" '>' 0.0.0 ; then
+		    # failed to get version, so assume this isn't really a version of Epichrome
+		    errlog "Ignoring '$curInstance' (old version $curVersion)."
+		else
+		    # failed to get version, so assume this isn't really a version of Epichrome
+		    errlog "Ignoring '$curInstance' (unable to get version)."
+		fi
 	    fi
 	fi
     done
@@ -487,8 +517,10 @@ function cleandatadir {
     # only run if we're OK
     [[ "$ok" ]] || return 1
 
-    # check if we need to clean up the data directory
-    if [[ -d "$myProfilePath" && \
+    # check if we need to clean up the data directory (triple check the directory as we're using rm -rf)
+    if [[ "$myProfilePath" && ( -d "$myProfilePath" ) && \
+	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
+	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) && \
 	      "$SSBLastRunEngineType" && \
 	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
 	
@@ -517,31 +549,35 @@ function cleandatadir {
 		fi
 	    fi
 	    
-	    # move into extensions directory
-	    try '!1' pushd "$myProfilePath/Default/Extensions" \
-		'Unable to navigate to extensions directory.'
-
-	    # save extension IDs
-	    if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
-		# going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
-		allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
-	    else
-		# going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
-		allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
-	    fi
-	    
+	    # if there are any extensions, try to save them
 	    local oldExtensions=()
-	    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
-	    
-	    # move back out of extensions directory
-	    try '!1' popd 'Unable to navigate away from extensions directory.'
+	    if [[ -d "$myProfilePath/Default/Extensions" ]] ; then
+		
+		# move into extensions directory
+		try '!1' pushd "$myProfilePath/Default/Extensions" \
+		    'Unable to navigate to extensions directory.'
+
+		# save extension IDs
+		if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
+		    # going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
+		    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
+		else
+		    # going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
+		    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+		fi
+		
+		try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
+		
+		# move back out of extensions directory
+		try '!1' popd 'Unable to navigate away from extensions directory.'
+	    fi
 	    
 	    # delete everything from Default except Local Extension Settings
 	    allExcept='!(Local?Extension?Settings)'
 	    try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
 		'Unable to remove old profile settings. The updated app may not run.'
-
-	    # add URL for each extension
+	    
+	    # add URL for each extension (https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146)
 	    local curExt=
 	    for curExt in "${oldExtensions[@]}" ; do
 		if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
@@ -566,7 +602,15 @@ function cleandatadir {
 	
 	# restore extended glob
 	shoptrestore shoptState
+
+	# restore OK and return error state
+	if [[ ! "$ok" ]] ; then
+	    ok=1
+	    return 1
+	fi
     fi
+
+    return 0
 }
 
 
@@ -847,13 +891,15 @@ function populatedatadir { # ( [FORCE] )
     
     if [[ "$force" ]] ; then
 
-	# $$$ temporary -- remove old engine directory
-	debuglog "Removing old engine directory."
-	try /bin/rm -rf "$myDataPath/Engine.noindex" \
-	    'Unable to remove old engine directory'
-	if [[ ! "$ok" ]] ; then
-	    errlog "$errmsg"
-	    ok=1 ; errmsg=
+	# $$$ temporary -- remove old-style engine directory
+	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
+	    debuglog "Removing old engine directory."
+	    try /bin/rm -rf "$myDataPath/Engine.noindex" \
+		'Unable to remove old engine directory'
+	    if [[ ! "$ok" ]] ; then
+		errlog "$errmsg"
+		ok=1 ; errmsg=
+	    fi
 	fi
 	
 	debuglog "Forcing data directory update. Installing external extensions."
@@ -1176,6 +1222,13 @@ function createengine {
     # CLEAR OUT ANY OLD ENGINE
     
     if [[ -d "$SSBEnginePath" ]] ; then
+
+	debuglog "Removing old engine at '$SSBEnginePath'"
+	
+	# $$$$ FIX PERMISSIONS FOR BETA 6 -- REMOVE FOR RELEASE
+	try /bin/chmod -R u+w "$SSBEnginePath" 'Unable to fix permissions for old engine.'
+	
+	# remove old engine
 	try /bin/rm -rf "$SSBEnginePath" 'Unable to clear old engine.'
     fi
     
@@ -1184,6 +1237,8 @@ function createengine {
     
     try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
     [[ "$ok" ]] || return 1
+    
+    debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine at '$SSBEnginePath'."
     
     if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 	

@@ -47,6 +47,7 @@ myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
 # LOAD CORE SCRIPT
 
+myLogID=   # reset log ID
 source "$myAppPath/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
 [[ "$ok" ]] || abort
 
@@ -342,8 +343,14 @@ if [[ ( -d "$SSBEnginePath" ) && \
 		    ( "${SSBEnginePath%/$appEnginePathBase/*}" != "${epiLatestPath%/*}" ) ) ]] ; then
     
     # engine path is not next to the current Epichrome (or latest one if no current), so we'll move it
-    debuglog "Engine path '$SSBEnginePath' is not alongside Epichrome."
-    try /bin/rm -rf "$SSBEnginePath" '' ; ok=1 ; errmsg=
+    debuglog "Engine path '$SSBEnginePath' in outdated location."
+    # $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
+    try /bin/chmod -R u+w "$SSBEnginePath" 'Unable to fix permissions for old engine.'
+    try /bin/rm -rf "$SSBEnginePath" 'Unable to remove old engine.'
+    if [[ ! "$ok" ]] ; then
+	errlog "Warning: $errmsg"
+	ok=1 ; errmsg=
+    fi
 
 fi
 if [[ ! -d "$SSBEnginePath" ]] ; then
@@ -452,7 +459,10 @@ fi
 if [[ "$SSBEngineType" != "$SSBLastRunEngineType" ]] ; then
 
     # update data directory to handle engine change
-    cleandatadir
+    if ! cleandatadir ; then
+	alert "Unable to clean data directory. ($errmsg) Your browser settings may be corrupted and need to be deleted." \
+	      'Warning' '|caution'
+    fi
     
     # mark as first run
     isFirstRun=1
