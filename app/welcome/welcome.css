@@ -415,7 +415,7 @@ text-decoration: none;
 #epichromeruntimebox img {
     width: 32px;
     height: 32px;
-    padding-right: 1em;
+    margin-right: 1em;
 }
 #epichromeruntimebox #runtime_icon_ok,
 #epichromeruntimebox #runtime_status_ok,
