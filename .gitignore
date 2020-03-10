@@ -17,7 +17,7 @@
 /app/build/**
 /app/icons/**
 /app/runtime/**
-/app/welcome/img/icon*.png
+/app/src/welcome/img/icon*.png
 /builder/**
 /dmg/images/*.png
 /dmg/images/*.icns
