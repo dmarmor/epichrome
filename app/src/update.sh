@@ -61,6 +61,7 @@ function updateapp { # ( updateAppPath )
 	# update engine variables
 	SSBEngineType='external|com.google.Chrome'
 	SSBLastRunEngineType="$SSBEngineType"
+	SSBLastRunEngineInfo='Chrome'
 	
     elif [[ ( "$SSBEngineType" = 'Chromium' ) && \
 		( "$SSBVersion" = '2.3.0b6' ) ]] ; then
@@ -91,6 +92,7 @@ Before completing this update, please back up any passwords. Instructions are in
 	
 	# if we got here, we're going ahead with the update
 	SSBLastRunEngineType='external|com.google.Chrome'
+	SSBLastRunEngineInfo='Chrome'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 	
@@ -120,6 +122,7 @@ Before completing this update, please back up any passwords. Instructions are in
 
 	# if we got here, we're going ahead with the update
 	SSBLastRunEngineType='internal|org.chromium.Chromium'
+	SSBLastRunEngineInfo='Chromium'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
     fi
@@ -347,7 +350,10 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	     "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
     safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
 	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
-    
+    try /usr/bin/sips -s format png "$iconSourcePath/$CFBundleIconFile" \
+	--out "$contentsTmp/Resources/Welcome/img/app_icon.png" \
+	'Unable to add app icon to welcome page.'
+
     
     # FILTER NATIVE MESSAGING HOST INTO PLACE
 
@@ -364,6 +370,16 @@ The main advantage of the external Google Chrome engine is if your app must run 
 
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
+
+    # FILTER WELCOME PAGE INTO PLACE
+    
+    filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
+	       "$contentsTmp/Resources/Welcome/$appWelcomePage" \
+	       'welcome page' \
+	       APPDISPLAYNAME "$CFBundleDisplayName"
+    
+    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    
 
     # POPULATE ENGINE
     

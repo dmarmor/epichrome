@@ -129,6 +129,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 
 	SSBEngineType='external|com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
 	SSBLastRunEngineType="$SSBEngineType"
+	SSBLastRunEngineInfo='Chrome'
 	
 	# run actual update
 	updateapp "$SSBAppPath"

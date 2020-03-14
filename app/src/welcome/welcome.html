@@ -24,186 +24,230 @@
 
 <html>
   <head>
-    <title>APPDISPNAME</title>
+    <title>APPDISPLAYNAME</title>
     <link rel="stylesheet" type="text/css" href="welcome.css" />
+    <link rel="shortcut icon" href="img/app_icon.png" type="image/png">
     <script src="welcome.js"></script>
     
   </head>
   
   <body id="body" onload="checkParams()">
     
-    <!-- TITLE BOX -->
-    <div id="titlebox">
-      <img src="img/icon128.png" />
-      <div class="title new">
-	<h1>Welcome to Your APPDISPNAME App!</h1>
-	<div class="version">version EPIVERSION</div>
-      </div>
-      <div class="title update">
-	<h1>Your APPDISPNAME App Has Been Updated!</h1>
-	<div class="version">from version <span id="oldversion">0</span> to EPIVERSION</div>
-      </div>
-      <div class="title change">
-	<h1>Your APPDISPNAME App Has Changed</h1>
-	<div class="version">version EPIVERSION</div>
-      </div>
-    </div> <!-- #title -->
-    
     <!-- MAIN CONTAINER -->
+    
     <div id="container">
-      
-      <div id="left" class="sidebar">
-	<div id="epichromeruntimebox">
-	  <img id="runtime_icon_error" src="img/error.svg" />
-	  <img id="runtime_icon_ok" src="img/ok.svg" />
-	  <div>
-	    <span id="runtime_name">Epichrome Helper</span> extension
-	    <span id="runtime_hasversion">version <span id="runtime_version">1.1.2</span></span>
-	    <span id="runtime_status_off">not found</span>
-	    <span id="runtime_status_ok">is working</span>
-	    <span id="runtime_status_nonmh">is running but unable to communicate with system</span>
-	  </div>
-	</div>
-      </div>
-      
-      <div id="main_box">
-	
-	<!-- MAIN MESSAGE -->
-	<!-- <div class="new"> -->
-	<!--   <p>APPDISPNAME was created with Epichrome version EPIVERSION.</p> -->
-	<!-- </div> -->
-	<div id="changes_msg" class="change update main">
-	  
-	  <div id="changes_user" class="change_list">
-	    <h2>Changes to This App</h2>
-	    <ul>
-	      <li id="change_engine">The app engine has changed <span id="hasoldengine">from <span id="oldengine"></span></span> <span id="hasnewengine">to <span id="newengine"></span></span></li>
-	    </ul>
-	  </div> <!-- #changes_user -->
-	  
-	  <div id="changes_update" class="update">
-	    <div id="changes_minor" class="change_list">
-	      <h2>New in Version EPIVERSION</h2>
-	      <ul>
-		<li>A change</li>
-		<li>Another change</li>
-	      </ul>
-	    </div>
-	    <div id="changes_major" class="change_list">
-	      <h2>New in Version EPIMAJORVERSION</h2>
-	      <ul>
-		<li>A third change</li>
-		<li>A big change</li>
-	      </ul>
-	    </div>
-	  </div> <!-- #changes_update -->
-	  
-	</div> <!-- #changes_msg -->
-	
-	<!-- ACTIONS -->
-	<div id="actions">
-	  <p class="new">Before you get started:</p>
-	  <p class="update change">Before you get back to using the app:</p>
 
-	  <div id="actions_list">
+      <!-- LEFT COLUMN -->
+      
+      <div id="left" class="sidebar column">
+	<div id="left_title" class="titlebar"></div>
+	<div id="left_content" class="left">
+	</div> <!-- #left_content -->
+      </div> <!-- #left -->
+
+      <!-- MAIN COLUMN -->
+      
+      <div id="main" class="column">
+	
+	<!-- TITLE BAR -->
+	<div id="main_title" class="titlebar">
+	  <img src="img/app_icon.png" />
+	  <div class="title new">
+	    <h1>Welcome to Your APPDISPLAYNAME App!</h1>
+	    <div class="version">version EPIVERSION</div>
+	  </div>
+	  <div class="title update">
+	    <h1>Your APPDISPLAYNAME App Has Been Updated!</h1>
+	    <div class="version">from version <span id="oldversion">0</span> to EPIVERSION</div>
+	  </div>
+	  <div class="title change">
+	    <h1>Your APPDISPLAYNAME App Has Changed</h1>
+	    <div class="version">version EPIVERSION</div>
+	  </div>
+	</div> <!-- #main_title -->
+	
+	<div id="main_content">
+	  
+	  <!-- MAIN MESSAGE -->
+	  <!-- <div class="new"> -->
+	  <!--   <p>APPDISPLAYNAME was created with Epichrome version EPIVERSION.</p> -->
+	  <!-- </div> -->
+	  <div id="changes_msg" class="change update main">
 	    
-	    <!-- LINK TO EPICHROME RUNTIME -->
-	    <div id="runtime" class="item">
-	      <div id="runtime_num" class="itemnum">1</div>
-	      <div class="action_container">
-      		<p>To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension.</p>
-		<div id="runtime_button">
-		  <img class="extension_icon" src="img/icon128.png" />
-      		  <a class="install last" href="https://chrome.google.com/webstore/detail/epichrome-helper/ngbmbabjgimgbfobhfhjpfhpmpnhbeea" target="_blank">Install</a>
+	    <div id="changes_user" class="change_list">
+	      <h2>Changes to This App</h2>
+	      <ul>
+		<li id="change_engine">The app engine has changed <span id="hasoldengine">from <span id="oldengine"></span></span> <span id="hasnewengine">to <span id="newengine"></span></span></li>
+	      </ul>
+	    </div> <!-- #changes_user -->
+	    
+	    <div id="changes_update" class="update">
+	      <div id="changes_minor" class="change_list">
+		<h2>New in Version EPIVERSION</h2>
+		<ul>
+		  <li>A change</li>
+		  <li>Another change</li>
+		</ul>
+	      </div>
+	      <div id="changes_major" class="change_list">
+		<h2>New in Version EPIMAJORVERSION</h2>
+		<ul>
+		  <li>A third change</li>
+		  <li>A big change</li>
+		</ul>
+	      </div>
+	    </div> <!-- #changes_update -->
+	    
+	  </div> <!-- #changes_msg -->
+	  
+	  <!-- ACTIONS -->
+	  <div id="actions">
+	    <p class="new">Before you get started:</p>
+	    <p class="update change">Before you get back to using the app:</p>
+
+	    <div id="actions_list">
+	      
+	      <!-- EPICHROME RUNTIME -->
+	      <div id="epichromeruntimestatus" class="item off">
+		<div id="runtime_num" class="itemnum">1</div>
+		<div id="runtime" class="action_container">
+      		  <h3>
+		    <span id="runtime_status_off">
+		      Install
+		    </span>
+		    <span id="runtime_name">
+		      Epichrome Helper
+		    </span>
+		    Extension
+		    <span id="runtime_hasversion">
+		      <span id="runtime_version">
+			1.1.2
+		      </span>
+		    </span>
+		    <span id="runtime_status_nonmh">
+		      Can&rsquo;t Communicate with System
+		    </span>
+		    <span id="runtime_status_ok">
+		      Is Installed
+		    </span>
+		  </h3>
+		  <div id="runtime_msg_off">
+		    <div id="runtime_install">
+		      <p>To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension.</p>
+		      <div class="runtime_button">
+			<img class="extension_icon" src="img/epichrome_icon.png" />
+      			<!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
+			<a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/ngbmbabjgimgbfobhfhjpfhpmpnhbeea" target="_blank">Install</a>
+		      </div>
+		    </div> <!-- #runtime_install -->
+		  </div> <!-- #runtime_msg_off -->
+		  <div id="runtime_msg_nonmh">
+		    <p>Make sure this app and the extension have both been updated to the latest version. If the problem continues, please submit a report using the link at the bottom of this page.</p>
+		  </div> <!-- #runtime_msg_nonmg" -->
+		  <div id="runtime_msg_ok">
+		    <p>You can set up link routing rules and other settings on the extension&rsquo;s options page:</p>
+		    <div class="runtime_button">
+		      <img class="extension_icon" src="img/epichrome_icon.png" />
+      		      <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
+		      <a class="options">Options</a>
+		    </div>
+		  </div> <!-- #runtime_msg_ok -->
+		</div> <!-- #runtime -->
+	      </div> <!-- #epichromeruntimestatus -->
+	      
+	      <!-- IMPORT PASSWORDS -->
+	      <div id="passwords" class="engine item">
+		<div id="passwords_num" class="itemnum">0</div>
+		<div class="action_container">
+		  <h3>Restore Saved Passwords</h3>
+		  <p>Because the app engine changed, you&rsquo;ll need to reimport any saved passwords.</p>
+		  <p>Open Settings ( <span class="cmd_shortcut">&#8984;-,</span> ) then click <span class="cmd_name">Passwords</span> under the <span class="cmd_header">Autofill</span> header (you can use <span class="cmd_shortcut">&#8984;-F</span> and type "passwords" to find it quickly). Click the <img id="passwords_button" src="img/passwords_button.png" /> menu to the right of the <span class="cmd_header">Saved Passwords</span> header, and choose <span class="cmd_name">Import</span>.</p>
 		</div>
 	      </div>
-	    </div>
-	    
-	    <!-- IMPORT PASSWORDS -->
-	    <div id="passwords" class="engine item">
-	      <div id="passwords_num" class="itemnum">0</div>
-	      <div class="action_container">
-		<p>Because the app engine changed, you&rsquo;ll need to log in again to any websites. You&rsquo;ll also need to reimport any saved passwords:</p>
-		<p>Open Settings ( <span class="cmd_shortcut">&#8984;-,</span> ) then click <span class="cmd_name">Passwords</span> under the <span class="cmd_header">Autofill</span> header (you can use <span class="cmd_shortcut">&#8984;-F</span> and type "passwords" to find it quickly). Click the <img id="passwords_button" src="img/passwords_button.png" /> menu to the right of the <span class="cmd_header">Saved Passwords</span> header, and choose <span class="cmd_name">Import</span>.</p>
-	      </div>
-	    </div>
-	    
-	    <!-- REINSTALL EXTENSIONS -->
-	    <div id="extensions" class="item">
-	      <div id="extensions_num" class="itemnum">0</div>
-	      <div class="action_container">
-		<p>Because the app engine changed, you&rsquo;ll need to reinstall any extensions (once they&rsquo;re installed, their settings should return):</p>
+	      
+	      <!-- REINSTALL EXTENSIONS -->
+	      <div id="extensions" class="item">
+		<div id="extensions_num" class="itemnum">0</div>
+		<div class="action_container">
+		  <h3>Reinstall Extensions</h3>
+		  <p>Because the app engine changed, you&rsquo;ll need to reinstall these extensions (once they&rsquo;re installed, their settings should return).</p>
 
-		<!-- EXTENSIONS -->
-		<div id="extension_list">
-		  <!-- dummy extension -->
-		  <div id="extension_dummy" class="extension">
-		    <img class="extension_icon" data-template="img/ext/dummy.png" />
-		    <div class="extension_name">Extension</div>
-      		    <a class="install" class="install" href="https://chrome.google.com/webstore/detail/" target="_blank">Install</a>
+		  <!-- EXTENSIONS -->
+		  <div id="extension_list">
+		    <!-- dummy extension -->
+		    <div id="extension_dummy" class="extension">
+		      <img class="extension_icon" data-template="img/ext/EXTICON" />
+		      <div class="extension_name">Extension</div>
+      		      <a class="install" class="install" href="https://chrome.google.com/webstore/detail/" target="_blank">Install</a>
+		    </div>
+		  </div>
+
+		</div>
+	      </div>
+	      
+	      <!-- BOOKMARK -->
+	      <div id="bookmark" class="item">
+		<div id="bookmark_num" class="itemnum">2</div>
+		<div class="action_container">
+		  <h3>Bookmark This Page For Future Reference</h3>
+		  <div id="bookmark_img">
+		    <img src="img/bookmark.png" />
 		  </div>
 		</div>
-
 	      </div>
-	    </div>
-	    
-	    <!-- BOOKMARK -->
-	    <div id="bookmark" class="item">
-	      <div id="bookmark_num" class="itemnum">2</div>
-	      <div class="action_container">
-		<p>Please bookmark this page for future reference.</p>
-		<div id="bookmark_img">
-		  <img src="img/bookmark.png" />
-		</div>
-	      </div>
-	    </div>
+	      
+	    </div> <!-- actions_list -->
+	  </div> <!-- actions -->
 	  
-	  </div> <!-- actions_list -->
-	</div> <!-- actions -->
-		
-	<!-- FEEDBACK -->
-	<p>When you&rsquo;re ready, close this tab and you&rsquo;ll be off and running. If you run into any bugs, or have ideas for features, please get in touch <a href="https://github.com/dmarmor/epichrome/issues" target="_blank">here</a>. Enjoy!</p>
-	
-      </div><!-- #main -->
-      
-      <div id="right" class="sidebar">
-	<!-- PATREON -->
-	<div id="patreon_header">
-	  <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
-	    <g>
+	  <!-- FEEDBACK -->
+	  <p>When you&rsquo;re ready, close this tab and you&rsquo;ll be off and running. If you run into any bugs, or have ideas for features, please get in touch <a href="https://github.com/dmarmor/epichrome/issues" target="_blank">here</a>. Enjoy!</p>
+	  
+	</div> <!-- #main_content -->
+      </div> <!-- #main -->
+
+      <!-- RIGHT COLUMN -->
+      <div id="right" class="sidebar column">
+	<div id="right_title" class="titlebar"></div>
+	<div id="right_content">
+	  <!-- PATREON -->
+	  <div id="patreon_header">
+	    <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
 	      <g>
-		<rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
+		<g>
+		  <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
+		</g>
+		<g>
+		  <path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
+		  <path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
+		  <path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
+		  <path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
+		  <path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
+		  <path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
+		  <path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
+		</g>
 	      </g>
+	    </svg>
+	    <img src="img/epichrome_icon.png" id="patreon_epichrome" />
+	  </div>
+	  <p id="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
+	  <a href="https://www.patreon.com/bePatron?u=27108162" id="patreon" target="_blank" data-patreon-widget-type="become-patron-button">
+	    <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
 	      <g>
-		<path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
-		<path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
-		<path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
-		<path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
-		<path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
-		<path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
-		<path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
+		<circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
+		<rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
 	      </g>
-	    </g>
-	  </svg>
-	  <img src="img/icon128.png" id="patreon_epichrome" />
-	</div>
-	<p id="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
-	<a href="https://www.patreon.com/bePatron?u=27108162" id="patreon" target="_blank" data-patreon-widget-type="become-patron-button">
-	  <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
-	    <g>
-	      <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
-	      <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
-	    </g>
-	  </svg>
-	  Become a Patron!</a>
-	<div id="rockstars">
-	  <h2>Rockstar Patrons</h2>
-	  <ul>
-	    <li>TBD</li>
-	    <!-- <li>Orbital Impact</li> -->
-	    <!-- <li>Eric Henderson</li> -->
-	  </ul>
-	</div>
+	    </svg>
+	    Become a Patron!</a>
+	  <div id="rockstars">
+	    <h2>Rockstar Patrons</h2>
+	    <ul>
+	      <li>TBD</li>
+	      <!-- <li>Orbital Impact</li> -->
+	      <!-- <li>Eric Henderson</li> -->
+	    </ul>
+	  </div> <!-- #rockstars -->
+	</div> <!-- #right_content -->
+      </div> <!-- #right -->
     </div><!-- #container -->
   </body>
 </html>

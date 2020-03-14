@@ -58,6 +58,7 @@ export appIDRoot appIDBase appEngineIDBase
 [[ "$appEnginePayloadPath" ]] || appEnginePayloadPath="$appEnginePath/Payload"
 [[ "$appEnginePlaceholderPath" ]] || appEnginePlaceholderPath="$appEnginePath/Placeholder"
 [[ "$appNMHFile" ]] || appNMHFile='epichromeruntimehost.py'
+[[ "$appWelcomePage" ]] || appWelcomePage='welcome.html'
 #readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
 
 # data paths
@@ -91,12 +92,13 @@ epiEngineSource=( com.brave.Browser 'Brave Browser' Brave 'Brave Browser' )
 appConfigVars=( SSBAppPath \
 		    SSBLastRunVersion \
 		    SSBLastRunEngineType \
+		    SSBLastRunEngineInfo \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \
 		    SSBEnginePath \
 		    SSBEngineAppName \
-		    SSBExtensionInstallError )
+		    SSBNMHInstallError )
 export appConfigVars "${appConfigVars[@]}"
 
 
@@ -261,6 +263,57 @@ function initlog {  # ( [overrideLogPreserve] )
     return "$result"
     
 } ; export -f initlog
+
+
+# SAVELOG: save error log with a datestamp
+if [[ ! "$myDateStamp" ]] ; then
+    myDateStamp="$(date '+%Y%m%d%H%M%S' 2> /dev/null)"
+    [[ "$myDateStamp" ]] || myDateStamp='save'
+fi
+function savelog {  # ( [var] )
+
+    # arguments
+    local var="$1" ; shift
+    
+    # make sure we have a log to save
+    if [[ -f "$myLogFile" ]] ; then
+
+	# name for saved log file
+	local savedLogFile="${myLogFile%.txt}_$myDateStamp.txt"
+
+	# get all existing saved logs
+	local oldIFS="$IFS" ; IFS=$'\n'
+	local oldSavedLogs=( $(/bin/ls -tUr "${myLogFile%.txt}_"*.txt 2> /dev/null) )
+	IFS="$oldIFS"
+
+	# save log
+	/bin/rm -f "$savedLogFile" 2> /dev/null
+	echo y | /bin/cp -f "$myLogFile" "$savedLogFile" > /dev/null 2>&1
+	
+	if [[ "$?" = 0 ]] ; then
+	    
+	    # save succeeded, so save path if requested
+	    [[ "$var" ]] && eval "${var}=\"\$savedLogFile\""
+	    
+	    # if more than 4 saved logs, delete the oldest one
+	    if [[ "${#oldSavedLogs[@]}" -gt 5 ]] ; then
+		local f
+		for f in "${oldSavedLogs[@]}" ; do
+		    if [[ -e "$f" && ( "$f" != "$savedLogFile" ) ]] ; then
+			/bin/rm -f "$f" > /dev/null 2>&1
+			break
+		    fi
+		done
+	    fi
+	else
+
+	    # save failed, so clear var if requested
+	    [[ "$var" ]] && eval "${var}="
+	    
+	    errlog 'Unable to save log file.'
+	fi
+    fi
+}
 
 
 # TRY: try to run a command, as long as no errors have already been thrown
@@ -508,7 +561,10 @@ function try {
 	
 	# check result
 	if [[ "$result" != 0 ]]; then
-	    [[ "$myerrmsg" ]] && errmsg="$myerrmsg"
+	    if [[ "$myerrmsg" ]] ; then
+		errmsg="$myerrmsg"
+		errlog "$errmsg"
+	    fi
 	    ok=
 	    [[ ( ! ( "$dropStdout" && "$dropStderr" ) ) && ! "$myStderr" ]] && \
 		errlog "${args[0]} returned code $result with no stderr output."
@@ -624,20 +680,25 @@ function abort { # ( [myErrMsg [myCode]] )
     local myAbortLog="Aborting: $myErrMsg"
     errlog "$myAbortLog"
     
+    # save log file
+    local savedLogFile=
+    savelog savedLogFile
+    [[ "$savedLogFile" ]] || savedLogFile="$myLogFile"
+    
     # show dialog & offer to open log
     if [[ "$( type -t dialog )" = function ]] ; then
 	local choice=
 	dialog choice "$myErrMsg" "Unable to Run" '|stop' '+Quit' '-View Log'
 	if [[ "$choice" = 'View Log' ]] ; then
-	    
+
 	    # clear OK state so try works & ignore result
 	    ok=1 ; errmsg=
 	    try /usr/bin/osascript -e '
-tell application "Finder" to reveal ((POSIX file "'"$myLogFile"'") as alias)
+tell application "Finder" to reveal ((POSIX file "'"$savedLogFile"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
 	fi
     fi
-    
+
     # quit with error code
     cleanexit "$myCode"
     
@@ -689,6 +750,29 @@ function shoptrestore { # ( saveVar )
 	done
     fi
 
+    return 0
+}
+
+
+# CHECKPATH: check if a path exists, or if it starts with another path
+function checkpath { # ( path [pathRoot] )
+    
+    # arguments
+    local path="$1" ; shift
+    local pathRoot="$1" ; shift
+    
+    # make sure path is not empty
+    [[ "$path" ]] || return 1
+    
+    if [[ "$pathRoot" ]] ; then
+	# if path doesn't start with pathRoot, that's an error
+	[[ "${path#$pathRoot}" = "$path" ]] && return 1
+    else
+	# no pathRoot, so if path doesn't exist, that's an error
+	[[ -e "$path" ]] || return 1
+    fi
+    
+    # if we got here, the path checks out
     return 0
 }
 
@@ -830,12 +914,20 @@ function isarray {
 
 
 # FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval
-function formatscalar { # ( value )
+function formatscalar { # ( value [noQuotes] )
 
-    local quote="\'"
+    # arguments
+    local value="$1" ; shift
+    local noQuotes="$1" ; shift
     
-    # escape single quotes & wrapping in single quotes
-    echo "'${1//\'/'$quote'}'"
+    # utility escaped quote
+    local eq="\'"
+
+    # escape single quotes
+    local result="${value//\'/'$eq'}"
+
+    # wrap in single quotes unless requested not to
+    [[ "$noQuotes" ]] && echo "$result" || echo "'$result'"
     
 } ; export -f formatscalar
 
@@ -1056,6 +1148,9 @@ $try_end" 'Unable to display dialog box!'
 # ALERT -- display a simple alert dialog box (whether ok or not)
 function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
     local result=
+
+    # save log file
+    savelog
     
     # show the alert
     dialog '' "$1" "$2" "$3"

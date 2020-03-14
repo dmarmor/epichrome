@@ -69,8 +69,8 @@ function checkParams () {
 	if (extensions.length > 0) {
 
 	    // create regex for parsing extension
-	    const regexpSize = new RegExp('^(.+),(.*)$');
-	    const regexpIcon = new RegExp('dummy');
+	    const regexpExt = new RegExp('^((.+)\\.[^.]+),(.*)$');
+	    const regexpIcon = new RegExp('EXTICON');
 	    
 	    // create list of extensions
 	    var extNode = document.getElementById('extension_dummy');
@@ -84,10 +84,11 @@ function checkParams () {
 		
 		// parse extension ID & name
 		var curExt = extensions[i];
-		var curMatch = curExt.match(regexpSize);
+		var curMatch = curExt.match(regexpExt);
 		if (curMatch) {
-		    var curExtID = curMatch[1];
-		    var curExtName = curMatch[2];
+		    var curExtIcon = curMatch[1];
+		    var curExtID = curMatch[2];
+		    var curExtName = curMatch[3];
 		    if (! curExtName) { curExtName = curExtID; }
 		} else {
 
@@ -96,12 +97,27 @@ function checkParams () {
 		    continue;
 		}
 		
-		// create list item with parsed extension info
+		// create list item for parsed extension info
 		var curNode = extNode.cloneNode(true);
-		curNode.getElementsByClassName('extension_icon')[0].src = extIconTemplate.replace(regexpIcon, curExtID);
-		curNode.getElementsByClassName('extension_name')[0].innerHTML = curExtName;
+
+		// set icon image
+		curNode.getElementsByClassName('extension_icon')[0].src = extIconTemplate.replace(regexpIcon, curExtIcon);
+
+		// remove all text from name
+		var curNameNode = curNode.getElementsByClassName('extension_name')[0]
+		while (curNameNode.firstChild) {
+		    curNameNode.removeChild(curNameNode.lastChild);
+		}
+
+		// create new text node with name (to escape weird text)
+		var curNameText = document.createTextNode(curExtName);
+		curNameNode.appendChild(curNameText);
+
+		// set web store link
 		var curInstall = curNode.getElementsByClassName('install')[0];
 		curInstall.href += curExtID;
+
+		// add new node to list
 		extListNode.appendChild(curNode);
 	    }
 	    

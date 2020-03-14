@@ -119,26 +119,86 @@ function vcmp { # ( version1 operator version2 )
 
 
 # ENCODEURL -- encode a string for URL
-function encodeurl {
-    # argument
-    local input="$1"
+function encodeurl {  # ( input [safe] )
     
-    # input string info
-    local inputLength=${#input}
-    local encoded=""
-    local pos c o
+    # arguments
+    local input="$1" ; shift ; local input_err="$input"
+    local safe="$1" ; shift
     
-    for (( pos=0 ; pos < inputLength ; pos++ )); do
-	c=${input:$pos:1}
-	case "$c" in
-            [-_.~a-zA-Z0-9] ) o="${c}" ;;
-            * )               printf -v o '%%%02x' "'$c"
-	esac
-	encoded+="${o}"
+    # quote strings for python
+    input="${input//\\/\\\\}"
+    input="${input//\'/\'}"
+    safe="${safe//\\/\\\\}"
+    safe="${safe//\'/\'}"
+
+    # use python urllib to urlencode string
+    local encoded=
+    try 'encoded=' /usr/local/bin/python2.7 \
+	-c 'import urllib ; print urllib.quote('\'"$input"\'', '\'"$safe"\'')' \
+	"Error URL-encoding string '$input_err'."
+
+    if [[ ! "$ok" ]] ; then
+	echo "$input_err"
+	ok=1 ; errmsg=
+	return 1
+    else
+	echo "$encoded"
+	return 0
+    fi
+}
+
+
+# UNESCAPEJSON: remove escapes from a JSON string
+function unescapejson {  # ( str )
+    local result="${1//\\\\/\\}"
+    result="${result//\\\"/\"}"
+    echo "$result"
+}
+
+
+# READJSONKEYS: pull keys out of a JSON string
+function readjsonkeys {  # ( jsonVar key [key ...] )
+    #  for each key found, sets the variable <jsonVar>_<key>
+
+    # pull json string from first arg
+    local jsonVar="$1" ; shift
+    local json
+    eval "json=\"\$$jsonVar\""
+
+    # whitespace
+    local ws=' 	
+'
+    local s="[$ws]*"
+    
+    # loop through each key
+    local curKey curRe curMatch
+    for curKey in "$@"; do
+
+	# set regex for pulling out string key (groups 1-3, val is group 2)
+	curRe="(\"$curKey\"$s:$s"
+	curRe+='"(([^\"]|\\\\|\\")*)")'
+
+	# set regex for pulling out dict key (groups 4-8, val is group 5)
+	curRe+="|(\"$curKey\"$s:$s{$s"
+	curRe+='(([^}"]*"([^\"]|\\\\|\\")*")*([^}"]*[^}"'"$ws])?)$s})"
+	
+	# try to match
+	if [[ "$json" =~ $curRe ]] ; then
+	    
+	    if [[ "${BASH_REMATCH[2]}" ]] ; then
+
+		# string key: fix escaped backslashes and double-quotes
+		curMatch="$(unescapejson "${BASH_REMATCH[2]}")"
+	    else
+
+		# dict key
+		curMatch="${BASH_REMATCH[5]}"
+	    fi
+	    
+	    # set the variable
+	    eval "${jsonVar}_${curKey}=$(formatscalar "$curMatch")"
+	fi
     done
-    
-    # echo result
-    echo "${encoded}"
 }
 
 
@@ -511,20 +571,127 @@ function checkgithubupdate {
 }
 
 
-# CLEANDATADIR -- check for engine change and clean up the data directory
-function cleandatadir {
+# UPDATEDATADIR -- make sure an app's data directory is ready for the run
+function updatedatadir { # ( [isAppChanged] )
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    errmsg=
+    
+    # is this the first run on a new version or new engine?
+    local isAppChanged="$1" ; shift
+    
+    # if we don't have a data path, abort (safety check before rm -rf)
+    if ! checkpath "$myDataPath" "$appDataPathBase" ; then
+	ok= ; errmsg='Data path is not properly set!'
+	return 1
+    fi
+    
+    # do any first-run actions
+    if [[ "$isAppChanged" ]] ; then
+		
+	# $$$ temporary -- remove old-style engine directory
+	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
+
+	    debuglog "Removing old engine directory."
+	    
+	    try /bin/rm -rf "$myDataPath/Engine.noindex" \
+		'Unable to remove old engine directory'
+	    if [[ ! "$ok" ]] ; then
+		errlog "$errmsg"
+		ok=1 ; errmsg=
+	    fi
+	fi
+    fi
+
+    
+    # UPDATE WELCOME PAGE
+    
+    if [[ "$isAppChanged" || ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
+
+	debuglog 'Updating welcome page.'
+	
+	# try to preserve extension images
+	local welcomeExtPath="$myDataPath/Welcome/img/ext"
+	local saveExtPath="$myDataPath/ext"
+	if [[ -d "$welcomeExtPath" ]] ; then
+	    [[ -d "$saveExtPath" ]] && \
+		try /bin/rm -rf "$saveExtPath" 'Unable to remove orphan ext directory.'
+	    try /bin/mv "$welcomeExtPath" "$saveExtPath" \
+		'Unable to preserve old extension icons.'
+	    ok=1 ; errmsg=
+	fi
+	
+	# copy welcome page into data directory
+	safecopy "$SSBAppPath/Contents/Resources/Welcome" "$myDataPath/Welcome" \
+		 "Unable to create welcome page. You will not see important information on the app's first run."
+	if [[ "$ok" ]] ; then
+
+	    # restore extension icons
+	    if [[ -d "$saveExtPath" ]] ; then
+		try /bin/mv "$saveExtPath" "$welcomeExtPath" \
+		    'Unable to restore old extension icons.'
+		ok=1 ; errmsg=
+	    fi
+	else
+
+	    # delete any orphan extension icons
+	    ok=1
+	    if [[ -d "$saveExtPath" ]] ; then
+		local welcomeErrMsg="$errmsg"
+		try /bin/rm -rf "$saveExtPath" \
+		    'Unable to remove orphan ext directory after welcome page error.'
+		ok=1 ; errmsg="$welcomeErrMsg"
+	    fi
+	fi
+    fi
+    
+    # return code
+    [[ "$errmsg" ]] && return 1 || return 0
+}
+
+
+# UPDATEPROFILEDIR -- ensure the profile directory exists & is ready for this run
+function updateprofiledir {  # ( [isAppChanged] )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
+    
+    # ensure we have a configured profile path
+    if [[ ! "$myProfilePath" ]] ; then
+	ok= ; errmsg='No profile path configured!'
+	return 1
+    fi
 
-    # check if we need to clean up the data directory (triple check the directory as we're using rm -rf)
-    if [[ "$myProfilePath" && ( -d "$myProfilePath" ) && \
-	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
-	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) && \
-	      "$SSBLastRunEngineType" && \
-	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
+    # ensure profile directory exists
+    if [[ ! -d "$myProfilePath" ]] ; then
+
+	debuglog "Creating profile directory '$myProfilePath'."
 	
-	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up data directory."
+	# ensure data & profile directories exists
+	try /bin/mkdir -p "$myProfilePath" 'Unable to create app engine profile folder.'
+	
+	# if we couldn't create the directory, that's a fatal error
+	[[ "$ok" ]] || return 1
+    fi
+    
+    
+    # CLEAN UP PROFILE DIRECTORY ON ENGINE CHANGE
+    
+    errmsg=
+    
+    # triple check the directory as we're using rm -rf
+    if [[ "$SSBLastRunEngineType" && \
+	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) && \
+	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
+	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) ]] ; then
+	
+	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up profile directory."
+	
+	# error states
+	local myErrDelete=
+	local myErrAllExtensions=
+	local myErrSomeExtensions=
 	
 	# turn on extended glob
 	local shoptState=
@@ -533,7 +700,11 @@ function cleandatadir {
 	# remove all of the UserData directory except Default
 	local allExcept='!(Default)'
 	try /bin/rm -rf "$myProfilePath/"$allExcept \
-	    "Unable to remove old profile files. The app's settings may be corrupted."
+	    'Error deleting files in profile directory.'
+	if [[ ! "$ok" ]] ; then
+	    myErrDelete=1
+	    ok=1 ; errmsg=
+	fi
 	
 	if [[ ( "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ) || \
 		  ( "${SSBEngineType#*|}" = 'com.google.Chrome' ) ]] ; then
@@ -551,41 +722,254 @@ function cleandatadir {
 	    
 	    # if there are any extensions, try to save them
 	    local oldExtensions=()
-	    if [[ -d "$myProfilePath/Default/Extensions" ]] ; then
+	    local myExtensionsPath="$myProfilePath/Default/Extensions"
+	    if [[ -d "$myExtensionsPath" ]] ; then
 		
 		# move into extensions directory
-		try '!1' pushd "$myProfilePath/Default/Extensions" \
+		try '!1' pushd "$myExtensionsPath" \
 		    'Unable to navigate to extensions directory.'
+		
+		if [[ "$ok" ]] ; then
+		    
+		    # save extension IDs
+		    if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
+			# going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
+			allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
+		    else
+			# going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
+			allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+		    fi
+		    
+		    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
 
-		# save extension IDs
-		if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
-		    # going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
-		    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
-		else
-		    # going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
-		    allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+		    # paths to welcome page extension images
+		    local welcomeExtPath='../../../Welcome/img'
+		    local welcomeExtGenericIcon="$welcomeExtPath/ext_generic_icon.png"
+		    local welcomeExtPath+="/ext"
+		    
+		    # delete old extension icons from welcome page & create empty directory
+		    if [[ "$ok" && "${oldExtensions[*]}" ]] ; then
+
+			# delete any old extension icon directory
+			[[ -d "$welcomeExtPath" ]] && \
+			    try /bin/rm -rf "$welcomeExtPath" 'Unable to delete old extension icons.'
+
+			# make sure emtpy extension icon directory exists
+			try /bin/mkdir -p "$welcomeExtPath" 'Unable to create old extension icon directory.'
+			
+			# unable to create directory for extension icons, so we have to abort
+			[[ "$ok" ]] || oldExtensions=()
+		    fi
+		    
+		    # add info for each extension to welcome page args
+		    local c
+		    local curExt curExtVersions curExtPath
+		    local mani mani_icons mani_name oldIFS
+		    local curIconSrc biggestIcon
+		    local curLocale=
+		    local curExtLocalePath
+		    local curMessageID msg msg_message
+		    local iconRe='^([0-9]+):(.+)$'
+		    for curExt in "${oldExtensions[@]}" ; do
+			if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
+			    
+			    debuglog "Adding extension ID $curExt to welcome page."
+
+			    
+			    # PARSE MANIFEST
+			    
+			    # get extension version directories
+			    try 'curExtVersions=()' echo "$curExt"/* \
+				"Unable to get version for extension $curExt."
+			    if [[ ( ! "$ok" ) || ( ! "${curExtVersions[*]}" ) ]] ; then
+				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
+				myErrSomeExtensions+="$curExt"
+				ok=1 ; errmsg=
+				continue
+			    fi
+			    
+			    # get latest version path
+			    curExtPath=
+			    for c in "${curExtVersions[@]}" ; do
+				[[ "$c" > "$curExtPath" ]] && curExtPath="$c"
+			    done
+			    
+			    # read manifest
+			    try 'mani=' /bin/cat "$curExtPath/manifest.json" \
+				"Unable to read manifest for $curExt."
+			    if [[ ! "$ok" ]] ; then
+				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
+				myErrSomeExtensions+="$curExt"
+				ok=1 ; errmsg=
+				continue
+			    fi
+			    
+			    # pull out icon and name info
+			    readjsonkeys mani icons name
+			    
+			    
+			    # COPY BIGGEST ICON TO WELCOME PAGE
+			    
+			    curIconSrc=
+			    biggestIcon=0
+			    if [[ "$mani_icons" ]] ; then
+				# remove all newlines
+				mani_icons="${mani_icons//$'\n'/}"
+				
+				# munge entries into parsable lines
+				oldIFS="$IFS" ; IFS=$'\n'
+				mani_icons=( $(echo "$mani_icons" | \
+							  /usr/bin/sed -E \
+								       's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
+				if [[ "$?" != 0 ]] ; then
+				    errlog "Unable to parse icons for extension $curExt."
+				    [[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
+				    myErrSomeExtensions+="$curExt"
+				    continue
+				fi
+				IFS="$oldIFS"
+				
+				# find biggest icon
+				for c in "${mani_icons[@]}" ; do
+				    if [[ "$c" =~ $iconRe ]] ; then
+					if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
+					    biggestIcon="${BASH_REMATCH[1]}"
+					    curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
+					fi
+				    fi
+				done
+			    fi
+
+			    # get full path to icon (or generic, if none found)
+			    if [[ ! "$curIconSrc" ]] ; then
+				errlog "No icon found for extension $curExt."
+				curIconSrc="$welcomeExtGenericIcon"
+			    else
+				curIconSrc="$curExtPath/${curIconSrc#/}"
+			    fi
+
+			    # get welcome-page icon name
+			    curExtIcon="$curExt.${curIconSrc##*.}"
+			    
+			    # copy icon to welcome page
+			    try /bin/cp "$curIconSrc" "$welcomeExtPath/$curExtIcon" \
+				"Unable to copy icon for extension $curExt."
+			    if [[ ! "$ok" ]] ; then
+				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
+				myErrSomeExtensions+="$curExt"
+				ok=1 ; errmsg=
+				continue
+			    fi
+			    
+			    
+			    # GET NAME
+			    
+			    if [[ "$mani_name" =~ ^__MSG_(.+)__$ ]] ; then
+				
+				# get message ID
+				curMessageID="${BASH_REMATCH[1]}"
+				
+				# set locale if not already set
+				if [[ ! "$curLocale" ]] ; then
+				    if [[ "$LC_ALL" ]] ; then
+					curLocale="$LC_ALL"
+				    elif [[ "$LC_MESSAGES" ]] ; then
+					curLocale="$LC_MESSAGES"
+				    elif [[ "$LANG" ]] ; then
+					curLocale="$LANG"
+				    else
+					curLocale='en_US'
+				    fi
+
+				    # cut off any cruft
+				    curLocale="${curLocale%%.*}"
+				fi
+
+				# try to find the appropriate directory
+				curExtLocalePath="$curExtPath/_locales"
+				if [[ -d "$curExtLocalePath/$curLocale" ]] ; then
+				    curExtLocalePath="$curExtLocalePath/$curLocale"
+				elif [[ -d "$curExtLocalePath/${curLocale%%_*}" ]] ; then
+				    curExtLocalePath="$curExtLocalePath/${curLocale%%_*}"
+				else
+				    # failed to match, so pick any
+				    for c in "$curExtLocalePath"/* ; do
+					if [[ -d "$c" ]] ; then
+					    curExtLocalePath="$c"
+					    break
+					else
+					    curExtLocalePath=
+					fi
+				    done
+				fi
+
+				# create local variable for message
+				local "msg_${curMessageID}="
+				
+				# read in locale messages file
+				msg="$curExtLocalePath/messages.json"
+				if [[ "$curExtLocalePath" && ( -f "$msg" ) ]] ; then
+				    try 'msg=' /bin/cat "$msg" \
+					"Unable to read locale ${curExtLocalePath##*/} messages for extension $curExt. Using ID as name."
+				    if [[ "$ok" ]] ; then
+
+					# clear mani_name
+					mani_name=
+					
+					# try to pull out name message
+					readjsonkeys msg "$curMessageID"
+					eval "msg=\"\$msg_${curMessageID}\""
+					if [[ "$msg" ]] ; then
+					    readjsonkeys msg message
+					    mani_name="$msg_message"
+					fi
+
+					# check for error
+					[[ "$mani_name" ]] || \
+					    errlog "Unable to get locale ${curExtLocalePath##*/} name for extension $curExt. Using ID as name."
+				    else
+					
+					# failed to read JSON, so no name
+					mani_name=
+					ok=1 ; errmsg=
+				    fi
+				else
+				    mani_name=
+				    errlog "Unable to find locale ${curExtLocalePath##*/} messages for extension $curExt. Using ID as name."
+				fi
+			    fi
+
+
+			    # ADD EXTENSION TO WELCOME PAGE ARGS
+			    
+			    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
+			    myWelcomeArgs+="x=$(encodeurl "${curExtIcon},$mani_name")"
+			fi
+		    done
+		    
+		    # move back out of extensions directory
+		    if [[ "$ok" ]] ; then
+			try '!1' popd 'Unable to navigate away from extensions directory.'
+		    else
+			tryonerr '!1' popd 'Unable to navigate away from extensions directory.'
+		    fi
 		fi
-		
-		try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
-		
-		# move back out of extensions directory
-		try '!1' popd 'Unable to navigate away from extensions directory.'
+	    fi
+	    
+	    if [[ ! "$ok" ]] ; then
+		myErrAllExtensions=1
+		ok=1 ; errmsg=
 	    fi
 	    
 	    # delete everything from Default except Local Extension Settings
 	    allExcept='!(Local?Extension?Settings)'
 	    try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
-		'Unable to remove old profile settings. The updated app may not run.'
+		'Error deleting files in profile Default directory.'
+	    if [[ ! "$ok" ]] ; then
+		myErrDelete=1
+		ok=1 ; errmsg=
+	    fi
 	    
-	    # add URL for each extension (https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146)
-	    local curExt=
-	    for curExt in "${oldExtensions[@]}" ; do
-		if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
-		    debuglog "Adding URL for extension ID $curExt."
-		    argsURIs+=( "https://chrome.google.com/webstore/detail/$curExt" )
-		fi
-	    done
-
 	else
 	    
 	    
@@ -595,22 +979,55 @@ function cleandatadir {
 	    
 	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
 	    try /bin/rm -f "$myProfilePath/Default/Login Data"* \
-		'Unable to remove old login data. The updated app may not run.'
+		'Error deleting login data from profile Default directory.'
+	    if [[ ! "$ok" ]] ; then
+		myErrDelete=1
+		ok=1 ; errmsg=
+	    fi
 	fi
+
+
+	# HANDLE NON-FATAL ERRORS
+	
+	if [[ "$myErrDelete" ]] ; then
+	    errmsg="Unable to remove old profile files. The app's settings may be corrupted and might need to be deleted."
+	elif [[ "$myErrAllExtensions" ]] ; then
+	    errmsg="Unable to save extensions that will be uninstalled in the engine change. You will have to reinstall the app's extensions manually."
+	elif [[ "$myErrSomeExtensions" ]] ; then
+	    errmsg="Unable to save some of the extensions that will be uninstalled in the engine change. You will have to reinstall the following extensions manually: $myErrSomeExtensions"
+	fi
+	
 	
 	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
 	
 	# restore extended glob
 	shoptrestore shoptState
-
-	# restore OK and return error state
+	
+    fi
+    
+    
+    # (RE)POPULATE PROFILE DIRECTORY
+    
+    # path to First Run file
+    local firstRunFile="$myProfilePath/First Run"
+    
+    # make sure directory exists and is minimally populated
+    if [[ ! -e "$firstRunFile" ]] ; then
+	
+	# $$$ GET RID OF THIS AND USE MASTER PREFS??
+	
+	# set First Run file so engine doesn't think it's a new profile (fail silently)
+	try /usr/bin/touch "$myProfilePath/First Run" ''
 	if [[ ! "$ok" ]] ; then
-	    ok=1
-	    return 1
+	    errlog 'Unable to create first run marker.'
+	    ok=1 ; errmsg=
 	fi
     fi
 
-    return 0
+    
+    # RETURN ERROR STATE
+    
+    [[ "$errmsg" ]] && return 1 || return 0
 }
 
 
@@ -838,90 +1255,14 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 }
 
 
-# POPULATEDATADIR -- make sure an app's data directory is populated
-function populatedatadir { # ( [FORCE] )
-    #  returns:
-    #    0 on success
-    #    1 on fatal error
-    #    2 on error installing extension
-    #    3 on error installing native messaging host
+# INSTALLNMH -- install native messaging host
+function installnmh {  # ( [ISFIRSTRUN] )
+
+    # arguments
+    local isFirstRun="$1" ; shift
     
+    # only run if we're OK
     [[ "$ok" ]] || return 1
-
-    local result=0
-    
-    # collect all error messages
-    local myErrMsg=
-    
-    # force an update?
-    local force="$1" ; shift
-    
-    
-    # SET UP PROFILE DIRECTORY
-
-    # path to First Run file
-    local firstRunFile="$myProfilePath/First Run"
-    
-    # make sure directory exists and is minimally populated
-    if [[ ! -e "$firstRunFile" ]] ; then
-	
-	# ensure data & profile directories exists
-	try /bin/mkdir -p "$myProfilePath" 'Unable to create app engine profile folder.'
-	
-	if [[ "$ok" ]] ; then
-	    
-	    # $$$ GET RID OF THIS AND USE MASTER PREFS??
-	    
-	    # set First Run file so engine doesn't think it's a new profile (fail silently)
-	    try /usr/bin/touch "$myProfilePath/First Run" 'Unable to create first run marker.'
-	    
-	    # non-fatal
-	    if [[ ! "$ok" ]] ; then
-		errlog "$errmsg"
-		ok=1 ; errmsg=
-	    fi
-	fi
-    fi
-    
-    # if we couldn't create the directory, that's a fatal error
-    [[ "$ok" ]] || return 1
-
-
-    # MOVE EXTENSION-INSTALLATION SCRIPT INTO PLACE ONLY ON FORCE
-    
-    if [[ "$force" ]] ; then
-
-	# $$$ temporary -- remove old-style engine directory
-	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
-	    debuglog "Removing old engine directory."
-	    try /bin/rm -rf "$myDataPath/Engine.noindex" \
-		'Unable to remove old engine directory'
-	    if [[ ! "$ok" ]] ; then
-		errlog "$errmsg"
-		ok=1 ; errmsg=
-	    fi
-	fi
-	
-	debuglog "Forcing data directory update. Installing external extensions."
-
-	# set up useful variables
-	local extDir="External Extensions"
-	
-	# if we need to copy the extension install directory, do it now
-	safecopy "$SSBAppPath/Contents/Resources/$extDir" "$myProfilePath/$extDir" \
-		 'installation directory'
-	
-	# clear ok state, but keep error message
-	if [[ ! "$ok" ]] ; then
-	    myErrMsg="$errmsg"
-	    ok=1 ; errmsg=
-
-	    # flag error installing extension
-	    result=2
-	fi
-    fi
-    
-    # INSTALL OR UPDATE NATIVE MESSAGING HOST
     
     # paths to host manifests with new and old IDs
     local nmhManifestDestPath="$myProfilePath/$nmhDirName"    
@@ -931,9 +1272,9 @@ function populatedatadir { # ( [FORCE] )
     # determine which manifests to update
     local updateOldManifest=
     local updateNewManifest=
-    if [[ "$force" || ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
+    if [[ "$isFirstRun" || ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
 
-	# we're in force mode or app has moved, so update both
+	# this is the first run on a new version, or app has moved, so update both
 	updateOldManifest=1
 	updateNewManifest=1
     else
@@ -971,31 +1312,14 @@ function populatedatadir { # ( [FORCE] )
 		       "$nmhManifestNewID" "$nmhManifestOldID"
 	fi
     fi
-    
-    # flag error installing native messaging host
-    [[ "$ok" ]] || result=3
-    
-    
-    # HANDLE ERROR MESSAGING AND RETURN CODE
-    
-    if [[ "$result" != 0 ]] ; then
-		
-	# pass along error messages but clear error state
-	if [[ "$myErrMsg" ]] ; then
-	    errmsg="$myErrMsg Also: $errmsg"
-	else
-	    errmsg="$errmsg"
-	fi
-	
-	ok=1
-    fi
-    
-    return "$result"
+
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
 }
 
 
-# LINKTONMH -- link to native message hosts from compatible browsers
-function linktonmh {
+# LINKEXTERNALNMHS -- link to native message hosts from compatible browsers
+function linkexternalnmhs {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1

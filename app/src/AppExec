@@ -302,20 +302,31 @@ fi
 
 # determine if this is our first run on a new version
 isFirstRun=
+isAppChanged=
+showWelcomePage=
+myWelcomeArgs=
 if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     # mark as first run
     isFirstRun=1
-
+    isAppChanged=1
+    
+    # show welcome page
+    showWelcomePage=1
+    [[ "$SSBLastRunVersion" ]] && myWelcomeArgs="u=$(encodeurl "$SSBLastRunVersion")"
+    
     # update last run variables
     SSBLastRunVersion="$SSBVersion"
     SSBUpdateVersion="$SSBVersion"
     
     # clear extension install error state
-    SSBExtensionInstallError=
+    SSBNMHInstallError=
 fi
 
 # if nothing configured for last-run engine, set it to current engine
 [[ "$SSBLastRunEngineType" ]] || SSBLastRunEngineType="$SSBEngineType"
+
+# if there's no profile directory, trigger first-run welcome message
+[[ -d "$myProfilePath" ]] || showWelcomePage=1
 
 
 # UPDATE APP PATH
@@ -454,89 +465,8 @@ if [[ ! "$ok" ]] ; then
 fi
 
 
-# HANDLE ENGINE CHANGE
+# IF USING EXTERNAL ENGINE, GET INFO
 
-if [[ "$SSBEngineType" != "$SSBLastRunEngineType" ]] ; then
-
-    # update data directory to handle engine change
-    if ! cleandatadir ; then
-	alert "Unable to clean data directory. ($errmsg) Your browser settings may be corrupted and need to be deleted." \
-	      'Warning' '|caution'
-    fi
-    
-    # mark as first run
-    isFirstRun=1
-    
-    # clear extension install error state
-    SSBExtensionInstallError=
-    
-    # update last run variable
-    SSBLastRunEngineType="$SSBEngineType"
-fi
-
-
-# POPULATE DATA DIRECTORY
-
-# if this is our first run on a new version, force an update of the data dir
-if [[ "$isFirstRun" ]] ; then
-    forcePopulate=1
-else
-    forcePopulate=
-fi
-
-# if there's currently no profile directory, trigger first-run welcome message
-if [[ ! -d "$myProfilePath" ]] ; then
-    argsURIs+=( "file://$SSBAppPath/Contents/Resources/FirstRun/welcome.html" )
-fi
-
-# populate the data directory
-populatedatadir "$forcePopulate" ; populateResult="$?"
-[[ "$ok" ]] || abort
-
-# report and clear non-fatal error
-if [[ "$populateResult" != 0 ]] ; then
-    
-    if [[ "$SSBExtensionInstallError" != "$errmsg" ]] ; then
-
-	populateErrorMsg="Warning: Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will still work, but"
-	
-	if [[ "$populateResult" = 2 ]] ; then
-	    
-	    # show warning alert for error auto-installing extension
-	    alert "$populateErrorMsg if you want to use the extension, you'll have to install it manually." 'Extension Install Error' '|caution'
-	else
-
-	    # show warning alert for error installing native messaging host
-	    alert "$populateErrorMsg the extension won't." 'Extension Install Error' '|caution'
-	fi
-	
-	# set new error state
-	SSBExtensionInstallError="$errmsg"
-    fi
-    
-    # clear error state
-    errmsg=
-fi
-
-
-# UPDATE LINKS TO CHROME NATIVE MESSAGING HOSTS
-
-linktonmh
-
-# report non-fatal error
-if [[ ! "$ok" ]] ; then
-    alert "Unable to link to native messaging hosts. ($errmsg) Extensions that use native messaging may not work." 'Warning' '|caution'
-    ok=1 ; errmsg=
-fi
-
-
-# CREATE OR UPDATE ENGINE IF NECESSARY
-
-# flag whether we need to (re)create the engine and/or activate it
-doCreateEngine=
-doNotActivateEngine=
-
-# if we're using an external engine, get info on it
 if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     
     # try the path we've been using first
@@ -546,12 +476,88 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     [[ "${SSBEngineSourceInfo[$iPath]}" ]] || getextenginesrcinfo
 fi
 
+
+# HANDLE ENGINE CHANGE
+
+if [[ "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ]] ; then
+    
+    # mark engine change
+    isAppChanged=1
+    
+    # show welcome page
+    showWelcomePage=1
+    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
+    myWelcomeArgs+="oe=$(encodeurl "$SSBLastRunEngineInfo")&ne=$(encodeurl "${SSBEngineSourceInfo[$iName]}")"
+        
+    # clear extension install error state
+    SSBNMHInstallError=
+    
+fi
+
+
+# POPULATE DATA DIRECTORY
+
+# update the data directory
+if ! updatedatadir "$isAppChanged" ; then
+    [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
+fi
+[[ "$ok" ]] || abort
+
+# update the profile directory
+if ! updateprofiledir "$isAppChanged" ; then
+    [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
+fi
+[[ "$ok" ]] || abort
+
+# install native messaging host, reporting non-fatal errors
+installnmh "$isFirstRun"
+if [[ ! "$ok" ]] ; then    
+    if [[ "$SSBNMHInstallError" != "$errmsg" ]] ; then
+	
+	# show warning alert for error installing native messaging host
+	alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't." 'Warning' '|caution'
+	
+	# set new error state
+	SSBExtensionInstallError="$errmsg"
+    fi
+    
+    # clear error state
+    ok=1 ; errmsg=
+fi
+
+# update links to compatible native messaging hosts, reporting non-fatal errors
+linkexternalnmhs
+if [[ ! "$ok" ]] ; then
+    alert "Unable to link to native messaging hosts. ($errmsg) Extensions that use native messaging may not work." 'Warning' '|caution'
+    ok=1 ; errmsg=
+fi
+
+
+# UPDATE LAST-RUN ENGINE INFO
+
+SSBLastRunEngineType="$SSBEngineType"
+SSBLastRunEngineInfo="${SSBEngineSourceInfo[$iName]}"
+
+
+# CREATE OR UPDATE ENGINE IF NECESSARY
+
+# flag whether we need to (re)create the engine and/or activate it
+doCreateEngine=
+doNotActivateEngine=
+
 if [[ "$isFirstRun" ]] ; then
     
-    # this app was just updated or created, so we need a new engine
+    # this app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
+elif [[ "$isAppChanged" ]] ; then
+
+    # this app was changed, so we need a new engine
+    doCreateEngine=1
+    debuglog "App has changed. Updating engine."
+    createEngineErrMsg="Unable to update engine for changed app"
+    
 else
     
     # check the state of the engine
@@ -642,17 +648,31 @@ fi
 myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLine[@]}" )
 
 # engine is not running, so launch as usual (still sending URIs to engine)
-
 try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \
     'Unable to launch app.'
 [[ "$ok" ]] || abort
-# sleep 1.5   #  $$$$$ FIX OR REMOVE
-# try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args --new-window \
-# 	'Unable to open extra URLs.'
-# if [[ ! "$ok" ]] ; then
-#     alert "$errmsg You may need to install or enable the Epichrome extension manually." 'Warning' '|caution'
-#     ok=1 ; errmsg=
-# fi
+
+# show welcome page if needed
+if [[ "$showWelcomePage" ]] ; then
+
+    # set up arguments
+    [[ "$myWelcomeArgs" ]] && myWelcomeArgs="?$myWelcomeArgs"
+
+    # pause to allow the app to open
+    sleep 1.5   #  $$$$$ FIX OR REMOVE
+
+    # launch the welcome page
+    try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+	"--user-data-dir=$myProfilePath" "file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" ISPATH)$myWelcomeArgs" \
+	'Unable to open welcome page.'
+
+    # handle error
+    if [[ ! "$ok" ]] ; then
+	alert "$errmsg You may need to install the Epichrome extension manually. If you've just updated the app or changed the engine, other settings may be lost." \
+	      'Warning' '|caution'
+	ok=1 ; errmsg=
+    fi
+fi
 
 
 # UPDATE CONFIG FILE IF NECESSARY

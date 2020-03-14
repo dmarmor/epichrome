@@ -39,6 +39,7 @@ THISYEAR:=$(shell date '+%Y')
 # VERSION INFO
 
 VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
+VERSIONMAJOR:=$(shell version='$(VERSION)' && echo "$${version%.*}")
 
 VERSIONCODE:=$(shell 	if [[ "$(VERSION)" =~ ^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$$ ]] ; then \
 			  if [[ "$${BASH_REMATCH[4]}" ]] ; then \
@@ -150,7 +151,7 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/app$(BETA).icns \
 	build/icons/document$(BETA).icns \
 	build/icons/epichrome$(BETA).icns \
-	build/img/icon128$(BETA).png \
+	build/img/epichrome_icon.png \
 	build/epichrome-$(VERSION)-main.pkg \
 	build/resources/background.png \
 	build/resources/license.rtf \
@@ -334,6 +335,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
 	$(APP_RNTM)/Filter/epichromeruntimehost.py \
+	$(APP_RNTM)/Filter/welcome.html \
 	\
 	$(APP_RNTM)/Icons/app.icns \
 	$(APP_RNTM)/Icons/document.icns \
@@ -351,14 +353,12 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
 	\
-	$(APP_RNTM)/Contents/Resources/FirstRun/welcome.html \
-	$(APP_RNTM)/Contents/Resources/FirstRun/welcome.css \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/icon128.png \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/m1s1.png \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/m1s2.png \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/m2s1.png \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/m2s2.png \
-	$(APP_RNTM)/Contents/Resources/FirstRun/img/m3s1.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
+	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/ext_generic_icon.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/passwords_button.png \
 	\
 	$(APP_RNTM_HLPR) \
 	\
@@ -542,21 +542,25 @@ $(APP_RNTM)/Contents/Resources/External\ Extensions/$(EXTN_ID_RELEASE).json: src
 	cp '$<' '$@'
 
 
-# FIRST RUN HTML
+# WELCOME PAGE
 
-$(APP_RNTM)/Contents/Resources/FirstRun/welcome.%: welcome/welcome.%
-	@mkdir -p $(APP_RNTM)/Contents/Resources/FirstRun
+$(APP_RNTM)/Filter/welcome.html: src/welcome/welcome.html
+	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIMAJORVERSION/$(VERSIONMAJOR)/g' '$<' > '$@'
+
+$(APP_RNTM)/Contents/Resources/Welcome/welcome.%: src/welcome/welcome.%
+	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome
 	cp '$<' '$@' 
 
-$(APP_RNTM)/Contents/Resources/FirstRun/img/icon128.png: build/img/icon128$(BETA).png
-	@mkdir -p $(APP_RNTM)/Contents/Resources/FirstRun/img
-	cp '$<' '$@' 
+$(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichrome_icon.png
+	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome/img
+	cp '$<' '$@'
 
-$(APP_RNTM)/Contents/Resources/FirstRun/img/%.png: welcome/img/%.png
-	@mkdir -p $(APP_RNTM)/Contents/Resources/FirstRun/img
-	cp '$<' '$@' 
+$(APP_RNTM)/Contents/Resources/Welcome/img/%: src/welcome/img/%
+	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome/img
+	cp '$<' '$@'
 
-build/img/icon128$(BETA).png: ../images/icons/app$(BETA).png
+build/img/epichrome_icon.png: ../images/icons/app.png
 	@mkdir -p build/img
 	sips -z 128 128 $< --out $@
 
