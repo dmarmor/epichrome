@@ -658,12 +658,14 @@ if [[ "$showWelcomePage" ]] ; then
     # set up arguments
     [[ "$myWelcomeArgs" ]] && myWelcomeArgs="?$myWelcomeArgs"
 
+    debuglog "Showing welcome page with URL file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs"
+    
     # pause to allow the app to open
     sleep 1.5   #  $$$$$ FIX OR REMOVE
 
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	"--user-data-dir=$myProfilePath" "file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" ISPATH)$myWelcomeArgs" \
+	"--user-data-dir=$myProfilePath" "file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs" \
 	'Unable to open welcome page.'
 
     # handle error

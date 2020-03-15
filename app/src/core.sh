@@ -65,6 +65,8 @@ export appIDRoot appIDBase appEngineIDBase
 userSupportPath="${HOME}/Library/Application Support"
 epiDataPath="$userSupportPath/Epichrome"
 appDataPathBase="$epiDataPath/Apps"
+epiDataExtIconBase="ExtensionIcons"
+
 #readonly userSupportPath epiDataPath appDataPath
 export userSupportPath epiDataPath appDataPath
 

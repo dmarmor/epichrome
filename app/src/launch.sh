@@ -197,6 +197,10 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
 	    
 	    # set the variable
 	    eval "${jsonVar}_${curKey}=$(formatscalar "$curMatch")"
+	else
+
+	    # clear the variable
+	    eval "${jsonVar}_${curKey}="
 	fi
     done
 }
@@ -611,39 +615,18 @@ function updatedatadir { # ( [isAppChanged] )
 
 	debuglog 'Updating welcome page.'
 	
-	# try to preserve extension images
-	local welcomeExtPath="$myDataPath/Welcome/img/ext"
-	local saveExtPath="$myDataPath/ext"
-	if [[ -d "$welcomeExtPath" ]] ; then
-	    [[ -d "$saveExtPath" ]] && \
-		try /bin/rm -rf "$saveExtPath" 'Unable to remove orphan ext directory.'
-	    try /bin/mv "$welcomeExtPath" "$saveExtPath" \
-		'Unable to preserve old extension icons.'
-	    ok=1 ; errmsg=
-	fi
-	
 	# copy welcome page into data directory
 	safecopy "$SSBAppPath/Contents/Resources/Welcome" "$myDataPath/Welcome" \
 		 "Unable to create welcome page. You will not see important information on the app's first run."
 	if [[ "$ok" ]] ; then
 
-	    # restore extension icons
-	    if [[ -d "$saveExtPath" ]] ; then
-		try /bin/mv "$saveExtPath" "$welcomeExtPath" \
-		    'Unable to restore old extension icons.'
-		ok=1 ; errmsg=
-	    fi
-	else
-
-	    # delete any orphan extension icons
-	    ok=1
-	    if [[ -d "$saveExtPath" ]] ; then
-		local welcomeErrMsg="$errmsg"
-		try /bin/rm -rf "$saveExtPath" \
-		    'Unable to remove orphan ext directory after welcome page error.'
-		ok=1 ; errmsg="$welcomeErrMsg"
-	    fi
+	    # link to master directory of extension icons
+	    try /bin/ln -s "../../../../$epiDataExtIconBase" "$myDataPath/Welcome/img/ext" \
+		'Unable to link to extension icon directory.'
 	fi
+
+	# errors here are non-fatal
+	ok=1
     fi
     
     # return code
@@ -741,22 +724,18 @@ function updateprofiledir {  # ( [isAppChanged] )
 		    fi
 		    
 		    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
-
-		    # paths to welcome page extension images
-		    local welcomeExtPath='../../../Welcome/img'
-		    local welcomeExtGenericIcon="$welcomeExtPath/ext_generic_icon.png"
-		    local welcomeExtPath+="/ext"
 		    
 		    # delete old extension icons from welcome page & create empty directory
 		    if [[ "$ok" && "${oldExtensions[*]}" ]] ; then
 
-			# delete any old extension icon directory
-			[[ -d "$welcomeExtPath" ]] && \
-			    try /bin/rm -rf "$welcomeExtPath" 'Unable to delete old extension icons.'
-
-			# make sure emtpy extension icon directory exists
-			try /bin/mkdir -p "$welcomeExtPath" 'Unable to create old extension icon directory.'
+			# paths to welcome page extension icons
+			local welcomeExtGenericIcon="../../../Welcome/img/ext_generic_icon.png"
+			local epiExtIconPath="$epiDataPath/$epiDataExtIconBase"
 			
+			# make sure master extension icon directory exists
+			try /bin/mkdir -p "$epiExtIconPath" \
+			    'Unable to create extension icon directory.'
+						
 			# unable to create directory for extension icons, so we have to abort
 			[[ "$ok" ]] || oldExtensions=()
 		    fi
@@ -764,7 +743,7 @@ function updateprofiledir {  # ( [isAppChanged] )
 		    # add info for each extension to welcome page args
 		    local c
 		    local curExt curExtVersions curExtPath
-		    local mani mani_icons mani_name oldIFS
+		    local mani mani_icons mani_name mani_default_locale mani_app oldIFS
 		    local curIconSrc biggestIcon
 		    local curLocale=
 		    local curExtLocalePath
@@ -805,60 +784,75 @@ function updateprofiledir {  # ( [isAppChanged] )
 			    fi
 			    
 			    # pull out icon and name info
-			    readjsonkeys mani icons name
+			    readjsonkeys mani icons name default_locale app
 			    
 			    
-			    # COPY BIGGEST ICON TO WELCOME PAGE
+			    # COPY BIGGEST ICON TO WELCOME PAGE (IF NOT FOUND)
 			    
-			    curIconSrc=
-			    biggestIcon=0
-			    if [[ "$mani_icons" ]] ; then
-				# remove all newlines
-				mani_icons="${mani_icons//$'\n'/}"
+			    curExtIcon=( "$epiExtIconPath/$curExt".* )
+			    if [[ -f "${curExtIcon[0]}" ]] ; then
+
+				# there's already an icon for this ID, so use that
+				curExtIcon="${curExtIcon[0]##*/}"
+
+				debuglog "Found cached icon $curExtIcon."
 				
-				# munge entries into parsable lines
-				oldIFS="$IFS" ; IFS=$'\n'
-				mani_icons=( $(echo "$mani_icons" | \
-							  /usr/bin/sed -E \
-								       's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
-				if [[ "$?" != 0 ]] ; then
-				    errlog "Unable to parse icons for extension $curExt."
+			    else
+				
+				# no icon found, so we have to copy it
+
+				debuglog "No icon cached for extension $curExt. Attempting to copy from extension."
+				
+				curIconSrc=
+				biggestIcon=0
+				if [[ "$mani_icons" ]] ; then
+				    # remove all newlines
+				    mani_icons="${mani_icons//$'\n'/}"
+				    
+				    # munge entries into parsable lines
+				    oldIFS="$IFS" ; IFS=$'\n'
+				    mani_icons=( $(echo "$mani_icons" | \
+						       /usr/bin/sed -E \
+								    's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
+				    if [[ "$?" != 0 ]] ; then
+					errlog "Unable to parse icons for extension $curExt."
+					[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
+					myErrSomeExtensions+="$curExt"
+					continue
+				    fi
+				    IFS="$oldIFS"
+				    
+				    # find biggest icon
+				    for c in "${mani_icons[@]}" ; do
+					if [[ "$c" =~ $iconRe ]] ; then
+					    if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
+						biggestIcon="${BASH_REMATCH[1]}"
+						curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
+					    fi
+					fi
+				    done
+				fi
+
+				# get full path to icon (or generic, if none found)
+				if [[ ! "$curIconSrc" ]] ; then
+				    errlog "No icon found for extension $curExt."
+				    curIconSrc="$welcomeExtGenericIcon"
+				else
+				    curIconSrc="$curExtPath/${curIconSrc#/}"
+				fi
+
+				# get welcome-page icon name
+				curExtIcon="$curExt.${curIconSrc##*.}"
+				
+				# copy icon to welcome page
+				try /bin/cp "$curIconSrc" "$epiExtIconPath/$curExtIcon" \
+				    "Unable to copy icon for extension $curExt."
+				if [[ ! "$ok" ]] ; then
 				    [[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
 				    myErrSomeExtensions+="$curExt"
+				    ok=1 ; errmsg=
 				    continue
 				fi
-				IFS="$oldIFS"
-				
-				# find biggest icon
-				for c in "${mani_icons[@]}" ; do
-				    if [[ "$c" =~ $iconRe ]] ; then
-					if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
-					    biggestIcon="${BASH_REMATCH[1]}"
-					    curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
-					fi
-				    fi
-				done
-			    fi
-
-			    # get full path to icon (or generic, if none found)
-			    if [[ ! "$curIconSrc" ]] ; then
-				errlog "No icon found for extension $curExt."
-				curIconSrc="$welcomeExtGenericIcon"
-			    else
-				curIconSrc="$curExtPath/${curIconSrc#/}"
-			    fi
-
-			    # get welcome-page icon name
-			    curExtIcon="$curExt.${curIconSrc##*.}"
-			    
-			    # copy icon to welcome page
-			    try /bin/cp "$curIconSrc" "$welcomeExtPath/$curExtIcon" \
-				"Unable to copy icon for extension $curExt."
-			    if [[ ! "$ok" ]] ; then
-				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
-				myErrSomeExtensions+="$curExt"
-				ok=1 ; errmsg=
-				continue
 			    fi
 			    
 			    
@@ -891,6 +885,8 @@ function updateprofiledir {  # ( [isAppChanged] )
 				    curExtLocalePath="$curExtLocalePath/$curLocale"
 				elif [[ -d "$curExtLocalePath/${curLocale%%_*}" ]] ; then
 				    curExtLocalePath="$curExtLocalePath/${curLocale%%_*}"
+				elif [[ "$mani_default_locale" && -d "$curExtLocalePath/$mani_default_locale" ]] ; then
+				    curExtLocalePath="$curExtLocalePath/$mani_default_locale"
 				else
 				    # failed to match, so pick any
 				    for c in "$curExtLocalePath"/* ; do
@@ -902,7 +898,7 @@ function updateprofiledir {  # ( [isAppChanged] )
 					fi
 				    done
 				fi
-
+				
 				# create local variable for message
 				local "msg_${curMessageID}="
 				
@@ -940,10 +936,11 @@ function updateprofiledir {  # ( [isAppChanged] )
 			    fi
 
 
-			    # ADD EXTENSION TO WELCOME PAGE ARGS
+			    # ADD EXTENSION OR APP TO WELCOME PAGE ARGS
 			    
 			    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
-			    myWelcomeArgs+="x=$(encodeurl "${curExtIcon},$mani_name")"
+			    [[ "$mani_app" ]] && myWelcomeArgs+='a=' || myWelcomeArgs+='x='
+			    myWelcomeArgs+="$(encodeurl "${curExtIcon},$mani_name")"
 			fi
 		    done
 		    

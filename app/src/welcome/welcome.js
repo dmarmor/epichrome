@@ -66,60 +66,28 @@ function checkParams () {
 
 	// show deleted extensions
 	var extensions = urlParams.getAll('x');
-	if (extensions.length > 0) {
-
-	    // create regex for parsing extension
-	    const regexpExt = new RegExp('^((.+)\\.[^.]+),(.*)$');
-	    const regexpIcon = new RegExp('EXTICON');
+	var apps = urlParams.getAll('a');
+	if ((extensions.length > 0) || (apps.length > 0)) {
 	    
-	    // create list of extensions
+	    // prepare extensions & app lists
 	    var extNode = document.getElementById('extension_dummy');
 	    var extListNode = extNode.parentNode;
 	    var extIconTemplate = extNode.getElementsByClassName('extension_icon')[0].dataset.template;
 	    extListNode.removeChild(extNode);
 	    extNode.removeAttribute('id');
-	    
-	    // add extensions to list
-	    for (i = 0; i < extensions.length; i++) {
-		
-		// parse extension ID & name
-		var curExt = extensions[i];
-		var curMatch = curExt.match(regexpExt);
-		if (curMatch) {
-		    var curExtIcon = curMatch[1];
-		    var curExtID = curMatch[2];
-		    var curExtName = curMatch[3];
-		    if (! curExtName) { curExtName = curExtID; }
-		} else {
+	    var appListNode = document.getElementById('app_list');
 
-		    // unable to parse extension
-		    console.log('Unable to parse extension string "' + curExt + '"');
-		    continue;
-		}
-		
-		// create list item for parsed extension info
-		var curNode = extNode.cloneNode(true);
-
-		// set icon image
-		curNode.getElementsByClassName('extension_icon')[0].src = extIconTemplate.replace(regexpIcon, curExtIcon);
-
-		// remove all text from name
-		var curNameNode = curNode.getElementsByClassName('extension_name')[0]
-		while (curNameNode.firstChild) {
-		    curNameNode.removeChild(curNameNode.lastChild);
-		}
-
-		// create new text node with name (to escape weird text)
-		var curNameText = document.createTextNode(curExtName);
-		curNameNode.appendChild(curNameText);
-
-		// set web store link
-		var curInstall = curNode.getElementsByClassName('install')[0];
-		curInstall.href += curExtID;
-
-		// add new node to list
-		extListNode.appendChild(curNode);
+	    // if both extensions & apps, reveal category headers
+	    if ((extensions.length > 0) && (apps.length > 0)) {
+		setDisplay(extListNode.getElementsByClassName('extlist_title')[0], 'block');
+		setDisplay(appListNode.getElementsByClassName('extlist_title')[0], 'block');
 	    }
+	    
+	    // populate extensions list
+	    populateExtList(extListNode, extNode, extIconTemplate, extensions);
+	    
+	    // populate extensions list
+	    populateExtList(appListNode, extNode, extIconTemplate, apps);
 	    
 	    // show extension-reinstall action item
 	    setDisplay(document.getElementById('extensions'), 'flex');
@@ -163,6 +131,7 @@ function checkParams () {
     // console.log(urlParams.append('active', '1')); // "?post=1234&action=edit&active=1"
 }
 
+
 function setDisplay(nodes, displayMode) {
     var nodeArray;
     if (nodes instanceof Node) {
@@ -172,5 +141,85 @@ function setDisplay(nodes, displayMode) {
     }
     for (var i = 0; i < nodeArray.length; i++) {
 	nodeArray[i].style.display = displayMode;
+    }
+}
+
+
+function populateExtList(extListNode, extNode, extIconTemplate, items) {
+
+    if (items.length > 0) {
+	
+	// create regex for parsing extensions & apps
+	const regexpExt = new RegExp('^((.+)\\.[^.]+),(.*)$');
+	const regexpIcon = new RegExp('EXTICON');
+
+	// parse list into sortable array
+	var sortedItems = [];
+	for (i = 0; i < items.length; i++) {
+
+	    // parse extension ID & name
+	    var curExt = items[i];
+	    var curMatch = curExt.match(regexpExt);
+	    if (curMatch) {
+		var curExtIcon = curMatch[1];
+		var curExtID = curMatch[2];
+		var curExtName = curMatch[3];
+		if (! curExtName) { curExtName = curExtID; }
+	    } else {
+
+		// unable to parse extension
+		console.log('Unable to parse extension string "' + curExt + '"');
+		continue;
+	    }
+
+	    // add to sortable list
+	    sortedItems.push([curExtID, curExtName, curExtIcon]);
+	}
+
+	// sort array
+	sortedItems.sort(function(a,b) {
+	    if (a[1] > b[1]) {
+		return 1;
+	    } else if (a[1] < b[1]) {
+		return -1;
+	    } else {
+		return 0;
+	    }
+	});
+	
+	// add items to list
+	for (i = 0; i < sortedItems.length; i++) {
+
+	    // get item elements
+	    curExtID   = sortedItems[i][0];
+	    curExtName = sortedItems[i][1];
+	    curExtIcon = sortedItems[i][2];
+	    
+	    // create list item for parsed extension info
+	    var curNode = extNode.cloneNode(true);
+
+	    // set icon image
+	    curNode.getElementsByClassName('extension_icon')[0].src = extIconTemplate.replace(regexpIcon, curExtIcon);
+
+	    // remove all text from name
+	    var curNameNode = curNode.getElementsByClassName('extension_name')[0]
+	    while (curNameNode.firstChild) {
+		curNameNode.removeChild(curNameNode.lastChild);
+	    }
+
+	    // create new text node with name (to escape weird text)
+	    var curNameText = document.createTextNode(curExtName);
+	    curNameNode.appendChild(curNameText);
+
+	    // set web store link
+	    var curInstall = curNode.getElementsByClassName('install')[0];
+	    curInstall.href += curExtID;
+
+	    // add new node to list
+	    extListNode.appendChild(curNode);
+	}
+
+	// display this list
+	setDisplay(extListNode, 'flex');
     }
 }
