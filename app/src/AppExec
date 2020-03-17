@@ -118,6 +118,7 @@ myLockFile="$myDataPath/lock" ; export myLockFile
 # (do NOT export these -- they should not be inherited)
 lockOn=
 lockPID=
+lockPath=
 lockEnginePID=
 lockEnginePath=
 
@@ -149,22 +150,64 @@ function lockset {
 	    return 1
 	    
 	else
+
+	    local curPID=
+	    local curPath=
 	    
-	    # if either of lock's PIDs is still alive, we fail
+	    # if lock's app (or helper) is still alive, we fail
 	    if kill -0 "$lockPID" 2> /dev/null ; then
-		debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
-		return 1
+
+		# if this is the helper app, we need to use ps
+		# since the helper executable is a script
+
+		# see if this is the helper
+		local epiHelperRe="${appHelperPath//\//\\/}"
+		epiHelperRe="${epiHelperRe//./\\.}\$"
+		if [[ "$lockPath" =~ $epiHelperRe ]] ; then
+
+		    # get ps info for the lock PID
+		    local epiHelperPS=
+		    try 'epiHelperPS=' /bin/ps -o command -p "$lockPID" \
+			"Unable to get process info for PID $lockPID"
+		    if [[ "$ok" ]] ; then
+
+			# check if the process is in fact the helper
+			epiHelperRe="${lockPath//\//\\/}"
+			epiHelperRe="${epiHelperRe//./\\.}"
+			if [[ "$epiHelperPS" =~ $epiHelperRe ]] ; then
+			    debuglog "Can't set lock: Another instance of this app's helper is alive at $lockPID."
+			    return 1
+			fi
+		    else
+			
+			# error on ps, so just assume the process isn't alive
+			ok=1 ; errmsg=
+		    fi
+		elif getrunningappinfo "$lockPath" curPID curPath && \
+			[[ "$curPID" = "$lockPID" ]] ; then
+
+		    # it's really this app that's already running
+		    debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
+		    return 1
+		fi
 	    fi
+	    
+	    # if the lock's engine is still alive, we fail
 	    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-		debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
-		return 1
+		if getrunningappinfo "$lockEnginePath" curPID curPath && \
+			[[ "$curPID" = "$lockEnginePID" ]] ; then
+		    
+		    debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
+		    return 1
+		fi
 	    fi
 	fi
     fi
     
     # if we got here, there's either no lock, or we can stomp on an old one
-    lockPID="$$" ; lockEnginePID= ; lockEnginePath=
-    writevars "$myLockFile" lockPID lockEnginePID lockEnginePath
+    lockPID="$$" ; lockPath="$myAppPath" ; lockEnginePID= ; lockEnginePath=
+    writevars "$myLockFile" lockPID lockPath lockEnginePID lockEnginePath
+    savelog
     [[ "$ok" ]] || return 1
     
     # return success
@@ -220,7 +263,7 @@ function lockrelease {
 }
 
 # export lock functions
-export -f lockset lockrelease
+export -f lockrelease
 
 
 # MAIN BODY
@@ -526,10 +569,9 @@ if [[ ! "$ok" ]] ; then
 fi
 
 # update links to compatible native messaging hosts, reporting non-fatal errors
-linkexternalnmhs
-if [[ ! "$ok" ]] ; then
-    alert "Unable to link to native messaging hosts. ($errmsg) Extensions that use native messaging may not work." 'Warning' '|caution'
-    ok=1 ; errmsg=
+if ! linkexternalnmhs ; then
+    alert "Unable to link to native messaging hosts. Extensions that use native messaging may not work. ($errmsg)" 'Warning' '|caution'
+    errmsg=
 fi
 
 

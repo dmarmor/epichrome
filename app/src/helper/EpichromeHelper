@@ -34,6 +34,11 @@ if [[ "$epiHelperMode" =~ ^Start(.+)$ ]] ; then
 fi
 
 
+# CORE APP VARIABLES
+
+myHelperPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
+
+
 # FUNCTION DEFINITIONS
 
 
@@ -68,8 +73,8 @@ function lockreplace { # ( replacePID )
 	    # if this is the right lock, replace it
 	    if [[ "$replacePID" = "$lockPID" ]] ; then
 		debuglog "Taking over lock from PID $replacePID."
-		lockPID="$$" ; lockEnginePID="$myEnginePID" ; lockEnginePath="$myEngineCanonicalPath"
-		writevars "$myLockFile" lockPID lockEnginePID lockEnginePath
+		lockPID="$$" ; lockPath="$myHelperPath" ; lockEnginePID="$myEnginePID" ; lockEnginePath="$myEngineCanonicalPath"
+		writevars "$myLockFile" lockPID lockPath lockEnginePID lockEnginePath
 		[[ "$ok" ]] || return 1
 		lockOn=1
 		return 0

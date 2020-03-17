@@ -351,7 +351,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
 	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
     try /usr/bin/sips -s format png "$iconSourcePath/$CFBundleIconFile" \
-	--out "$contentsTmp/Resources/Welcome/img/app_icon.png" \
+	--out "$contentsTmp/$appWelcomePath/img/app_icon.png" \
 	'Unable to add app icon to welcome page.'
 
     
@@ -374,7 +374,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # FILTER WELCOME PAGE INTO PLACE
     
     filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
-	       "$contentsTmp/Resources/Welcome/$appWelcomePage" \
+	       "$contentsTmp/$appWelcomePath/$appWelcomePage" \
 	       'welcome page' \
 	       APPDISPLAYNAME "$CFBundleDisplayName"
     

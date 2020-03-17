@@ -31,16 +31,38 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 appEnginePathBase='EpichromeEngines.noindex'
 #readonly appEnginePathBase
 
-# external engine info
-appExtEngineInfo=( "com.microsoft.edgemac|1|Microsoft Edge|2|Microsoft Edge" \
-				"com.vivaldi.Vivaldi|1|Vivaldi|2|Vivaldi" \
-				"com.operasoftware.Opera|1|Opera|2|com.operasoftware.Opera" \
-				"com.brave.Browser|1|Brave Browser|2|BraveSoftware/Brave-Browser" \
-				"org.chromium.Chromium|1|Chromium|2|Chromium" \
-				"com.google.Chrome|1|Google Chrome|2|Google/Chrome" \
-		 )
-iGoogle=5
-#readonly appExtEngineInfo iGoogle
+# external engine browser info
+appExtEngineBrowsers=( 'com.microsoft.edgemac' \
+			   'com.vivaldi.Vivaldi' \
+			   'com.operasoftware.Opera' \
+			   'com.brave.Browser' \
+			   'org.chromium.Chromium' \
+			   'com.google.Chrome' )
+
+appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
+					   '' 'Edge' 'Microsoft Edge' \
+					   '' '' '' '' \
+					   'Microsoft Edge' )
+appBrowserInfo_com_vivaldi_Vivaldi=( 'com.vivaldi.Vivaldi' \
+					   '' 'Vivaldi' 'Vivaldi' \
+					   '' '' '' '' \
+					   'Vivaldi' )
+appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
+					   '' 'Opera' 'Opera' \
+					   '' '' '' '' \
+					   'com.operasoftware.Opera' )
+appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
+					   '' 'Brave' 'Brave Browser' \
+					   '' '' '' '' \
+					   'BraveSoftware/Brave-Browser' )
+appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
+					   '' 'Chromium' 'Chromium' \
+					   '' '' '' '' \
+					   'Chromium' )
+appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
+					   '' 'Chrome' 'Google Chrome' \
+					   '' '' '' '' \
+					   'Google/Chrome' )
 
 # native messaging host manifests
 nmhDirName=NativeMessagingHosts
@@ -616,7 +638,7 @@ function updatedatadir { # ( [isAppChanged] )
 	debuglog 'Updating welcome page.'
 	
 	# copy welcome page into data directory
-	safecopy "$SSBAppPath/Contents/Resources/Welcome" "$myDataPath/Welcome" \
+	safecopy "$SSBAppPath/Contents/$appWelcomePath" "$myDataPath/Welcome" \
 		 "Unable to create welcome page. You will not see important information on the app's first run."
 	if [[ "$ok" ]] ; then
 
@@ -692,7 +714,6 @@ function updateprofiledir {  # ( [isAppChanged] )
 	if [[ ( "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ) || \
 		  ( "${SSBEngineType#*|}" = 'com.google.Chrome' ) ]] ; then
 	    
-	    
 	    # SWITCHING BETWEEN GOOGLE CHROME AND CHROMIUM-BASED ENGINE
 	    
 	    if [[ "$debug" ]] ; then
@@ -704,258 +725,12 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    fi
 	    
 	    # if there are any extensions, try to save them
-	    local oldExtensions=()
-	    local myExtensionsPath="$myProfilePath/Default/Extensions"
-	    if [[ -d "$myExtensionsPath" ]] ; then
-		
-		# move into extensions directory
-		try '!1' pushd "$myExtensionsPath" \
-		    'Unable to navigate to extensions directory.'
-		
-		if [[ "$ok" ]] ; then
-		    
-		    # save extension IDs
-		    if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
-			# going to Chrome: save all extension IDs (except $$$$ TEMP Epichrome Helper)
-			allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea)'
-		    else
-			# going to Chromium: save all extension IDs, except Google Chrome-only ones (& $$$$ TEMP Epichrome Helper)
-			allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
-		    fi
-		    
-		    try 'oldExtensions=()' echo $allExcept 'Unable to get extension IDs.'
-		    
-		    # delete old extension icons from welcome page & create empty directory
-		    if [[ "$ok" && "${oldExtensions[*]}" ]] ; then
-
-			# paths to welcome page extension icons
-			local welcomeExtGenericIcon="../../../Welcome/img/ext_generic_icon.png"
-			local epiExtIconPath="$epiDataPath/$epiDataExtIconBase"
-			
-			# make sure master extension icon directory exists
-			try /bin/mkdir -p "$epiExtIconPath" \
-			    'Unable to create extension icon directory.'
-						
-			# unable to create directory for extension icons, so we have to abort
-			[[ "$ok" ]] || oldExtensions=()
-		    fi
-		    
-		    # add info for each extension to welcome page args
-		    local c
-		    local curExt curExtVersions curExtPath
-		    local mani mani_icons mani_name mani_default_locale mani_app oldIFS
-		    local curIconSrc biggestIcon
-		    local curLocale=
-		    local curExtLocalePath
-		    local curMessageID msg msg_message
-		    local iconRe='^([0-9]+):(.+)$'
-		    for curExt in "${oldExtensions[@]}" ; do
-			if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
-			    
-			    debuglog "Adding extension ID $curExt to welcome page."
-
-			    
-			    # PARSE MANIFEST
-			    
-			    # get extension version directories
-			    try 'curExtVersions=()' echo "$curExt"/* \
-				"Unable to get version for extension $curExt."
-			    if [[ ( ! "$ok" ) || ( ! "${curExtVersions[*]}" ) ]] ; then
-				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
-				myErrSomeExtensions+="$curExt"
-				ok=1 ; errmsg=
-				continue
-			    fi
-			    
-			    # get latest version path
-			    curExtPath=
-			    for c in "${curExtVersions[@]}" ; do
-				[[ "$c" > "$curExtPath" ]] && curExtPath="$c"
-			    done
-			    
-			    # read manifest
-			    try 'mani=' /bin/cat "$curExtPath/manifest.json" \
-				"Unable to read manifest for $curExt."
-			    if [[ ! "$ok" ]] ; then
-				[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
-				myErrSomeExtensions+="$curExt"
-				ok=1 ; errmsg=
-				continue
-			    fi
-			    
-			    # pull out icon and name info
-			    readjsonkeys mani icons name default_locale app
-			    
-			    
-			    # COPY BIGGEST ICON TO WELCOME PAGE (IF NOT FOUND)
-			    
-			    curExtIcon=( "$epiExtIconPath/$curExt".* )
-			    if [[ -f "${curExtIcon[0]}" ]] ; then
-
-				# there's already an icon for this ID, so use that
-				curExtIcon="${curExtIcon[0]##*/}"
-
-				debuglog "Found cached icon $curExtIcon."
-				
-			    else
-				
-				# no icon found, so we have to copy it
-
-				debuglog "No icon cached for extension $curExt. Attempting to copy from extension."
-				
-				curIconSrc=
-				biggestIcon=0
-				if [[ "$mani_icons" ]] ; then
-				    # remove all newlines
-				    mani_icons="${mani_icons//$'\n'/}"
-				    
-				    # munge entries into parsable lines
-				    oldIFS="$IFS" ; IFS=$'\n'
-				    mani_icons=( $(echo "$mani_icons" | \
-						       /usr/bin/sed -E \
-								    's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
-				    if [[ "$?" != 0 ]] ; then
-					errlog "Unable to parse icons for extension $curExt."
-					[[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
-					myErrSomeExtensions+="$curExt"
-					continue
-				    fi
-				    IFS="$oldIFS"
-				    
-				    # find biggest icon
-				    for c in "${mani_icons[@]}" ; do
-					if [[ "$c" =~ $iconRe ]] ; then
-					    if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
-						biggestIcon="${BASH_REMATCH[1]}"
-						curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
-					    fi
-					fi
-				    done
-				fi
-
-				# get full path to icon (or generic, if none found)
-				if [[ ! "$curIconSrc" ]] ; then
-				    errlog "No icon found for extension $curExt."
-				    curIconSrc="$welcomeExtGenericIcon"
-				else
-				    curIconSrc="$curExtPath/${curIconSrc#/}"
-				fi
-
-				# get welcome-page icon name
-				curExtIcon="$curExt.${curIconSrc##*.}"
-				
-				# copy icon to welcome page
-				try /bin/cp "$curIconSrc" "$epiExtIconPath/$curExtIcon" \
-				    "Unable to copy icon for extension $curExt."
-				if [[ ! "$ok" ]] ; then
-				    [[ "$myErrSomeExtensions" ]] && myErrSomeExtensions+=', '
-				    myErrSomeExtensions+="$curExt"
-				    ok=1 ; errmsg=
-				    continue
-				fi
-			    fi
-			    
-			    
-			    # GET NAME
-			    
-			    if [[ "$mani_name" =~ ^__MSG_(.+)__$ ]] ; then
-				
-				# get message ID
-				curMessageID="${BASH_REMATCH[1]}"
-				
-				# set locale if not already set
-				if [[ ! "$curLocale" ]] ; then
-				    if [[ "$LC_ALL" ]] ; then
-					curLocale="$LC_ALL"
-				    elif [[ "$LC_MESSAGES" ]] ; then
-					curLocale="$LC_MESSAGES"
-				    elif [[ "$LANG" ]] ; then
-					curLocale="$LANG"
-				    else
-					curLocale='en_US'
-				    fi
-
-				    # cut off any cruft
-				    curLocale="${curLocale%%.*}"
-				fi
-
-				# try to find the appropriate directory
-				curExtLocalePath="$curExtPath/_locales"
-				if [[ -d "$curExtLocalePath/$curLocale" ]] ; then
-				    curExtLocalePath="$curExtLocalePath/$curLocale"
-				elif [[ -d "$curExtLocalePath/${curLocale%%_*}" ]] ; then
-				    curExtLocalePath="$curExtLocalePath/${curLocale%%_*}"
-				elif [[ "$mani_default_locale" && -d "$curExtLocalePath/$mani_default_locale" ]] ; then
-				    curExtLocalePath="$curExtLocalePath/$mani_default_locale"
-				else
-				    # failed to match, so pick any
-				    for c in "$curExtLocalePath"/* ; do
-					if [[ -d "$c" ]] ; then
-					    curExtLocalePath="$c"
-					    break
-					else
-					    curExtLocalePath=
-					fi
-				    done
-				fi
-				
-				# create local variable for message
-				local "msg_${curMessageID}="
-				
-				# read in locale messages file
-				msg="$curExtLocalePath/messages.json"
-				if [[ "$curExtLocalePath" && ( -f "$msg" ) ]] ; then
-				    try 'msg=' /bin/cat "$msg" \
-					"Unable to read locale ${curExtLocalePath##*/} messages for extension $curExt. Using ID as name."
-				    if [[ "$ok" ]] ; then
-
-					# clear mani_name
-					mani_name=
-					
-					# try to pull out name message
-					readjsonkeys msg "$curMessageID"
-					eval "msg=\"\$msg_${curMessageID}\""
-					if [[ "$msg" ]] ; then
-					    readjsonkeys msg message
-					    mani_name="$msg_message"
-					fi
-
-					# check for error
-					[[ "$mani_name" ]] || \
-					    errlog "Unable to get locale ${curExtLocalePath##*/} name for extension $curExt. Using ID as name."
-				    else
-					
-					# failed to read JSON, so no name
-					mani_name=
-					ok=1 ; errmsg=
-				    fi
-				else
-				    mani_name=
-				    errlog "Unable to find locale ${curExtLocalePath##*/} messages for extension $curExt. Using ID as name."
-				fi
-			    fi
-
-
-			    # ADD EXTENSION OR APP TO WELCOME PAGE ARGS
-			    
-			    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
-			    [[ "$mani_app" ]] && myWelcomeArgs+='a=' || myWelcomeArgs+='x='
-			    myWelcomeArgs+="$(encodeurl "${curExtIcon},$mani_name")"
-			fi
-		    done
-		    
-		    # move back out of extensions directory
-		    if [[ "$ok" ]] ; then
-			try '!1' popd 'Unable to navigate away from extensions directory.'
-		    else
-			tryonerr '!1' popd 'Unable to navigate away from extensions directory.'
-		    fi
-		fi
-	    fi
-	    
-	    if [[ ! "$ok" ]] ; then
-		myErrAllExtensions=1
-		ok=1 ; errmsg=
+	    local oldExtensionArgs=
+	    getextensioninfo 'oldExtensionArgs'
+	    if [[ "$?" = 1 ]] ; then
+		local myErrAllExtensions=1
+	    elif [[ "$?" = 2 ]] ; then
+		local myErrSomeExtensions="$errmsg"
 	    fi
 	    
 	    # delete everything from Default except Local Extension Settings
@@ -968,7 +743,6 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    fi
 	    
 	else
-	    
 	    
 	    # CATCH-ALL FOR SWITCHING FROM ONE FLAVOR OF CHROMIUM TO ANOTHER
 	    
@@ -983,18 +757,6 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    fi
 	fi
 
-
-	# HANDLE NON-FATAL ERRORS
-	
-	if [[ "$myErrDelete" ]] ; then
-	    errmsg="Unable to remove old profile files. The app's settings may be corrupted and might need to be deleted."
-	elif [[ "$myErrAllExtensions" ]] ; then
-	    errmsg="Unable to save extensions that will be uninstalled in the engine change. You will have to reinstall the app's extensions manually."
-	elif [[ "$myErrSomeExtensions" ]] ; then
-	    errmsg="Unable to save some of the extensions that will be uninstalled in the engine change. You will have to reinstall the following extensions manually: $myErrSomeExtensions"
-	fi
-	
-	
 	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
 	
 	# restore extended glob
@@ -1020,19 +782,387 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    ok=1 ; errmsg=
 	fi
     fi
-
     
-    # RETURN ERROR STATE
+    
+    # REPORT NON-FATAL ERRORS
+    
+    if [[ "$myErrDelete" ]] ; then
+	errmsg="Unable to remove old profile files. The app's settings may be corrupted and might need to be deleted."
+    fi
+    if [[ "$myErrAllExtensions" ]] ; then
+	if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
+	errmsg+=" to save extensions that will be uninstalled in the engine change. You will have to reinstall the app's extensions manually."
+    elif [[ "$myErrSomeExtensions" ]] ; then
+	if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
+	errmsg="to save some of the extensions that will be uninstalled in the engine change. You will have to reinstall the following extensions manually: $myErrSomeExtensions"
+    fi
     
     [[ "$errmsg" ]] && return 1 || return 0
 }
 
 
-# CANONICALIZE -- canonicalize a path
-function canonicalize { # ( path )
-    local rp=
-    local result=$(unset CDPATH && try '!12' cd "$1" '' && try 'rp=' pwd -P '' && echo "$rp")
-    [[ "$result" ]] && echo "$result" || echo "$1"
+# GETEXTENSIONINFO -- collect info on a set of extensions & format into URL variables
+function getextensioninfo {  # ( resultVar [dir dir ...] )
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local resultVar="$1" ; shift
+    local result=
+    
+    local mySearchPaths=( "$@" )
+    if [[ "${#mySearchPaths[@]}" = 0 ]] ; then
+	mySearchPaths=( "$myProfilePath/Default" )
+    fi
+    
+    # error states
+    local myGlobalError=
+    local myFailedExtensions=()
+    local mySuccessfulExtensions=()
+    
+    # turn on nullglob & extglob
+    local myShoptState=
+    shoptset myShoptState nullglob extglob
+
+    # find all requested extensions directories
+    local myExtDirPaths=()
+    local d sd
+    for d in "${mySearchPaths[@]}" ; do
+	if [[ -d "$d/Extensions" ]] ; then
+
+	    # we're in an actual profile directory
+	    myExtDirPaths+=( "$d/Extensions" )
+	else
+
+	    # we're in a root browser data directory
+	    for sd in "$d"/* ; do
+		if [[ ( -d "$sd" ) && ( -d "$sd/Extensions" ) ]] ; then
+		    myExtDirPaths+=( "$sd/Extensions" )
+		fi
+	    done
+	fi
+    done
+    
+    # set backstop directory to return to
+    try '!1' pushd . \
+	'Unable to save working directory.'
+    if [[ ! "$ok" ]] ; then
+	ok=1 ; return 1
+    fi
+    
+    # get extension IDs, excluding weird internal Chrome ones
+    local allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+    
+    # find all valid extensions in each path
+    local myExtensions=
+    local curExtensions=()
+    local curExtDirPath=
+    local curExt=
+    for curExtDirPath in "${myExtDirPaths[@]}" ; do
+	
+	# move into this Extensions directory
+	try cd "$curExtDirPath" \
+	    "Unable to navigate to extensions directory '$curExtDirPath'."
+	if [[ ! "$ok" ]] ; then
+	    myGlobalError=1
+	    ok=1
+	    continue
+	fi
+
+	# grab all valid extension IDs
+	curExtensions=( $allExcept )
+
+	# append each one with its path
+	for curExt in "${curExtensions[@]}" ; do
+
+	    # only operate on valid extension IDs
+	    if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
+		myExtensions+="${curExt}|$curExtDirPath"$'\n'
+	    fi
+	done
+    done
+    
+    # move back out of extensions directory
+    try '!1' popd 'Unable to restore working directory.'
+    if [[ ! "$ok" ]] ; then
+	myGlobalError=1 ; ok=1
+    fi
+    
+    # sort extension IDs
+    local oldIFS="$IFS" ; IFS=$'\n'
+    curExtensions=( $(echo "$myExtensions" | \
+			  try '-1' /usr/bin/sort 'Unable to sort extensions.' ) )
+    if [[ "$?" != 0 ]] ; then
+	ok=1 ; errmsg="Unable to create list of installed extensions."
+	IFS="$oldIFS"
+	return 1
+    fi
+    IFS="$oldIFS"
+
+    # uniquify extension IDs
+    local prevExtID=
+    myExtensions=()
+    for curExt in "${curExtensions[@]}" ; do
+	
+	if [[ "$prevExtID" = "${curExt%%|*}" ]] ; then
+
+	    # already have this extension, so ignore
+	    continue
+	else
+	    prevExtID="${curExt%%|*}"
+	    myExtensions+=( "$curExt" )
+	fi
+    done
+    
+    # important paths
+    local welcomeExtGenericIcon="$SSBAppPath/Contents/$appWelcomePath/img/ext_generic_icon.png"
+    local epiExtIconPath="$epiDataPath/$epiDataExtIconBase"
+    
+    # ensure extension icons directory exists
+    if [[ "${#myExtensions[@]}" != 0 ]] ; then
+	
+	try /bin/mkdir -p "$epiExtIconPath" \
+	    'Unable to create extension icon directory.'
+	if [[ ! "$ok" ]] ; then
+	    ok=1
+	    return 1
+	fi
+    fi
+
+    
+    # GET INFO ON ALL EXTENSIONS
+
+    # status variables & constants
+    local c
+    local curExtID curExtPath curExtVersions curExtVersionPath
+    local mani mani_icons mani_name mani_default_locale mani_app
+    local curIconSrc biggestIcon
+    local curLocale=
+    local curExtLocalePath
+    local curMessageID msg msg_message
+    local iconRe='^([0-9]+):(.+)$'
+
+    # loop through every extension
+    for curExt in "${myExtensions[@]}" ; do
+	
+	debuglog "Adding extension ID $curExt to welcome page."
+
+	# break out extension ID & path
+	curExtID="${curExt%%|*}"
+	curExtPath="${curExt#*|}/$curExtID"
+	
+	
+	# PARSE EXTENSION'S MANIFEST
+	
+	# get extension version directories
+	curExtVersions=( "$curExtPath"/* )
+	if [[ ! "${curExtVersions[*]}" ]] ; then
+	    errlog "Unable to get version for extension $curExtID."
+	    myFailedExtensions+=( "$curExtID" )
+	    continue
+	fi
+	
+	# get latest version path
+	curExtVersionPath=
+	for c in "${curExtVersions[@]}" ; do
+	    [[ "$c" > "$curExtVersionPath" ]] && curExtVersionPath="$c"
+	done
+	curExtPath="$curExtVersionPath"
+	
+	# read manifest
+	try 'mani=' /bin/cat "$curExtPath/manifest.json" \
+	    "Unable to read manifest for $curExt."
+	if [[ ! "$ok" ]] ; then
+	    myFailedExtensions+=( "$curExtID" )
+	    ok=1 ; errmsg=
+	    continue
+	fi
+	
+	# pull out icon and name info
+	readjsonkeys mani icons name default_locale app
+	
+	# for now, ignore apps
+	[[ "$mani_app" ]] && continue
+	
+	
+	# COPY BIGGEST ICON TO WELCOME PAGE (IF NOT FOUND)
+	
+	curExtIcon=( "$epiExtIconPath/$curExtID".* )
+	if [[ -f "${curExtIcon[0]}" ]] ; then
+	    
+	    # there's already an icon for this ID, so use that
+	    curExtIcon="${curExtIcon[0]##*/}"
+	    
+	    debuglog "Found cached icon $curExtIcon."
+	    
+	else
+	    
+	    # no icon found, so we have to copy it
+
+	    debuglog "No icon cached for extension $curExtID. Attempting to copy from extension."
+	    
+	    curIconSrc=
+	    biggestIcon=0
+	    if [[ "$mani_icons" ]] ; then
+		# remove all newlines
+		mani_icons="${mani_icons//$'\n'/}"
+		
+		# munge entries into parsable lines
+		oldIFS="$IFS" ; IFS=$'\n'
+		mani_icons=( $(echo "$mani_icons" | \
+				   /usr/bin/sed -E \
+						's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
+		if [[ "$?" != 0 ]] ; then
+		    errlog "Unable to parse icons for extension $curExtID."
+		    myFailedExtensions+=( "$curExtID" )
+		    continue
+		fi
+		IFS="$oldIFS"
+		
+		# find biggest icon
+		for c in "${mani_icons[@]}" ; do
+		    if [[ "$c" =~ $iconRe ]] ; then
+			if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
+			    biggestIcon="${BASH_REMATCH[1]}"
+			    curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
+			fi
+		    fi
+		done
+	    fi
+	    
+	    # get full path to icon (or generic, if none found)
+	    if [[ ! "$curIconSrc" ]] ; then
+		errlog "No icon found for extension $curExtID."
+		curIconSrc="$welcomeExtGenericIcon"
+	    else
+		curIconSrc="$curExtPath/${curIconSrc#/}"
+	    fi
+	    
+	    # create welcome-page icon name
+	    curExtIcon="$curExtID.${curIconSrc##*.}"
+	    
+	    # copy icon to welcome page
+	    try /bin/cp "$curIconSrc" "$epiExtIconPath/$curExtIcon" \
+		"Unable to copy icon for extension $curExtID."
+	    if [[ ! "$ok" ]] ; then
+		myFailedExtensions+=( "$curExtID" )
+		ok=1 ; errmsg=
+		continue
+	    fi
+	fi
+	
+	
+	# GET NAME
+	
+	if [[ "$mani_name" =~ ^__MSG_(.+)__$ ]] ; then
+	    
+	    # get message ID
+	    curMessageID="${BASH_REMATCH[1]}"
+	    
+	    # set locale if not already set
+	    if [[ ! "$curLocale" ]] ; then
+		if [[ "$LC_ALL" ]] ; then
+		    curLocale="$LC_ALL"
+		elif [[ "$LC_MESSAGES" ]] ; then
+		    curLocale="$LC_MESSAGES"
+		elif [[ "$LANG" ]] ; then
+		    curLocale="$LANG"
+		else
+		    curLocale='en_US'
+		fi
+
+		# cut off any cruft
+		curLocale="${curLocale%%.*}"
+	    fi
+
+	    # try to find the appropriate directory
+	    curExtLocalePath="$curExtPath/_locales"
+	    if [[ -d "$curExtLocalePath/$curLocale" ]] ; then
+		curExtLocalePath="$curExtLocalePath/$curLocale"
+	    elif [[ -d "$curExtLocalePath/${curLocale%%_*}" ]] ; then
+		curExtLocalePath="$curExtLocalePath/${curLocale%%_*}"
+	    elif [[ "$mani_default_locale" && -d "$curExtLocalePath/$mani_default_locale" ]] ; then
+		curExtLocalePath="$curExtLocalePath/$mani_default_locale"
+	    else
+		# failed to match, so pick any
+		for c in "$curExtLocalePath"/* ; do
+		    if [[ -d "$c" ]] ; then
+			curExtLocalePath="$c"
+			break
+		    else
+			curExtLocalePath=
+		    fi
+		done
+	    fi
+	    
+	    # create local variable for message
+	    local "msg_${curMessageID}="
+	    
+	    # read in locale messages file
+	    msg="$curExtLocalePath/messages.json"
+	    if [[ "$curExtLocalePath" && ( -f "$msg" ) ]] ; then
+		try 'msg=' /bin/cat "$msg" \
+		    "Unable to read locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
+		if [[ "$ok" ]] ; then
+
+		    # clear mani_name
+		    mani_name=
+		    
+		    # try to pull out name message
+		    readjsonkeys msg "$curMessageID"
+		    eval "msg=\"\$msg_${curMessageID}\""
+		    if [[ "$msg" ]] ; then
+			readjsonkeys msg message
+			mani_name="$msg_message"
+		    fi
+
+		    # check for error
+		    [[ "$mani_name" ]] || \
+			errlog "Unable to get locale ${curExtLocalePath##*/} name for extension $curExtID. Using ID as name."
+		else
+		    
+		    # failed to read locale JSON file, so no name
+		    mani_name=
+		    ok=1 ; errmsg=
+		fi
+	    else
+		mani_name=
+		errlog "Unable to find locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
+	    fi
+	fi
+	
+	
+	# SUCCESS! ADD EXTENSION OR APP TO WELCOME PAGE ARGS
+	
+	[[ "$result" ]] && result+='&'
+	#[[ "$mani_app" ]] && myWelcomeArgs+='a=' || myWelcomeArgs+='x='
+	result+="x=$(encodeurl "${curExtIcon},$mani_name")"
+	
+	# report success
+	mySuccessfulExtensions+=( "$curExtID" )
+    done	    
+    
+    # restore nullglob and extended glob
+    shoptrestore myShoptState
+
+    # write out result variable
+    eval "${resultVar}=\"\$result\""
+    
+    # return error states
+    if [[ "$myGlobalError" || \
+	      ( "${myFailedExtensions[*]}" && ! "${mySuccessfulExtensions[*]}" ) ]] ; then
+
+	return 1
+    elif [[ "${myFailedExtensions[*]}" && "${mySuccessfulExtensions[*]}" ]] ; then
+
+	# some succeeded, some failed, so report list of failures
+	errmsg="${myFailedExtensions[*]}"
+	errmsg="${errmsg// /, }"
+	return 2
+    else
+	return 0
+    fi
 }
 
 
@@ -1094,35 +1224,20 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 }
 
 
-# GETENGINEDISPLAYNAME: try to return the display name of our engine
-function getenginedisplayname { # ( [fallback] )
+# GETBROWSERINFO: try to return info on known browsers
+function getbrowserinfo { # ( var [id] )
 
-    # fallback name to use on failure
-    local fallback="$1" ; shift
+    # arguments
+    local var="$1" ; shift
+    local id="$1" ; shift
+    
+    [[ "$id" ]] || id="${SSBEngineType#*|}"
 
-    # first try configured name
-    local result="${SSBEngineSourceInfo[$iDisplayName]}"
-
-    # no configured name
-    if [[ ! "$result" ]] ; then
-
-	# search database of compatible engines
-	local curEngine=
-	
-	for curEngine in "${appExtEngineInfo[@]}" ; do
-	    if [[ "${curEngine%%|1|*}" = "${SSBEngineType#*|}" ]] ; then
-		result="${curEngine#*|1|}"
-		result="${result%%|2|*}"
-		break
-	    fi
-	done
+    if [[ "$id" ]] ; then
+	eval "${var}=( \"\${appBrowserInfo_${id//./_}[@]}\" )"
+    else
+	eval "${var}="
     fi
-
-    # if not found in database, use fallback
-    [[ "$result" ]] || result="$fallback"
-
-    # print the result
-    echo "$result"
 }
 
 
@@ -1146,7 +1261,9 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	# otherwise, search known locations & spotlight
 	
 	# try to get the display name of the engine app
-	local engineDispName="$(getenginedisplayname)"
+	local engineDispName=
+	getbrowserinfo 'engineDispName'
+	engineDispName="${engineDispName[$iDisplayName]}"
 	
 	# if we know the name of the app, search in the usual places
 	if [[ "$engineDispName" ]] ; then
@@ -1321,31 +1438,27 @@ function linkexternalnmhs {
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # turn on nullglob
-    local shoptState=
-    shoptset shoptState nullglob
-    
     # paths to NMH directories for compatible browsers
     
     # get path to destination NMH manifest directory
     local myHostDir="$myProfilePath/$nmhDirName"
 
     # list of NMH directories to search
-    local browserNMHDirs=()
+    local myNMHBrowsers=()
     
     # favor hosts from whichever browser our engine is using
     if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 
 	# see if the current engine is in the list
 	local curBrowser= ; local i=0
-	for curBrowser in "${appExtEngineInfo[@]}" ; do
-	    if [[ "${SSBEngineType#*|}" = "$curBrowser%%|1|*" ]] ; then
-
+	for curBrowser in "${appExtEngineBrowsers[@]}" ; do
+	    if [[ "${SSBEngineType#*|}" = "$curBrowser" ]] ; then
+		
 		debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
 		
 		# engine found, so bump it to the end of the list (giving it top priority)
-		browserNMHDirs=( "${appExtEngineInfo[@]::$i}" \
-				     "${appExtEngineInfo[@]:$(($i + 1))}" \
+		myNMHBrowsers=( "${appExtEngineBrowsers[@]::$i}" \
+				     "${appExtEngineBrowsers[@]:$(($i + 1))}" \
 				     "$curBrowser" )
 		break
 	    fi
@@ -1354,36 +1467,76 @@ function linkexternalnmhs {
     fi
     
     # for internal engine, or if external engine not found, use vanilla list
-    [[ "${browserNMHDirs[*]}" ]] || browserNMHDirs=( "${appExtEngineInfo[@]}" )
+    [[ "${myNMHBrowsers[*]}" ]] || myNMHBrowsers=( "${appExtEngineBrowsers[@]}" )
     
-    # navigate to our host directory
+    # navigate to our host directory (report error)
     try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
+    if [[ ! "$ok" ]] ; then
+	ok=1 ; return 1
+    fi
+    
+    # turn on nullglob
+    local shoptState=
+    shoptset shoptState nullglob
     
     # get list of host files currently installed
     hostFiles=( * )
 
+    # collect errors
+    local myError=
+    
     # remove dead host links
     local curFile=
     for curFile in "${hostFiles[@]}" ; do
 	if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
 	    try rm -f "$curFile" "Unable to remove dead link to $curFile."
+	    if [[ ! "$ok" ]] ; then
+		[[ "$myError" ]] && myError+=' '
+		myError+="$errmsg"
+		ok=1 ; errmsg=
+		continue
+	    fi
 	fi
     done
     
     # link to hosts from both directories
+    local curHost=
     local curHostDir=
-    for curHostDir in "${browserNMHDirs[@]}" ; do
+    local curError=
+    for curHost in "${myNMHBrowsers[@]}" ; do
 
-	# get only the directory
-	curHostDir="$userSupportPath/${curHostDir#*|2|}/$nmhDirName"
+	# get only the data directory
+	getbrowserinfo 'curHostDir' "$curHost"
+	if [[ ! "${curHostDir[$iLibraryPath]}" ]] ; then
+	    curError="Unable to get data directory for browser $curHost."
+	    errlog "$curError"
+	    [[ "$myError" ]] && myError+=' '
+	    myError+="$curError"
+	    continue
+	fi
+	curHostDir="$userSupportPath/${curHostDir[$iLibraryPath]}/$nmhDirName"
 	
 	if [[ -d "$curHostDir" ]] ; then
 	    
 	    # get a list of all hosts in this directory
 	    try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
+	    if [[ ! "$ok" ]] ; then
+		[[ "$myError" ]] && myError+=' '
+		myError+="$errmsg"
+		ok=1 ; errmsg=
+		continue
+	    fi
+	    
 	    hostFiles=( * )
+	    
 	    try '!1' popd "Unable to navigate away from ${curHostDir}"
-
+	    if [[ ! "$ok" ]] ; then
+		[[ "$myError" ]] && myError+=' '
+		myError+="$errmsg"
+		ok=1 ; errmsg=
+		continue
+	    fi
+	    
 	    # link to any hosts that are not already in our directory or are
 	    # links to a different file -- this way if a given host is in
 	    # multiple NMH directories, whichever we hit last wins
@@ -1391,28 +1544,43 @@ function linkexternalnmhs {
 		if [[ ( ! -e "$curFile" ) || \
 			  ( -L "$curFile" && \
 				! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
+
 		    debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
+
+		    # symbolic link to current native messaging host
 		    try ln -sf "${curHostDir}/$curFile" "$curFile" \
 			"Unable to link to native messaging host ${curFile}."
-		    
-		    # abort on error
-		    [[ "$ok" ]] || break
+		    if [[ ! "$ok" ]] ; then
+			[[ "$myError" ]] && myError+=' '
+			myError+="$errmsg"
+			ok=1 ; errmsg=
+			continue
+		    fi
 		fi
 	    done
-	    
-	    # abort on error
-	    [[ "$ok" ]] || break
 	fi
     done
     
     # silently return to original directory
     try '!1' popd "Unable to navigate away from '$myHostDir'."
+    if [[ ! "$ok" ]] ; then
+	[[ "$myError" ]] && myError+=' '
+	myError+="$errmsg"
+	ok=1 ; errmsg=
+	continue
+    fi
     
     # restore nullglob
     shoptrestore shoptState
     
     # return success or failure
-    [[ "$ok" ]] && return 0 || return 1
+    if [[ "$myError" ]] ; then
+	errmsg="$myError"
+	return 1
+    else
+	errmsg=
+	return 0
+    fi
 }
 
 
@@ -1570,7 +1738,11 @@ function createengine {
 	    
 	    # we should already have this, so as a last ditch, ask the user to locate it
 	    local myExtEngineSourcePath=
-	    local myExtEngineName="$(getenginedisplayname "${SSBEngineType#*|}")"
+	    local myExtEngineName=
+	    getbrowserinfo 'myExtEngineName'
+	    myExtEngineName="${myExtEngineName[$iDisplayName]}"
+	    [[ "$myExtEngineName" ]] || myExtEngineName="${SSBEngineType#*|}"
+	    
 	    try 'myExtEngineSourcePath=' osascript -e \
 		"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
 		"Locate engine app dialog failed."
@@ -1795,10 +1967,12 @@ function updatecentralnmh {
     [[ "$ok" ]] || return 1
     
     # relevant paths
-    local centralNMHPath="$userSupportPath/${appExtEngineInfo[$iGoogle]#*|2|}/$nmhDirName"
+    local centralNMHPath=
+    getbrowserinfo 'centralNMHPath' 'com.google.Chrome'
+    local centralNMHPath="$userSupportPath/${centralNMHPath[$iLibraryPath]}/$nmhDirName"
     local oldManifestPath="$centralNMHPath/$nmhManifestOldFile"
     local newManifestPath="$centralNMHPath/$nmhManifestNewFile"
-
+    
     # Epichrome version and path to pull new manifest from
     local sourceVersion="$epiCurrentVersion"
     local sourcePath="$epiCurrentPath"
@@ -1891,57 +2065,8 @@ function updatecentralnmh {
 
 # GETENGINEINFO: get the PID and canonical path of the running engine
 myEnginePID= ; myEngineCanonicalPath= ; export myEnginePID myEngineCanonicalPath
-function getengineinfo { # path
-
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-    
-    # assume no PID
-    myEnginePID=
-    
-    # args (canonicalize path)
-    local path="$(canonicalize "$1")" ; shift
-    if [[ ! -d "$path" ]] ; then
-	errmsg="Unable to get canonical engine path for '$1'."
-	return 1
-    fi
-    
-    # get ASN associated with the engine's bundle path
-    local asn=
-    try 'asn=' /usr/bin/lsappinfo find "bundlepath=$path" \
-	'Error while attempting to find running engine.'
-    
-    # search for PID
-    if [[ "$ok" ]] ; then
-	
-	local info=
-	
-	# get PID for the ASN (we use try for the debugging output)
-	try 'info=' /usr/bin/lsappinfo info -only pid "$asn" ''
-	ok=1 ; errmsg=
-	
-	# if this ASN matches our bundle, grab the PID
-	re='^"pid" *= *([0-9]+)$'
-	if [[ "$info" =~ $re ]] ; then
-	    myEnginePID="${BASH_REMATCH[1]}"
-	    myEngineCanonicalPath="$path"
-	fi
-    fi
-    
-    # return result
-    if [[ "$myEnginePID" ]] ; then
-	ok=1 ; errmsg=
-	debuglog "Found running engine '$myEngineCanonicalPath' with PID $myEnginePID."
-	return 0
-    elif [[ "$ok" ]] ; then
-	debuglog "No running engine found."
-	return 0
-    else
-	# errors in this function are nonfatal; just return the error message
-	errlog "$errmsg"
-	ok=1
-	return 1
-    fi
+function getengineinfo { # ( path )
+    getrunningappinfo "$1" 'myEnginePID' 'myEngineCanonicalPath'
 }
 
 
