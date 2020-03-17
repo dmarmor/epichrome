@@ -1166,6 +1166,17 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 }
 
 
+# CANONICALIZE -- canonicalize a path
+function canonicalize { # ( path )
+    local rp=
+    local result=
+    if [[ "$path" ]] ; then
+	result=$(unset CDPATH && try '!12' cd "$1" '' && try 'rp=' pwd -P '' && echo "$rp")
+    fi
+    [[ "$result" ]] && echo "$result" || echo "$1"
+}
+
+
 # ISSAMEDEVICE -- check that two paths are on the same device
 function issamedevice { # ( path1 path2 )
     
@@ -2065,8 +2076,57 @@ function updatecentralnmh {
 
 # GETENGINEINFO: get the PID and canonical path of the running engine
 myEnginePID= ; myEngineCanonicalPath= ; export myEnginePID myEngineCanonicalPath
-function getengineinfo { # ( path )
-    getrunningappinfo "$1" 'myEnginePID' 'myEngineCanonicalPath'
+function getengineinfo { # path
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # assume no PID
+    myEnginePID=
+    
+    # args (canonicalize path)
+    local path="$(canonicalize "$1")" ; shift
+    if [[ ! -d "$path" ]] ; then
+	errmsg="Unable to get canonical engine path for '$1'."
+	return 1
+    fi
+    
+    # get ASN associated with the engine's bundle path
+    local asn=
+    try 'asn=' /usr/bin/lsappinfo find "bundlepath=$path" \
+	'Error while attempting to find running engine.'
+    
+    # search for PID
+    if [[ "$ok" ]] ; then
+	
+	local info=
+	
+	# get PID for the ASN (we use try for the debugging output)
+	try 'info=' /usr/bin/lsappinfo info -only pid "$asn" ''
+	ok=1 ; errmsg=
+	
+	# if this ASN matches our bundle, grab the PID
+	re='^"pid" *= *([0-9]+)$'
+	if [[ "$info" =~ $re ]] ; then
+	    myEnginePID="${BASH_REMATCH[1]}"
+	    myEngineCanonicalPath="$path"
+	fi
+    fi
+    
+    # return result
+    if [[ "$myEnginePID" ]] ; then
+	ok=1 ; errmsg=
+	debuglog "Found running engine '$myEngineCanonicalPath' with PID $myEnginePID."
+	return 0
+    elif [[ "$ok" ]] ; then
+	debuglog "No running engine found."
+	return 0
+    else
+	# errors in this function are nonfatal; just return the error message
+	errlog "$errmsg"
+	ok=1
+	return 1
+    fi
 }
 
 

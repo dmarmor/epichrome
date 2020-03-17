@@ -118,8 +118,9 @@ myLockFile="$myDataPath/lock" ; export myLockFile
 # (do NOT export these -- they should not be inherited)
 lockOn=
 lockPID=
-lockPath=
+lockCmd=
 lockEnginePID=
+lockEngineCmd=
 lockEnginePath=
 
 # LOCKSET -- set a lock file, or fail if it's already set
@@ -151,52 +152,25 @@ function lockset {
 	    
 	else
 
-	    local curPID=
-	    local curPath=
+	    local curCmd=
 	    
 	    # if lock's app (or helper) is still alive, we fail
 	    if kill -0 "$lockPID" 2> /dev/null ; then
 
-		# if this is the helper app, we need to use ps
-		# since the helper executable is a script
-
-		# see if this is the helper
-		local epiHelperRe="${appHelperPath//\//\\/}"
-		epiHelperRe="${epiHelperRe//./\\.}\$"
-		if [[ "$lockPath" =~ $epiHelperRe ]] ; then
-
-		    # get ps info for the lock PID
-		    local epiHelperPS=
-		    try 'epiHelperPS=' /bin/ps -o command -p "$lockPID" \
-			"Unable to get process info for PID $lockPID"
-		    if [[ "$ok" ]] ; then
-
-			# check if the process is in fact the helper
-			epiHelperRe="${lockPath//\//\\/}"
-			epiHelperRe="${epiHelperRe//./\\.}"
-			if [[ "$epiHelperPS" =~ $epiHelperRe ]] ; then
-			    debuglog "Can't set lock: Another instance of this app's helper is alive at $lockPID."
-			    return 1
-			fi
-		    else
-			
-			# error on ps, so just assume the process isn't alive
-			ok=1 ; errmsg=
-		    fi
-		elif getrunningappinfo "$lockPath" curPID curPath && \
-			[[ "$curPID" = "$lockPID" ]] ; then
-
-		    # it's really this app that's already running
-		    debuglog "Can't set lock: Another instance of this app is alive at $lockPID."
+		# see if the command for the lock PID matches the lock command
+		getlockcmd "$lockPID" curCmd
+		if [[ "$curCmd" = "$lockCmd" ]] ; then
+		    debuglog "Can't set lock: this app (or its helper) is alive at $lockPID."
 		    return 1
 		fi
 	    fi
 	    
 	    # if the lock's engine is still alive, we fail
 	    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-		if getrunningappinfo "$lockEnginePath" curPID curPath && \
-			[[ "$curPID" = "$lockEnginePID" ]] ; then
-		    
+		
+		# see if the command for the lock engine PID matches the lock engine command
+		getlockcmd "$lockEnginePID" curCmd
+		if [[ "$curCmd" = "$lockEngineCmd" ]] ; then
 		    debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
 		    return 1
 		fi
@@ -205,9 +179,14 @@ function lockset {
     fi
     
     # if we got here, there's either no lock, or we can stomp on an old one
-    lockPID="$$" ; lockPath="$myAppPath" ; lockEnginePID= ; lockEnginePath=
-    writevars "$myLockFile" lockPID lockPath lockEnginePID lockEnginePath
-    savelog
+
+    # reinitialize log
+    [[ "$logPreserve" ]] || initlog
+
+    # set lock variables and write out lock
+    lockPID="$$" ; lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
+    getlockcmd "$lockPID" lockCmd
+    writevars "$myLockFile" lockPID lockCmd lockEnginePID lockEngineCmd lockEnginePath
     [[ "$ok" ]] || return 1
     
     # return success
@@ -261,9 +240,29 @@ function lockrelease {
 	return 1
     fi
 }
-
-# export lock functions
 export -f lockrelease
+
+
+# GETLOCKCMD -- get the ps listing for a PID
+function getlockcmd {  # ( pid var )
+
+    # arguments
+    local pid="$1" ; shift
+    local var="$1" ; shift
+    
+    # try to get pid
+    local psOutput=()
+    try 'psOutput=(n)' /bin/ps -o command -p "$pid" \
+	"Unable to get process info for PID $pid."
+
+    if [[ "$ok" ]] ; then
+	eval "${var}=\"\${psOutput[1]}\""
+    else
+	eval "${var}="
+	ok=1 ; errmsg=
+    fi
+}
+export -f getlockcmd
 
 
 # MAIN BODY
@@ -323,11 +322,6 @@ fi
 
 
 # ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
-
-# REINITIALIZE LOG
-
-# if we're not keeping logs, clear it now
-[[ "$logPreserve" ]] || initlog
 
 
 # READ CURRENT APP SETTINGS
