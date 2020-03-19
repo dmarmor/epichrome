@@ -80,6 +80,7 @@ ifeq ($(CHROMIUM_VERSION),ERROR)
 $(error Unable to retrieve Chromium version from $(CHROMIUM))
 endif
 
+
 # BRAVE ENGINE
 
 BRAVE:=$(shell ls Engines/Brave* 2> /dev/null | sort -r | head -n 1)
@@ -228,19 +229,19 @@ build/epichrome-$(VERSION)-main.pkg: $(APP)
 	@cd build ; rmdir -p package/Applications/Epichrome/EpichromeEngines.noindex
 
 build/resources/background.png: ../images/package/background$(BETA).png
-	@mkdir -p build/resources
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 build/resources/welcome.rtf: src/package/welcome.rtf src/version.sh
-	@mkdir -p build/resources
+	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
 build/resources/license.rtf: src/package/license.rtf src/version.sh
-	@mkdir -p build/resources
+	@mkdir -p '$(dir $@)'
 	sed 's/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 build/resources/readme.rtf: src/package/readme.rtf src/version.sh
-	@mkdir -p build/resources
+	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
 build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/package/requirements.plist
@@ -336,6 +337,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/AppExec \
 	$(APP_RNTM)/Filter/epichromeruntimehost.py \
 	$(APP_RNTM)/Filter/welcome.html \
+	$(APP_RNTM)/Filter/Bookmarks \
 	\
 	$(APP_RNTM)/Icons/app.icns \
 	$(APP_RNTM)/Icons/document.icns \
@@ -349,7 +351,8 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
 	\
-	$(APP_RNTM)/Contents/Resources/External\ Extensions/$(EXTN_ID_RELEASE).json \
+	$(APP_RNTM)/Contents/Resources/Profile/Prefs/prefs_com_brave_Browser.json \
+	$(APP_RNTM)/Contents/Resources/Profile/Prefs/prefs_com_google_Chrome.json \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
 	\
@@ -403,36 +406,36 @@ main:
 # MAIN APP BUNDLE ELEMENTS
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
-	@mkdir -p $(APP_CT)
+	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/applet.icns: build/icons/epichrome$(BETA).icns
-	@mkdir -p $(APP_CT)/Resources
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 $(APP_CT)/Resources/docbg.png: ../images/icons/docbg.png
-	@mkdir -p $(APP_CT)/Resources
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 $(APP_CT)/Resources/Scripts/version.sh: src/version.sh
-	@mkdir -p $(APP_CT)/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	touch -c build/icons/*
 	cp '$<' '$@'
 
 $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
-	@mkdir -p $(APP_CT)/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
-	@mkdir -p $(APP_CT)/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 $(APP_CT)/Resources/Scripts/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
-	@mkdir -p $(APP_CT)/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		-e 's/EPIDEBUG/$(DEBUG_PY)/g' \
 		-e 's/APPID//g' \
@@ -487,26 +490,26 @@ runtime:
 # RUNTIME FILTER ELEMENTS
 
 $(APP_RNTM)/Filter/Info.plist: src/Info.plist.runtime src/version.sh
-	@mkdir -p $(APP_RNTM)/Filter
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_RNTM)/Filter/AppExec: src/AppExec src/version.sh
-	@mkdir -p $(APP_RNTM)/Filter
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
 
 $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
-	@mkdir -p $(APP_RNTM)/Filter
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_PY)/g' $< > $@
 
 
 # RUNTIME ICONS
 
 $(APP_RNTM)/Icons/%.icns: build/icons/%$(BETA).icns
-	@mkdir -p $(APP_RNTM)/Icons
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@' 
 
 build/icons/%.icns: ../images/icons/%.png
-	@mkdir -p build/icons
+	@mkdir -p '$(dir $@)'
 	src/makeicon.sh -f $< $@
 
 
@@ -516,52 +519,59 @@ $(APP_RNTM_HLPR): | $(APP_RNTM_HLPR_CT)/Info.plist \
 	$(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper
 
 $(APP_RNTM_HLPR_CT)/Info.plist: src/helper/Info.plist
-	@mkdir -p $(APP_RNTM_HLPR_CT)
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
-	@mkdir -p $(APP_RNTM_HLPR_CT)/MacOS
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@' 
 
 
 # RUNTIME SCRIPTS
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Scripts
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@' 
+
+
+# PROFILE FILES
+
+$(APP_RNTM)/Filter/Bookmarks: src/profile/bookmarks.json
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@' 
+
+$(APP_RNTM)/Contents/Resources/Profile/Prefs/%.json: src/profile/%.json
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@' 
 
 
 # CHROME EXTENSION
 
 $(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/version.sh
-	@mkdir -p $(APP_RNTM)/Contents/Resources/NMH
+	@mkdir -p '$(dir $@)'
 	sed -E -e 's/EPIVERSION/$(VERSION)/g; s/EPIRUNTIMEIDS/$(NMH_EXTN_IDS)/' $< > $@
-
-$(APP_RNTM)/Contents/Resources/External\ Extensions/$(EXTN_ID_RELEASE).json: src/install-extension.json
-	@mkdir -p '$(APP_RNTM)/Contents/Resources/External Extensions'
-	cp '$<' '$@'
 
 
 # WELCOME PAGE
 
 $(APP_RNTM)/Filter/welcome.html: src/welcome/welcome.html
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome
+	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIMAJORVERSION/$(VERSIONMAJOR)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Welcome/welcome.%: src/welcome/welcome.%
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@' 
 
 $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichrome_icon.png
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome/img
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 $(APP_RNTM)/Contents/Resources/Welcome/img/%: src/welcome/img/%
-	@mkdir -p $(APP_RNTM)/Contents/Resources/Welcome/img
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 build/img/epichrome_icon.png: ../images/icons/app.png
-	@mkdir -p build/img
+	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 
 
@@ -569,7 +579,7 @@ build/img/epichrome_icon.png: ../images/icons/app.png
 
 build/engine/%:
 	@rm -rf build/engine/$*
-	@mkdir -p build/engine
+	@mkdir -p '$(dir $@)'
 	tar xzvf '$<' --cd build/engine
 
 
@@ -662,12 +672,12 @@ engine: build/engine/Brave
 	@touch $(APP_RNTM)/Engine/Payload
 
 $(APP_RNTM)/Engine/Filter/PlaceholderExec: src/PlaceholderExec src/version.sh
-	@mkdir -p $(APP_RNTM)/Engine/Filter
+	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSION)/g' $< > $@
 
 
 # *** LEGACY UPDATE CODE ***
 
 $(APP_RNTM)/Resources/Scripts/runtime.sh: src/runtime.sh
-	@mkdir -p $(APP_RNTM)/Resources/Scripts
+	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'

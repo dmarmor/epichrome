@@ -32,7 +32,7 @@ function checkParams () {
 
     // default to new app message
     var messageClass = null;
-
+    
     // default to no user changes
     var hasUserChanges = false;
     
@@ -50,59 +50,65 @@ function checkParams () {
 	if (!messageClass) { messageClass = 'change'; }
 	if (oldEngine) {
 	    document.getElementById('oldengine').innerHTML = oldEngine;
-	    setDisplay(document.getElementById('hasoldengine'), 'inline');
+	    setDisplay(document.getElementById('hasoldengine'));
 	}
 	if (newEngine) {
 	    document.getElementById('newengine').innerHTML = newEngine;
-	    setDisplay(document.getElementById('hasnewengine'), 'inline');
+	    setDisplay(document.getElementById('hasnewengine'));
 	}
 
-	// show engine-change message
-	setDisplay(document.getElementById('change_engine'), 'list-item');
-	hasUserChanges = true;
+	// show engine-change items
+	setDisplay(document.getElementsByClassName('change_engine'));
+	hasUserChanges = true;	
+    }
+    
+    // show any extensions passed to us
+    var extensions = urlParams.getAll('x');
+    var apps = urlParams.getAll('a');
+    if ((extensions.length > 0) || (apps.length > 0)) {
 	
-	// show password-import action item
-	setDisplay(document.getElementById('passwords'), 'flex');
-
-	// show deleted extensions
-	var extensions = urlParams.getAll('x');
-	var apps = urlParams.getAll('a');
-	if ((extensions.length > 0) || (apps.length > 0)) {
-	    
-	    // prepare extensions & app lists
-	    var extNode = document.getElementById('extension_dummy');
-	    var extListNode = extNode.parentNode;
-	    var extIconTemplate = extNode.getElementsByClassName('extension_icon')[0].dataset.template;
-	    extListNode.removeChild(extNode);
-	    extNode.removeAttribute('id');
-	    var appListNode = document.getElementById('app_list');
-
-	    // if both extensions & apps, reveal category headers
-	    if ((extensions.length > 0) && (apps.length > 0)) {
-		setDisplay(extListNode.getElementsByClassName('extlist_title')[0], 'block');
-		setDisplay(appListNode.getElementsByClassName('extlist_title')[0], 'block');
-	    }
-	    
-	    // populate extensions list
-	    populateExtList(extListNode, extNode, extIconTemplate, extensions);
-	    
-	    // populate extensions list
-	    populateExtList(appListNode, extNode, extIconTemplate, apps);
-	    
-	    // show extension-reinstall action item
-	    setDisplay(document.getElementById('extensions'), 'flex');
+	// prepare extensions & app lists
+	var extNode = document.getElementById('extension_dummy');
+	var extListNode = extNode.parentNode;
+	var extIconTemplate = extNode.getElementsByClassName('extension_icon')[0].dataset.template;
+	extListNode.removeChild(extNode);
+	extNode.removeAttribute('id');
+	var appListNode = document.getElementById('app_list');
+	
+	// reveal elements needed when we have extensions
+	if (extensions.length > 0) {
+	    setDisplay(document.getElementsByClassName('has_exts'));
 	}
+	// reveal elements needed when we have apps
+	if (apps.length > 0) {
+	    console.log("showing apps");
+	    setDisplay(document.getElementsByClassName('has_apps'));
+	}
+	// reveal elements needed when we have both extensions & apps
+	if ((extensions.length > 0) && (apps.length > 0)) {
+	    console.log("showing boths");
+	    setDisplay(document.getElementsByClassName('has_exts_apps'));
+	}
+	
+	// populate extensions list
+	populateExtList(extListNode, extNode, extIconTemplate, extensions);
+	
+	// populate extensions list
+	populateExtList(appListNode, extNode, extIconTemplate, apps);
+	
+	// show extension-reinstall action item
+	setDisplay(document.getElementById('extensions'));
     }
     
     // show appropriate messages
     if (messageClass) {
-	setDisplay(document.getElementsByClassName('new'), 'none');
-	setDisplay(document.getElementsByClassName(messageClass), 'flex');
+	setDisplay(document.getElementsByClassName('new'), false);
+	setDisplay(document.getElementsByClassName(messageClass));
     }
-
+    
     // show user changes if needed
     if (hasUserChanges) {
-	setDisplay(document.getElementById('changes_user'), 'flex');
+	setDisplay(document.getElementById('changes_user'));
     }
 
     // renumber actions list
@@ -132,15 +138,23 @@ function checkParams () {
 }
 
 
-function setDisplay(nodes, displayMode) {
-    var nodeArray;
+function setDisplay(nodes, displayMode = true) {
+
+    // make sure nodes is iterable
     if (nodes instanceof Node) {
-	nodeArray = [ nodes ];
-    } else {
-	nodeArray = Array.from(nodes);
+	nodes = [ nodes ];
     }
-    for (var i = 0; i < nodeArray.length; i++) {
-	nodeArray[i].style.display = displayMode;
+
+    // iterate & set display style
+    var onMode
+    for (let curNode of nodes) {
+	if (!displayMode) {
+	    curNode.style.display = 'none';
+	} else if (displayMode == true) {
+	    curNode.style.display = getComputedStyle(curNode).getPropertyValue("--display-on");
+	} else {
+	    curNode.style.display = displayMode;
+	}
     }
 }
 

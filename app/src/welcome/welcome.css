@@ -23,19 +23,21 @@
 
 /* DEFAULT TO NEW APP INFO */
 
-.new {
+div.new {
     display: flex;
 }
-.update {
+.update, .change, .change_engine, .moved {
     display: none;
 }
-.change, #changes_user.change {
-    display: none;
+span {
+    --display-on: inline;
 }
-.moved {
-    display: none;
+div {
+    --display-on: flex;
 }
-
+li {
+    --display-on: list-item;
+}
 body {
     font-family: 'Helvetica Neue', 'Lucida Grande', sans-serif;
     padding: 0;
@@ -56,11 +58,10 @@ h2 {
     /* margin-bottom: 0.8em; */
 }
 h3 {
-    /* color: black; */
     font-size: 105%;
     font-weight: bold;
     text-decoration: underline;
-    /* margin-bottom: 0.8em; */
+    --display-on: block;
 }
 /* h1, h2, h3 { */
 /*     -webkit-user-select: none; */
@@ -70,6 +71,7 @@ h3 {
 p {
     margin-top: 0;
     margin-bottom: 1em;
+    --display-on: block;
 }
 a {
     font-weight: bold;
@@ -331,6 +333,9 @@ a:visited {
     width: 100%;
 }
 
+#extensions, .has_exts, .has_apps, .has_exts_apps {
+    display: none;
+}
 div.extlist {
     display: none; /* flex */
     flex-direction: column;

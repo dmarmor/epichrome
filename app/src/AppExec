@@ -324,6 +324,12 @@ fi
 # ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
 
 
+# LOAD LAUNCH FUNCTIONS
+
+safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
+[[ "$ok" ]] || abort
+
+
 # READ CURRENT APP SETTINGS
 
 # add extra config vars for external engine
@@ -349,7 +355,32 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     
     # show welcome page
     showWelcomePage=1
-    [[ "$SSBLastRunVersion" ]] && myWelcomeArgs="u=$(encodeurl "$SSBLastRunVersion")"
+
+    # show welcome page for new app or update
+    if [[ "$SSBLastRunVersion" ]] ; then
+
+	# update
+	myWelcomeArgs="u=$(encodeurl "$SSBLastRunVersion")"
+	
+    else
+
+	# new app
+
+	# collect data directories for all known browsers
+	extDirs=()
+	for browser in "${appExtEngineBrowsers[@]}" ; do
+	    getbrowserinfo browserInfo "$browser"
+	    if [[ "${browserInfo[$iLibraryPath]}" ]] ; then
+		browserInfo="$userSupportPath/${browserInfo[$iLibraryPath]}"
+		[[ -d "$browserInfo" ]] && extDirs+=( "$browserInfo" )
+	    else
+		debuglog "Unable to get info on browser ID $browser."
+	    fi
+	done
+
+	# mine extensions from all browsers
+	getextensioninfo myWelcomeArgs "${extDirs[@]}"
+    fi
     
     # update last run variables
     SSBLastRunVersion="$SSBVersion"
@@ -369,12 +400,6 @@ fi
 # UPDATE APP PATH
     
 SSBAppPath="$myAppPath"
-
-
-# LOAD LAUNCH FUNCTIONS
-
-safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
-[[ "$ok" ]] || abort
 
 
 # GET EPICHROME INFO
@@ -681,7 +706,10 @@ if [[ "$SSBEngineType" = 'internal|org.chromium.Chromium' ]] ; then
 fi
 
 # build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
-myArgs=( "${argsOptions[@]}" '--enable-features=PasswordImport' "${SSBCommandLine[@]}" )
+myArgs=( "${argsOptions[@]}" \
+	     '--no-default-browser-check' \
+	     '--enable-features=PasswordImport' \
+	     "${SSBCommandLine[@]}" )
 
 # engine is not running, so launch as usual (still sending URIs to engine)
 try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \

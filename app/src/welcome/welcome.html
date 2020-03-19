@@ -77,7 +77,7 @@
 	    <div id="changes_user" class="change_list">
 	      <h2>Changes to This App</h2>
 	      <ul>
-		<li id="change_engine">The app engine has changed <span id="hasoldengine">from <span id="oldengine"></span></span> <span id="hasnewengine">to <span id="newengine"></span></span></li>
+		<li class="change_engine">The app engine has changed <span id="hasoldengine">from <span id="oldengine"></span></span> <span id="hasnewengine">to <span id="newengine"></span></span></li>
 	      </ul>
 	    </div> <!-- #changes_user -->
 	    
@@ -167,7 +167,7 @@
 	      </div>
 	      
 	      <!-- IMPORT PASSWORDS -->
-	      <div id="passwords" class="engine item">
+	      <div id="passwords" class="change_engine item">
 		<div id="passwords_num" class="itemnum">0</div>
 		<div class="action_container">
 		  <h3>Restore Saved Passwords</h3>
@@ -180,12 +180,14 @@
 	      <div id="extensions" class="item">
 		<div id="extensions_num" class="itemnum">0</div>
 		<div class="action_container">
-		  <h3>Reinstall Extensions &amp; Apps</h3>
-		  <p>Because the app engine changed, you&rsquo;ll need to reinstall these extensions (once they&rsquo;re installed, their settings should return).</p>
+		  <h3><span class="new">Install Browser</span><span class="update change">Reinstall</span> <span class="has_exts">Extensions</span><span class="has_exts_apps"> &amp; </span><span class="has_apps">Apps</span></h3>
+		  <p class="new">You may want to install some or all of these <span class="has_exts">extensions</span><span class="has_exts_apps"> and </span><span class="has_apps">apps</span> found in your regular browsers.</p>
+		  <p class="update">In case any of your <span class="has_exts">extensions</span><span class="has_exts_apps"> or </span><span class="has_apps">apps</span> were lost in the update, you can reinstall them from here (once they&rsquo;re installed, their settings should return).</p>
+		  <p class="change_engine">Because the app engine changed, you&rsquo;ll need to reinstall your <span class="has_exts">extensions</span><span class="has_exts_apps"> and </span><span class="has_apps">apps</span> (once they&rsquo;re installed, their settings should return).</p>
 
 		  <!-- EXTENSIONS -->
-		  <div id="extension_list" class="extlist">
-		    <h3 class="extlist_title">Extensions:</h3>
+		  <div id="extension_list" class="extlist has_exts">
+		    <h3 class="exts_apps">Extensions:</h3>
 		    <!-- dummy extension -->
 		    <div id="extension_dummy" class="extension">
 		      <img class="extension_icon" data-template="img/ext/EXTICON" />
@@ -195,8 +197,8 @@
 		  </div>
 
 		  <!-- APPS -->
-		  <div id="app_list" class="extlist">
-		    <h3 class="extlist_title">Apps:</h3>
+		  <div id="app_list" class="extlist has_apps">
+		    <h3 class="has_exts_apps">Apps:</h3>
 		  </div>
 
 		</div>

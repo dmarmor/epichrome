@@ -1,0 +1,18 @@
+{
+    "session": {
+        "restore_on_startup": 5
+    },
+    "bookmark_bar": {
+	"show_on_all_tabs": true
+    },
+    "brave": {
+	"brave_ads": {
+            "enabled": false,
+            "should_show_first_launch_notification": false
+	},
+	"hide_brave_rewards_button": true
+    },    
+    "distribution": {
+	"suppress_first_run_bubble": true
+    }
+}

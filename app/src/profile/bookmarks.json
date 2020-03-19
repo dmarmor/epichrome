@@ -1,0 +1,24 @@
+{
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "name": "APPDISPLAYNAME App Info",
+            "type": "url",
+            "url": "WELCOMEURL"
+         } ],
+         "name": "Bookmarks Bar",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "name": "Other Bookmarks",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "name": "Mobile Bookmarks",
+         "type": "folder"
+      }
+   },
+   "version": 1
+}

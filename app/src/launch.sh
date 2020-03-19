@@ -54,7 +54,8 @@ appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
 appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
 					   '' 'Brave' 'Brave Browser' \
 					   '' '' '' '' \
-					   'BraveSoftware/Brave-Browser' )
+					   'BraveSoftware/Brave-Browser' \
+					   'Chromium Master Preferences' )
 appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
 					   '' 'Chromium' 'Chromium' \
 					   '' '' '' '' \
@@ -62,7 +63,8 @@ appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
 appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
 					   '' 'Chrome' 'Google Chrome' \
 					   '' '' '' '' \
-					   'Google/Chrome' )
+					   'Google/Chrome' \
+					   'Google Chrome Master Preferences' )
 
 # native messaging host manifests
 nmhDirName=NativeMessagingHosts
@@ -70,7 +72,7 @@ nmhManifestNewID="org.epichrome.runtime"
 nmhManifestOldID="org.epichrome.helper"
 nmhManifestNewFile="$nmhManifestNewID.json"
 nmhManifestOldFile="$nmhManifestOldID.json"
-#readonly userSupportPath nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
+#readonly nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
 
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
@@ -732,9 +734,14 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    elif [[ "$?" = 2 ]] ; then
 		local myErrSomeExtensions="$errmsg"
 	    fi
-	    
-	    # delete everything from Default except Local Extension Settings
-	    allExcept='!(Local?Extension?Settings)'
+
+	    # add to welcome page args
+	    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
+	    myWelcomeArgs+="$oldExtensionArgs"
+
+	    # delete everything from Default except:
+	    #  Bookmarks, Favicons, History, Local Extension Settings
+	    allExcept='!(Bookmarks|Favicons|History|Local?Extension?Settings)'
 	    try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
 		'Error deleting files in profile Default directory.'
 	    if [[ ! "$ok" ]] ; then
@@ -767,21 +774,21 @@ function updateprofiledir {  # ( [isAppChanged] )
     
     # (RE)POPULATE PROFILE DIRECTORY
     
-    # path to First Run file
-    local firstRunFile="$myProfilePath/First Run"
+    # # path to First Run file
+    # local firstRunFile="$myProfilePath/First Run"
     
-    # make sure directory exists and is minimally populated
-    if [[ ! -e "$firstRunFile" ]] ; then
+    # # make sure directory exists and is minimally populated
+    # if [[ ! -e "$firstRunFile" ]] ; then
 	
-	# $$$ GET RID OF THIS AND USE MASTER PREFS??
+    # 	# $$$ GET RID OF THIS AND USE MASTER PREFS??
 	
-	# set First Run file so engine doesn't think it's a new profile (fail silently)
-	try /usr/bin/touch "$myProfilePath/First Run" ''
-	if [[ ! "$ok" ]] ; then
-	    errlog 'Unable to create first run marker.'
-	    ok=1 ; errmsg=
-	fi
-    fi
+    # 	# set First Run file so engine doesn't think it's a new profile (fail silently)
+    # 	try /usr/bin/touch "$myProfilePath/First Run" ''
+    # 	if [[ ! "$ok" ]] ; then
+    # 	    errlog 'Unable to create first run marker.'
+    # 	    ok=1 ; errmsg=
+    # 	fi
+    # fi
     
     
     # REPORT NON-FATAL ERRORS

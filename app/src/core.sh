@@ -42,14 +42,12 @@ export debug logPreserve
 # icon names
 [[ "$CFBundleIconFile" ]] || CFBundleIconFile="app.icns"
 [[ "$CFBundleTypeIconFile" ]] || CFBundleTypeIconFile="document.icns"
-#readonly CFBundleIconFile CFBundleTypeIconFile
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
 [[ "$appIDRoot" ]] || appIDRoot='org.epichrome'
 [[ "$appIDBase" ]] || appIDBase="$appIDRoot.app"
 [[ "$appEngineIDBase" ]] || appEngineIDBase="$appIDRoot.eng"
-#readonly appIDRoot appIDBase appEngineIDBase
 export appIDRoot appIDBase appEngineIDBase
 
 # app internal paths
@@ -60,7 +58,6 @@ export appIDRoot appIDBase appEngineIDBase
 [[ "$appNMHFile" ]] || appNMHFile='epichromeruntimehost.py'
 [[ "$appWelcomePath" ]] || appWelcomePath='Resources/Welcome'
 [[ "$appWelcomePage" ]] || appWelcomePage='welcome.html'
-#readonly appHelperPath appEnginePath appEnginePayloadPath appEnginePlaceholderPath appNMHFile
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
@@ -68,7 +65,6 @@ epiDataPath="$userSupportPath/Epichrome"
 appDataPathBase="$epiDataPath/Apps"
 epiDataExtIconBase="ExtensionIcons"
 
-#readonly userSupportPath epiDataPath appDataPath
 export userSupportPath epiDataPath appDataPath
 
 # indices for SSBEngineSourceInfo
@@ -81,13 +77,13 @@ iAppIconFile=5
 iDocIconFile=6
 iPath=7
 iLibraryPath=8
-#readonly iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath iLibraryPath
-export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath iLibraryPath
+iMasterPrefsFile=9
+export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath \
+       iLibraryPath iMasterPrefsFile
 
 # internal Epichrome engines
 #epiEngineSource=( org.chromium.Chromium Chromium Chromium Chromium )
 epiEngineSource=( com.brave.Browser 'Brave Browser' Brave 'Brave Browser' )
-#readonly epiEngineSource
 
 
 # CORE CONFIG VARIABLES
