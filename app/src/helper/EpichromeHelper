@@ -105,7 +105,7 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     # wait for parent to quit
     debuglog "Waiting for parent app (PID $epiHelperParentPID) to quit..."
     while kill -0 "$epiHelperParentPID" 2> /dev/null ; do
-	sleep .66
+	pause 1  # $$$ sleep .66
     done
 
     # relaunch
@@ -128,7 +128,7 @@ else
     # wait for app to exit
     debuglog "Waiting for engine to quit..."
     while kill -0 "$myEnginePID" 2> /dev/null ; do
-	sleep .66
+	pause 1  # $$$ sleep .66
     done
 
     # deactivate engine and quit

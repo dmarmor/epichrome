@@ -110,6 +110,9 @@ if [[ "$SSBIdentifier" ]] ; then
 
     # set up this app's data path
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
+
+    # pausing without spawning sleep processes
+    [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/pause"
     
     # logging
     [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
@@ -120,7 +123,7 @@ if [[ "$SSBIdentifier" ]] ; then
     myProfilePath="$myDataPath/UserData"
     
     # export all to helper
-    export myDataPath myLogID myLogFile myConfigFile myProfilePath
+    export myDataPath myPauseFifo myLogID myLogFile myConfigFile myProfilePath
 else
 
     # we're running from Epichrome.app
@@ -576,35 +579,32 @@ function try {
 } ; export ok errmsg ; export -f try
 
 
-# TRYONERR -- like TRY above, but it only runs if there's already been an error
-function tryonerr {
+# TRYALWAYS -- like TRY above, but runs even if there's already been an error
+function tryalways {
     
-    # try a command, but only if there's already been an error
+    # try a command whether we're OK or not
     
-    if [[ ! "$ok" ]] ; then
-	
-	# save old error message
-	local olderrmsg="$errmsg"
-	
-	# run the command
-	ok=1
-	errmsg=
-	try "$@"
-	local result="$?"
-	ok=
-	
-	# add new error message
-	if [[ "$errmsg" ]] ; then
-	    errmsg="$olderrmsg $errmsg"
-	else
-	    errmsg="$olderrmsg"
-	fi
-	
-	return "$result"
-    fi
+    # save old try state
+    local oldok="$ok" ; ok=1
+    local olderrmsg="$errmsg" ; errmsg=
+    
+    # run the command
+    try "$@"
+    local result="$?"
 
-    return 0
-} ; export -f tryonerr
+    # restore OK state
+    [[ ! "$oldok" ]] && ok=
+    
+    # combine error messages
+    if [[ "$errmsg" && "$olderrmsg" ]] ; then
+	errmsg="$olderrmsg Also: $errmsg"
+    elif [[ "$olderrmsg" ]] ; then
+	errmsg="$olderrmsg"
+    fi
+    
+    return "$result"
+    
+} ; export -f tryalways
 
 
 # SAFESOURCE -- safely source a script
@@ -663,6 +663,10 @@ function cleanexit { # [code]
     if [[ "$( type -t cleanup )" = function ]] ; then
 	cleanup "$myCode"
     fi
+
+    # delete any pause fifo
+    [[ -p "$myPauseFifo" ]] && tryalways /bin/rm -f "$myPauseFifo" \
+					 'Unable to delete pause FIFO.'
     
     # exit
     exit "$myCode"
@@ -712,6 +716,34 @@ function abortsilent { # ( [myErrMsg myCode] )
 }
 
 export -f abort abortsilent
+
+
+# PAUSE -- sleep for the specified number of seconds (without spawning /bin/sleep processes)
+function pause {  # ( seconds )
+
+    # create pause fifo if needed
+    if [[ ! -p "$myPauseFifo" ]] ; then
+
+	# try to create fifo, and on failure just sleep
+	try /usr/bin/mkfifo "$myPauseFifo" 'Unable to create pause FIFO.'
+	if [[ ! "$ok" ]] ; then
+	    ok=1 ; errmsg=
+	fi
+    fi
+    
+    if [[ -p "$myPauseFifo" ]] ; then
+	
+	# we have a fifo, so sleep using read
+	read -t "$1" <>"$myPauseFifo"
+	return 0
+    else
+
+	# no fifo, so spawn a process
+	/bin/sleep "$1"
+	return 1
+    fi
+}
+export -f pause
 
 
 # SHOPTSET -- set shell options that can then be restored with shoptrestore
@@ -827,7 +859,7 @@ function permanent {
 	    
 	    # move old permanent file back
 	    if [[ "$permOld" ]] ; then
-		tryonerr /bin/mv "$permOld" "$perm" "Also unable to restore old $filetype."
+		tryalways /bin/mv "$permOld" "$perm" "Unable to restore old $filetype."
 	    fi
 	    
 	    # delete temp file
@@ -847,11 +879,7 @@ function rmtemp {
 
     # delete the temp file
     if [ -e "$temp" ] ; then
-	if [[ "$ok" ]] ; then
-	    try /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
-	else
-	    tryonerr /bin/rm -rf "$temp" "Also unable to remove temporary $filetype."
-	fi
+	tryalways /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
     fi
     
     [[ "$ok" ]] && return 0

@@ -74,6 +74,10 @@ nmhManifestNewFile="$nmhManifestNewID.json"
 nmhManifestOldFile="$nmhManifestOldID.json"
 #readonly nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
 
+# first-run files
+myFirstRunFile="$myProfilePath/First Run"
+myPreferencesFile="$myProfilePath/Default/Preferences"
+
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
 
@@ -707,9 +711,9 @@ function updateprofiledir {  # ( [isAppChanged] )
 	# remove all of the UserData directory except Default
 	local allExcept='!(Default)'
 	try /bin/rm -rf "$myProfilePath/"$allExcept \
-	    'Error deleting files in profile directory.'
+	    'Error deleting top-level files.'
 	if [[ ! "$ok" ]] ; then
-	    myErrDelete=1
+	    myErrDelete="$errmsg"
 	    ok=1 ; errmsg=
 	fi
 	
@@ -743,9 +747,9 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    #  Bookmarks, Favicons, History, Local Extension Settings
 	    allExcept='!(Bookmarks|Favicons|History|Local?Extension?Settings)'
 	    try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
-		'Error deleting files in profile Default directory.'
+		'Error deleting browser profile files.'
 	    if [[ ! "$ok" ]] ; then
-		myErrDelete=1
+		[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
 		ok=1 ; errmsg=
 	    fi
 	    
@@ -757,9 +761,9 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    
 	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
 	    try /bin/rm -f "$myProfilePath/Default/Login Data"* \
-		'Error deleting login data from profile Default directory.'
+		'Error deleting login data.'
 	    if [[ ! "$ok" ]] ; then
-		myErrDelete=1
+		[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
 		ok=1 ; errmsg=
 	    fi
 	fi
@@ -772,7 +776,18 @@ function updateprofiledir {  # ( [isAppChanged] )
     fi
     
     
-    # (RE)POPULATE PROFILE DIRECTORY
+    # SET UP PROFILE DIRECTORY
+    
+    if [[ ! ( -e "$myFirstRunFile" && -e "$myPreferencesFile" ) ]] ; then
+
+	# we're missing either First Run or Prefs file, so delete both
+	try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
+	    'Error deleting first-run files.'
+	if [[ ! "$ok" ]] ; then
+	    [[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
+	    ok=1 ; errmsg=
+	fi
+    fi
     
     # # path to First Run file
     # local firstRunFile="$myProfilePath/First Run"
@@ -794,7 +809,7 @@ function updateprofiledir {  # ( [isAppChanged] )
     # REPORT NON-FATAL ERRORS
     
     if [[ "$myErrDelete" ]] ; then
-	errmsg="Unable to remove old profile files. The app's settings may be corrupted and might need to be deleted."
+	errmsg="Unable to remove old profile files. ($myErrDelete) The app's settings may be corrupted and might need to be deleted."
     fi
     if [[ "$myErrAllExtensions" ]] ; then
 	if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
@@ -2077,6 +2092,119 @@ function updatecentralnmh {
 		   "$nmhManifestNewID" "$nmhManifestOldID"
     fi
 
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# SETMASTERPREFS: if needed, install master prefs to central engine data directory
+myMasterPrefsState=
+function setmasterprefs {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # initialize state
+    myMasterPrefsState=
+    
+    if [[ ! ( -e "$myFirstRunFile" || -e "$myPreferencesFile" ) ]] ; then
+
+	# this looks like a first run, so set master prefs
+	debuglog "Setting master prefs for new profile."
+	
+	# get path to master prefs file for this engine
+	local myEngineBrowser=
+	getbrowserinfo myEngineBrowser
+	local myEngineMasterPrefsFile="$userSupportPath/${myEngineBrowser[$iLibraryPath]}/${myEngineBrowser[$iMasterPrefsFile]}"
+	local mySavedMasterPrefsFile="$myDataPath/${myEngineBrowser[$iMasterPrefsFile]}"
+
+	# backup browser's master prefs
+	if [[ -e "$myEngineMasterPrefsFile" ]] ; then
+
+	    debuglog "Backing up browser master prefs."
+	    
+	    try /bin/mv -f "$myEngineMasterPrefsFile" "$mySavedMasterPrefsFile" \
+		'Unable to back up browser master prefs.'
+	fi
+	
+	# install our master prefs
+	try /bin/cp "$SSBAppPath/Contents/Resources/Profile/Prefs/prefs_${myEngineBrowser[$iID]//./_}.json" \
+	    "$myEngineMasterPrefsFile" \
+	    'Unable to install app master prefs.'
+	
+	if [[ "$ok" ]] ; then
+
+	    # success! set state
+	    myMasterPrefsState=( "$myEngineMasterPrefsFile" "$mySavedMasterPrefsFile" )
+	    
+	else
+	    
+	    # on error, restore any backup we just made
+	    if [[ -e "$mySavedMasterPrefsFile" && ! -e "$myEngineMasterPrefsFile" ]] ; then
+		tryalways /bin/mv -f "$mySavedMasterPrefsFile" "$myEngineMasterPrefsFile" \
+			  'Unable to restore browser master prefs.'
+	    fi
+
+	    return 1
+	fi
+    else
+
+	# return state for no master prefs installed
+	return 2
+    fi
+
+    return 0
+}
+
+
+# CLEARMASTERPREFS: wait for master prefs to be read, then clear master prefs file
+function clearmasterprefs {
+
+    # only run if we have actually set the master prefs
+    if [[ "$myMasterPrefsState" ]] ; then
+
+	if [[ ! -e "$myPreferencesFile" ]] ; then
+	    
+	    # wait for Preferences file to appear
+	    debuglog "Waiting for app prefs to appear..."
+	    
+	    local attempt=
+	    for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
+		sleep .5
+		[[ -e "$myPreferencesFile" ]] && break
+	    done
+
+	    if [[ ! -e "$myPreferencesFile" ]] ; then
+
+		ok= ; errmsg="Timed out waiting for app prefs to appear."
+		errlog "$errmsg"
+	    fi
+	fi
+	
+	if [[ -e "${myMasterPrefsState[1]}" ]] ; then
+	    
+	    # backup found, so restore browser master prefs
+	    debuglog "Restoring browser master prefs."
+	    
+	    tryalways /bin/mv -f "${myMasterPrefsState[1]}" "${myMasterPrefsState[0]}" \
+		      'Unable to restore browser master prefs.'
+	    
+	    # on any error, remove any remaining backup master prefs
+	    [[ "$ok" ]] || tryalways /bin/rm -f "${myMasterPrefsState[1]}" \
+				     'Unable to remove backup browser master prefs.'
+	    
+	else
+	    # no backup, so just remove app master prefs
+	    debuglog "Removing app master prefs."
+	    
+	    tryalways /bin/rm -f "${myMasterPrefsState[0]}" \
+		      'Unable to remove app master prefs.'
+	fi
+		
+	# clear state
+	myMasterPrefsState=	
+    fi
+
+    # return error state
     [[ "$ok" ]] && return 0 || return 1
 }
 

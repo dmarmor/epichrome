@@ -213,16 +213,14 @@ function lockrelease {
 	    
 	    if [[ "$ok" ]] ; then
 		
-		try "${myCommand[@]}" 'Unable to delete old lock file.'
-		
-		# error is non-fatal: log error message, then clear error
+		# error is non-fatal
+		try "${myCommand[@]}" 'Unable to delete old lock file.'		
 		if [[ ! "$ok" ]] ; then
-		    errlog "$errmsg"
 		    ok=1 ; errmsg=
 		fi
 		
 	    else
-		tryonerr "${myCommand[@]}" 'Also unable to delete old lock file.'
+		tryalways "${myCommand[@]}" 'Unable to delete old lock file.'
 	    fi
 	    
 	    return 0
@@ -699,11 +697,11 @@ fi
 # LAUNCH APP ENGINE
 
 # export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
-if [[ "$SSBEngineType" = 'internal|org.chromium.Chromium' ]] ; then
-    export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
-    export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
-    export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
-fi
+# if [[ "$SSBEngineType" = 'internal|org.chromium.Chromium' ]] ; then
+#     export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
+#     export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
+#     export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
+# fi
 
 # build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
 myArgs=( "${argsOptions[@]}" \
@@ -711,9 +709,39 @@ myArgs=( "${argsOptions[@]}" \
 	     '--enable-features=PasswordImport' \
 	     "${SSBCommandLine[@]}" )
 
-# engine is not running, so launch as usual (still sending URIs to engine)
+
+# temporarily install master prefs if needed
+masterPrefsSet=
+setmasterprefs
+if [[ "$ok" ]] ; then
+    masterPrefsSet=1
+else
+    alert "Unable to initialize app settings. ($errmsg) Some app settings may need to be adjusted." \
+	  'Warning' '|caution'
+    ok=1 ; errmsg=
+fi
+
+# launch engine
 try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \
     'Unable to launch app.'
+launchSuccess="$ok"
+
+# uninstall master prefs (if installed, and even if launch failed)
+if [[ "$masterPrefsSet" ]] ; then
+
+    # run as if we're OK
+    [[ ! "$launchSuccess" ]] && ok=1
+    clearmasterprefs
+
+    # errors clearing master prefs are nonfatal
+    if [[ ! "$ok" ]] ; then
+	ok=1 ; errmsg=
+    fi
+
+    # restore OK state
+    ok="$launchSuccess"
+fi
+
 [[ "$ok" ]] || abort
 
 # show welcome page if needed
@@ -724,9 +752,9 @@ if [[ "$showWelcomePage" ]] ; then
 
     debuglog "Showing welcome page with URL file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs"
     
-    # pause to allow the app to open
-    sleep 1.5   #  $$$$$ FIX OR REMOVE
-
+    # pause to allow the app to open $$$$$ ADJUST OR REMOVE
+    sleep 1.5
+    
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
 	"--user-data-dir=$myProfilePath" "file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs" \
