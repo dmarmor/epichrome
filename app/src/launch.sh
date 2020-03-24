@@ -604,23 +604,22 @@ function checkgithubupdate {
 
 
 # UPDATEDATADIR -- make sure an app's data directory is ready for the run
-function updatedatadir { # ( [isAppChanged] )
+function updatedatadir {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
     errmsg=
-    
-    # is this the first run on a new version or new engine?
-    local isAppChanged="$1" ; shift
     
     # if we don't have a data path, abort (safety check before rm -rf)
     if ! checkpath "$myDataPath" "$appDataPathBase" ; then
 	ok= ; errmsg='Data path is not properly set!'
 	return 1
     fi
+
     
-    # do any first-run actions
-    if [[ "$isAppChanged" ]] ; then
+    # UPDATE DATA DIRECTORY FOR NEW VERSION
+    
+    if [[ "$myStatusNewVersion" ]] ; then
 		
 	# $$$ temporary -- remove old-style engine directory
 	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
@@ -635,12 +634,13 @@ function updatedatadir { # ( [isAppChanged] )
 	    fi
 	fi
     fi
-
+    
     
     # UPDATE WELCOME PAGE
     
-    if [[ "$isAppChanged" || ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
-
+    if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
+	      ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
+	
 	debuglog 'Updating welcome page.'
 	
 	# copy welcome page into data directory
@@ -662,8 +662,88 @@ function updatedatadir { # ( [isAppChanged] )
 }
 
 
-# UPDATEPROFILEDIR -- ensure the profile directory exists & is ready for this run
-function updateprofiledir {  # ( [isAppChanged] )
+# SETWELCOMEPAGE -- configure any welcome page to be shown on this run
+#                   sets myStatusWelcomeURL & myStatusWelcomeArgs
+function setwelcomepage {
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # base welcome page URL
+    local baseURL="file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')"
+    
+    if [[ "$myStatusNewApp" ]] ; then
+	
+	# simplest case: new app
+	myStatusWelcomeURL="$baseURL"
+	myStatusWelcomeTitle="App Created ($SSBVersion)"
+	myStatusWelcomeArgs="?v=$(encodeurl "$SSBVersion")"
+	
+    elif [[ "$myStatusNewVersion" ]] ; then
+	
+	# updated app
+	myStatusWelcomeURL="$baseURL"
+	myStatusWelcomeTitle="App Updated ($myStatusNewVersion -> $SSBVersion)"
+	myStatusWelcomeArgs="?ov=$(encodeurl "$myStatusNewVersion")&v=$(encodeurl "$SSBVersion")"
+	
+    elif [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
+	
+	# reset profile
+	myStatusWelcomeURL="$baseURL"
+	myStatusWelcomeTitle="App Settings Reset"
+	myStatusWelcomeArgs="?r=1&v=$(encodeurl "$SSBVersion")"
+	
+    fi
+    
+    if [[ "$myStatusEngineChange" ]] ; then
+	
+	# engine change
+	if [[ ! "$myStatusWelcomeURL" ]] ; then
+
+	    # this is the only trigger to show the page
+	    myStatusWelcomeURL="$baseURL"
+	    myStatusWelcomeTitle="App Engine Changed ($SSBLastRunEngineInfo -> ${SSBEngineSourceInfo[$iName]})"
+	fi
+	
+	# set up arguments
+	[[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
+	myStatusWelcomeArgs+="oe=$(encodeurl "$SSBLastRunEngineInfo")&ne=$(encodeurl "${SSBEngineSourceInfo[$iName]}")"
+    fi
+    
+    # if we're already showing a page, check for extensions
+    if [[ "$myStatusWelcomeURL" && \
+	      ( ! -d "$myProfilePath/Default/Extensions" ) ]] ; then
+
+	# no extensions, so give the option to install them
+	
+	# collect data directories for all known browsers
+	extDirs=()
+	for browser in "${appExtEngineBrowsers[@]}" ; do
+	    getbrowserinfo browserInfo "$browser"
+	    if [[ "${browserInfo[$iLibraryPath]}" ]] ; then
+		browserInfo="$userSupportPath/${browserInfo[$iLibraryPath]}"
+		[[ -d "$browserInfo" ]] && extDirs+=( "$browserInfo" )
+	    else
+		debuglog "Unable to get info on browser ID $browser."
+	    fi
+	done
+	
+	# mine extensions from all browsers
+	local extArgs=
+	getextensioninfo extArgs "${extDirs[@]}"
+
+	if [[ "$extArgs" ]] ; then
+	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
+	    myStatusWelcomeArgs+="xi=1&$extArgs"
+	fi
+    fi
+    
+    return 0
+}
+
+
+# UPDATEPROFILEDIR -- ensure the profile directory is ready for this run
+function updateprofiledir {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -685,24 +765,24 @@ function updateprofiledir {  # ( [isAppChanged] )
 	# if we couldn't create the directory, that's a fatal error
 	[[ "$ok" ]] || return 1
     fi
-    
+
+    # error states
+    local myErrDelete=
+    local myErrAllExtensions=
+    local myErrSomeExtensions=
+    local myErrBookmarks=
+
     
     # CLEAN UP PROFILE DIRECTORY ON ENGINE CHANGE
     
     errmsg=
     
-    # triple check the directory as we're using rm -rf
-    if [[ "$SSBLastRunEngineType" && \
-	      ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) && \
+    # triple check the directory as we're using rm -rf  $$$$ USE STATUS VAR INSTEAD
+    if [[ "$myStatusEngineChange" && \
 	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
 	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) ]] ; then
 	
-	debuglog "Switching engines from ${SSBLastRunEngineType#*|} to ${SSBEngineType#*|}. Cleaning up profile directory."
-	
-	# error states
-	local myErrDelete=
-	local myErrAllExtensions=
-	local myErrSomeExtensions=
+	debuglog "Switching engines from ${myStatusEngineChange[$iID]} to ${SSBEngineType#*|}. Cleaning up profile directory."
 	
 	# turn on extended glob
 	local shoptState=
@@ -717,18 +797,12 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    ok=1 ; errmsg=
 	fi
 	
-	if [[ ( "${SSBLastRunEngineType#*|}" = 'com.google.Chrome' ) || \
+	if [[ ( "${myStatusEngineChange[$iID]}" = 'com.google.Chrome' ) || \
 		  ( "${SSBEngineType#*|}" = 'com.google.Chrome' ) ]] ; then
 	    
 	    # SWITCHING BETWEEN GOOGLE CHROME AND CHROMIUM-BASED ENGINE
 	    
-	    if [[ "$debug" ]] ; then
-		if [[ "${SSBEngineType#*|}" = 'com.google.Chrome' ]] ; then
-		    errlog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to Google Chrome engine."
-		else
-		    errlog "Preparing profile directory for switch from Google Chrome to ${SSBEngineSourceInfo[$iName]} engine."
-		fi
-	    fi
+	    debuglog "Clearing profile directory for engine switch between incompatible engines ${myStatusEngineChange[$iID]} and ${SSBEngineType#*|}."
 	    
 	    # if there are any extensions, try to save them
 	    local oldExtensionArgs=
@@ -738,10 +812,10 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    elif [[ "$?" = 2 ]] ; then
 		local myErrSomeExtensions="$errmsg"
 	    fi
-
+	    
 	    # add to welcome page args
-	    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
-	    myWelcomeArgs+="$oldExtensionArgs"
+	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
+	    myStatusWelcomeArgs+="$oldExtensionArgs"
 
 	    # delete everything from Default except:
 	    #  Bookmarks, Favicons, History, Local Extension Settings
@@ -757,7 +831,7 @@ function updateprofiledir {  # ( [isAppChanged] )
 	    
 	    # CATCH-ALL FOR SWITCHING FROM ONE FLAVOR OF CHROMIUM TO ANOTHER
 	    
-	    debuglog "Preparing profile directory for switch from ${SSBLastRunEngineType#*|} to ${SSBEngineSourceInfo[$iName]} engine."
+	    debuglog "Clearing profile directory for engine switch between compatible engines ${myStatusEngineChange[$iID]} and ${SSBEngineType#*|}."
 	    
 	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
 	    try /bin/rm -f "$myProfilePath/Default/Login Data"* \
@@ -777,7 +851,8 @@ function updateprofiledir {  # ( [isAppChanged] )
     
     
     # SET UP PROFILE DIRECTORY
-    
+
+    # if this is our first-run, get Preferences and First Run file in consistent state
     if [[ ! ( -e "$myFirstRunFile" && -e "$myPreferencesFile" ) ]] ; then
 
 	# we're missing either First Run or Prefs file, so delete both
@@ -789,27 +864,98 @@ function updateprofiledir {  # ( [isAppChanged] )
 	fi
     fi
     
-    # # path to First Run file
-    # local firstRunFile="$myProfilePath/First Run"
     
-    # # make sure directory exists and is minimally populated
-    # if [[ ! -e "$firstRunFile" ]] ; then
+    # INSTALL/UPDATE BOOKMARKS FILE
+    
+    if [[ "$myStatusWelcomeURL" ]] ; then
 	
-    # 	# $$$ GET RID OF THIS AND USE MASTER PREFS??
-	
-    # 	# set First Run file so engine doesn't think it's a new profile (fail silently)
-    # 	try /usr/bin/touch "$myProfilePath/First Run" ''
-    # 	if [[ ! "$ok" ]] ; then
-    # 	    errlog 'Unable to create first run marker.'
-    # 	    ok=1 ; errmsg=
-    # 	fi
-    # fi
+	local myBookmarksFile="$myProfilePath/Default/Bookmarks"
+
+	if [[ ! -e "$myBookmarksFile" ]] ; then
+
+	    # no bookmarks found, create new file with welcome page
+	    
+	    debuglog 'Creating new app bookmarks.'
+	    
+            filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
+		       "$myBookmarksFile" \
+		       'bookmarks file' \
+		       APPWELCOMETITLE "App Created ($SSBVersion)" \
+		       APPWELCOMEURL "$myStatusWelcomeURL$myStatusWelcomeArgs"
+	    if [[ ! "$ok" ]] ; then
+
+		# non-serious error, fail silently
+		myErrBookmarks=1
+		ok=1 ; errmsg=
+	    fi
+	else
+
+	    # bookmarks found, so try to add welcome page to our folder
+
+	    debuglog 'Adding welcome page to app bookmarks.'
+	    
+	    # regex for parsing bookmarks JSON file
+	    local s="[[:space:]]*"
+	    local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?(.*[^[:blank:]])(([[:blank:]]*)}$s]$s,[^]}]*"'"guid"'"$s:$s"'"e91c4703-ee91-c470-3ee9-1c4703ee91c4"[^]}]*"type"'"$s:$s"'"folder".*)$'
+	    
+	    # read in bookmarks file
+	    local bookmarksJson=
+	    try 'bookmarksJson=' /bin/cat "$myBookmarksFile" \
+		'Unable to read in app bookmarks.'
+
+	    if [[ "$ok" ]] ; then
+		if [[ "$bookmarksJson" =~ $bookmarkRe ]] ; then
+		    
+		    bookmarksJson=
+		    
+		    # if there's a checksum, remove it
+		    [[ "${BASH_REMATCH[1]}" ]] && bookmarksJson="${BASH_REMATCH[2]}"
+		    
+		    bookmarksJson+="${BASH_REMATCH[3]}${BASH_REMATCH[5]}}, {
+${BASH_REMATCH[5]}    \"name\": \"$myStatusWelcomeTitle\",
+${BASH_REMATCH[5]}    \"type\": \"url\",
+${BASH_REMATCH[5]}    \"url\": \"$myStatusWelcomeURL$myStatusWelcomeArgs\"
+${BASH_REMATCH[4]}"
+
+		    # write bookmarks file back out
+		    try "${myBookmarksFile}<" echo "$bookmarksJson" \
+			'Error writing out app bookmarks file.'
+		    if [[ ! "$ok" ]] ; then
+			myErrBookmarks="$errmsg"
+			ok=1 ; errmsg=
+		    fi
+		else
+		    debuglog 'Welcome page folder not found in app bookmarks.'
+		fi
+	    else
+		
+		# non-serious error, fail silently
+		myErrBookmarks=1
+		ok=1 ; errmsg=
+	    fi
+	fi
+
+	# handle error adding page to bookmarks
+	if [[ "$myErrBookmarks" ]] ; then
+
+	    # let the page know bookmark was not stored
+	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
+	    myStatusWelcomeArgs+='b=0'
+
+	    # clear non-serious errors
+	    [[ "$myErrBookmarks" = 1 ]] && myErrBookmarks=
+	fi
+    fi
     
     
     # REPORT NON-FATAL ERRORS
     
     if [[ "$myErrDelete" ]] ; then
 	errmsg="Unable to remove old profile files. ($myErrDelete) The app's settings may be corrupted and might need to be deleted."
+    fi
+    if [[ "$myErrBookmarks" ]] ; then
+	if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
+	errmsg+=" to write to the bookmarks file. The app's bookmarks may be lost."
     fi
     if [[ "$myErrAllExtensions" ]] ; then
 	if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
@@ -1158,7 +1304,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	# SUCCESS! ADD EXTENSION OR APP TO WELCOME PAGE ARGS
 	
 	[[ "$result" ]] && result+='&'
-	#[[ "$mani_app" ]] && myWelcomeArgs+='a=' || myWelcomeArgs+='x='
+	#[[ "$mani_app" ]] && myStatusWelcomeArgs+='a=' || myStatusWelcomeArgs+='x='
 	result+="x=$(encodeurl "${curExtIcon},$mani_name")"
 	
 	# report success
@@ -1403,10 +1549,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 
 
 # INSTALLNMH -- install native messaging host
-function installnmh {  # ( [ISFIRSTRUN] )
-
-    # arguments
-    local isFirstRun="$1" ; shift
+function installnmh {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -1419,8 +1562,9 @@ function installnmh {  # ( [ISFIRSTRUN] )
     # determine which manifests to update
     local updateOldManifest=
     local updateNewManifest=
-    if [[ "$isFirstRun" || ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
-
+    if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
+	      ( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
+	
 	# this is the first run on a new version, or app has moved, so update both
 	updateOldManifest=1
 	updateNewManifest=1

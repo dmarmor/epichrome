@@ -1,24 +1,29 @@
 {
-   "roots": {
-      "bookmark_bar": {
-         "children": [ {
-            "name": "APPDISPLAYNAME App Info",
-            "type": "url",
-            "url": "WELCOMEURL"
-         } ],
-         "name": "Bookmarks Bar",
-         "type": "folder"
-      },
-      "other": {
-         "children": [  ],
-         "name": "Other Bookmarks",
-         "type": "folder"
-      },
-      "synced": {
-         "children": [  ],
-         "name": "Mobile Bookmarks",
-         "type": "folder"
-      }
-   },
-   "version": 1
+    "roots": {
+	"bookmark_bar": {
+            "children": [ {
+		"children": [ {
+		    "name": "APPWELCOMETITLE",
+		    "type": "url",
+		    "url": "APPWELCOMEURL"
+		} ],
+		"guid": "e91c4703-ee91-c470-3ee9-1c4703ee91c4",
+		"name": "APPBUNDLENAME Info",
+		"type": "folder"
+            } ],
+            "name": "Bookmarks Bar",
+            "type": "folder"
+	},
+	"other": {
+            "children": [  ],
+            "name": "Other Bookmarks",
+            "type": "folder"
+	},
+	"synced": {
+            "children": [  ],
+            "name": "Mobile Bookmarks",
+            "type": "folder"
+	}
+    },
+    "version": 1
 }

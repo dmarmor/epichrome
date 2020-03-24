@@ -341,43 +341,31 @@ else
     debuglog "No configuration file found."
 fi
 
-# determine if this is our first run on a new version
-isFirstRun=
-isAppChanged=
-showWelcomePage=
-myWelcomeArgs=
-if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
-    # mark as first run
-    isFirstRun=1
-    isAppChanged=1
-    
-    # show welcome page
-    showWelcomePage=1
 
-    # show welcome page for new app or update
+# APP STATUS VARIABLES
+
+myStatusNewApp=        # on new app, this is set
+myStatusNewVersion=    # on update, this contains old version
+myStatusEngineChange=  # on engine change, this contains old engine info
+myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
+myStatusWelcomeArgs=   # any arguments for welcome URL
+myStatusWelcomeTitle=  # title for URL bookmark
+
+
+# DETERMINE IF THIS IS A NEW APP OR FIRST RUN ON A NEW VERSION
+
+if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
+    
     if [[ "$SSBLastRunVersion" ]] ; then
 
-	# update
-	myWelcomeArgs="u=$(encodeurl "$SSBLastRunVersion")"
+	# updated app
+	myStatusNewVersion="$SSBLastRunVersion"
 	
     else
 
 	# new app
-
-	# collect data directories for all known browsers
-	extDirs=()
-	for browser in "${appExtEngineBrowsers[@]}" ; do
-	    getbrowserinfo browserInfo "$browser"
-	    if [[ "${browserInfo[$iLibraryPath]}" ]] ; then
-		browserInfo="$userSupportPath/${browserInfo[$iLibraryPath]}"
-		[[ -d "$browserInfo" ]] && extDirs+=( "$browserInfo" )
-	    else
-		debuglog "Unable to get info on browser ID $browser."
-	    fi
-	done
-
-	# mine extensions from all browsers
-	getextensioninfo myWelcomeArgs "${extDirs[@]}"
+	myStatusNewApp=1
+	
     fi
     
     # update last run variables
@@ -388,11 +376,22 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     SSBNMHInstallError=
 fi
 
-# if nothing configured for last-run engine, set it to current engine
-[[ "$SSBLastRunEngineType" ]] || SSBLastRunEngineType="$SSBEngineType"
 
-# if there's no profile directory, trigger first-run welcome message
-[[ -d "$myProfilePath" ]] || showWelcomePage=1
+# DETEMINE IF WE'VE JUST CHANGED ENGINES
+
+if [[ "$SSBLastRunEngineType" && \
+	  ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
+    
+    # mark engine change
+    myStatusEngineChange=( "${SSBLastRunEngineType#*|}" '' "$SSBLastRunEngineInfo" )
+    
+    # clear extension install error state
+    SSBNMHInstallError=
+    
+fi
+
+# update last-run engine
+SSBLastRunEngineType="$SSBEngineType"
 
 
 # UPDATE APP PATH
@@ -537,40 +536,30 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 fi
 
 
-# HANDLE ENGINE CHANGE
+# UPDATE LAST-RUN ENGINE INFO
 
-if [[ "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ]] ; then
-    
-    # mark engine change
-    isAppChanged=1
-    
-    # show welcome page
-    showWelcomePage=1
-    [[ "$myWelcomeArgs" ]] && myWelcomeArgs+='&'
-    myWelcomeArgs+="oe=$(encodeurl "$SSBLastRunEngineInfo")&ne=$(encodeurl "${SSBEngineSourceInfo[$iName]}")"
-        
-    # clear extension install error state
-    SSBNMHInstallError=
-    
-fi
+SSBLastRunEngineInfo="${SSBEngineSourceInfo[$iName]}"
 
 
-# POPULATE DATA DIRECTORY
+# PREPARE DATA DIRECTORY
 
 # update the data directory
-if ! updatedatadir "$isAppChanged" ; then
+if ! updatedatadir ; then
     [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
 fi
 [[ "$ok" ]] || abort
 
+# set any welcome page
+setwelcomepage
+
 # update the profile directory
-if ! updateprofiledir "$isAppChanged" ; then
+if ! updateprofiledir ; then
     [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
 fi
 [[ "$ok" ]] || abort
 
 # install native messaging host, reporting non-fatal errors
-installnmh "$isFirstRun"
+installnmh
 if [[ ! "$ok" ]] ; then    
     if [[ "$SSBNMHInstallError" != "$errmsg" ]] ; then
 	
@@ -592,30 +581,32 @@ if ! linkexternalnmhs ; then
 fi
 
 
-# UPDATE LAST-RUN ENGINE INFO
-
-SSBLastRunEngineType="$SSBEngineType"
-SSBLastRunEngineInfo="${SSBEngineSourceInfo[$iName]}"
-
-
 # CREATE OR UPDATE ENGINE IF NECESSARY
 
 # flag whether we need to (re)create the engine and/or activate it
 doCreateEngine=
 doNotActivateEngine=
 
-if [[ "$isFirstRun" ]] ; then
+if [[ "$myStatusNewApp" ]] ; then
+
+    # new app, so of course we need an engine
+    doCreateEngine=1
+    debuglog "Creating engine for new app."
+    createEngineErrMsg="Unable to create engine for new app"
     
-    # this app was updated, so we need a new engine
+elif [[ "$myStatusNewVersion" ]] ; then
+
+    # app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
-elif [[ "$isAppChanged" ]] ; then
+    
+elif [[ "$myStatusEngineChange" ]] ; then
 
     # this app was changed, so we need a new engine
     doCreateEngine=1
-    debuglog "App has changed. Updating engine."
-    createEngineErrMsg="Unable to update engine for changed app"
+    debuglog "App engine type has changed. Updating engine."
+    createEngineErrMsg="Unable to update engine to new type"
     
 else
     
@@ -709,7 +700,6 @@ myArgs=( "${argsOptions[@]}" \
 	     '--enable-features=PasswordImport' \
 	     "${SSBCommandLine[@]}" )
 
-
 # temporarily install master prefs if needed
 masterPrefsSet=
 setmasterprefs
@@ -721,7 +711,7 @@ else
     ok=1 ; errmsg=
 fi
 
-# launch engine
+# LAUNCH ENGINE
 try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \
     'Unable to launch app.'
 launchSuccess="$ok"
@@ -745,19 +735,16 @@ fi
 [[ "$ok" ]] || abort
 
 # show welcome page if needed
-if [[ "$showWelcomePage" ]] ; then
+if [[ "$myStatusWelcomeURL" ]] ; then
 
-    # set up arguments
-    [[ "$myWelcomeArgs" ]] && myWelcomeArgs="?$myWelcomeArgs"
-
-    debuglog "Showing welcome page with URL file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs"
+    debuglog "Showing welcome page ($myStatusWelcomeURL$myStatusWelcomeArgs)."
     
-    # pause to allow the app to open $$$$$ ADJUST OR REMOVE
+    # pause to allow the app to open $$$$$ TRY TO DETECT RATHER THAN WAIT?
     sleep 1.5
     
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	"--user-data-dir=$myProfilePath" "file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')$myWelcomeArgs" \
+	"--user-data-dir=$myProfilePath" "$myStatusWelcomeURL$myStatusWelcomeArgs" \
 	'Unable to open welcome page.'
 
     # handle error

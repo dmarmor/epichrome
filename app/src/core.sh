@@ -58,6 +58,8 @@ export appIDRoot appIDBase appEngineIDBase
 [[ "$appNMHFile" ]] || appNMHFile='epichromeruntimehost.py'
 [[ "$appWelcomePath" ]] || appWelcomePath='Resources/Welcome'
 [[ "$appWelcomePage" ]] || appWelcomePage='welcome.html'
+[[ "$appBookmarksFile" ]] || appBookmarksFile='Bookmarks'
+[[ "$appBookmarksPath" ]] || appBookmarksPath="Resources/Profile/$appBookmarksFile"
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"

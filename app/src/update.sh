@@ -378,6 +378,14 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	       'welcome page' \
 	       APPDISPLAYNAME "$CFBundleDisplayName"
     
+    
+    # FILTER PROFILE BOOKMARKS FILE INTO PLACE
+    
+    filterfile "$updateEpichromeRuntime/Filter/$appBookmarksFile" \
+	       "$contentsTmp/$appBookmarksPath" \
+	       'bookmarks template' \
+	       APPBUNDLENAME "$CFBundleName"
+    
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
 
