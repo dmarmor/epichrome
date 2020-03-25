@@ -131,7 +131,7 @@ function vcmp { # ( version1 operator version2 )
 		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} ))
 	    else
 		# release version
-		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} + 999 ))
+		vnums[$i]=$(( ${vnums[$i]} + 999 ))
 	    fi
 	else
 	    # no version
@@ -662,36 +662,63 @@ function updatedatadir {
 }
 
 
+# ADDURLARGS -- add URL args to a variable
+function addurlargs {  # ( var arg [arg ...] )
+
+    # arguments
+    local var="$1" ; shift
+    
+    # get current args & set concatenator
+    local result= ; eval "result=\"\$$var\""
+    local concat=
+    [[ "$result" ]] && concat='&' || concat=''
+
+    # add each arg, encoding for URL
+    local curArg=
+    for curArg in "$@" ; do
+	result+="${concat}${curArg%%=*}=$(encodeurl "${curArg#*=}")"
+	concat='&'
+    done
+
+    # update variable
+    eval "${var}=\"\$result\""
+}
+
+
 # SETWELCOMEPAGE -- configure any welcome page to be shown on this run
-#                   sets myStatusWelcomeURL & myStatusWelcomeArgs
+#                   sets myStatusWelcomeURL
 function setwelcomepage {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # base welcome page URL
-    local baseURL="file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')"
+    # basic welcome page URL
+    local baseURL="file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')?v=$SSBVersion&e=$(encodeurl "$SSBEngineType")"
     
     if [[ "$myStatusNewApp" ]] ; then
 	
 	# simplest case: new app
 	myStatusWelcomeURL="$baseURL"
 	myStatusWelcomeTitle="App Created ($SSBVersion)"
-	myStatusWelcomeArgs="?v=$(encodeurl "$SSBVersion")"
 	
     elif [[ "$myStatusNewVersion" ]] ; then
 	
 	# updated app
-	myStatusWelcomeURL="$baseURL"
+	myStatusWelcomeURL="$baseURL&ov=$(encodeurl "$myStatusNewVersion")"
 	myStatusWelcomeTitle="App Updated ($myStatusNewVersion -> $SSBVersion)"
-	myStatusWelcomeArgs="?ov=$(encodeurl "$myStatusNewVersion")&v=$(encodeurl "$SSBVersion")"
 	
-    elif [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
-	
+    fi
+    
+    if [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
+    
 	# reset profile
-	myStatusWelcomeURL="$baseURL"
-	myStatusWelcomeTitle="App Settings Reset"
-	myStatusWelcomeArgs="?r=1&v=$(encodeurl "$SSBVersion")"
+	if [[ ! "$myStatusWelcomeURL" ]] ; then
+	    myStatusWelcomeURL="$baseURL"
+	    myStatusWelcomeTitle="App Settings Reset"
+	fi
+
+	# add reset argument
+	myStatusWelcomeURL+='&r=1'
 	
     fi
     
@@ -706,8 +733,7 @@ function setwelcomepage {
 	fi
 	
 	# set up arguments
-	[[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
-	myStatusWelcomeArgs+="oe=$(encodeurl "$SSBLastRunEngineInfo")&ne=$(encodeurl "${SSBEngineSourceInfo[$iName]}")"
+	myStatusWelcomeURL+="?oe=$(encodeurl "$myStatusEngineChange")"
     fi
     
     # if we're already showing a page, check for extensions
@@ -715,6 +741,7 @@ function setwelcomepage {
 	      ( ! -d "$myProfilePath/Default/Extensions" ) ]] ; then
 
 	# no extensions, so give the option to install them
+	debuglog 'App has no extensions, so offering browser extensions.'
 	
 	# collect data directories for all known browsers
 	extDirs=()
@@ -731,11 +758,9 @@ function setwelcomepage {
 	# mine extensions from all browsers
 	local extArgs=
 	getextensioninfo extArgs "${extDirs[@]}"
-
-	if [[ "$extArgs" ]] ; then
-	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
-	    myStatusWelcomeArgs+="xi=1&$extArgs"
-	fi
+	
+	# if any extensions found, add them to the page
+	[[ "$extArgs" ]] && myStatusWelcomeURL+="&xi=1&$extArgs"
     fi
     
     return 0
@@ -813,10 +838,9 @@ function updateprofiledir {
 		local myErrSomeExtensions="$errmsg"
 	    fi
 	    
-	    # add to welcome page args
-	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
-	    myStatusWelcomeArgs+="$oldExtensionArgs"
-
+	    # add to welcome page
+	    [[ "$oldExtensionArgs" ]] && myStatusWelcomeURL+="&$oldExtensionArgs"
+	    
 	    # delete everything from Default except:
 	    #  Bookmarks, Favicons, History, Local Extension Settings
 	    allExcept='!(Bookmarks|Favicons|History|Local?Extension?Settings)'
@@ -826,6 +850,9 @@ function updateprofiledir {
 		[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
 		ok=1 ; errmsg=
 	    fi
+	    
+	    # add reset argument
+	    myStatusWelcomeURL+='&r=1'
 	    
 	else
 	    
@@ -881,9 +908,9 @@ function updateprofiledir {
 		       "$myBookmarksFile" \
 		       'bookmarks file' \
 		       APPWELCOMETITLE "App Created ($SSBVersion)" \
-		       APPWELCOMEURL "$myStatusWelcomeURL$myStatusWelcomeArgs"
+		       APPWELCOMEURL "$myStatusWelcomeURL"
 	    if [[ ! "$ok" ]] ; then
-
+		
 		# non-serious error, fail silently
 		myErrBookmarks=1
 		ok=1 ; errmsg=
@@ -894,39 +921,105 @@ function updateprofiledir {
 
 	    debuglog 'Adding welcome page to app bookmarks.'
 	    
-	    # regex for parsing bookmarks JSON file
-	    local s="[[:space:]]*"
-	    local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?(.*[^[:blank:]])(([[:blank:]]*)}$s]$s,[^]}]*"'"guid"'"$s:$s"'"e91c4703-ee91-c470-3ee9-1c4703ee91c4"[^]}]*"type"'"$s:$s"'"folder".*)$'
-	    
 	    # read in bookmarks file
 	    local bookmarksJson=
 	    try 'bookmarksJson=' /bin/cat "$myBookmarksFile" \
 		'Unable to read in app bookmarks.'
 
 	    if [[ "$ok" ]] ; then
+
+		# status variable
+		local bookmarksChanged=
+		
+		# utility regex
+		local s="[[:space:]]*"
+		
+		# regex to parse bookmarks JSON file for our folder
+		local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?(.*[^[:blank:]]([[:blank:]]*)"'"children"'"$s:$s"'\['"($s{.*})?)$s(]$s,[^]}]*"'"guid"'"$s:$s"'"e91c4703-ee91-c470-3ee9-1c4703ee91c4"[^]}]*"type"'"$s:$s"'"folder".*)$'
+		
 		if [[ "$bookmarksJson" =~ $bookmarkRe ]] ; then
 		    
 		    bookmarksJson=
 		    
 		    # if there's a checksum, remove it
 		    [[ "${BASH_REMATCH[1]}" ]] && bookmarksJson="${BASH_REMATCH[2]}"
-		    
-		    bookmarksJson+="${BASH_REMATCH[3]}${BASH_REMATCH[5]}}, {
-${BASH_REMATCH[5]}    \"name\": \"$myStatusWelcomeTitle\",
-${BASH_REMATCH[5]}    \"type\": \"url\",
-${BASH_REMATCH[5]}    \"url\": \"$myStatusWelcomeURL$myStatusWelcomeArgs\"
-${BASH_REMATCH[4]}"
 
-		    # write bookmarks file back out
+		    # insert section before our bookmark
+		    bookmarksJson+="${BASH_REMATCH[3]}"
+
+		    # if there are other bookmarks in our folder, add a comma
+		    [[ "${BASH_REMATCH[5]}" ]] && bookmarksJson+=','
+
+		    # add our bookmark & the rest of the file
+		    bookmarksJson+=" {
+${BASH_REMATCH[4]}   \"name\": \"$myStatusWelcomeTitle\",
+${BASH_REMATCH[4]}   \"type\": \"url\",
+${BASH_REMATCH[4]}   \"url\": \"$myStatusWelcomeURL\"
+${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
+
+		    bookmarksChanged=1
+		    
+		elif vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
+
+		    # updating from before 2.3.0b9, so seed bookmark file with our folder
+		    
+		    # new regex to insert our bookmarks folder into JSON file
+		    local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?"'(.*"bookmark_bar"'"$s:$s{"'([[:blank:]]*'$'\n'')?([[:blank:]]*)"children"'"$s:$s"'\[)'"$s"'(({?).*)$'
+		    
+		    if [[ "$bookmarksJson" =~ $bookmarkRe ]] ; then
+
+			bookmarksJson=
+			
+			# if there's a checksum, remove it
+			[[ "${BASH_REMATCH[1]}" ]] && bookmarksJson="${BASH_REMATCH[2]}"
+			
+			# insert section before our folder
+			bookmarksJson+="${BASH_REMATCH[3]}"
+			
+			# add our bookmark
+			bookmarksJson+=" {
+${BASH_REMATCH[5]}   \"children\": [ {
+${BASH_REMATCH[5]}      \"name\": \"$myStatusWelcomeTitle\",
+${BASH_REMATCH[5]}      \"type\": \"url\",
+${BASH_REMATCH[5]}      \"url\": \"$myStatusWelcomeURL\"
+${BASH_REMATCH[5]}} ],
+${BASH_REMATCH[5]}   \"guid\": \"e91c4703-ee91-c470-3ee9-1c4703ee91c4\",
+${BASH_REMATCH[5]}   \"name\": \"$CFBundleName Info\",
+${BASH_REMATCH[5]}   \"type\": \"folder\"
+${BASH_REMATCH[5]}}"
+			
+			# if there are other items in the bookmark bar, add a comma
+			[[ "${BASH_REMATCH[7]}" ]] && bookmarksJson+=','
+
+			# add the rest of the file
+			bookmarksJson+=" ${BASH_REMATCH[6]}"
+			
+			bookmarksChanged=2
+			
+		    else
+			errlog 'Unable to add welcome page folder to app bookmarks.'
+			myErrBookmarks=1
+		    fi
+		else
+		    errlog 'Welcome page folder not found in app bookmarks.'
+		    myErrBookmarks=1
+		fi
+		
+		# write bookmarks file back out
+		if [[ "$bookmarksChanged" ]] ; then
 		    try "${myBookmarksFile}<" echo "$bookmarksJson" \
 			'Error writing out app bookmarks file.'
-		    if [[ ! "$ok" ]] ; then
+		    if [[ "$ok" ]] ; then
+			
+			# signal to page that we've created a new bookmark folder
+			[[ "$bookmarksChanged" = 1 ]] && myStatusWelcomeURL+='&b=1'
+			
+		    else
 			myErrBookmarks="$errmsg"
 			ok=1 ; errmsg=
 		    fi
-		else
-		    debuglog 'Welcome page folder not found in app bookmarks.'
 		fi
+
 	    else
 		
 		# non-serious error, fail silently
@@ -939,8 +1032,7 @@ ${BASH_REMATCH[4]}"
 	if [[ "$myErrBookmarks" ]] ; then
 
 	    # let the page know bookmark was not stored
-	    [[ "$myStatusWelcomeArgs" ]] && myStatusWelcomeArgs+='&' || myStatusWelcomeArgs+='?'
-	    myStatusWelcomeArgs+='b=0'
+	    myStatusWelcomeURL+='&b=0'
 
 	    # clear non-serious errors
 	    [[ "$myErrBookmarks" = 1 ]] && myErrBookmarks=
@@ -1304,7 +1396,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	# SUCCESS! ADD EXTENSION OR APP TO WELCOME PAGE ARGS
 	
 	[[ "$result" ]] && result+='&'
-	#[[ "$mani_app" ]] && myStatusWelcomeArgs+='a=' || myStatusWelcomeArgs+='x='
+	#[[ "$mani_app" ]] && result+='a=' || result+='x='
 	result+="x=$(encodeurl "${curExtIcon},$mani_name")"
 	
 	# report success
