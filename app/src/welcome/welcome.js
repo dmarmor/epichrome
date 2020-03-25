@@ -303,6 +303,12 @@ function buildPage() {
     // show extension list if needed
     if (activeExtList != null) { setDisplay('#extensions'); }
 
+    // show special update text
+
+    if (statusUpdateSpecial) {
+        setDisplayGroup('group_ov', 'ov_update');
+    }
+
     // RENUMBER ACTIONS LIST
 
     const actionsList = document.getElementById('actions_list').getElementsByClassName('item');
@@ -358,12 +364,15 @@ function setDisplay(selector, displayMode = true, root=document) {
 }
 
 
-function setDisplayGroup(group, activeItem) {
+function setDisplayGroup(group, activeItem, root=document) {
 
-    for (let curItem of displayGroup[group]) {
-        if (curItem != activeItem) { setDisplay(curItem, false); }
+    for (let curItem of root.getElementsByClassName(group)) {
+        if (curItem.classList.contains(activeItem)) {
+            setDisplay(curItem);
+        } else {
+            setDisplay(curItem, false);
+        }
     }
-    setDisplay(activeItem);
 }
 
 
