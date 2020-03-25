@@ -61,7 +61,6 @@ function updateapp { # ( updateAppPath )
 	# update engine variables
 	SSBEngineType='external|com.google.Chrome'
 	SSBLastRunEngineType="$SSBEngineType"
-	SSBLastRunEngineInfo='Chrome'
 	
     elif [[ ( "$SSBEngineType" = 'Chromium' ) && \
 		( "$SSBVersion" = '2.3.0b6' ) ]] ; then
@@ -92,7 +91,6 @@ Before completing this update, please back up any passwords. Instructions are in
 	
 	# if we got here, we're going ahead with the update
 	SSBLastRunEngineType='external|com.google.Chrome'
-	SSBLastRunEngineInfo='Chrome'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 	
@@ -122,7 +120,6 @@ Before completing this update, please back up any passwords. Instructions are in
 
 	# if we got here, we're going ahead with the update
 	SSBLastRunEngineType='internal|org.chromium.Chromium'
-	SSBLastRunEngineInfo='Chromium'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
     fi
@@ -492,22 +489,6 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	# return
 	return 1
     fi
-    
-    # # delete old config.sh if it exists
-    # local oldConfigFile="$appDataPathBase/$SSBIdentifier/config.sh"
-    # if [[ -e "$oldConfigFile" ]] ; then
-
-    # 	debuglog "Removing old config file '$oldConfigFile'"
-	
-    # 	try /bin/rm -f "$oldConfigFile" \
-    # 	    'Unable to remove old config file. The updated app may not run.'
-	
-    # 	# failure here is nonfatal
-    # 	if [[ ! "$ok" ]] ; then
-    # 	    ok=1
-    # 	    return 1
-    # 	fi
-    # fi
     
     # if we got here, all is OK
     return 0

@@ -94,7 +94,6 @@ epiEngineSource=( com.brave.Browser 'Brave Browser' Brave 'Brave Browser' )
 appConfigVars=( SSBAppPath \
 		    SSBLastRunVersion \
 		    SSBLastRunEngineType \
-		    SSBLastRunEngineInfo \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \

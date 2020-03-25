@@ -662,29 +662,6 @@ function updatedatadir {
 }
 
 
-# ADDURLARGS -- add URL args to a variable
-function addurlargs {  # ( var arg [arg ...] )
-
-    # arguments
-    local var="$1" ; shift
-    
-    # get current args & set concatenator
-    local result= ; eval "result=\"\$$var\""
-    local concat=
-    [[ "$result" ]] && concat='&' || concat=''
-
-    # add each arg, encoding for URL
-    local curArg=
-    for curArg in "$@" ; do
-	result+="${concat}${curArg%%=*}=$(encodeurl "${curArg#*=}")"
-	concat='&'
-    done
-
-    # update variable
-    eval "${var}=\"\$result\""
-}
-
-
 # SETWELCOMEPAGE -- configure any welcome page to be shown on this run
 #                   sets myStatusWelcomeURL
 function setwelcomepage {
@@ -709,37 +686,40 @@ function setwelcomepage {
 	
     fi
     
-    if [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
-    
-	# reset profile
-	if [[ ! "$myStatusWelcomeURL" ]] ; then
-	    myStatusWelcomeURL="$baseURL"
-	    myStatusWelcomeTitle="App Settings Reset"
-	fi
-
-	# add reset argument
-	myStatusWelcomeURL+='&r=1'
+    if [[ ! "$myStatusNewApp" ]] ; then
 	
-    fi
-    
-    if [[ "$myStatusEngineChange" ]] ; then
-	
-	# engine change
-	if [[ ! "$myStatusWelcomeURL" ]] ; then
-
-	    # this is the only trigger to show the page
-	    myStatusWelcomeURL="$baseURL"
-	    myStatusWelcomeTitle="App Engine Changed ($SSBLastRunEngineInfo -> ${SSBEngineSourceInfo[$iName]})"
+	if [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
+	    
+	    # reset profile
+	    if [[ ! "$myStatusWelcomeURL" ]] ; then
+		myStatusWelcomeURL="$baseURL"
+		myStatusWelcomeTitle="App Settings Reset"
+	    fi
+	    
+	    # add reset argument
+	    myStatusWelcomeURL+='&r=1'
+	    
 	fi
 	
-	# set up arguments
-	myStatusWelcomeURL+="?oe=$(encodeurl "$myStatusEngineChange")"
+	if [[ "${myStatusEngineChange[0]}" ]] ; then
+	    
+	    # engine change
+	    if [[ ! "$myStatusWelcomeURL" ]] ; then
+		
+		# this is the only trigger to show the page
+		myStatusWelcomeURL="$baseURL"
+		myStatusWelcomeTitle="App Engine Changed (${myStatusEngineChange[$iName]} -> ${SSBEngineSourceInfo[$iName]})"
+	    fi
+	    
+	    # set up arguments
+	    myStatusWelcomeURL+="?oe=$(encodeurl "${myStatusEngineChange[0]}")"
+	fi
     fi
     
     # if we're already showing a page, check for extensions
     if [[ "$myStatusWelcomeURL" && \
 	      ( ! -d "$myProfilePath/Default/Extensions" ) ]] ; then
-
+	
 	# no extensions, so give the option to install them
 	debuglog 'App has no extensions, so offering browser extensions.'
 	
@@ -803,11 +783,11 @@ function updateprofiledir {
     errmsg=
     
     # triple check the directory as we're using rm -rf  $$$$ USE STATUS VAR INSTEAD
-    if [[ "$myStatusEngineChange" && \
+    if [[ "${myStatusEngineChange[0]}" && \
 	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
 	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) ]] ; then
 	
-	debuglog "Switching engines from ${myStatusEngineChange[$iID]} to ${SSBEngineType#*|}. Cleaning up profile directory."
+	debuglog "Switching engines from ${myStatusEngineChange[$iID]#*|} to ${SSBEngineType#*|}. Cleaning up profile directory."
 	
 	# turn on extended glob
 	local shoptState=
@@ -822,12 +802,12 @@ function updateprofiledir {
 	    ok=1 ; errmsg=
 	fi
 	
-	if [[ ( "${myStatusEngineChange[$iID]}" = 'com.google.Chrome' ) || \
+	if [[ ( "${myStatusEngineChange[$iID]#*|}" = 'com.google.Chrome' ) || \
 		  ( "${SSBEngineType#*|}" = 'com.google.Chrome' ) ]] ; then
 	    
 	    # SWITCHING BETWEEN GOOGLE CHROME AND CHROMIUM-BASED ENGINE
 	    
-	    debuglog "Clearing profile directory for engine switch between incompatible engines ${myStatusEngineChange[$iID]} and ${SSBEngineType#*|}."
+	    debuglog "Clearing profile directory for engine switch between incompatible engines ${myStatusEngineChange[$iID]#*|} and ${SSBEngineType#*|}."
 	    
 	    # if there are any extensions, try to save them
 	    local oldExtensionArgs=
@@ -858,7 +838,7 @@ function updateprofiledir {
 	    
 	    # CATCH-ALL FOR SWITCHING FROM ONE FLAVOR OF CHROMIUM TO ANOTHER
 	    
-	    debuglog "Clearing profile directory for engine switch between compatible engines ${myStatusEngineChange[$iID]} and ${SSBEngineType#*|}."
+	    debuglog "Clearing profile directory for engine switch between compatible engines ${myStatusEngineChange[$iID]#*|} and ${SSBEngineType#*|}."
 	    
 	    #    - delete Login Data & Login Data-Journal so passwords will work (will need to be reimported)
 	    try /bin/rm -f "$myProfilePath/Default/Login Data"* \

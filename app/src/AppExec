@@ -348,7 +348,6 @@ myStatusNewApp=        # on new app, this is set
 myStatusNewVersion=    # on update, this contains old version
 myStatusEngineChange=  # on engine change, this contains old engine info
 myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
-myStatusWelcomeArgs=   # any arguments for welcome URL
 myStatusWelcomeTitle=  # title for URL bookmark
 
 
@@ -379,11 +378,13 @@ fi
 
 # DETEMINE IF WE'VE JUST CHANGED ENGINES
 
-if [[ "$SSBLastRunEngineType" && \
-	  ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ]] ; then
+if [[ ( ! "$myStatusNewApp" ) && \
+	  ( "$SSBLastRunEngineType" && \
+		( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ) ]] ; then
     
     # mark engine change
-    myStatusEngineChange=( "${SSBLastRunEngineType#*|}" '' "$SSBLastRunEngineInfo" )
+    getbrowserinfo myStatusEngineChange "${SSBLastRunEngineType#*|}"
+    myStatusEngineChange[0]="$SSBLastRunEngineType"
     
     # clear extension install error state
     SSBNMHInstallError=
@@ -536,11 +537,6 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 fi
 
 
-# UPDATE LAST-RUN ENGINE INFO
-
-SSBLastRunEngineInfo="${SSBEngineSourceInfo[$iName]}"
-
-
 # PREPARE DATA DIRECTORY
 
 # update the data directory
@@ -601,7 +597,7 @@ elif [[ "$myStatusNewVersion" ]] ; then
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
     
-elif [[ "$myStatusEngineChange" ]] ; then
+elif [[ "${myStatusEngineChange[0]}" ]] ; then
 
     # this app was changed, so we need a new engine
     doCreateEngine=1
@@ -737,14 +733,14 @@ fi
 # show welcome page if needed
 if [[ "$myStatusWelcomeURL" ]] ; then
 
-    debuglog "Showing welcome page ($myStatusWelcomeURL$myStatusWelcomeArgs)."
+    debuglog "Showing welcome page ($myStatusWelcomeURL)."
     
     # pause to allow the app to open $$$$$ TRY TO DETECT RATHER THAN WAIT?
     sleep 1.5
     
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	"--user-data-dir=$myProfilePath" "$myStatusWelcomeURL$myStatusWelcomeArgs" \
+	"--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
 	'Unable to open welcome page.'
 
     # handle error

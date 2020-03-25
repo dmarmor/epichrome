@@ -21,23 +21,25 @@
 
 */
 
-/* DEFAULT TO NEW APP INFO */
+/* BASIC SETUP */
 
-div.new {
-    display: flex;
-}
-.update, .change, .change_engine, .moved {
+.hide {
     display: none;
 }
 span {
+    display: inline;
     --display-on: inline;
 }
 div {
+    display: flex;
+    flex-direction: column;
     --display-on: flex;
 }
 li {
+    display: list-item;
     --display-on: list-item;
 }
+
 body {
     font-family: 'Helvetica Neue', 'Lucida Grande', sans-serif;
     padding: 0;
@@ -89,21 +91,22 @@ a:visited {
 }
 
 
+.column {
+    flex-direction: column;
+}
 .titlebar {
-    display: flex;
     width: 100%;
     background-color: #d3d3d3;
     height: 84px;
 }
 #main_title {
-    display: flex;
     justify-content: center;
     align-items: center;
     flex-direction: row;
     width: 100%;
 }
 #main_title .title {
-    flex-direction: column;  
+    flex-direction: column;
 }
 #main_title img {
     width: 64px;
@@ -121,9 +124,7 @@ a:visited {
     color: #404040;
 }
 #container {
-    display: flex;
     flex-direction: row;
-    
     background-image: linear-gradient(#ffffff, #d3d3d3);
     background-repeat: no-repeat;
     margin: 0;
@@ -167,19 +168,11 @@ a:visited {
     padding-bottom: 0;
 }
 #changes_user {
-    display: none;
     flex-direction: column;
     margin-bottom: 1em;
     flex-basis: 100%;
     flex-shrink: 0;
 }
-#changes_user li {
-    display: none;
-}
-#hasoldengine, #hasnewengine {
-    display: none;
-}
-
 #changes_update {
     flex-direction: row;
     flex-basis: 100%;
@@ -190,9 +183,6 @@ a:visited {
 #changes_update .change_list {
     flex-basis: 50%;
 }
-/* #hasoldversion { */
-/*     display: none; */
-/* } */
 #changes_major {
     margin-left: 1em;
 }
@@ -202,7 +192,6 @@ a:visited {
     /* width: 90%; */
     margin: 0 auto;
     padding-bottom: .5em;
-    display: flex;
     width: 75%;
     justify-content: center;
     align-items: center;
@@ -211,8 +200,8 @@ a:visited {
 }
 
 #actions_list .item {
-    display: inherit;
     justify-content: inherit;
+    flex-direction: row;
     /* flex-basis: 67%; */
     /* flex-shrink: 1; */
     padding-top: 1em;
@@ -226,27 +215,20 @@ a:visited {
     font-size: 85%;
 }
 .itemnum {
-    /* display: none; */
-    /* background: #ff0000; */
-    padding: 0 .25em 0 0;
+    padding: 0;
+    padding-right: .25em;
     position: relative;
+    top: -.2em;
     left: -.2em;
     font-size: 200%;
+    font-weight: 500;
 }
 .action_container {
-    display: flex;
     flex-direction: column;
     flex-basis: 100%;
-    /* background: #00ff00; */
-    /* display: block; */
-    /* flex-direction: column; */
     justify-content: center;
     /* align-items: center; */
 }
-/* .action_container div p { */
-/*     width: 100%; */
-/*     margin-bottom: 1em; */
-/* } */
 .action_container img {
     display: block;
     margin: 0 auto;
@@ -258,23 +240,10 @@ a:visited {
     margin-bottom: 1em;
 }
 
-/* #actions_list #runtime { */
-/*     display: none; */
-/* } */
-#actions_list #passwords {
-    display: none;
-}
-#actions_list #extensions {
-    display: none;
-}
-/* #actions_list #bookmark { */
-/*     display: none; */
-/* } */
-
-#epichromeruntimestatus.off {
+#epichromeruntimestatus.runtime_off {
     background: #ffe0e0;
 }
-#epichromeruntimestatus.ok {
+#epichromeruntimestatus.runtime_ok {
     background: #e0ffe0;
 }
 /* #epichromeruntimestatus .action_container h3 { */
@@ -283,24 +252,15 @@ a:visited {
 #runtime_msg_ok, #runtime_install {
     flex-direction: row;
 }
-#runtime_msg_off, #runtime_install {
-    display: flex;
-}
-#runtime_status_ok, #runtime_msg_ok,
-#runtime_status_nonmh, #runtime_msg_nonmh,
-#runtime_hasversion {
-    display: none;
-}
 
 #epichromeruntimestatus .action_container p {
-    display: flex;
+    --display-on: flex;
     /* align-items: center; */
     /* margin-top: 1em; */
     margin-bottom: 1em;
 }
 .runtime_button {
     flex-direction: column;
-    /* margin-top: 1em; */
     margin-bottom: 1em;
 }
 
@@ -310,7 +270,7 @@ a:visited {
 .cmd_header {
     font-weight: 500;
 }
-.cmd_name {
+.cmd_name, .folder_name {
     font-style: italic;
 }
 #passwords_button {
@@ -329,15 +289,10 @@ a:visited {
     margin-bottom: 1em;
 }
 #bookmark_img img {
-    /* display: none; */
     width: 100%;
 }
 
-#extensions, .has_exts, .has_apps, .has_exts_apps {
-    display: none;
-}
 div.extlist {
-    display: none; /* flex */
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -347,24 +302,18 @@ div.extlist {
     width: 100%;
 }
 div.extlist h3 {
-    display: none; /* block */
     margin-top: 1em;
     width: 85%;
     font-size: 110%;
 }
 
 div.extension {
-    display: flex;
     flex-direction: row;
     justify-content: center;
     align-items: center;
     padding-bottom: 1em;
     /* background: #ff00ff; */
-    /* display: inline-block; */
     width: 85%;
-}
-div.extension * {
-    /* display: inline-block; */
 }
 .action_container p {
     text-align: left;
@@ -447,7 +396,6 @@ text-decoration: none;
 }
 
 .sidebar {
-    display: flex;
     flex-direction: column;
     align-items: center;
 }
@@ -471,7 +419,6 @@ text-decoration: none;
 }
 
 #patreon_header {
-    display: flex;
     width: 208px;
     margin-left: 2em;
     margin-right: 2em;
@@ -479,7 +426,7 @@ text-decoration: none;
     align-items: center;
     flex-direction: row;
     padding-bottom: 1em;
-    
+
 }
 #patreon_header #patreon_epichrome {
     width: 48px;
@@ -498,7 +445,10 @@ text-decoration: none;
     padding-bottom: .5em;
 }
 
-a#patreon {
+#patreon {
+    align-items: center;
+}
+a#patreon_button {
     display:inline-flex;
     justify-content:center;
     align-items:center;
@@ -517,7 +467,7 @@ a#patreon {
     cursor:pointer;
 }
 
-a#patreon:active, a#patreon:hover {
+a#patreon_button:active, a#patreon_button:hover {
     text-decoration: none;
     transform:matrix(1.03, 0, 0, 1.03, 0, 0);
     transition-delay:0s;
@@ -527,7 +477,7 @@ a#patreon:active, a#patreon:hover {
     text-decoration: none;
 }
 
-a#patreon svg {
+a#patreon_button svg {
     width: 16px;
     height: 16px;
     padding-right: 8px;
@@ -552,27 +502,3 @@ a#patreon svg {
 #rockstars li {
     padding-bottom: .5em;
 }
-
-/*
-#epichromeruntimebox {
-    border: 1px solid #a0a0a0;
-    background: #ffe0e0;
-    padding: 1em;
-    display: flex;
-    flex-direction: row;
-}
-#epichromeruntimebox.ok {
-    background: #e0ffe0;
-}
-#epichromeruntimebox img {
-    width: 32px;
-    height: 32px;
-    margin-right: 1em;
-}
-#epichromeruntimebox #runtime_icon_ok,
-#epichromeruntimebox #runtime_status_ok,
-#epichromeruntimebox #runtime_status_nonmh,
-#epichromeruntimebox #runtime_hasversion {
-    display: none;
-}
-*/
