@@ -134,7 +134,9 @@ function setEngine(id, code='') {
     if (id) {
 
         // get info on this engine
-        const info = epiEngines[id.slice(9)];
+        const engineID = id.slice(9);
+        const engineType = id.slice(0,8);
+        const info = epiEngines[engineID];
         if (!info) return false;
 
         // set up engine code
@@ -144,7 +146,7 @@ function setEngine(id, code='') {
         setDisplay('.has_engine' + code);
 
         // internal/external engine
-        if (id.slice(0,8) == 'internal') {
+        if (engineType == 'internal') {
             setDisplay('.engine' + code + '_type_int');
         } else {
             setDisplay('.engine' + code + '_type_ext');
@@ -153,12 +155,16 @@ function setEngine(id, code='') {
         // engine browser
         replaceText('engine' + code + '_browser', info.bundleName);
 
+        // add to info
+        info.id = engineID;
+        info.type = engineType;
+
         // success
-        return true;
+        return info;
     } else {
 
         // no ID
-        return false;
+        return null;
     }
 }
 
@@ -176,15 +182,20 @@ function buildPage() {
 
     // app version
     const appVersion = urlParams.get('v');
-    if (appVersion) { replaceText('version_cur', appVersion); }
+    if (appVersion) {
+        replaceText('version_cur', appVersion);
+    } else {
+        appVersion = document.getElementsByClassName('version_cur')[0].innerHTML;
+    }
 
     // app engine
-    setEngine(urlParams.get('e'));
+    const appEngine = setEngine(urlParams.get('e'));
 
     // SET ACTIVE PAGE & CHANGES
 
     // default to new app page
     var activePage = null;
+    var pageTitle = null;
 
     // app changes
     var appChanges = [];
@@ -195,6 +206,8 @@ function buildPage() {
     var statusUpdateSpecial = false;
     if (statusUpdate) {
         activePage = 'pg_update';
+        pageTitle = document.head.dataset['update'].replace('OLDVERSION', oldVersion).replace('NEWVERSION', appVersion);
+
         appChanges.push('ch_update');
         replaceText('version_old', oldVersion);
 
@@ -203,9 +216,13 @@ function buildPage() {
 
     // engine change
     var activePassword = null;
-    const statusEngineChange = setEngine(urlParams.get('oe'), 'old');
+    const oldEngine = setEngine(urlParams.get('oe'), 'old');
+    const statusEngineChange = (oldEngine != null);
     if (statusEngineChange) {
-        if (!activePage) { activePage = 'pg_change_engine'; }
+        if (!activePage) {
+            activePage = 'pg_change_engine';
+            pageTitle = document.head.dataset['changeEngine'].replace('OLDENGINE', oldEngine.bundleName).replace('NEWENGINE', appEngine.bundleName);
+        }
         appChanges.push('ch_change_engine');
         activePassword = 'pw_change_engine';
     }
@@ -213,14 +230,24 @@ function buildPage() {
     // prefs reset
     const statusReset = (urlParams.get('r') == 1);
     if (statusReset) {
-        if (!activePage) { activePage = 'pg_reset'; }
+        if (!activePage) {
+            activePage = 'pg_reset';
+            pageTitle = document.head.dataset['reset'];
+        }
         appChanges.push('ch_reset');
         if (!activePassword) { activePassword = 'pw_reset'; }
     }
 
     // new app
     const statusNewApp = (activePage == null);
-    if (statusNewApp) { activePage = 'pg_new'; }
+    if (statusNewApp) {
+        activePage = 'pg_new';
+        pageTitle = document.head.dataset['new'].replace('APPVERSION', appVersion);
+    }
+
+    // SET PAGE TITLE
+
+    document.title = pageTitle;
 
     // ACTION ITEM: BOOKMARKS
 

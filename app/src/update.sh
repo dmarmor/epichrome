@@ -373,6 +373,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
 	       "$contentsTmp/$appWelcomePath/$appWelcomePage" \
 	       'welcome page' \
+	       APPBUNDLENAME "$CFBundleName" \
 	       APPDISPLAYNAME "$CFBundleDisplayName"
     
     

@@ -38,8 +38,10 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
     local isToken=1
     for arg in "$@" ; do
 
-	# escape slashes for sed
+	# escape special characters for sed
+	arg="${arg//\\/\\\\}"
 	arg="${arg//\//\/}"
+	arg="${arg//&/\&}"
 	
 	if [[ "$isToken" ]] ; then
 

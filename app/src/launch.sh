@@ -884,7 +884,10 @@ function updateprofiledir {
 	    
 	    debuglog 'Creating new app bookmarks.'
 	    
-            filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
+            [[ -d "$myProfilePath/Default" ]] || \
+		try /bin/mkdir -p "$myProfilePath/Default" \
+		    'Unable to create browser profile directory.'
+	    filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
 		       "$myBookmarksFile" \
 		       'bookmarks file' \
 		       APPWELCOMETITLE "App Created ($SSBVersion)" \
@@ -899,7 +902,7 @@ function updateprofiledir {
 
 	    # bookmarks found, so try to add welcome page to our folder
 
-	    debuglog 'Adding welcome page to app bookmarks.'
+	    debuglog 'Checking app bookmarks...'
 	    
 	    # read in bookmarks file
 	    local bookmarksJson=
@@ -939,8 +942,9 @@ ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 
 		    bookmarksChanged=1
 		    
-		elif vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
-
+		elif ( [[ "$myStatusNewVersion" ]] && \
+			   vcmp "$myStatusNewVersion" '<' '2.3.0b9' ) ; then
+		    
 		    # updating from before 2.3.0b9, so seed bookmark file with our folder
 		    
 		    # new regex to insert our bookmarks folder into JSON file
