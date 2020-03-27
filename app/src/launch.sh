@@ -146,6 +146,50 @@ function vcmp { # ( version1 operator version2 )
 }
 
 
+# WAITFORCONDITION -- wait for a given condition to become true, or timeout
+function waitforcondition {  # ( msg waitTime increment command [args ...] )
+    
+    # arguments
+    local msg="$1" ; shift
+    local waitTime="$1" ; shift
+    local increment="$1" ; shift
+
+    # get rid of decimals
+    local waitTimeInt="${waitTime#*.}" ; [[ "$waitTimeInt" = "$waitTime" ]] && waitTimeInt=
+    local incrementInt="${increment#*.}" ; [[ "$incrementInt" = "$increment" ]] && incrementInt=
+    local decDiff=$((${#incrementInt} - ${#waitTimeInt}))
+    if [[ decDiff -gt 0 ]] ; then
+	incrementInt="${increment%.*}$incrementInt"
+	waitTimeInt=$(( ${waitTime%.*}$waitTimeInt * ( 10**$decDiff ) ))
+    elif [[ decDiff -lt 0 ]] ; then
+	waitTimeInt="${waitTime%.*}$waitTimeInt"
+	incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
+    else
+	incrementInt="${increment%.*}$incrementInt"
+	waitTimeInt="${waitTime%.*}$waitTimeInt"	
+    fi
+    
+    # wait for the condition to be true
+    local curTime=0
+    while [[ "$curTime" -lt "$waitTimeInt" ]] ; do
+		
+	# try the command
+	"$@" && return 0
+	
+	# wait
+	[[ "$curTime" = 0 ]] && errlog "Waiting for $msg..."
+	sleep $increment
+	
+	# update time
+	curTime=$(( $curTime + $incrementInt ))
+    done
+
+    # if we got here the condition never occurred
+    return 1
+}
+
+
+
 # ENCODEURL -- encode a string for URL
 function encodeurl {  # ( input [safe] )
     
@@ -621,7 +665,7 @@ function updatedatadir {
     
     if [[ "$myStatusNewVersion" ]] ; then
 		
-	# $$$ temporary -- remove old-style engine directory
+	# $$$ temporary -- GET RID OF THIS FOR RELEASE -- remove old-style engine directory
 	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
 
 	    debuglog "Removing old engine directory."
@@ -629,7 +673,19 @@ function updatedatadir {
 	    try /bin/rm -rf "$myDataPath/Engine.noindex" \
 		'Unable to remove old engine directory'
 	    if [[ ! "$ok" ]] ; then
-		errlog "$errmsg"
+		ok=1 ; errmsg=
+	    fi
+	fi
+
+	# $$$ temporary -- GET RID OF THIS FOR RELEASE -- remove old-style engine directory
+	if [[ -d "$myDataPath/UserData/External Extensions" ]] ; then
+	    
+	    debuglog "Removing old external extensions directory."
+	    
+	    # remove External Extensions and NativeMessagingHosts directories from profile
+	    try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
+		'Unable to remove old external extensions folder.'
+	    if [[ ! "$ok" ]] ; then
 		ok=1 ; errmsg=
 	    fi
 	fi
@@ -641,7 +697,7 @@ function updatedatadir {
     if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
 	      ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
 	
-	debuglog 'Updating welcome page.'
+	debuglog 'Updating welcome page assets.'
 	
 	# copy welcome page into data directory
 	safecopy "$SSBAppPath/Contents/$appWelcomePath" "$myDataPath/Welcome" \
@@ -675,12 +731,14 @@ function setwelcomepage {
     if [[ "$myStatusNewApp" ]] ; then
 	
 	# simplest case: new app
+	debuglog "Creating new app welcome page."
 	myStatusWelcomeURL="$baseURL"
 	myStatusWelcomeTitle="App Created ($SSBVersion)"
 	
     elif [[ "$myStatusNewVersion" ]] ; then
 	
 	# updated app
+	debuglog "Creating app update welcome page."
 	myStatusWelcomeURL="$baseURL&ov=$(encodeurl "$myStatusNewVersion")"
 	myStatusWelcomeTitle="App Updated ($myStatusNewVersion -> $SSBVersion)"
 	
@@ -688,10 +746,26 @@ function setwelcomepage {
     
     if [[ ! "$myStatusNewApp" ]] ; then
 	
+	if [[ "${myStatusEngineChange[0]}" ]] ; then
+	    
+	    # engine change
+	    if [[ ! "$myStatusWelcomeURL" ]] ; then
+		
+		# this is the only trigger to show the page
+		debuglog "Creating app engine change welcome page."
+		myStatusWelcomeURL="$baseURL"
+		myStatusWelcomeTitle="App Engine Changed (${myStatusEngineChange[$iName]} -> ${SSBEngineSourceInfo[$iName]})"
+	    fi
+	    
+	    # set up arguments
+	    myStatusWelcomeURL+="&oe=$(encodeurl "${myStatusEngineChange[0]}")"
+	fi
+	
 	if [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
 	    
 	    # reset profile
 	    if [[ ! "$myStatusWelcomeURL" ]] ; then
+		debuglog "Creating app reset welcome page."
 		myStatusWelcomeURL="$baseURL"
 		myStatusWelcomeTitle="App Settings Reset"
 	    fi
@@ -699,20 +773,6 @@ function setwelcomepage {
 	    # add reset argument
 	    myStatusWelcomeURL+='&r=1'
 	    
-	fi
-	
-	if [[ "${myStatusEngineChange[0]}" ]] ; then
-	    
-	    # engine change
-	    if [[ ! "$myStatusWelcomeURL" ]] ; then
-		
-		# this is the only trigger to show the page
-		myStatusWelcomeURL="$baseURL"
-		myStatusWelcomeTitle="App Engine Changed (${myStatusEngineChange[$iName]} -> ${SSBEngineSourceInfo[$iName]})"
-	    fi
-	    
-	    # set up arguments
-	    myStatusWelcomeURL+="?oe=$(encodeurl "${myStatusEngineChange[0]}")"
 	fi
     fi
     
@@ -875,9 +935,11 @@ function updateprofiledir {
     # INSTALL/UPDATE BOOKMARKS FILE
     
     if [[ "$myStatusWelcomeURL" ]] ; then
+
+	local bookmarkResult=
 	
 	local myBookmarksFile="$myProfilePath/Default/Bookmarks"
-
+	
 	if [[ ! -e "$myBookmarksFile" ]] ; then
 
 	    # no bookmarks found, create new file with welcome page
@@ -892,12 +954,18 @@ function updateprofiledir {
 		       'bookmarks file' \
 		       APPWELCOMETITLE "App Created ($SSBVersion)" \
 		       APPWELCOMEURL "$myStatusWelcomeURL"
-	    if [[ ! "$ok" ]] ; then
+	    if [[ "$ok" ]] ; then
+
+		# new bookmark folder
+		bookmarkResult=2
+
+	    else
 		
 		# non-serious error, fail silently
 		myErrBookmarks=1
 		ok=1 ; errmsg=
 	    fi
+
 	else
 
 	    # bookmarks found, so try to add welcome page to our folder
@@ -921,6 +989,8 @@ function updateprofiledir {
 		local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?(.*[^[:blank:]]([[:blank:]]*)"'"children"'"$s:$s"'\['"($s{.*})?)$s(]$s,[^]}]*"'"guid"'"$s:$s"'"e91c4703-ee91-c470-3ee9-1c4703ee91c4"[^]}]*"type"'"$s:$s"'"folder".*)$'
 		
 		if [[ "$bookmarksJson" =~ $bookmarkRe ]] ; then
+
+		    debuglog "Adding welcome page bookmark to existing folder."
 		    
 		    bookmarksJson=
 		    
@@ -941,11 +1011,16 @@ ${BASH_REMATCH[4]}   \"url\": \"$myStatusWelcomeURL\"
 ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 
 		    bookmarksChanged=1
-		    
+
+		    # bookmark added to existing folder
+		    bookmarkResult=1
+
 		elif ( [[ "$myStatusNewVersion" ]] && \
 			   vcmp "$myStatusNewVersion" '<' '2.3.0b9' ) ; then
 		    
 		    # updating from before 2.3.0b9, so seed bookmark file with our folder
+		    
+		    debuglog "Adding folder for welcome pages to bookmarks."
 		    
 		    # new regex to insert our bookmarks folder into JSON file
 		    local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?"'(.*"bookmark_bar"'"$s:$s{"'([[:blank:]]*'$'\n'')?([[:blank:]]*)"children"'"$s:$s"'\[)'"$s"'(({?).*)$'
@@ -978,7 +1053,10 @@ ${BASH_REMATCH[5]}}"
 			# add the rest of the file
 			bookmarksJson+=" ${BASH_REMATCH[6]}"
 			
-			bookmarksChanged=2
+			bookmarksChanged=1
+			
+			# new bookmark folder
+			bookmarkResult=2
 			
 		    else
 			errlog 'Unable to add welcome page folder to app bookmarks.'
@@ -993,12 +1071,8 @@ ${BASH_REMATCH[5]}}"
 		if [[ "$bookmarksChanged" ]] ; then
 		    try "${myBookmarksFile}<" echo "$bookmarksJson" \
 			'Error writing out app bookmarks file.'
-		    if [[ "$ok" ]] ; then
-			
-			# signal to page that we've created a new bookmark folder
-			[[ "$bookmarksChanged" = 1 ]] && myStatusWelcomeURL+='&b=1'
-			
-		    else
+		    if [[ ! "$ok" ]] ; then
+			bookmarkResult=
 			myErrBookmarks="$errmsg"
 			ok=1 ; errmsg=
 		    fi
@@ -1012,15 +1086,11 @@ ${BASH_REMATCH[5]}}"
 	    fi
 	fi
 
-	# handle error adding page to bookmarks
-	if [[ "$myErrBookmarks" ]] ; then
-
-	    # let the page know bookmark was not stored
-	    myStatusWelcomeURL+='&b=0'
-
-	    # clear non-serious errors
-	    [[ "$myErrBookmarks" = 1 ]] && myErrBookmarks=
-	fi
+	# let the page know the result of this bookmarking
+	[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
+	
+	# clear non-serious errors
+	[[ "$myErrBookmarks" = 1 ]] && myErrBookmarks=
     fi
     
     
@@ -1935,18 +2005,12 @@ function setenginestate {  # ( ON|OFF )
     [[ "$ok" ]] || return 1
     
     # sometimes it takes a moment for the move to register
-    if [[ ! -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ]] ; then
-	ok= ; errmsg="Engine $oldInactiveError executable not found."
-	local attempt=
-	for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
-	    if [[ -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ]] ; then
-		ok=1 ; errmsg=
-		break
-	    fi
-	    errlog "Waiting for engine $oldInactiveError executable to appear..."
-	    sleep .5
-	done
-	[[ "$ok" ]] || return 1
+    if ! waitforcondition "engine $oldInactiveError executable to appear" 5 .5 \
+	 test -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ; then
+	ok=
+	errmsg="Engine $oldInactiveError executable not found."
+	errlog "$errmsg"
+	return 1
     fi
     
     [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
@@ -2382,22 +2446,11 @@ function clearmasterprefs {
     # only run if we have actually set the master prefs
     if [[ "$myMasterPrefsState" ]] ; then
 
-	if [[ ! -e "$myPreferencesFile" ]] ; then
-	    
-	    # wait for Preferences file to appear
-	    debuglog "Waiting for app prefs to appear..."
-	    
-	    local attempt=
-	    for attempt in 0 1 2 3 4 5 6 7 8 9 ; do
-		sleep .5
-		[[ -e "$myPreferencesFile" ]] && break
-	    done
-
-	    if [[ ! -e "$myPreferencesFile" ]] ; then
-
-		ok= ; errmsg="Timed out waiting for app prefs to appear."
-		errlog "$errmsg"
-	    fi
+	if ! waitforcondition 'app prefs to appear' 5 .5 \
+	     test -e "$myPreferencesFile" ; then
+	    ok=
+	    errmsg="Timed out waiting for app prefs to appear."
+	    errlog "$errmsg"
 	fi
 	
 	if [[ -e "${myMasterPrefsState[1]}" ]] ; then
@@ -2588,8 +2641,36 @@ function launchhelper { # ( mode )
     
     # launch helper (args are just for identification in jobs listings)
     try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
-	'Unable to launch Epichrome helper app.'
-    
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
+	'Got error launching Epichrome helper app.'
+
+    if [[ ! "$ok" ]] ; then
+	return 0
+    else
+
+	# check the process table for our helper
+	function checkforhelper {
+	    local pstable=
+	    try 'pstable=' /bin/ps -x 'Unable to list active processes.'
+	    if [[ ! "$ok" ]] ; then
+		ok=1 ; errmsg=
+		return 1
+	    fi
+	    if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
+		return 0
+	    else
+		return 1
+	    fi
+	}
+	
+	# give our helper five seconds to launch
+	if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
+	    ok=
+	    errmsg="Epichrome helper app failed to launch."
+	    errlog "$errmsg"
+	fi
+	unset -f checkforhelper
+	
+	# return code
+	[[ "$ok" ]] && return 0 || return 1
+    fi
 }

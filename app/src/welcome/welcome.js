@@ -26,7 +26,6 @@
 const displayGroup = {
     'group_pg': [ 'pg_new', 'pg_update', 'pg_reset', 'pg_change_engine' ],
     'group_ov': [ 'ov_update' ],
-    'group_bk': [ 'bk_new', 'bk_add', 'bk_fail' ],
     'group_pw': [ 'pw_change_engine', 'pw_reset' ],
     'group_ext': [ 'ext_new', 'ext_update', 'ext_change_engine' ]
 }
@@ -245,16 +244,14 @@ function buildPage() {
         pageTitle = document.head.dataset['new'].replace('APPVERSION', appVersion);
     }
 
+    var bookmarkResult = urlParams.get('b');
+    if (bookmarkResult == '2') { appChanges.push('ch_bookmark_new'); }
+    else if (bookmarkResult == '1') { appChanges.push('ch_bookmark_add'); }
+    else { bookmarkResult = false; }
+
     // SET PAGE TITLE
 
     document.title = pageTitle;
-
-    // ACTION ITEM: BOOKMARKS
-
-    var activeBookmark = urlParams.get('b');
-    if (activeBookmark == 1) { activeBookmark = 'bk_new'; }
-    else if (activeBookmark == 0) { activeBookmark = 'bk_fail'; }
-    else { activeBookmark = 'bk_add'; }
 
     // ACTION ITEM: EXTENSION LIST
 
@@ -314,21 +311,25 @@ function buildPage() {
     setDisplayGroup('group_pg', activePage);
 
     // show active changes
-    if (appChanges.length > 0) {
-        for (let curChange of appChanges) { setDisplay(curChange); }
-        setDisplay('#changes_user');
+    if (statusUpdate || (appChanges.length > 0)) {
+        setDisplay('#changes_msg');
+
+        if (appChanges.length > 0) {
+            for (let curChange of appChanges) { setDisplay(curChange); }
+            setDisplay('#changes_user');
+        }
     }
 
     // SHOW/HIDE ACTION ITEMS
-
-    // show bookmarks message
-    setDisplayGroup('group_bk', activeBookmark);
 
     // show passwords message if needed
     if (activePassword != null) { setDisplayGroup('group_pw', activePassword); }
 
     // show extension list if needed
     if (activeExtList != null) { setDisplay('#extensions'); }
+
+    // show bookmarks prompt if needed
+    if (!bookmarkResult) { setDisplay('#bookmark'); }
 
     // show special update text
 
@@ -381,9 +382,10 @@ function setDisplay(selector, displayMode = true, root=document) {
     // iterate & set display style
     for (let curNode of nodes) {
         if (!displayMode) {
-            curNode.style.display = 'none';
+            curNode.classList.add('hide');
         } else if (displayMode == true) {
-            curNode.style.display = getComputedStyle(curNode).getPropertyValue("--display-on");
+            curNode.classList.remove('hide');
+            //style.display = getComputedStyle(curNode).getPropertyValue("--display-on");
         } else {
             curNode.style.display = displayMode;
         }

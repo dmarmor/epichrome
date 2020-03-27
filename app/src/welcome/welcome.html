@@ -22,8 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 -->
 
-<html>
+<html lang="en">
 <head data-new="App Created (APPVERSION)" data-update="App Updated (OLDVERSION -> NEWVERSION)" data-reset="App Reset" data-change-engine="App Engine Changed (OLDENGINE -> NEWENGINE)">
+  <meta charset="utf-8"/>
   <title>App (EPIVERSION)</title>
   <link rel="stylesheet" type="text/css" href="welcome.css" />
   <link rel="shortcut icon" href="img/app_icon.png" type="image/png">
@@ -35,23 +36,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
   <!-- MAIN CONTAINER -->
 
-  <div id="container">
+  <div id="container" class="container">
 
-    <!-- LEFT COLUMN -->
+    <!-- LEFT SIDEBAR -->
 
-    <div id="left" class="sidebar column">
+    <div id="left_column" class="left_column sidebar">
       <div id="left_title" class="titlebar"></div>
       <div id="left_content" class="left">
       </div> <!-- #left_content -->
-    </div> <!-- #left -->
+    </div> <!-- #left_column -->
 
-    <!-- MAIN COLUMN -->
+    <!-- MAIN CONTENT -->
 
-    <div id="main" class="column">
+    <div id="main_column" class="main_column">
 
       <!-- TITLE BAR -->
-      <div id="main_title" class="titlebar">
-        <img src="img/app_icon.png" />
+      <div id="main_title" class="titlebar main_title">
+        <img src="img/app_icon.png" alt="APPDISPLAYNAME icon" />
         <div>
           <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App!</h1>
           <h1 class="title group_pg pg_update hide">Your APPDISPLAYNAME App Has Been Updated!</h1>
@@ -61,22 +62,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         </div>
       </div> <!-- #main_title -->
 
-      <div id="main_content">
+      <div id="main_content" class="main_content">
 
         <!-- MAIN MESSAGE -->
 
-        <div id="changes_msg" class="main group_pg pg_update pg_reset pg_change_engine hide">
+        <div id="changes_msg" class="changes_msg hide">
 
-          <div id="changes_user" class="change_list">
-            <h2>Changes to This App</h2>
+          <div id="changes_user" class="changes_user change_list">
+            <h2 class="group_pg pg_new">Important Information</h2>
+            <h2 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h2>
             <ul>
               <li class="ch_update hide">The app has been updated from version <span class="version_old">0.0.0</span> to version <span class="version_cur">EPIVERSION</span></li>
               <li class="ch_change_engine hide">The app has switched engines<span class="has_engine_old hide"> from <span class="engine_old_type_int hide">the built-in</span><span class="engine_old_type_ext hide">an external</span> <span class="engine_old_browser"></span> engine</span> <span class="has_engine hide">to <span class="engine_type_int hide">the built-in</span><span class="engine_type_ext hide">an external</span> <span class="engine_browser"></span> engine</span></li>
               <li class="ch_reset hide">Some or all of the app&rsquo;s settings have been reset to their default values</li>
+              <li class="ch_bookmark_new hide">A folder called <span class="folder_name">APPBUNDLENAME Info</span> has been created on the bookmarks bar above. As long as you don&rsquo;t delete that folder, every time this page is shown the latest version will be added to end of the folder so you&rsquo;ll have a record of changes to the app.</li>
+              <li class="ch_bookmark_add hide">This page has been added to the <span class="folder_name">APPBUNDLENAME Info</span> folder on the bookmarks bar.</li>
             </ul>
           </div> <!-- #changes_user -->
 
-          <div id="changes_update" class="group_pg pg_update hide">
+          <div id="changes_update" class="changes_update group_pg pg_update hide">
             <div id="changes_minor" class="change_list">
               <h2>New in Version EPIVERSION</h2>
               <ul>
@@ -84,7 +88,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                 <li>Another change</li>
               </ul>
             </div>
-            <div id="changes_major" class="change_list">
+            <div id="changes_major" class="changes_major change_list">
               <h2>New in Version EPIMAJORVERSION</h2>
               <ul>
                 <li>A third change</li>
@@ -100,70 +104,72 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           <p class="group_pg pg_new">Before you get started:</p>
           <p class="group_pg pg_update pg_reset pg_change_engine hide">Before you get back to using the app:</p>
 
-          <div id="actions_list">
+          <div id="actions_list" class="actions_list">
 
             <!-- EPICHROME RUNTIME -->
-            <div id="epichromeruntimestatus" class="item runtime_off">
-              <div id="runtime_num" class="itemnum">1</div>
-              <div id="runtime" class="action_container">
+            <div id="epichromeruntimestatus" class="item epichromeruntimestatus runtime_status_off">
+              <div id="runtime_num" class="itemnum"></div>
+              <div class="action_container runtime_button_message runtime_status_off">
+                <div class="runtime_text">
+                  <h3>
+                    <span class="group_pg pg_new pg_update pg_reset group_ov">
+                      Install
+                    </span><span class="group_pg pg_change_engine group_ov ov_update hide">
+                      Reinstall
+                    </span>
+                    Epichrome Helper Extension
+                  </h3>
+                  <p class="group_pg pg_new pg_reset pg_update group_ov">To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension.</p>
+                  <p class="group_ov ov_update hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so if you have been using it, you will probably need to reinstall it using this button. All your rules and settings should be preserved.</p>
+                </div> <!-- .runtime_text -->
+                <div class="runtime_button">
+                  <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
+                  <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
+                  <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/ngbmbabjgimgbfobhfhjpfhpmpnhbeea" target="_blank">Install</a>
+                </div> <!-- .runtime_button -->
+              </div> <!-- .runtime_status_off -->
+              <div class="action_container runtime_button_message runtime_status_nonmh hide">
                 <h3>
-                  <span id="runtime_status_off" class="group_pg pg_new pg_update pg_reset group_ov">
-                    Install
-                  </span><span id="runtime_status_off" class="group_pg pg_change_engine group_ov ov_update hide">
-                    Reinstall
-                  </span>
-                  <span id="runtime_name">
-                    Epichrome Helper
-                  </span>
+                  <span class="runtime_name">Epichrome Helper</span>
                   Extension
-                  <span id="runtime_version" class="hide">
-                    1.1.2
-                  </span>
-                  <span id="runtime_status_nonmh" class="hide">
-                    Can&rsquo;t Communicate with System
-                  </span>
-                  <span id="runtime_status_ok" class="hide">
-                    Is Installed
-                  </span>
+                  <span class="runtime_version hide">1.1.2</span>
+                  Can&rsquo;t Communicate with System
                 </h3>
-                <div id="runtime_msg_off">
-                  <div id="runtime_install">
-                    <p class="group_pg pg_new pg_reset pg_update group_ov">To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension.</p>
-                    <p class="group_ov ov_update hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so if you have been using it, you will probably need to reinstall it using this button. You should not lose your rules or settings.</p>
-                    <div class="runtime_button">
-                      <img class="extension_icon" src="img/epichrome_icon.png" />
-                      <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
-                      <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/ngbmbabjgimgbfobhfhjpfhpmpnhbeea" target="_blank">Install</a>
-                    </div>
-                  </div> <!-- #runtime_install -->
-                </div> <!-- #runtime_msg_off -->
-                <div id="runtime_msg_nonmh" class="hide">
-                  <p>Make sure this app and the extension have both been updated to the latest version. If the problem continues, please submit a report using the link at the bottom of this page.</p>
-                </div> <!-- #runtime_msg_nonmg" -->
-                <div id="runtime_msg_ok" class="hide">
+                <p>Make sure this app and the extension have both been updated to the latest version. If the problem continues, please submit a report using the link at the bottom of this page.</p>
+              </div> <!-- .runtime_status_nonmh -->
+              <div class="action_container runtime_status_ok hide">
+                <div class="runtime_text">
+                  <h3>
+                    <span class="runtime_name">Epichrome Helper</span>
+                    Extension
+                    <span class="runtime_version hide">1.1.2</span>
+                    <span class="runtime_status_ok hide">
+                      Is Installed
+                    </span>
+                  </h3>
                   <p>You can set up link routing rules and other settings on the extension&rsquo;s options page:</p>
-                  <div class="runtime_button">
-                    <img class="extension_icon" src="img/epichrome_icon.png" />
-                    <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
-                    <a class="options">Options</a>
-                  </div>
-                </div> <!-- #runtime_msg_ok -->
-              </div> <!-- #runtime -->
+                </div> <!-- .runtime_text -->
+                <div class="runtime_button">
+                  <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
+                  <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
+                  <a class="options">Options</a>
+                </div> <!-- .runtime_button -->
+              </div> <!-- .runtime_status_ok -->
             </div> <!-- #epichromeruntimestatus -->
 
             <!-- IMPORT PASSWORDS -->
             <div id="passwords" class="item group_pw pw_change_engine pw_reset hide">
-              <div id="passwords_num" class="itemnum">0</div>
+              <div id="passwords_num" class="itemnum"></div>
               <div class="action_container">
                 <h3>Restore Saved Passwords</h3>
                 <p><span class="group_pw pw_change_engine">Because the app engine changed, you&rsquo;ll</span><span class="group_pw pw_reset">Because the app&rsquo;s preferences were reset, you may</span> need to reimport any saved passwords.</p>
-                <p>Open Settings ( <span class="cmd_shortcut">&#8984;-,</span> ) then click <span class="cmd_name">Passwords</span> under the <span class="cmd_header">Autofill</span> header (you can use <span class="cmd_shortcut">&#8984;-F</span> and type "passwords" to find it quickly). Click the <img id="passwords_button" src="img/passwords_button.png" /> menu to the right of the <span class="cmd_header">Saved Passwords</span> header, and choose <span class="cmd_name">Import</span>.</p>
+                <p class="password_instructions">Open Settings ( <span class="cmd_shortcut">&#8984;-,</span> ) then click <span class="cmd_name">Passwords</span> under the <span class="cmd_header">Autofill</span> header (you can use <span class="cmd_shortcut">&#8984;-F</span> and type "passwords" to find it quickly). Click the <img class="passwords_button" src="img/passwords_button.png" alt="Passwords import button" /> menu to the right of the <span class="cmd_header">Saved Passwords</span> header, and choose <span class="cmd_name">Import</span>.</p>
               </div>
             </div>
 
             <!-- (RE)INSTALL EXTENSIONS -->
             <div id="extensions" class="item hide">
-              <div id="extensions_num" class="itemnum">0</div>
+              <div id="extensions_num" class="itemnum"></div>
               <div class="action_container">
                 <h3><span class="group_ext ext_new">Install Browser</span><span class="group_ext ext_update ext_change_engine hide">Reinstall</span> <span class="has_exts">Extensions</span><span class="has_exts_apps hide"> &amp; </span><span class="has_apps hide">Apps</span></h3>
                 <p class="group_ext ext_new">You may want to install some or all of these <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span> found in your regular browsers.</p>
@@ -175,9 +181,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <h3 class="has_exts_apps hide">Extensions:</h3>
                   <!-- dummy extension -->
                   <div id="extension_dummy" class="extension hide">
-                    <img class="extension_icon" data-template="img/ext/EXTICON" />
+                    <img class="extension_icon" src="img/epichrome_icon.png" alt="Extension icon" data-template="img/ext/EXTICON" />
                     <div class="extension_name">Extension</div>
-                    <a class="install" class="install" href="https://chrome.google.com/webstore/detail/" target="_blank">Install</a>
+                    <a class="install" href="https://chrome.google.com/webstore/detail/" target="_blank">Install</a>
                   </div>
                 </div>
 
@@ -190,39 +196,34 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             </div> <!-- #extensions -->
 
             <!-- BOOKMARK -->
-            <div id="bookmark" class="item">
-              <div id="bookmark_num" class="itemnum">2</div>
-              <div class="action_container group_bk bk_new bk_add">
-                <h3 class="group_bk bk_new">A Bookmark Folder Has Been Created</h3>
-                <h3 class="group_bk bk_add hide">This Page Has Been Bookmarked</h3>
-                <p>This page has been added to the end of the <span class="folder_name">APPBUNDLENAME Info</span> folder on this app&rsquo;s bookmark bar. As long as you don&rsquo;t delete that folder, every time this page is shown the latest version will be added to end of the folder.</p>
-              </div>
-              <div class="action_container group_bk bk_fail hide">
+            <div id="bookmark" class="item hide">
+              <div id="bookmark_num" class="itemnum"></div>
+              <div class="action_container">
                 <h3>Bookmark This Page For Future Reference</h3>
                 <p>The app was unable to automatically add this page to the app&rsquo;s bookmarks. If you want to save it, you&rsquo;ll need to bookmark it by hand.</p>
-                <div id="bookmark_img">
-                  <img src="img/bookmark.png" />
+                <div class="bookmark_img">
+                  <img src="img/bookmark.png" alt="Bookmarks->Bookmark This Tab..." />
                 </div>
               </div>
             </div>
 
-          </div> <!-- actions_list -->
-        </div> <!-- actions -->
+          </div> <!-- #actions_list -->
+        </div> <!-- #actions -->
 
         <!-- FEEDBACK -->
         <p>When you&rsquo;re ready, close this tab and you&rsquo;ll be off and running. If you run into any bugs, or have ideas for features, please get in touch <a href="https://github.com/dmarmor/epichrome/issues" target="_blank">here</a>. Enjoy!</p>
 
       </div> <!-- #main_content -->
-    </div> <!-- #main -->
+    </div> <!-- #main_column -->
 
     <!-- RIGHT COLUMN -->
-    <div id="right" class="sidebar column">
+    <div id="right_column" class="right_column sidebar">
       <div id="right_title" class="titlebar"></div>
-      <div id="right_content">
+      <div id="right_content" class="right_content">
         <!-- PATREON -->
-        <div id="patreon">
-          <div id="patreon_header">
-            <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
+        <div id="patreon" class="patreon">
+          <div class="patreon_header">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
               <g>
                 <g>
                   <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
@@ -238,25 +239,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                 </g>
               </g>
             </svg>
-            <img src="img/epichrome_icon.png" id="patreon_epichrome" />
+            <img class="patreon_epichrome" src="img/epichrome_icon.png" alt="Epichrome icon" />
           </div> <!-- #patreon_header -->
-          <p id="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
-          <a href="https://www.patreon.com/bePatron?u=27108162" id="patreon_button" target="_blank" data-patreon-widget-type="become-patron-button">
-            <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
+          <p class="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
+          <a href="https://www.patreon.com/bePatron?u=27108162" class="patreon_button" target="_blank" data-patreon-widget-type="become-patron-button">
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
               <g>
                 <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
                 <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
               </g>
             </svg>
             Become a Patron!</a>
-            <div id="rockstars">
+            <div class="patreon_rockstars">
               <h2>Rockstar Patrons</h2>
               <ul>
                 <li>TBD</li>
                 <!-- <li>Orbital Impact</li> -->
                 <!-- <li>Eric Henderson</li> -->
               </ul>
-            </div> <!-- #rockstars -->
+            </div> <!-- .patreon_rockstars -->
           </div> <!-- #patreon -->
         </div> <!-- #right_content -->
       </div> <!-- #right -->

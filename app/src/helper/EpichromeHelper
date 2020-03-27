@@ -111,10 +111,15 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     # relaunch
     debuglog "Parent app has quit. Relaunching..."
     try /usr/bin/open -a "$SSBAppPath" "${argsURIs[@]}" --args "${argsOptions[@]}" \
-	"Unable to relaunch '$SSBAppPath'"
+	"Error during relaunch of ${SSBAppPath##*/}."
+    
+    # report any error
+    if [[ ! "$ok" ]] ; then
+	alert "$errmsg You may have to launch it manually." 'Warning' '|caution'
+    fi
 
     # exit
-    [[ "$ok" ]] && cleanexit || abort
+    cleanexit
     
 else
 
