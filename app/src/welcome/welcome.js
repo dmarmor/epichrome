@@ -21,16 +21,6 @@
 
 */
 
-// DISPLAY GROUPS
-
-const displayGroup = {
-    'group_pg': [ 'pg_new', 'pg_update', 'pg_reset', 'pg_change_engine' ],
-    'group_ov': [ 'ov_update' ],
-    'group_pw': [ 'pw_change_engine', 'pw_reset' ],
-    'group_ext': [ 'ext_new', 'ext_update', 'ext_change_engine' ]
-}
-
-
 // EPIENGINES -- info on all compatible browsers
 const epiEngines = {
     'com.microsoft.edgemac': {
@@ -57,7 +47,7 @@ const epiEngines = {
         'bundleName':  'Chrome',
         'displayName': 'Google Chrome'
     }
-}
+};
 
 
 // VCMP -- compare version numbers
@@ -67,7 +57,7 @@ const epiEngines = {
 function vcmp (v1, v2) {
 
     // regex for pulling out version parts
-    const vRe='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$';
+    const vRe='^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?$';
 
     // array for comparable version integers
     var vNums = [];
@@ -75,43 +65,43 @@ function vcmp (v1, v2) {
     // munge version numbers into comparable integers
     for (const curV of [ v1, v2 ]) {
 
-	const curMatch = curV.match(vRe);
-	var curVNum = 0;
+        const curMatch = curV.match(vRe);
+        var curVNum = 0;
 
-	if (curMatch) {
+        if (curMatch) {
 
-	    // create single number
-	    curVNum = ((parseInt(curMatch[1], 10) * 1000000000) +
-		       (parseInt(curMatch[2], 10) * 1000000) +
-		       (parseInt(curMatch[3], 10) * 1000));
+            // create single number
+            curVNum = ((parseInt(curMatch[1], 10) * 1000000000) +
+                       (parseInt(curMatch[2], 10) * 1000000) +
+                       (parseInt(curMatch[3], 10) * 1000));
 
-	    // add beta data
-	    if (curMatch[4]) {
+            // add beta data
+            if (curMatch[4]) {
 
-		// this is a beta
-		curVNum += parseInt(curMatch[5], 10);
-	    } else {
+                // this is a beta
+                curVNum += parseInt(curMatch[5], 10);
+            } else {
 
-		// release version
-		curVNum += 999;
-	    }
-	} else {
+                // release version
+                curVNum += 999;
+            }
+        } else {
 
-	    // unable to parse version number
-	    console.log('Unable to parse version "' + curV + '"');
-	}
+            // unable to parse version number
+            console.log('Unable to parse version "' + curV + '"');
+        }
 
-	// add to array
-	vNums.push(curVNum);
+        // add to array
+        vNums.push(curVNum);
     }
 
     // compare version integers
     if (vNums[0] < vNums[1]) {
-	return -1;
+        return -1;
     } else if (vNums[0] > vNums[1]) {
-	return 1;
+        return 1;
     } else {
-	return 0;
+        return 0;
     }
 }
 
@@ -180,7 +170,7 @@ function buildPage() {
     // GENERAL APP INFO
 
     // app version
-    const appVersion = urlParams.get('v');
+    var appVersion = urlParams.get('v');
     if (appVersion) {
         replaceText('version_cur', appVersion);
     } else {
@@ -195,6 +185,7 @@ function buildPage() {
     // default to new app page
     var activePage = null;
     var pageTitle = null;
+    var runtimeAction = 'rt_install';
 
     // app changes
     var appChanges = [];
@@ -202,7 +193,7 @@ function buildPage() {
     // update page
     const oldVersion = urlParams.get('ov');
     const statusUpdate = (oldVersion != null);
-    var statusUpdateSpecial = false;
+    // var statusUpdateSpecial = false;
     if (statusUpdate) {
         activePage = 'pg_update';
         pageTitle = document.head.dataset['update'].replace('OLDVERSION', oldVersion).replace('NEWVERSION', appVersion);
@@ -210,7 +201,7 @@ function buildPage() {
         appChanges.push('ch_update');
         replaceText('version_old', oldVersion);
 
-        statusUpdateSpecial = (vcmp(oldVersion, '2.3.0b9') < 0);
+        // statusUpdateSpecial = (vcmp(oldVersion, '2.3.0b9') < 0);
     }
 
     // engine change
@@ -252,6 +243,13 @@ function buildPage() {
     // SET PAGE TITLE
 
     document.title = pageTitle;
+
+    // ACTION ITEM: RUNTIME EXTENSION
+
+    const statusRuntime = urlParams.get('rt');
+    if (statusRuntime == 1) { runtimeAction = 'rt_update'; }
+    else if (statusRuntime == 2) { runtimeAction = 'rt_change_engine'; }
+    else if (statusReset) { runtimeAction = 'rt_reset'; }
 
     // ACTION ITEM: EXTENSION LIST
 
@@ -296,8 +294,10 @@ function buildPage() {
             activeExtList = 'ext_new';
         } else if (statusEngineChange) {
             activeExtList = 'ext_change_engine';
-        } else {
+        } else if (statusUpdate) {
             activeExtList = 'ext_update';
+        } else {
+            activeExtList = 'ext_fallback';
         }
 
         // show correct ext group
@@ -322,6 +322,9 @@ function buildPage() {
 
     // SHOW/HIDE ACTION ITEMS
 
+    // set appropriate runtime extension message
+    setDisplayGroup('group_rt', runtimeAction);
+
     // show passwords message if needed
     if (activePassword != null) { setDisplayGroup('group_pw', activePassword); }
 
@@ -333,9 +336,9 @@ function buildPage() {
 
     // show special update text
 
-    if (statusUpdateSpecial) {
-        setDisplayGroup('group_ov', 'ov_update');
-    }
+    // if (statusUpdateSpecial) {
+    //     setDisplayGroup('group_ov', 'ov_update');
+    // }
 
     // RENUMBER ACTIONS LIST
 

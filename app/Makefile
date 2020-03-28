@@ -156,7 +156,8 @@ PRECIOUS_INTERMEDIATES:=\
 	build/epichrome-$(VERSION)-main.pkg \
 	build/resources/background.png \
 	build/resources/license.rtf \
-	build/resources/readme.rtf
+	build/resources/readme.rtf \
+	build/resources/welcome.rtf
 
 .INTERMEDIATE: main engine runtime $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
@@ -172,7 +173,7 @@ internal: $(APP)
 
 clean:
 	rm -rf Epichrome/Epichrome.app epichrome-*.pkg
-	rm -rf build/main* build/runtime* $(INTERMEDIATES)
+	rm -rf build/main* build/runtime* build/engine build/resources $(INTERMEDIATES)
 	@hdiutil detach build/brave 2> /dev/null || true
 
 clean-package:
@@ -405,10 +406,6 @@ main:
 
 # MAIN APP BUNDLE ELEMENTS
 
-$(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
-	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
-
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
@@ -506,7 +503,7 @@ $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/vers
 
 $(APP_RNTM)/Icons/%.icns: build/icons/%$(BETA).icns
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 build/icons/%.icns: ../images/icons/%.png
 	@mkdir -p '$(dir $@)'
@@ -524,25 +521,33 @@ $(APP_RNTM_HLPR_CT)/Info.plist: src/helper/Info.plist
 
 $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 
 # RUNTIME SCRIPTS
 
+$(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
+	@mkdir -p '$(dir $@)'
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
+
+$(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
+	@mkdir -p '$(dir $@)'
+	sed -e 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g' '$<' > '$@'
+
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 
 # PROFILE FILES
 
 $(APP_RNTM)/Filter/Bookmarks: src/profile/bookmarks.json
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 $(APP_RNTM)/Contents/Resources/Profile/Prefs/%.json: src/profile/%.json
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 
 # CHROME EXTENSION
@@ -556,11 +561,11 @@ $(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/versio
 
 $(APP_RNTM)/Filter/welcome.html: src/welcome/welcome.html
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIMAJORVERSION/$(VERSIONMAJOR)/g' '$<' > '$@'
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIMAJORVERSION/$(VERSIONMAJOR)/g; s/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/EPIEXTIDBETA/$(EXTN_ID_BETA)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Welcome/welcome.%: src/welcome/welcome.%
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@' 
+	cp '$<' '$@'
 
 $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichrome_icon.png
 	@mkdir -p '$(dir $@)'

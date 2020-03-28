@@ -57,7 +57,7 @@ h2 {
     /* margin-bottom: 0.8em; */
 }
 h3 {
-    font-size: 105%;
+    font-size: 100%;
     font-weight: bold;
     text-decoration: underline;
 }
@@ -97,8 +97,8 @@ a:active {
     flex-direction: row;
     width: 100%;
 }
-.main_title .title {
-    flex-direction: column;
+.main_title_text {
+    align-items: center;
 }
 .main_title img {
     width: 64px;
@@ -110,13 +110,30 @@ a:active {
 }
 .main_title h1 {
     margin: 0;
-    padding: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: .15em;
+    padding-bottom: .15em;
+    line-height: .95;
+    text-align: center;
+}
+.main_title .title_info {
+    flex-basis: 50%;
+    flex-shrink: 1;
 }
 .main_title .version {
     font-size: 85%;
-    margin: .5em 0 0 0;
+    margin: 0;
     text-align: center;
     color: #404040;
+}
+.main_title .version.above {
+    margin-top: 0;
+    margin-bottom: .5em;
+}
+.main_title .version.below {
+    margin-top: .5em;
+    margin-bottom: 0;
 }
 .container {
     flex-direction: row;
@@ -139,11 +156,12 @@ a:active {
     font-size: 100%;
     padding-top: 1em;
 }
-.change_list h2 {
-    font-size: 93.5%;
-    margin: 0;
-    padding: 0;
+
+.footnote {
+    text-align: center;
+    font-size: 85%;
 }
+
 .changes_msg {
     justify-content: flex-start;
     align-items: center;
@@ -151,6 +169,13 @@ a:active {
     margin-bottom: 1.5em;
     padding: 1em;
     padding-bottom: 0;
+}
+.change_list {
+    width: 100%;
+}
+.change_list h3 {
+    margin: 0;
+    padding: 0;
 }
 .change_list ul {
     margin: 0;
@@ -166,25 +191,40 @@ a:active {
     flex-shrink: 0;
 }
 .changes_update {
-    flex-direction: row;
     flex-basis: 100%;
-    width: 100%;
     justify-content: flex-start;
     margin-bottom: 1em;
+}
+.changes_update_lists {
+    font-size: 85%;
+    flex-direction: row;
 }
 .changes_update .change_list {
     flex-basis: 50%;
 }
+.changes_update .change_list ul {
+    margin-bottom: 1em;
+}
+.changes_update .changes_minor.changes_version_zero {
+    flex-basis: 100%;
+}
 .changes_major {
     margin-left: 1em;
 }
+.changes_changelog {
+    margin: 0;
+}
+
+.actions_header {
+    font-weight: bold;
+    font-style: italic;
+    text-decoration: underline;
+}
 
 .actions_list {
-    /* background: #ff0000; */
-    /* width: 90%; */
     margin: 0 auto;
     padding-bottom: .5em;
-    width: 75%;
+    width: 85%;
     justify-content: center;
     align-items: center;
     flex-direction: column;
@@ -203,7 +243,7 @@ a:active {
     border: 1px solid #a0a0a0;
     vertical-align: top;
     background: #f0f0f0;
-    font-size: 85%;
+    /* font-size: 85%; */
 }
 .itemnum {
     padding: 0;
@@ -247,15 +287,13 @@ a:active {
     margin-left: 1em;
 }
 
-.epichromeruntimestatus .action_container p {
+/* .epichromeruntimestatus .action_container p {
     display: flex;
-    /* align-items: center; */
-    /* margin-top: 1em; */
     margin-bottom: 1em;
-}
-.epichromeruntimestatus .action_container p.hide {
+} */
+/* .epichromeruntimestatus .action_container p.hide {
     display: none;
-}
+} */
 
 .runtime_button {
     flex-direction: column;
@@ -300,13 +338,11 @@ div.extlist {
     align-items: center;
     flex-basis: 0;
     flex-grow: 1;
-    /* background: #ffff00; */
     width: 100%;
 }
 div.extlist h3 {
     margin-top: 1em;
     width: 85%;
-    font-size: 110%;
 }
 
 div.extension {
@@ -314,11 +350,7 @@ div.extension {
     justify-content: center;
     align-items: center;
     padding-bottom: 1em;
-    /* background: #ff00ff; */
     width: 85%;
-}
-.action_container p {
-    text-align: left;
 }
 div.extension img.extension_icon {
     flex-basis: 56px;
@@ -329,10 +361,8 @@ div.extension .extension_name {
     flex-basis: 100%;
     flex-shrink: 1;
     flex-grow: 0;
-    /* background: #00ff00; */
     padding-left: .5em;
     padding-right: .5em;
-    font-size: 110%;
     font-weight: bold;
     text-align: center;
 }
@@ -345,31 +375,29 @@ div.extension .install {
 img.extension_icon {
     width: 56px;
     height: 56px;
-    /* background: #ff0000; */
 }
 
 a.install, a.options {
-    border-bottom-left-radius:100px;
-    border-bottom-right-radius:100px;
-    border-top-left-radius:100px;
-    border-top-right-radius:100px;
-    box-sizing:border-box;
+    border-bottom-left-radius: 100px;
+    border-bottom-right-radius: 100px;
+    border-top-left-radius: 100px;
+    border-top-right-radius: 100px;
+    box-sizing: border-box;
     color:rgb(255, 255, 255);
-    /* cursor:pointer; */
+    cursor:pointer;
     display:block;
     font-family:system-ui, -apple-system, system-ui, "segoe ui", Helvetica, Arial, sans-serif, "apple color emoji", "segoe ui emoji", "segoe ui symbol";
-    font-size:12px;
+    font-size:13px;
     font-weight:600;
-    letter-spacing:-0.24px;
     width:80px;
     height:29px;
     max-width:300px;
     min-width:80px;
     margin: 0 auto;
-    padding-bottom:7px;
+    padding-bottom:8px;
     padding-left:4px;
     padding-right:4px;
-    padding-top:7px;
+    padding-top:6px;
     text-align:center;
     /* text-decoration-color:rgb(255, 255, 255);
     text-decoration-line:none;

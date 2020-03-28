@@ -347,6 +347,7 @@ fi
 myStatusNewApp=        # on new app, this is set
 myStatusNewVersion=    # on update, this contains old version
 myStatusEngineChange=  # on engine change, this contains old engine info
+myStatusReset=         # set if app settings appear to have been reset
 myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
 myStatusWelcomeTitle=  # title for URL bookmark
 
@@ -376,7 +377,7 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
 fi
 
 
-# DETEMINE IF WE'VE JUST CHANGED ENGINES
+# DETERMINE IF WE'VE JUST CHANGED ENGINES
 
 if [[ ( ! "$myStatusNewApp" ) && \
 	  ( "$SSBLastRunEngineType" && \
@@ -393,6 +394,12 @@ fi
 
 # update last-run engine
 SSBLastRunEngineType="$SSBEngineType"
+
+
+# DETERMINE IF SETTING HAVE BEEN RESET
+
+[[ -e "$myFirstRunFile" && -e "$myPreferencesFile" ]] || \
+    myStatusReset=1
 
 
 # UPDATE APP PATH
@@ -415,14 +422,10 @@ if [[ ( -d "$SSBEnginePath" ) && \
 
     # engine path is not next to the current Epichrome (or latest one if no current), so we'll move it
     debuglog "Engine path '$SSBEnginePath' in outdated location."
-    # $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
-    try /bin/chmod -R u+w "$SSBEnginePath" 'Unable to fix permissions for old engine.'
-    try /bin/rm -rf "$SSBEnginePath" 'Unable to remove old engine.'
-    if [[ ! "$ok" ]] ; then
-	errlog "Warning: $errmsg"
-	ok=1 ; errmsg=
-    fi
 
+    # delete old engine
+    deleteengine
+    
 fi
 if [[ ! -d "$SSBEnginePath" ]] ; then
 
@@ -763,6 +766,9 @@ else
     [[ "$errmsg" ]] && errPostLaunch="$errmsg "
     errPostLaunch+="The app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting."
     launchFailed=1
+
+    # delete failed engine
+    deleteengine
 fi
 
 
@@ -782,11 +788,11 @@ fi
 # SHOW WELCOME PAGE IF NEEDED
 
 if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
-    
-    debuglog "Showing welcome page ($myStatusWelcomeURL)."
-    
+        
     # pause to allow the app to open $$$$$ SAFE TO REMOVE THIS?
     waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
+    
+    debuglog "Showing welcome page ($myStatusWelcomeURL)."
     
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \

@@ -127,6 +127,8 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
         
     if [[ "$doUpdate" = "Update" ]] ; then
 
+	# set up necessary current variables
+	SSBLastRunVersion="$SSBVersion"
 	SSBEngineType='external|com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
 	SSBLastRunEngineType="$SSBEngineType"
 	
@@ -156,8 +158,6 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    else
 		ok=
 	    fi
-
-	    debuglog "GOT HERE OK: $myLogFile   $stderrTempFile"
 	    
 	    # make empty directory where old profile was
 	    try /bin/mkdir -p "$myDataPath" 'Error creating new data folder.'

@@ -90,7 +90,7 @@ Before completing this update, please back up any passwords. Instructions are in
 	fi
 	
 	# if we got here, we're going ahead with the update
-	SSBLastRunEngineType='external|com.google.Chrome'
+	SSBLastRunEngineType='internal|com.google.Chrome'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 	
@@ -122,6 +122,12 @@ Before completing this update, please back up any passwords. Instructions are in
 	SSBLastRunEngineType='internal|org.chromium.Chromium'
 	SSBEngineType="internal|${epiEngineSource[$iID]}"
 	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
+
+    elif [[ "${myStatusEngineChange[0]}" ]] ; then
+	
+	# restore last-run engine for update purposes
+	SSBLastRunEngineType="${myStatusEngineChange[0]}"
+	
     fi
 
     # $$$$ temp patch -- this has been added to AppExec
@@ -329,16 +335,95 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
 	       APPENGINESOURCE "$appExecEngineSource"
     
+    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+
     
-    # GET ICON SOURCE
+    # GET ICON SOURCES
 
     # determine source of icons
     local iconSourcePath=
+    local welcomeIconBase="$appWelcomePath/img/app_icon.png"
+    local welcomeIconSourcePath=
+    local defaultWelcomeIcon="$updateEpichromeRuntime/Contents/$appWelcomePath/img/epichrome_icon.png"
+    local tempIconset=
     if [[ "$SSBCustomIcon" = Yes ]] ; then
+	
+	# use custom icons already in app bundle
 	iconSourcePath="$updateAppPath/Contents/Resources"
+	welcomeIconSourcePath="$updateAppPath/Contents/$welcomeIconBase"
+	
+	# check if welcome icon exists in bundle
+	if [[ ! -f "$welcomeIconSourcePath" ]] ; then
+
+	    # set fallback
+	    welcomeIconSourcePath="$defaultWelcomeIcon"
+	    
+	    debuglog 'Extracting icon image for welcome page.'
+	    
+	    # create iconset from app icon
+	    tempIconset="$(tempname "$contentsTmp/$appWelcomePath/img/app" ".iconset")"
+	    try /usr/bin/iconutil -c iconset \
+		-o "$tempIconset" \
+		"$iconSourcePath/$CFBundleIconFile" \
+		'Unable to convert app icon to iconset.'
+	    
+	    if [[ "$ok" ]] ; then
+		
+		# pull out the PNG closest to 128x128
+		local f=
+		local curMax=()
+		local curSize=
+		local iconRe='icon_([0-9]+)x[0-9]+(@2x)?\.png$'
+		for f in "$tempIconset"/* ; do
+		    if [[ "$f" =~ $iconRe ]] ; then
+
+			# get actual size of this image
+			curSize="${BASH_REMATCH[1]}"
+			[[ "${BASH_REMATCH[2]}" ]] && curSize=$(($curSize * 2))
+
+			# see if this is a better match
+			if [[ (! "${curMax[0]}" ) || \
+				  ( ( "${curMax[0]}" -lt 128 ) && \
+					( "$curSize" -gt "${curMax[0]}" ) ) || \
+				  ( ( "$curSize" -ge 128 ) && \
+					( "$curSize" -lt "${curMax[0]}" ) ) ]] ; then
+			    curMax=( "$curSize" "$f" )
+			fi
+		    fi
+		done
+		
+		# if we found a suitable image, use it
+		[[ -f "${curMax[1]}" ]] && welcomeIconSourcePath="${curMax[1]}"
+		
+	    else
+		# fail silently, we'll just use the default
+		ok=1 ; errmsg=
+	    fi
+	else
+	    debuglog 'Found existing icon image for welcome page.'
+	fi
     else
+	
+	# use generic icons from Epichrome
 	iconSourcePath="$updateEpichromeRuntime/Icons"
+	welcomeIconSourcePath="$defaultWelcomeIcon"
     fi
+    
+    
+    # COPY WELCOME PAGE ICON
+    
+    # copy generic Epichrome welcome page icon for app icon
+    safecopy "$welcomeIconSourcePath" \
+	     "$contentsTmp/$welcomeIconBase" \
+	     'Unable to add app icon to welcome page.'
+    
+    # get rid of any temp iconset we created
+    [[ "$tempIconset" && -e "$tempIconset" ]] && \
+	tryalways /bin/rm -rf "$tempIconset" \
+		  'Unable to remove temporary iconset.'
+    
+    # welcome page icon error is nonfatal, just log it
+    if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
     
     
     # COPY ICONS TO MAIN APP
@@ -347,10 +432,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	     "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
     safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
 	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
-    try /usr/bin/sips -s format png "$iconSourcePath/$CFBundleIconFile" \
-	--out "$contentsTmp/$appWelcomePath/img/app_icon.png" \
-	'Unable to add app icon to welcome page.'
-
+    
     
     # FILTER NATIVE MESSAGING HOST INTO PLACE
 

@@ -53,13 +53,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
       <!-- TITLE BAR -->
       <div id="main_title" class="titlebar main_title">
         <img src="img/app_icon.png" alt="APPDISPLAYNAME icon" />
-        <div>
-          <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App!</h1>
-          <h1 class="title group_pg pg_update hide">Your APPDISPLAYNAME App Has Been Updated!</h1>
-          <h1 class="title group_pg pg_reset hide">Your APPDISPLAYNAME App Was Reset</h1>
-          <h1 class="title group_pg pg_change_engine hide">Your APPDISPLAYNAME App Has Changed</h1>
-          <p class="version">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p>
-        </div>
+        <div id="main_title_text" class="main_title_text">
+          <div class="title_info above">
+            <p class="version group_pg pg_update pg_change_engine pg_reset hide">APPDISPLAYNAME | version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_new">&nbsp;</p>
+          </div>
+          <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App xdj sdls dsd fsdl fsdls dflsdf !</h1>
+          <h1 class="title group_pg pg_update hide">Your App Has Been Updated!</h1>
+          <h1 class="title group_pg pg_reset hide">Your App Was Reset</h1>
+          <h1 class="title group_pg pg_change_engine hide">Your App Has Changed</h1>
+          <div class="title_info below">
+            <p class="version group_pg pg_new">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_update pg_change_engine pg_reset hide">&nbsp;</p>
+          </div>
+        </div> <!-- #main_title_text -->
       </div> <!-- #main_title -->
 
       <div id="main_content" class="main_content">
@@ -67,10 +72,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         <!-- MAIN MESSAGE -->
 
         <div id="changes_msg" class="changes_msg hide">
-
           <div id="changes_user" class="changes_user change_list">
-            <h2 class="group_pg pg_new">Important Information</h2>
-            <h2 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h2>
+            <h3 class="group_pg pg_new">Important Information</h3>
+            <h3 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h3>
             <ul>
               <li class="ch_update hide">The app has been updated from version <span class="version_old">0.0.0</span> to version <span class="version_cur">EPIVERSION</span></li>
               <li class="ch_change_engine hide">The app has switched engines<span class="has_engine_old hide"> from <span class="engine_old_type_int hide">the built-in</span><span class="engine_old_type_ext hide">an external</span> <span class="engine_old_browser"></span> engine</span> <span class="has_engine hide">to <span class="engine_type_int hide">the built-in</span><span class="engine_type_ext hide">an external</span> <span class="engine_browser"></span> engine</span></li>
@@ -81,71 +85,77 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           </div> <!-- #changes_user -->
 
           <div id="changes_update" class="changes_update group_pg pg_update hide">
-            <div id="changes_minor" class="change_list">
-              <h2>New in Version EPIVERSION</h2>
-              <ul>
-                <li>A change</li>
-                <li>Another change</li>
-              </ul>
-            </div>
-            <div id="changes_major" class="changes_major change_list">
-              <h2>New in Version EPIMAJORVERSION</h2>
-              <ul>
-                <li>A third change</li>
-                <li>A big change</li>
-              </ul>
-            </div>
+            <div id="changes_update_lists" class="changes_update_lists">
+              <div id="changes_minor" class="change_list changes_minor changes_version_zerox"> <!-- .changes_version_zero for x.x.0 -->
+                <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
+                <ul>
+                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
+                  <li>Fixed many issues from earlier betas</li>
+                </ul>
+              </div>
+              <div id="changes_major" class="change_list changes_major hidex"> <!-- .hide for x.x.0 -->
+                <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
+                <ul>
+                  <li>Completely rewritten for full compatibility with macOS 10.15 Catalina</li>
+                  <li>Added built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine for more app-like behavior</li>
+                  <li>Fixed microphone and camera permissions, AppleScript interaction, and much more</li>
+                </ul>
+              </div>
+            </div> <!-- #changes_update_lists --><!-- $$$$ SHOW CHANGELOG -->
+            <p class="changes_changelog footnote hidex">Full Epichrome change log available <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">here</a>.</p>
           </div> <!-- #changes_update -->
 
         </div> <!-- #changes_msg -->
 
         <!-- ACTIONS -->
         <div id="actions">
-          <p class="group_pg pg_new">Before you get started:</p>
-          <p class="group_pg pg_update pg_reset pg_change_engine hide">Before you get back to using the app:</p>
+          <p class="actions_header group_pg pg_new">Before you get started:</p>
+          <p class="actions_header group_pg pg_update pg_reset pg_change_engine hide">Before you get back to using the app:</p>
 
           <div id="actions_list" class="actions_list">
 
             <!-- EPICHROME RUNTIME -->
             <div id="epichromeruntimestatus" class="item epichromeruntimestatus runtime_status_off">
               <div id="runtime_num" class="itemnum"></div>
-              <div class="action_container runtime_button_message runtime_status_off">
-                <div class="runtime_text">
-                  <h3>
-                    <span class="group_pg pg_new pg_update pg_reset group_ov">
-                      Install
-                    </span><span class="group_pg pg_change_engine group_ov ov_update hide">
-                      Reinstall
-                    </span>
-                    Epichrome Helper Extension
-                  </h3>
-                  <p class="group_pg pg_new pg_reset pg_update group_ov">To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension.</p>
-                  <p class="group_ov ov_update hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so if you have been using it, you will probably need to reinstall it using this button. All your rules and settings should be preserved.</p>
-                </div> <!-- .runtime_text -->
-                <div class="runtime_button">
-                  <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
-                  <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
-                  <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/ngbmbabjgimgbfobhfhjpfhpmpnhbeea" target="_blank">Install</a>
-                </div> <!-- .runtime_button -->
+              <div class="action_container runtime_status_off">
+                <div class="runtime_button_message">
+                  <div class="runtime_text">
+                    <h3>
+                      <span class="group_rt rt_install">
+                        Install
+                      </span><span class="group_rt rt_update rt_change_engine rt_reset hide">
+                        Reinstall
+                      </span>
+                      Epichrome Helper Extension
+                    </h3>
+                    <p><span class="group_rt rt_install">To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension</span><span class="group_rt rt_update hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app was reset, the Epichrome Helper extension may</span> need to be reinstalled</span>.<span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span></p>
+                  </div> <!-- .runtime_text -->
+                  <div class="runtime_button">
+                    <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
+                    <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
+                    <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/EPIEXTIDRELEASE" target="_blank">Install</a>
+                  </div> <!-- .runtime_button -->
+                </div> <!-- .runtime_button_message -->
+                <!-- <p class="runtime_beta footnote">
+                  Or if you&rsquo;re feeling adventurous, you can try installing the <a href="https://chrome.google.com/webstore/detail/epichrome-helper/EPIEXTIDBETA" target="_blank">Epichrome Runtime Beta</a> extension.
+                </p> -->
               </div> <!-- .runtime_status_off -->
-              <div class="action_container runtime_button_message runtime_status_nonmh hide">
+              <div class="action_container runtime_status_nonmh hide">
                 <h3>
                   <span class="runtime_name">Epichrome Helper</span>
                   Extension
                   <span class="runtime_version hide">1.1.2</span>
-                  Can&rsquo;t Communicate with System
+                  Not Working
                 </h3>
-                <p>Make sure this app and the extension have both been updated to the latest version. If the problem continues, please submit a report using the link at the bottom of this page.</p>
+                <p>The extension is installed, but can&rsquo;t communicate with the system. Make sure this app and the extension have both been updated to the latest version. If the problem continues, please submit a report using the link at the bottom of this page.</p>
               </div> <!-- .runtime_status_nonmh -->
-              <div class="action_container runtime_status_ok hide">
+              <div class="action_container runtime_button_message runtime_status_ok hide">
                 <div class="runtime_text">
                   <h3>
                     <span class="runtime_name">Epichrome Helper</span>
                     Extension
                     <span class="runtime_version hide">1.1.2</span>
-                    <span class="runtime_status_ok hide">
-                      Is Installed
-                    </span>
+                    Is Installed
                   </h3>
                   <p>You can set up link routing rules and other settings on the extension&rsquo;s options page:</p>
                 </div> <!-- .runtime_text -->
@@ -162,7 +172,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               <div id="passwords_num" class="itemnum"></div>
               <div class="action_container">
                 <h3>Restore Saved Passwords</h3>
-                <p><span class="group_pw pw_change_engine">Because the app engine changed, you&rsquo;ll</span><span class="group_pw pw_reset">Because the app&rsquo;s preferences were reset, you may</span> need to reimport any saved passwords.</p>
+                <p><span class="group_pw pw_change_engine">Because of the engine change, you&rsquo;ll</span><span class="group_pw pw_reset">Because the app&rsquo;s preferences were reset, you may</span> need to reimport any saved passwords.</p>
                 <p class="password_instructions">Open Settings ( <span class="cmd_shortcut">&#8984;-,</span> ) then click <span class="cmd_name">Passwords</span> under the <span class="cmd_header">Autofill</span> header (you can use <span class="cmd_shortcut">&#8984;-F</span> and type "passwords" to find it quickly). Click the <img class="passwords_button" src="img/passwords_button.png" alt="Passwords import button" /> menu to the right of the <span class="cmd_header">Saved Passwords</span> header, and choose <span class="cmd_name">Import</span>.</p>
               </div>
             </div>
@@ -172,9 +182,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               <div id="extensions_num" class="itemnum"></div>
               <div class="action_container">
                 <h3><span class="group_ext ext_new">Install Browser</span><span class="group_ext ext_update ext_change_engine hide">Reinstall</span> <span class="has_exts">Extensions</span><span class="has_exts_apps hide"> &amp; </span><span class="has_apps hide">Apps</span></h3>
-                <p class="group_ext ext_new">You may want to install some or all of these <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span> found in your regular browsers.</p>
-                <p class="group_ext ext_update hide">In case any of your <span class="has_exts">extensions</span><span class="has_exts_apps hide"> or </span><span class="has_apps hide">apps</span> were lost in the update, you can reinstall them from here (once they&rsquo;re installed, their settings should return).</p>
-                <p class="group_ext ext_change_engine hide">Because the app engine changed, you&rsquo;ll need to reinstall your <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span> (once they&rsquo;re installed, their settings should return).</p>
+                <p>
+                  <span class="group_ext ext_new">You may want to install some or all of these <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span> found in your regular browsers.</span>
+                  <span class="group_ext ext_update hide">In case any of your <span class="has_exts">extensions</span><span class="has_exts_apps hide"> or </span><span class="has_apps hide">apps</span> were lost in the update, you can reinstall them from here</span>
+                  <span class="group_ext ext_change_engine hide">Because the app engine changed, you&rsquo;ll need to reinstall your <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span></span>
+                  <span class="group_ext ext_fallback hide">These <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span> were found in the app&rsquo;s settings. In case any of them are lost, you can reinstall them from here</span>
+                  <span class="group_ext ext_update ext_change_engine ext_fallback hide">(with most <span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>, once they&rsquo;re reinstalled their settings will be intact).</span>
+                </p>
 
                 <!-- EXTENSIONS -->
                 <div id="extension_list" class="extlist has_exts">

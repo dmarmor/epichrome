@@ -811,7 +811,8 @@ function checkpath { # ( path [pathRoot] )
 
 
 # TEMPNAME: internal version of mktemp
-function tempname {
+function tempname {  # ( root [ext] )
+    
     # approximately equivalent to result=$(/usr/bin/mktemp "${appPath}.XXXXX" 2>&1)
     local result="${1}.${RANDOM}${2}"
     while [[ -e "$result" ]] ; do

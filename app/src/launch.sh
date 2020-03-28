@@ -695,7 +695,8 @@ function updatedatadir {
     # UPDATE WELCOME PAGE
     
     if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
-	      ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
+	      "${myStatusEngineChange[0]}" || "$myStatusReset" || \
+	  ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
 	
 	debuglog 'Updating welcome page assets.'
 	
@@ -761,7 +762,7 @@ function setwelcomepage {
 	    myStatusWelcomeURL+="&oe=$(encodeurl "${myStatusEngineChange[0]}")"
 	fi
 	
-	if [[ ( ! -e "$myFirstRunFile" ) || ( ! -e "$myPreferencesFile" ) ]] ; then
+	if [[ "$myStatusReset" ]] ; then
 	    
 	    # reset profile
 	    if [[ ! "$myStatusWelcomeURL" ]] ; then
@@ -831,6 +832,9 @@ function updateprofiledir {
 	[[ "$ok" ]] || return 1
     fi
 
+    # runtime extension action
+    local runtimeExtDeleted=
+    
     # error states
     local myErrDelete=
     local myErrAllExtensions=
@@ -877,9 +881,12 @@ function updateprofiledir {
 	    elif [[ "$?" = 2 ]] ; then
 		local myErrSomeExtensions="$errmsg"
 	    fi
+
+	    # if we have the runtime extension installed, report that to the welcome page
+	    [[ "${oldExtensionArgs[1]}" != 0 ]] && runtimeExtDeleted=1
 	    
 	    # add to welcome page
-	    [[ "$oldExtensionArgs" ]] && myStatusWelcomeURL+="&$oldExtensionArgs"
+	    [[ "${oldExtensionArgs[0]}" ]] && myStatusWelcomeURL+="&${oldExtensionArgs[0]}"
 	    
 	    # delete everything from Default except:
 	    #  Bookmarks, Favicons, History, Local Extension Settings
@@ -920,7 +927,7 @@ function updateprofiledir {
     # SET UP PROFILE DIRECTORY
 
     # if this is our first-run, get Preferences and First Run file in consistent state
-    if [[ ! ( -e "$myFirstRunFile" && -e "$myPreferencesFile" ) ]] ; then
+    if [[ "$myStatusReset" ]] ; then
 
 	# we're missing either First Run or Prefs file, so delete both
 	try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
@@ -930,11 +937,23 @@ function updateprofiledir {
 	    ok=1 ; errmsg=
 	fi
     fi
-    
-    
-    # INSTALL/UPDATE BOOKMARKS FILE
+
+
+    # WELCOME PAGE ACTIONS
     
     if [[ "$myStatusWelcomeURL" ]] ; then
+
+	# LET WELCOME PAGE KNOW ABOUT RUNTIME EXTENSION
+
+	if [[ "$runtimeExtDeleted" ]] ; then
+	    myStatusWelcomeURL+='&rt=2'
+	elif [[ "$myStatusNewVersion" ]] && \
+		 vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
+	    myStatusWelcomeURL+='&rt=1'
+	fi
+	
+	
+	# INSTALL/UPDATE BOOKMARKS FILE
 
 	local bookmarkResult=
 	
@@ -952,7 +971,7 @@ function updateprofiledir {
 	    filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
 		       "$myBookmarksFile" \
 		       'bookmarks file' \
-		       APPWELCOMETITLE "App Created ($SSBVersion)" \
+		       APPWELCOMETITLE "$myStatusWelcomeTitle" \
 		       APPWELCOMEURL "$myStatusWelcomeURL"
 	    if [[ "$ok" ]] ; then
 
@@ -1126,8 +1145,10 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     local result=
     
     local mySearchPaths=( "$@" )
+    local hasRuntimeExt=
     if [[ "${#mySearchPaths[@]}" = 0 ]] ; then
 	mySearchPaths=( "$myProfilePath/Default" )
+	hasRuntimeExt=0
     fi
     
     # error states
@@ -1166,7 +1187,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     fi
     
     # get extension IDs, excluding weird internal Chrome ones
-    local allExcept='!(Temp|ngbmbabjgimgbfobhfhjpfhpmpnhbeea|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)'
+    local allExcept="!(Temp|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)"
     
     # find all valid extensions in each path
     local myExtensions=
@@ -1219,13 +1240,17 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     myExtensions=()
     for curExt in "${curExtensions[@]}" ; do
 	
-	if [[ "$prevExtID" = "${curExt%%|*}" ]] ; then
+	if [[ "${curExt%%|*}" = 'EPIEXTIDRELEASE' ]] ; then
 
-	    # already have this extension, so ignore
-	    continue
-	else
-	    prevExtID="${curExt%%|*}"
+	    # record, but don't include the Epichrome Runtime extension
+	    [[ "$hasRuntimeExt" ]] && hasRuntimeExt=1
+	    prevExtId="${curExt%%|*}"
+	    
+	elif [[ "$prevExtID" != "${curExt%%|*}" ]] ; then
+
+	    # first time seeing this ID, so add id
 	    myExtensions+=( "$curExt" )
+	    prevExtID="${curExt%%|*}"
 	fi
     done
     
@@ -1461,7 +1486,13 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     shoptrestore myShoptState
 
     # write out result variable
-    eval "${resultVar}=\"\$result\""
+    if [[ "$hasRuntimeExt" ]] ; then
+
+	# running on our extensions, so include info on runtime extension
+	eval "${resultVar}=( \"\$result\" \"\$hasRuntimeExt\" )"
+    else
+	eval "${resultVar}=\"\$result\""
+    fi
     
     # return error states
     if [[ "$myGlobalError" || \
@@ -2016,6 +2047,31 @@ function setenginestate {  # ( ON|OFF )
     [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
     
 } ; export -f setenginestate
+
+
+# DELETEENGINE -- delete Epichrome engine
+function deleteengine {
+
+    # save OK state
+    local oldOK="$ok"
+    
+    debuglog "Deleting engine at '$SSBEnginePath'"
+    
+    # $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
+    tryalways /bin/chmod -R u+w "$SSBEnginePath" 'Warning -- Unable to fix permissions for old engine.'
+    
+    # delete engine
+    tryalways /bin/rm -rf "$SSBEnginePath" 'Warning -- Unable to remove old engine.'
+
+    # handle errors
+    if [[ ! "$ok" ]] ; then
+	ok="$oldOK"
+	[[ "$ok" ]] && errmsg=
+	return 1
+    fi
+
+    return 0
+}
 
 
 # CREATEENGINE -- create Epichrome engine (payload & placeholder)
