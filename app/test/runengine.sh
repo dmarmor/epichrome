@@ -2,6 +2,14 @@
 
 shopt -s nullglob
 
+# simulation mode
+simulate=
+if [[ "$1" = '-p' ]] ; then
+    simulate=1
+    shift
+fi
+
+# directory
 dir_arg=
 if [[ "${1::2}" != '--' ]] ; then
     # args
@@ -60,4 +68,8 @@ fi
 
 # run engine
 
-"$exc" "--user-data-dir=$lib/$id/UserData" "$@" "${SSBCommandLine[@]}"
+if [[ "$simulate" ]] ; then
+    echo "'$exc'" "'--user-data-dir=$lib/$id/UserData'" "$@" "${SSBCommandLine[@]}"
+else
+    "$exc" "--user-data-dir=$lib/$id/UserData" "$@" "${SSBCommandLine[@]}"
+fi

@@ -152,6 +152,7 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/app$(BETA).icns \
 	build/icons/document$(BETA).icns \
 	build/icons/epichrome$(BETA).icns \
+	build/img/app_icon.png \
 	build/img/epichrome_icon.png \
 	build/epichrome-$(VERSION)-main.pkg \
 	build/resources/background.png \
@@ -340,13 +341,12 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/welcome.html \
 	$(APP_RNTM)/Filter/Bookmarks \
 	\
-	$(APP_RNTM)/Icons/app.icns \
-	$(APP_RNTM)/Icons/document.icns \
-	\
 	$(APP_RNTM)/epichrome.dat \
 	\
 	$(APP_RNTM)/Contents/Resources/MainMenu.nib \
 	$(APP_RNTM)/Contents/Resources/AppSettings.plist \
+	$(APP_RNTM)/Contents/Resources/app.icns \
+	$(APP_RNTM)/Contents/Resources/document.icns \
 	\
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
@@ -360,6 +360,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/ext_generic_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/passwords_button.png \
@@ -501,7 +502,7 @@ $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/vers
 
 # RUNTIME ICONS
 
-$(APP_RNTM)/Icons/%.icns: build/icons/%$(BETA).icns
+$(APP_RNTM)/Contents/Resources/%.icns: build/icons/%$(BETA).icns
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
@@ -567,6 +568,10 @@ $(APP_RNTM)/Contents/Resources/Welcome/welcome.%: src/welcome/welcome.%
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
+$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png: build/img/app_icon$(BETA).png
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
 $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichrome_icon.png
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
@@ -574,6 +579,10 @@ $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichro
 $(APP_RNTM)/Contents/Resources/Welcome/img/%: src/welcome/img/%
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
+
+build/img/app_icon$(BETA).png: ../images/icons/app$(BETA).png
+	@mkdir -p '$(dir $@)'
+	sips -z 128 128 $< --out $@
 
 build/img/epichrome_icon.png: ../images/icons/app.png
 	@mkdir -p '$(dir $@)'

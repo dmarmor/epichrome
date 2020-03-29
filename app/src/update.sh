@@ -338,27 +338,34 @@ The main advantage of the external Google Chrome engine is if your app must run 
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
     
-    # GET ICON SOURCES
-
-    # determine source of icons
-    local iconSourcePath=
-    local welcomeIconBase="$appWelcomePath/img/app_icon.png"
-    local welcomeIconSourcePath=
-    local defaultWelcomeIcon="$updateEpichromeRuntime/Contents/$appWelcomePath/img/epichrome_icon.png"
-    local tempIconset=
+    # COPY IN CUSTOM APP ICONS
+    
     if [[ "$SSBCustomIcon" = Yes ]] ; then
 	
-	# use custom icons already in app bundle
-	iconSourcePath="$updateAppPath/Contents/Resources"
-	welcomeIconSourcePath="$updateAppPath/Contents/$welcomeIconBase"
+	# MAIN ICONS
+	
+	local iconSourcePath="$updateAppPath/Contents/Resources"	
+	safecopy "$iconSourcePath/$CFBundleIconFile" \
+		 "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
+	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+		 "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
+	if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+
+
+	# WELCOME PAGE ICON
+	
+	local welcomeIconBase="$appWelcomePath/img/app_icon.png"
+	local welcomeIconSourcePath="$updateAppPath/Contents/$welcomeIconBase"
+	local tempIconset=
 	
 	# check if welcome icon exists in bundle
 	if [[ ! -f "$welcomeIconSourcePath" ]] ; then
-
-	    # set fallback
-	    welcomeIconSourcePath="$defaultWelcomeIcon"
 	    
+	    # welcome icon not found, so try to create one
 	    debuglog 'Extracting icon image for welcome page.'
+
+	    # fallback to generic icon already in bundle
+	    welcomeIconSourcePath=
 	    
 	    # create iconset from app icon
 	    tempIconset="$(tempname "$contentsTmp/$appWelcomePath/img/app" ".iconset")"
@@ -402,38 +409,24 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	else
 	    debuglog 'Found existing icon image for welcome page.'
 	fi
-    else
+
+	# copy welcome icon
+	if [[ "$welcomeIconSourcePath" ]] ; then
+	    safecopy "$welcomeIconSourcePath" \
+		     "$contentsTmp/$welcomeIconBase" \
+		     'Unable to add app icon to welcome page.'
+	fi
 	
-	# use generic icons from Epichrome
-	iconSourcePath="$updateEpichromeRuntime/Icons"
-	welcomeIconSourcePath="$defaultWelcomeIcon"
+	# get rid of any temp iconset we created
+	[[ "$tempIconset" && -e "$tempIconset" ]] && \
+	    tryalways /bin/rm -rf "$tempIconset" \
+		      'Unable to remove temporary iconset.'
+	
+	# welcome page icon error is nonfatal, just log it
+	if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
     fi
     
-    
-    # COPY WELCOME PAGE ICON
-    
-    # copy generic Epichrome welcome page icon for app icon
-    safecopy "$welcomeIconSourcePath" \
-	     "$contentsTmp/$welcomeIconBase" \
-	     'Unable to add app icon to welcome page.'
-    
-    # get rid of any temp iconset we created
-    [[ "$tempIconset" && -e "$tempIconset" ]] && \
-	tryalways /bin/rm -rf "$tempIconset" \
-		  'Unable to remove temporary iconset.'
-    
-    # welcome page icon error is nonfatal, just log it
-    if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
-    
-    
-    # COPY ICONS TO MAIN APP
-    
-    safecopy "$iconSourcePath/$CFBundleIconFile" \
-	     "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
-    safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-	     "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
-    
-    
+        
     # FILTER NATIVE MESSAGING HOST INTO PLACE
 
     # $$$$ fix display & bundle names to python-escape things
