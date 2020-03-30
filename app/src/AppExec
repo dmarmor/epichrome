@@ -346,6 +346,7 @@ fi
 
 myStatusNewApp=        # on new app, this is set
 myStatusNewVersion=    # on update, this contains old version
+myStatusFixRuntime=    # set by updateprofiledir to a copy of Epichrome Helper settings if we need to preserve them
 myStatusEngineChange=  # on engine change, this contains old engine info
 myStatusReset=         # set if app settings appear to have been reset
 myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
@@ -789,7 +790,7 @@ fi
 
 if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
         
-    # pause to allow the app to open $$$$$ SAFE TO REMOVE THIS?
+    # pause to allow the app to open
     waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
     
     debuglog "Showing welcome page ($myStatusWelcomeURL)."
@@ -803,6 +804,27 @@ if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
     if [[ ! "$ok" ]] ; then
 	[[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
 	errPostLaunch+="$errmsg You may need to install Epichrome Helper and other extensions manually. If you've just updated the app or changed the engine, other settings may be lost."
+	ok=1 ; errmsg=
+    fi
+fi
+
+
+# SAVE LOST RUNTIME EXTENSION SETTINGS IF NEEDED
+
+if [[ "${myStatusFixRuntime[0]}" ]] ; then
+    
+    # give the app 5 seconds to delete the runtime extension settings
+    waitforcondition 'app to delete Epichrome Helper settings' \
+		     5 .5 test '!' -d "${myStatusFixRuntime[0]}"
+    
+    debuglog "Restoring Epichrome Helper settings."
+
+    # move copied settings back into place
+    try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
+	'Unable to restore Epichrome Helper settings.'
+    if [[ ! "$ok" ]] ; then
+	[[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
+	errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
 	ok=1 ; errmsg=
     fi
 fi
