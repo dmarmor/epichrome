@@ -85,6 +85,10 @@ a:active {
 /* a:visited {
 } */
 
+.error {
+    font-style: italic;
+    color: #600000;
+}
 
 .titlebar {
     width: 100%;

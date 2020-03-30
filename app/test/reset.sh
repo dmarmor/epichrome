@@ -23,11 +23,16 @@ if [[ "$variant" ]] ; then
 fi
 
 # set up useful info
-id="${dir#*-}"
+dirbase="${dir##*/}"
+id="${dirbase##*-}"
+if [[ "$id" = "$dirbase" ]] ; then
+    echo "Unable to parse ID from directory name."
+    exit 1
+fi
 lib=~/"Library/Application Support/Epichrome/Apps"
 
 # reset
-rm -rf *.app
-rm -rf "$lib/$id"
-tar xzf "$appzip"
-tar xzf "$datazip" --cd "$lib"
+rm -rf *.app && \
+    rm -rf "$lib/$id" && \
+    tar xzf "$appzip" && \
+    tar xzf "$datazip" --cd "$lib"

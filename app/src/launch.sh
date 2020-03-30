@@ -832,8 +832,38 @@ function updateprofiledir {
 	[[ "$ok" ]] || return 1
     fi
 
-    # runtime extension action
-    local runtimeExtDeleted=
+    # check on runtime extension status
+
+    # implicit argument to signal welcome page to offer a new install of the extension
+    local runtimeExtArg=0
+
+    # check if the runtime extension is still installed
+    if [[ -d "$myProfilePath/Default/Extensions/EPIEXTIDRELEASE" ]] ; then
+
+	# check if we're updating from pre-2.3.0b9
+	if [[ "$myStatusNewVersion" ]] && \
+	       vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
+
+	    debuglog "Saving Epichrome Helper settings."
+	    
+	    # preserve runtime extension settings
+	    myStatusFixRuntime=( "$myProfilePath/Default/Local Extension Settings/EPIEXTIDRELEASE" \
+				     "$myDataPath/EPIEXTIDRELEASE" )
+	    safecopy "${myStatusFixRuntime[0]}" "${myStatusFixRuntime[1]}" \
+		     'Unable to save Epichrome Helper settings.'
+	    if [[ ! "$ok" ]] ; then
+		ok=1 ; errmsg=
+		myStatusFixRuntime=
+
+		# tell welcome page we couldn't save settings
+		runtimeExtArg=3
+	    else
+	    
+		# tell welcome page to ask user to reinstall extension due to update
+		runtimeExtArg=1
+	    fi
+	fi
+    fi
     
     # error states
     local myErrDelete=
@@ -881,12 +911,9 @@ function updateprofiledir {
 	    elif [[ "$?" = 2 ]] ; then
 		local myErrSomeExtensions="$errmsg"
 	    fi
-
-	    # if we have the runtime extension installed, report that to the welcome page
-	    [[ "${oldExtensionArgs[1]}" != 0 ]] && runtimeExtDeleted=1
 	    
 	    # add to welcome page
-	    [[ "${oldExtensionArgs[0]}" ]] && myStatusWelcomeURL+="&${oldExtensionArgs[0]}"
+	    [[ "$oldExtensionArgs" ]] && myStatusWelcomeURL+="&$oldExtensionArgs"
 	    
 	    # delete everything from Default except:
 	    #  Bookmarks, Favicons, History, Local Extension Settings
@@ -900,6 +927,9 @@ function updateprofiledir {
 	    
 	    # add reset argument
 	    myStatusWelcomeURL+='&r=1'
+
+	    # update runtime extension argument if not already set for update warning
+	    [[ "$runtimeExtArg" = 0 ]] || runtimeExtArg=2
 	    
 	else
 	    
@@ -945,12 +975,8 @@ function updateprofiledir {
 
 	# LET WELCOME PAGE KNOW ABOUT RUNTIME EXTENSION
 
-	if [[ "$runtimeExtDeleted" ]] ; then
-	    myStatusWelcomeURL+='&rt=2'
-	elif [[ "$myStatusNewVersion" ]] && \
-		 vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
-	    myStatusWelcomeURL+='&rt=1'
-	fi
+	[[ "$runtimeExtArg" != 0 ]] && \
+	    myStatusWelcomeURL+="&rt=$runtimeExtArg"
 	
 	
 	# INSTALL/UPDATE BOOKMARKS FILE
@@ -1145,10 +1171,8 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     local result=
     
     local mySearchPaths=( "$@" )
-    local hasRuntimeExt=
     if [[ "${#mySearchPaths[@]}" = 0 ]] ; then
 	mySearchPaths=( "$myProfilePath/Default" )
-	hasRuntimeExt=0
     fi
     
     # error states
@@ -1242,8 +1266,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	
 	if [[ "${curExt%%|*}" = 'EPIEXTIDRELEASE' ]] ; then
 
-	    # record, but don't include the Epichrome Runtime extension
-	    [[ "$hasRuntimeExt" ]] && hasRuntimeExt=1
+	    # don't include the Epichrome Runtime extension
 	    prevExtId="${curExt%%|*}"
 	    
 	elif [[ "$prevExtID" != "${curExt%%|*}" ]] ; then
@@ -1486,13 +1509,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
     shoptrestore myShoptState
 
     # write out result variable
-    if [[ "$hasRuntimeExt" ]] ; then
-
-	# running on our extensions, so include info on runtime extension
-	eval "${resultVar}=( \"\$result\" \"\$hasRuntimeExt\" )"
-    else
-	eval "${resultVar}=\"\$result\""
-    fi
+    eval "${resultVar}=\"\$result\""
     
     # return error states
     if [[ "$myGlobalError" || \

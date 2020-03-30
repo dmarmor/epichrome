@@ -22,7 +22,7 @@
 #  in an answer by Henry posted 12/20/2013 at 12:24
 #
 
-version="2.0.1"
+version="2.0.2"
 
 unset CDPATH
 
@@ -93,6 +93,7 @@ function abort {
     [[ -e "$outputCompIconset" ]] && rm -rf -- "$outputCompIconset" > /dev/null 2>&1
     [[ -e "$outputMainTmp" ]] && rm -f -- "$outputMainTmp" > /dev/null 2>&1
     [[ -e "$outputCompTmp" ]] && rm -f -- "$outputCompTmp" > /dev/null 2>&1
+    [[ -e "$tempIconset" ]] && rm -rf -- "$tempIconset" > /dev/null 2>&1
     
     # on error, also print any debug messages
     if [[ "$2" != 0 ]] ; then
@@ -101,14 +102,17 @@ function abort {
     
     # display final message
     [[ "$1" ]] && echo "$1" 1>&2
-    
-    exit "$2"
+
+    # exit with code unless we're here ase a result of an exit trap
+    if [[ "$2" != 5 ]] ; then
+	exit "$2"
+    fi
 }
 
 
 # HANDLE EARLY TERMINATION
 
-trap "abort 'Error: unexpected termination.' 5" SIGHUP SIGINT SIGTERM
+trap "abort 'Error: unexpected termination.' 5" EXIT
 
 
 # CHECKERROR: check for an error & abort if necessary
@@ -388,9 +392,46 @@ if [[ ( "$mainAction" = convert ) || "$composite" ]] ; then
     # if input not already a PNG, convert to PNG
     if [[ "$inputFormat" != "png" ]] ; then
 	inputPNG=$(tempname "$input" ".png")
-	
-	cmdtext=$(sips -s format png "$input" --out "$inputPNG" 2>&1)
-	checkerror "Error: unable to convert image to PNG." 2
+
+	# if input is an icon, use iconutil to get the biggest PNG
+	if [[ "$inputFormat" = 'icns' ]] ; then
+	    
+	    tempIconset="$(tempname "${input}_convert" ".iconset")"
+	    
+	    cmdtext="$(/usr/bin/iconutil -c iconset -o "$tempIconset" "$input" 2>&1)"
+	    checkerror "Error: unable to convert icon file to iconset." 2
+	    
+	    # pull out the biggest PNG
+	    f=
+	    curMax=()
+	    curSize=
+	    iconRe='icon_([0-9]+)x[0-9]+(@2x)?\.png$'
+	    for f in "$tempIconset"/* ; do
+		if [[ "$f" =~ $iconRe ]] ; then
+		    
+		    # get actual size of this image
+		    curSize="${BASH_REMATCH[1]}"
+		    [[ "${BASH_REMATCH[2]}" ]] && curSize=$(($curSize * 2))
+		    
+		    # see if this image is biggest so far
+		    if [[ (! "${curMax[0]}" ) || \
+			      ( "$curSize" -gt "${curMax[0]}" ) ]] ; then
+			curMax=( "$curSize" "$f" )
+		    fi
+		fi
+	    done
+	    
+	    # if we found a suitable image, use it
+	    if [[ -f "${curMax[1]}" ]] ; then
+		cmdtext="$(/bin/mv "${curMax[1]}" "$inputPNG" 2>&1)"
+		checkerror "Error: unable to extract PNG image from icon." 2
+	    else
+		abort "Error: unable to find PNG image in icon." 2
+	    fi
+	else
+	    cmdtext=$(sips -s format png "$input" --out "$inputPNG" 2>&1)
+	    checkerror "Error: unable to convert image to PNG." 2
+	fi
 	
 	phpargs=("$inputPNG")
     else

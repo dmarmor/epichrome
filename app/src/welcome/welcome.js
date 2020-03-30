@@ -249,6 +249,7 @@ function buildPage() {
     const statusRuntime = urlParams.get('rt');
     if (statusRuntime == 1) { runtimeAction = 'rt_update'; }
     else if (statusRuntime == 2) { runtimeAction = 'rt_change_engine'; }
+    else if (statusRuntime == 3) { runtimeAction = 'rt_update_fail'; }
     else if (statusReset) { runtimeAction = 'rt_reset'; }
 
     // ACTION ITEM: EXTENSION LIST
