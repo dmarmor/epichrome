@@ -236,8 +236,23 @@ function buildPage() {
     }
 
     var bookmarkResult = urlParams.get('b');
-    if (bookmarkResult == '2') { appChanges.push('ch_bookmark_new'); }
-    else if (bookmarkResult == '1') { appChanges.push('ch_bookmark_add'); }
+    if (bookmarkResult == '1') {
+        bookmarkResult=false;
+        appChanges.push('ch_bookmark_add');
+    }
+    else if (bookmarkResult == '2') {
+        bookmarkResult=false;
+        appChanges.push('ch_bookmark_new');
+    }
+    else if (bookmarkResult == '3') {
+        bookmarkResult='bm_fail';
+    }
+    else if (bookmarkResult == '4') {
+        bookmarkResult='bm_deleted';
+    }
+    else if (bookmarkResult == '5') {
+        bookmarkResult='bm_error';
+    }
     else { bookmarkResult = false; }
 
     // SET PAGE TITLE
@@ -333,7 +348,9 @@ function buildPage() {
     if (activeExtList != null) { setDisplay('#extensions'); }
 
     // show bookmarks prompt if needed
-    if (!bookmarkResult) { setDisplay('#bookmark'); }
+    if (bookmarkResult && (bookmarkResult.slice(0,3) == 'bm_')) {
+        setDisplayGroup('group_bm', bookmarkResult);
+    }
 
     // show special update text
 

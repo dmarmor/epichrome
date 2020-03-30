@@ -676,19 +676,6 @@ function updatedatadir {
 		ok=1 ; errmsg=
 	    fi
 	fi
-
-	# $$$ temporary -- GET RID OF THIS FOR RELEASE -- remove old-style engine directory
-	if [[ -d "$myDataPath/UserData/External Extensions" ]] ; then
-	    
-	    debuglog "Removing old external extensions directory."
-	    
-	    # remove External Extensions and NativeMessagingHosts directories from profile
-	    try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
-		'Unable to remove old external extensions folder.'
-	    if [[ ! "$ok" ]] ; then
-		ok=1 ; errmsg=
-	    fi
-	fi
     fi
     
     
@@ -837,13 +824,16 @@ function updateprofiledir {
     # implicit argument to signal welcome page to offer a new install of the extension
     local runtimeExtArg=0
 
-    # check if the runtime extension is still installed
-    if [[ -d "$myProfilePath/Default/Extensions/EPIEXTIDRELEASE" ]] ; then
-
-	# check if we're updating from pre-2.3.0b9
-	if [[ "$myStatusNewVersion" ]] && \
-	       vcmp "$myStatusNewVersion" '<' '2.3.0b9' ; then
-
+    # remove old External Extensions directory
+    local externalExtsDir="$myProfilePath/External Extensions"
+    local externalExtsManifest="$externalExtsDir/EPIEXTIDRELEASE.json"
+    if [[ "$myStatusNewVersion" ]] && \
+	   vcmp "$myStatusNewVersion" '<' '2.3.0b9' && \
+	   [[ -e "$externalExtsManifest" ]] ; then
+	
+	# if the runtime extension is still installed, save its settings
+	if [[ -d "$myProfilePath/Default/Extensions/EPIEXTIDRELEASE" ]] ; then
+	    
 	    debuglog "Saving Epichrome Helper settings."
 	    
 	    # preserve runtime extension settings
@@ -854,16 +844,28 @@ function updateprofiledir {
 	    if [[ ! "$ok" ]] ; then
 		ok=1 ; errmsg=
 		myStatusFixRuntime=
-
+		
 		# tell welcome page we couldn't save settings
 		runtimeExtArg=3
 	    else
-	    
+		
 		# tell welcome page to ask user to reinstall extension due to update
 		runtimeExtArg=1
 	    fi
 	fi
+	
+	debuglog "Removing old external extensions directory."
+	
+	# remove External Extensions auto-install of Epichrome Helper
+	try /bin/rm -f "$externalExtsManifest" \
+	    'Unable to remove old Epichrome Helper auto-install script.'
+	try /bin/rmdir "$externalExtsDir" \
+	    'Unable to remove old External Extensions directory.'
+	if [[ ! "$ok" ]] ; then
+	    ok=1 ; errmsg=
+	fi
     fi
+
     
     # error states
     local myErrDelete=
@@ -994,20 +996,20 @@ function updateprofiledir {
             [[ -d "$myProfilePath/Default" ]] || \
 		try /bin/mkdir -p "$myProfilePath/Default" \
 		    'Unable to create browser profile directory.'
+	    
+	    # new bookmark folder
+	    bookmarkResult=2
+	    
 	    filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
 		       "$myBookmarksFile" \
 		       'bookmarks file' \
 		       APPWELCOMETITLE "$myStatusWelcomeTitle" \
-		       APPWELCOMEURL "$myStatusWelcomeURL"
-	    if [[ "$ok" ]] ; then
-
-		# new bookmark folder
-		bookmarkResult=2
-
-	    else
+		       APPWELCOMEURL "${myStatusWelcomeURL}&b=$bookmarkResult"
+	    
+	    if [[ ! "$ok" ]] ; then
 		
 		# non-serious error, fail silently
-		myErrBookmarks=1
+		myErrBookmarks=3  # error trying to add bookmark
 		ok=1 ; errmsg=
 	    fi
 
@@ -1047,18 +1049,18 @@ function updateprofiledir {
 
 		    # if there are other bookmarks in our folder, add a comma
 		    [[ "${BASH_REMATCH[5]}" ]] && bookmarksJson+=','
-
+		    
+		    # bookmark added to existing folder
+		    bookmarkResult=1
+		    
 		    # add our bookmark & the rest of the file
 		    bookmarksJson+=" {
 ${BASH_REMATCH[4]}   \"name\": \"$myStatusWelcomeTitle\",
 ${BASH_REMATCH[4]}   \"type\": \"url\",
-${BASH_REMATCH[4]}   \"url\": \"$myStatusWelcomeURL\"
+${BASH_REMATCH[4]}   \"url\": \"${myStatusWelcomeURL}&b=$bookmarkResult\"
 ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 
 		    bookmarksChanged=1
-
-		    # bookmark added to existing folder
-		    bookmarkResult=1
 
 		elif ( [[ "$myStatusNewVersion" ]] && \
 			   vcmp "$myStatusNewVersion" '<' '2.3.0b9' ) ; then
@@ -1080,12 +1082,15 @@ ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 			# insert section before our folder
 			bookmarksJson+="${BASH_REMATCH[3]}"
 			
+			# new bookmark folder
+			bookmarkResult=2
+			
 			# add our bookmark
 			bookmarksJson+=" {
 ${BASH_REMATCH[5]}   \"children\": [ {
 ${BASH_REMATCH[5]}      \"name\": \"$myStatusWelcomeTitle\",
 ${BASH_REMATCH[5]}      \"type\": \"url\",
-${BASH_REMATCH[5]}      \"url\": \"$myStatusWelcomeURL\"
+${BASH_REMATCH[5]}      \"url\": \"${myStatusWelcomeURL}&b=$bookmarkResult\"
 ${BASH_REMATCH[5]}} ],
 ${BASH_REMATCH[5]}   \"guid\": \"e91c4703-ee91-c470-3ee9-1c4703ee91c4\",
 ${BASH_REMATCH[5]}   \"name\": \"$CFBundleName Info\",
@@ -1100,16 +1105,13 @@ ${BASH_REMATCH[5]}}"
 			
 			bookmarksChanged=1
 			
-			# new bookmark folder
-			bookmarkResult=2
-			
 		    else
 			errlog 'Unable to add welcome page folder to app bookmarks.'
-			myErrBookmarks=1
+			myErrBookmarks=3  # error trying to add bookmark
 		    fi
 		else
 		    errlog 'Welcome page folder not found in app bookmarks.'
-		    myErrBookmarks=1
+		    myErrBookmarks=4  # folder deleted
 		fi
 		
 		# write bookmarks file back out
@@ -1117,25 +1119,36 @@ ${BASH_REMATCH[5]}}"
 		    try "${myBookmarksFile}<" echo "$bookmarksJson" \
 			'Error writing out app bookmarks file.'
 		    if [[ ! "$ok" ]] ; then
-			bookmarkResult=
-			myErrBookmarks="$errmsg"
+			myErrBookmarks="$errmsg"  # error writing bookmarks file
 			ok=1 ; errmsg=
 		    fi
 		fi
 
 	    else
 		
-		# non-serious error, fail silently
-		myErrBookmarks=1
+		# non-serious error (couldn't read in bookmarks file), fail silently
+		myErrBookmarks=3  # error trying to add bookmark
 		ok=1 ; errmsg=
 	    fi
 	fi
 
-	# let the page know the result of this bookmarking
-	[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
+	# override bookmark result based on error code
+	if [[ "${#myErrBookmarks}" -gt 1 ]] ; then
+
+	    # error writing out bookmark file
+	    bookmarkResult=5
+	    
+	elif [[ "$myErrBookmarks" ]] ; then
+
+	    # numeric bookmark errors, just use the code
+	    bookmarkResult="$myErrBookmarks"
+
+	    # numeric errors are non-serious, so clear it
+	    myErrBookmarks=
+	fi
 	
-	# clear non-serious errors
-	[[ "$myErrBookmarks" = 1 ]] && myErrBookmarks=
+	# let the page know the result of this bookmarking	
+	[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
     fi
     
     

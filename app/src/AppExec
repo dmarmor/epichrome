@@ -817,18 +817,27 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
     waitforcondition 'app to delete Epichrome Helper settings' \
 		     5 .5 test '!' -d "${myStatusFixRuntime[0]}"
     
-    debuglog "Restoring Epichrome Helper settings."
-
-    # move copied settings back into place
-    try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
-	'Unable to restore Epichrome Helper settings.'
-    if [[ ! "$ok" ]] ; then
-	[[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-	errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
+    if [[ ! -d "${myStatusFixRuntime[0]}" ]] ; then
+	
+	debuglog "Restoring Epichrome Helper settings."
+	
+	# move copied settings back into place
+	try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
+	    'Unable to restore Epichrome Helper settings.'
+	if [[ ! "$ok" ]] ; then
+	    [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
+	    errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
+	    ok=1 ; errmsg=
+	fi
+    else
+	debuglog "No need to restore Epichrome Helper settings."
+	
+	# silently remove unused backup
+	try /bin/rm -rf "${myStatusFixRuntime[1]}" \
+	    'Unable to remove backup of Epichrome Helper settings.'
 	ok=1 ; errmsg=
     fi
 fi
-
 
 # REPORT ANY POST-LAUNCH ERRORS
 

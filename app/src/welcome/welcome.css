@@ -523,6 +523,7 @@ a.patreon_button svg {
     padding-top: 1em;
 }
 .patreon_rockstars ul {
+    font-size: 105%;
     margin: 0;
     padding: 0;
     list-style-type: none;
