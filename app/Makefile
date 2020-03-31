@@ -188,13 +188,13 @@ clean-all: clean
 		echo rm -f "$${psd%.psd}.png" ; done
 
 # $$$$ FIX THIS
-install: $(APP)
-	rm -rf '/Applications/$(APP)'
-	mkdir -p '/Applications/Epichrome'
-	cp -a '$(APP)' '/Applications/$(APP)'
-	mkdir '/Applications/Epichrome/EpichromeEngines.noindex'
-	chmod 1777 '/Applications/Epichrome/EpichromeEngines.noindex'
-	touch '/Applications/Epichrome/EpichromeEngines.noindex/.preserve'
+# install: $(APP)
+# 	rm -rf '/Applications/$(APP)'
+# 	mkdir -p '/Applications/Epichrome'
+# 	cp -a '$(APP)' '/Applications/$(APP)'
+# 	mkdir '/Applications/Epichrome/EpichromeEngines.noindex'
+# 	chmod 1777 '/Applications/Epichrome/EpichromeEngines.noindex'
+# 	touch '/Applications/Epichrome/EpichromeEngines.noindex/.preserve'
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -214,12 +214,16 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 		--sign 'David Marmor' \
 		'$@'
 
-build/epichrome-$(VERSION)-main.pkg: $(APP)
+build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
 	@rm -f '$@'
 	xattr -cr $(APP)
 	rm -rf build/package/Applications
-	@mkdir -p build/package/Applications/Epichrome/EpichromeEngines.noindex
+	mkdir -p build/package/Applications/Epichrome/EpichromeEngines.noindex
 	chmod 1777 build/package/Applications/Epichrome/EpichromeEngines.noindex
+	../modules/fileicon/bin/fileicon set \
+		build/package/Applications/Epichrome \
+		build/icons/folder.icns
+	false
 	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
 	mv $(APP) build/package/Applications/$(APP)
 	pkgbuild --analyze --root build/package $(@:.pkg=).plist

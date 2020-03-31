@@ -1,0 +1,3 @@
+[submodule "modules/fileicon"]
+	path = modules/fileicon
+	url = https://github.com/mklement0/fileicon
