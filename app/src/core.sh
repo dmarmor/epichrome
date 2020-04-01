@@ -676,7 +676,7 @@ function cleanexit { # [code]
 
 # ABORT -- display an error alert and abort
 function abort { # ( [myErrMsg [myCode]] )
-
+    
     # arguments
     local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
@@ -686,9 +686,9 @@ function abort { # ( [myErrMsg [myCode]] )
     errlog "$myAbortLog"
     
     # save log file
-    local savedLogFile=
-    savelog savedLogFile
-    [[ "$savedLogFile" ]] || savedLogFile="$myLogFile"
+    local abortFile=
+    savelog abortFile
+    [[ "$abortFile" ]] || abortFile="$myLogFile"
     
     # show dialog & offer to open log
     if [[ "$( type -t dialog )" = function ]] ; then
@@ -699,7 +699,7 @@ function abort { # ( [myErrMsg [myCode]] )
 	    # clear OK state so try works & ignore result
 	    ok=1 ; errmsg=
 	    try /usr/bin/osascript -e '
-tell application "Finder" to reveal ((POSIX file "'"$savedLogFile"'") as alias)
+tell application "Finder" to reveal ((POSIX file "'"$abortFile"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
 	fi
     fi

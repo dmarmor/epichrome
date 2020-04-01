@@ -471,11 +471,11 @@ function checkappupdate {
 	local doUpdate=Later
 
 	# set dialog info
-	local updateMsg="A new version of Epichrome was found ($epiLatestVersion). Would you like to update this app?"
+	local updateMsg="Version Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
 	local updateBtnUpdate='Update'
 	local updateBtnLater='Later'
 	local updateButtonList=( )
-
+	
 	# update dialog info if the new version is beta
 	if visbeta "$epiLatestVersion" ; then
 	    updateMsg="$updateMsg
@@ -499,7 +499,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	       "|caution" \
 	       "${updateButtonList[@]}"
 	if [[ ! "$ok" ]] ; then
-	    alert "A new version of the Epichrome runtime was found ($epiLatestVersion) but the update dialog failed. Attempting to update now." 'Update' '|caution'
+	    alert "Epichrome version $epiLatestVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
 	    doUpdate="Update"
 	    ok=1
 	    errmsg=
@@ -865,7 +865,6 @@ function updateprofiledir {
 	    ok=1 ; errmsg=
 	fi
     fi
-
     
     # error states
     local myErrDelete=
@@ -2080,27 +2079,58 @@ function setenginestate {  # ( ON|OFF )
 
 
 # DELETEENGINE -- delete Epichrome engine
-function deleteengine {
+function deleteengine {  # ( [mustSucceed] )
 
-    # save OK state
-    local oldOK="$ok"
-    
-    debuglog "Deleting engine at '$SSBEnginePath'"
-    
-    # $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
-    tryalways /bin/chmod -R u+w "$SSBEnginePath" 'Warning -- Unable to fix permissions for old engine.'
-    
-    # delete engine
-    tryalways /bin/rm -rf "$SSBEnginePath" 'Warning -- Unable to remove old engine.'
+    # argument
+    local mustSucceed="$1" ; shift
 
+    # default function state
+    local warning='Warning -- '
+    local myTry=tryalways
+    
+    if [[ "$mustSucceed" ]] ; then
+	
+	# only run if we're OK
+	[[ "$ok" ]] || return 1
+
+	# reset function state
+	warning=
+	myTry=try
+    else
+	
+	# save OK state
+	local oldOK="$ok"
+    fi
+    
+    if [[ -d "$SSBEnginePath" ]] ; then
+	
+	debuglog "Deleting engine at '$SSBEnginePath'"
+	
+	# $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
+	$myTry /bin/chmod -R u+w "$SSBEnginePath" \
+	       "${warning}Unable to fix permissions for old engine."
+	
+	# delete engine
+	$myTry /bin/rm -rf "$SSBEnginePath" \
+	       "${warning}Unable to remove old engine."
+    fi
+    
+    # delete link to engine
+    if [[ ! -d "$SSBEnginePath" ]] ; then
+	$myTry /bin/rm -f "$myDataPath/Engine" \
+	       "${warning}Unable to remove link to old engine in data directory."
+    fi
+    
     # handle errors
     if [[ ! "$ok" ]] ; then
-	ok="$oldOK"
-	[[ "$ok" ]] && errmsg=
+	if [[ ! "$mustSucceed" ]] ; then
+	    ok="$oldOK"
+	    [[ "$ok" ]] && errmsg=
+	fi
 	return 1
+    else
+	return 0
     fi
-
-    return 0
 }
 
 
@@ -2113,16 +2143,7 @@ function createengine {
     
     # CLEAR OUT ANY OLD ENGINE
     
-    if [[ -d "$SSBEnginePath" ]] ; then
-
-	debuglog "Removing old engine at '$SSBEnginePath'"
-	
-	# $$$$ FIX PERMISSIONS FOR BETA 6 -- REMOVE FOR RELEASE
-	try /bin/chmod -R u+w "$SSBEnginePath" 'Unable to fix permissions for old engine.'
-	
-	# remove old engine
-	try /bin/rm -rf "$SSBEnginePath" 'Unable to clear old engine.'
-    fi
+    deleteengine MUSTSUCCEED
     
     
     # CREATE NEW ENGINE
@@ -2327,6 +2348,12 @@ function createengine {
 	try /bin/cp "$SSBAppPath/Contents/Resources/Scripts/core.sh" \
 	    "$myEngineAppPath/Contents/Resources/Scripts" \
 	    'Unable to copy core to placeholder.'
+    fi
+
+    # link to engine
+    if [[ "$ok" ]] ; then
+	try /bin/ln -s "$SSBEnginePath" "$myDataPath/Engine" \
+	    'Unable create to link to engine in data directory.'
     fi
     
     # return code

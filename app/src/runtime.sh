@@ -91,7 +91,7 @@ function updatessb { # ( SSBAppPath )
 	    doUpdate=Later
 	else
 	    
-	    local updateMsg="A new version of Epichrome was found ($coreVersion). Would you like to update this app?"
+	    local updateMsg="A new version of Epichrome was found ($coreVersion).  This app is using version $SSBVersion. Would you like to update it?"
 	    local updateBtnUpdate='Update'
 	    local updateBtnLater='Later'
 	    
@@ -116,7 +116,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		   "Don't Ask Again For This Version"
 	    
 	    if [[ ! "$ok" ]] ; then
-		alert "A new version of the Epichrome runtime was found ($coreVersion) but the update dialog failed. ($errmsg) Attempting to update now." 'Update' '|caution'
+		alert "Epichrome version $coreVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
 		doUpdate="Update"
 		ok=1
 		errmsg=
