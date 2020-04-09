@@ -53,14 +53,10 @@ function handleexitsignal {
 trap "handleexitsignal" EXIT
 
 
-# LOGGING INFO
-
-myLogID="$myLogID|${BASH_SOURCE[0]##*/}"
-
-
 # BOOTSTRAP RUNTIME SCRIPTS
 
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
+myLogID="Epichrome|${BASH_SOURCE[0]##*/}"
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh" NOINIT || exit 1
 [[ "$ok" ]] || myabort
 
 safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/launch.sh"

@@ -35,7 +35,7 @@ updateEpichromeRuntime="$updateEpichromePath/Contents/Resources/Runtime"
 # BOOTSTRAP MY VERSION OF CORE.SH
 
 if [[ "$updateVersion" != "$coreVersion" ]] ; then
-    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" PRESERVELOG ; then
+    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" ; then
 	ok=
 	errmsg="Unable to load core $updateVersion."
     fi
@@ -49,6 +49,9 @@ function updateapp { # ( updateAppPath )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
+
+    # make sure we're logging
+    [[ "$myLogFile" ]] || initlogfile
     
     # set app path
     local updateAppPath="$1" ; shift
@@ -323,7 +326,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
 
     local appExecEngineSource=
     [[ "${SSBEngineType%%|*}" = internal ]] && \
-	appExecEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")" # ; readonly SSBEngineSourceInfo
+	appExecEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")"
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
 	       "$contentsTmp/Resources/script" \
 	       'app executable' \
@@ -565,7 +568,68 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	# return
 	return 1
     fi
+
+    # UPDATE DATA DIRECTORY $$$ TEMP FIXES FOR OLD BETAS -- GET RID OF THIS FOR RELEASE
+
+    # remove old-style engine directory (ignore failure)
+    if [[ -d "$myDataPath/Engine.noindex" ]] ; then
+	
+	debuglog "Removing old engine directory."
+	
+	try /bin/rm -rf "$myDataPath/Engine.noindex" \
+	    'Unable to remove old engine directory'
+	if [[ ! "$ok" ]] ; then
+	    ok=1 ; errmsg=
+	fi
+    fi
     
-    # if we got here, all is OK
-    return 0
+    # move logs into log directory (ignore failure)
+    
+    local shoptState= ; shoptset shoptState nullglob
+    local oldLogs=( "$myDataPath/$appLogFilePrefix"*.txt )
+    if [[ "$oldLogs" ]] ; then
+	
+	debuglog "Moving old logs into log directory."
+	
+	try /bin/mkdir -p "$myLogDir" \
+	    'Unable to create log directory.'
+	try /bin/mv -f "${oldLogs[@]}" "$myLogDir" \
+	    'Unable to move old logs to log directory.'
+
+	# move worked, so relocate our log file
+	if [[ "$ok" && ( "$myLogFile" = "$myDataPath/$appLogFilePrefix.txt" ) ]] ; then
+	    myLogFile="$myLogDir/$appLogFilePrefix.txt"
+	else
+	    ok=1 ; errmsg=
+	fi
+    fi
+    shoptrestore shoptState
+    
+    
+    # UPDATE CONFIG & RELAUNCH
+    
+    # write out config
+    writeconfig "$myConfigFile" FORCE
+    local myCleanupErr=
+    if [[ ! "$ok" ]] ; then
+	tryalways /bin/rm -f "$myConfigFile" \
+		  'Unable to delete old config file.'
+	myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
+	ok=1 ; errmsg=
+    fi
+    
+    # launch helper
+    launchhelper Relaunch
+    
+    # if relaunch failed, report it
+    if [[ ! "$ok" ]] ; then
+	[[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
+	myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
+    fi
+
+    # show alert with any errors
+    [[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
+    
+    # no matter what, we quit now
+    cleanexit
 }

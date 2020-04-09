@@ -187,7 +187,7 @@ function waitforcondition {  # ( msg waitTime increment command [args ...] )
     # if we got here the condition never occurred
     return 1
 }
-
+export -f waitforcondition
 
 
 # ENCODEURL -- encode a string for URL
@@ -205,12 +205,26 @@ function encodeurl {  # ( input [safe] )
 
     # use python urllib to urlencode string
     local encoded=
-    try 'encoded=' /usr/local/bin/python2.7 \
+    try 'encoded=' /usr/bin/python2.7 \
 	-c 'import urllib ; print urllib.quote('\'"$input"\'', '\'"$safe"\'')' \
 	"Error URL-encoding string '$input_err'."
 
     if [[ ! "$ok" ]] ; then
-	echo "$input_err"
+
+	# fallback if python fails -- adapted from https://gist.github.com/cdown/1163649
+	local LC_COLLATE=C
+	local length="${#input_err}"
+	local i= ; local c=
+	local result=
+	for (( i = 0; i < length; i++ )); do
+            c="${input_err:i:1}"
+            case $c in
+		[a-zA-Z0-9.~_-]) result+="$(printf "$c")" ;;
+		*) result+="$(printf '%%%02X' "'$c")" ;;
+            esac
+	done
+	echo "$result"
+	
 	ok=1 ; errmsg=
 	return 1
     else
@@ -515,57 +529,36 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		
 		# use new runtime to update the app
 		updateapp "$SSBAppPath"
+		# EXITS ON SUCCESS
 		
-		if [[ "$ok" ]] ; then
+		
+		# IF WE GET HERE, UPDATE FAILED -- reload my runtime
+		
+		# temporarily turn OK back on & reload old runtime
+		oldErrmsg="$errmsg" ; errmsg=
+		oldOK="$ok" ; ok=1
+		source "$SSBAppPath/Contents/Resources/Scripts/core.sh" NOINIT || ok=
+		if [[ ! "$ok" ]] ; then
 
-		    # UPDATE CONFIG & RELAUNCH
-		    
-		    # write out config
-		    writeconfig "$myConfigFile"
-		    [[ "$ok" ]] || \
-			abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
-		    
-		    # launch helper
-		    launchhelper Relaunch
-		    
-		    # if relaunch failed, report it
-		    [[ "$ok" ]] || \
-			alert "Update succeeded, but updated app didn't launch: $errmsg" \
-			      'Update' '|caution'
-
-		    # no matter what, we have to quit now
-		    cleanexit
-		    
-		else
-		    
-		    # UPDATE FAILED -- reload my runtime
-		    
-		    # temporarily turn OK back on & reload old runtime
-		    oldErrmsg="$errmsg" ; errmsg=
-		    oldOK="$ok" ; ok=1
-		    source "$SSBAppPath/Contents/Resources/Scripts/core.sh" PRESERVELOG || ok=
-		    if [[ ! "$ok" ]] ; then
-
-			# fatal error
-			errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
-			return 1
-		    fi
-		    
-		    # restore OK state
-		    ok="$oldOK"
-		    
-		    # update error messages
-		    if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-			errmsg="$oldErrmsg $errmsg"
-		    elif [[ "$oldErrmsg" ]] ; then
-			errmsg="$oldErrmsg"
-		    fi
-		    
-		    # alert the user to any error, but don't throw an exception
-		    ok=1
-		    [[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
-		    result=1
+		    # fatal error
+		    errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
+		    return 1
 		fi
+		
+		# restore OK state
+		ok="$oldOK"
+		
+		# update error messages
+		if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+		    errmsg="$oldErrmsg $errmsg"
+		elif [[ "$oldErrmsg" ]] ; then
+		    errmsg="$oldErrmsg"
+		fi
+		
+		# alert the user to any error, but don't throw an exception
+		ok=1
+		[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
+		result=1
 		;;
 	    
 	    Later)
@@ -660,24 +653,6 @@ function updatedatadir {
 	return 1
     fi
 
-    
-    # UPDATE DATA DIRECTORY FOR NEW VERSION
-    
-    if [[ "$myStatusNewVersion" ]] ; then
-		
-	# $$$ temporary -- GET RID OF THIS FOR RELEASE -- remove old-style engine directory
-	if [[ -d "$myDataPath/Engine.noindex" ]] ; then
-
-	    debuglog "Removing old engine directory."
-	    
-	    try /bin/rm -rf "$myDataPath/Engine.noindex" \
-		'Unable to remove old engine directory'
-	    if [[ ! "$ok" ]] ; then
-		ok=1 ; errmsg=
-	    fi
-	fi
-    fi
-    
     
     # UPDATE WELCOME PAGE
     
@@ -930,7 +905,7 @@ function updateprofiledir {
 	    myStatusWelcomeURL+='&r=1'
 
 	    # update runtime extension argument if not already set for update warning
-	    [[ "$runtimeExtArg" = 0 ]] || runtimeExtArg=2
+	    [[ "$runtimeExtArg" = 0 ]] && runtimeExtArg=2
 	    
 	else
 	    
@@ -1092,7 +1067,7 @@ ${BASH_REMATCH[5]}      \"type\": \"url\",
 ${BASH_REMATCH[5]}      \"url\": \"${myStatusWelcomeURL}&b=$bookmarkResult\"
 ${BASH_REMATCH[5]}} ],
 ${BASH_REMATCH[5]}   \"guid\": \"e91c4703-ee91-c470-3ee9-1c4703ee91c4\",
-${BASH_REMATCH[5]}   \"name\": \"$CFBundleName Info\",
+${BASH_REMATCH[5]}   \"name\": \"$CFBundleName App Info\",
 ${BASH_REMATCH[5]}   \"type\": \"folder\"
 ${BASH_REMATCH[5]}}"
 			
@@ -1977,8 +1952,7 @@ function checkengine {  # ( ON|OFF )
     # arguments
     local expectedState="$1" ; shift
     
-    # myEngineAppPath
-
+    # figure out current engine state
     local curState= ; local inactivePath=
     if [[ -d "$myEnginePayloadPath" && ! -d "$myEnginePlaceholderPath" ]] ; then
 
@@ -2017,7 +1991,8 @@ function checkengine {  # ( ON|OFF )
 	return 2
     fi
     
-} ; export -f checkengine
+}
+export -f checkengine
 
 
 # SETENGINESTATE -- set the engine to the active or inactive state
@@ -2065,17 +2040,20 @@ function setenginestate {  # ( ON|OFF )
     [[ "$ok" ]] || return 1
     
     # sometimes it takes a moment for the move to register
-    if ! waitforcondition "engine $oldInactiveError executable to appear" 5 .5 \
+    if ! waitforcondition \
+	 "engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' to appear" \
+	 5 .5 \
 	 test -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ; then
 	ok=
-	errmsg="Engine $oldInactiveError executable not found."
+	errmsg="Engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' not found."
 	errlog "$errmsg"
 	return 1
     fi
     
     [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
     
-} ; export -f setenginestate
+}
+export -f setenginestate
 
 
 # DELETEENGINE -- delete Epichrome engine
@@ -2113,6 +2091,16 @@ function deleteengine {  # ( [mustSucceed] )
 	# delete engine
 	$myTry /bin/rm -rf "$SSBEnginePath" \
 	       "${warning}Unable to remove old engine."
+
+	# make sure engine deleted
+	if [[ "$?" = 0 ]] ; then
+	    if ! waitforcondition 'old engine to delete' 5 .5 \
+		 test '!' -d "$SSBEnginePath" ; then
+		errmsg="${warning}Removal of old engine failed."
+		errlog "$errmsg"
+		ok=
+	    fi
+	fi
     fi
     
     # delete link to engine
@@ -2596,7 +2584,8 @@ function clearmasterprefs {
 
 
 # GETENGINEINFO: get the PID and canonical path of the running engine
-myEnginePID= ; myEngineCanonicalPath= ; export myEnginePID myEngineCanonicalPath
+myEnginePID= ; myEngineCanonicalPath=
+export myEnginePID myEngineCanonicalPath
 function getengineinfo { # path
 
     # only run if we're OK
@@ -2668,13 +2657,14 @@ function writeconfig {  # ( myConfigFile force )
     
     # not being forced, so compare all config variables for changes
     if [[ ! "$doWrite" ]] ; then
+
 	local varname=
 	local configname=
 	for varname in "${appConfigVars[@]}" ; do
 	    configname="config${varname}"
-	    
-	    isarray "$varname"
-	    local varisarray="$?"
+
+	    # check if variable is an array
+	    isarray "$varname" ; local varisarray="$?"
 	    
 	    # if variables are not the same type
 	    isarray "$configname"
@@ -2719,7 +2709,11 @@ function writeconfig {  # ( myConfigFile force )
 	    fi
 	done
 	
-	[[ "$doWrite" ]] && debuglog "Configuration variables have changed."
+	if [[ "$doWrite" ]] ; then
+	    debuglog "Configuration variables have changed. Updating config.sh."
+	else
+	    debuglog "Configuration variables have not changed. No need to update."
+	fi
     else
 	debuglog "Forced update."
     fi
@@ -2737,6 +2731,27 @@ function writeconfig {  # ( myConfigFile force )
 }
 
 
+# EXPORTARRAY -- export array variables to a subshell
+function exportarray { # ( var1 [var2 ...] )
+
+    local curVar=
+    for curVar in "$@" ; do
+	eval "${curVar}_array=\"$curVar=\$(formatarray \"\${$curVar[@]}\")\" ; export ${curVar}_array"
+    done
+}
+export -f exportarray
+
+
+# IMPORTARRAY -- import array variables from a parent environment
+function importarray { # ( var1 [var2 ...] )
+    local curVar=
+    for curVar in "$@" ; do
+	eval "eval \"\$${curVar}_array\""
+    done    
+}
+export -f importarray
+
+
 # LAUNCHHELPER -- launch Epichrome Helper app
 epiHelperMode= ; epiHelperParentPID=
 export epiHelperMode epiHelperParentPID
@@ -2751,6 +2766,16 @@ function launchhelper { # ( mode )
     # set state for helper
     epiHelperMode="Start$mode"
     epiHelperParentPID="$$"
+
+    if [[ "$mode" = 'Cleanup' ]] ; then
+
+	# cleanup mode array variables
+	exportarray SSBEngineSourceInfo
+    elif [[ "$mode" = 'Relaunch' ]] ; then
+	
+	# relaunch mode array variables
+	exportarray argsURIs argsOptions
+    fi
     
     # launch helper (args are just for identification in jobs listings)
     try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \

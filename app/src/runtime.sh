@@ -41,11 +41,9 @@ function updatessb { # ( SSBAppPath )
 	return 1
     fi
     
-    # don't overwrite log on core.sh load
-    logPreserve=1
-
     # save old profile path (for restoreoldruntime)
     saveProfilePath="$myProfilePath"
+    unset myProfilePath
     
     # load update.sh
     if ! source "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" ; then
@@ -53,9 +51,9 @@ function updatessb { # ( SSBAppPath )
 	restoreoldruntime
 	return 1
     fi
-    
-    # we now have core, so set logging ID
-    myLogID="$CFBundleName|Update"
+
+    # set up log file
+    initlogfile
     
     # load launch.sh (for launchhelper and writeconfig)
     if ! source "${BASH_SOURCE[0]%/Resources/Scripts/runtime.sh}/Contents/Resources/Scripts/launch.sh" ; then

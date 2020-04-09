@@ -19,7 +19,7 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-# 
+#
 
 import struct
 import sys
@@ -27,6 +27,7 @@ import json
 import webbrowser
 import subprocess
 import os
+import re
 import platform
 import inspect
 
@@ -43,29 +44,55 @@ appName        = 'APPBUNDLENAME'   # filled in by updateapp
 appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
 
 
+# IMPORTANT APP INFO
+
+appLogFile = None
+
+
 # FUNCTION DEFINITIONS
 
 # SETLOGPATH: set path to this app's log file
-def getlogpath():
-    return os.path.join(os.environ['HOME'],
-                            'Library/Application Support/Epichrome/Apps',
-                            appID,
-                            'epichrome_app_log.txt')
+def setlogpath():
 
-        
+    global appLogFile
+    
+    # get data path
+    dataPath = os.path.join(os.environ['HOME'],
+                                'Library/Application Support/Epichrome/Apps',
+                                appID)
+    
+    # set temporary log path
+    if appLogFile == None:
+        appLogFile = os.path.join(dataPath, 'Logs', 'epichrome_app_log.txt')
+    
+    # read lock
+    try:
+        with open(os.path.join(dataPath, 'lock'), 'r') as f:
+            lockInfo = f.read()
+    except Exception as e:
+        errlog("Unable to read app lock. ({})".format(e))
+
+    # try to find log path in lock file
+    m = re.search("lockLogFile='([^\n]*)'[ \t]*\n", lockInfo)
+    if m:
+        appLogFile = m.group(1)
+
+
 # ERRLOG: log to stderr and log file
 def errlog(msg):
 
+    global appLogFile
+
     # get stack frame info
     myStack = inspect.stack()
-    
+
     # if we were called from debuglog, trim the stack
     if myStack[1][3] == 'debuglog':
         myStack = myStack[1:]
 
     # reverse the stack for easier message-building
     myStack.reverse()
-        
+
     # build log string
     myMsg = (
         '[{pid}]{app}|{filename}({fileline}){frame}: {msg}\n'.format( pid=os.getpid(),
@@ -85,12 +112,15 @@ def errlog(msg):
     except:
         pass
 
-    try:
-        with open(appLogPath, 'a') as f:
-            f.write(myMsg)
-    except:
-        pass
-
+    if appLogFile != None:
+        try:
+            with open(appLogFile, 'a') as f:
+                f.write(myMsg)
+        except:
+            myMsg = "Error writing to log file '{}'. Logging will only be to stderr.".format(appLogFile)
+            appLogFile = None
+            errlog(myMsg)
+            
 
 #DEBUGLOG: log debugging message if debugging enabled
 def debuglog(msg):
@@ -104,14 +134,14 @@ def send_message(message):
     try:
         # send the message's size
         sys.stdout.write(struct.pack('I', len(message)))
-    
+
         # send the message itself
         sys.stdout.write(message)
         sys.stdout.flush()
     except:
         # $$$$ HANDLE EXCEPTION PROPERLY
         errlog('Error sending message')
-    
+
     # log message
     debuglog('sent message to app: {}'.format(message))
 
@@ -123,18 +153,18 @@ def send_result(result, url):
 
 # RECEIVE_MESSAGE -- receive and unpack a message
 def receive_message():
-    
+
     try:
         # read the message length (first 4 bytes)
         text_length_bytes = sys.stdin.read(4)
-        
+
         # read returned nothing -- the pipe is closed
         if len(text_length_bytes) == 0:
             return False
-    
+
         # unpack message length as 4-byte integer
         text_length = struct.unpack('i', text_length_bytes)[0]
-    
+
         # read and parse the text into a JSON object
         json_text = sys.stdin.read(text_length)
 
@@ -159,11 +189,11 @@ if appID:
     # we're running from this app's bundle
 
     # set path to this app's log file
-    appLogPath = getlogpath()
+    setlogpath()
 
     # in this case, app version is the same is Epichrome version
     appVersion = epiVersion
-    
+
     # determine parent app path from this script's path
     appPath = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../..'))
 
@@ -172,25 +202,25 @@ else:
     # we're running from Epichrome.app
 
     # temporarily log to the main Epichrome log
-    appLogPath = os.path.join(os.environ['HOME'],
-                                  'Library/Application Support/Epichrome',
-                                  'epichrome_log.txt')
+    appLogFile = os.path.join(os.environ['HOME'],
+                                  'Library/Application Support/Epichrome/Logs',
+                                  'epichrome_log_nativemessaginghost.txt')
     appID = '<UnknownEpichromeApp>'
 
     # get parent process ID & use that to get engine path
     try:
         enginepath = subprocess.check_output(['/bin/ps', '-o', 'comm',
                                                   '-p', str(os.getppid())]).split('\n')[1]
-    except:
-        
-        errlog("Unable to get path of parent engine.")
+    except Exception as e:
+
+        errlog("Unable to get path of parent engine. ({})".format(e))
         exit(1)
-        
+
     # read engine manifest
     try:
         with open(os.path.join(os.path.dirname(enginepath), '../../../info.json')) as fp:
             json_info = json.load(fp)
-                
+
     except Exception as e:
         errlog(e)
         exit(1)
@@ -201,10 +231,10 @@ else:
     appName        = json_info['appName']
     appDisplayName = json_info['appDisplayName']
     appPath        = json_info['appPath']
-    
+
     # set permanent log path
-    appLogPath = getlogpath()
-    
+    setlogpath()
+
     debuglog("App info set: ID={} version={} name='{}' displayName='{}' path='{}'".format(appVersion,
                                                                                               appID,
                                                                                               appName,
@@ -217,7 +247,7 @@ else:
 if (len(sys.argv) > 1) and (sys.argv[1] == '-v'):
     print appVersion
     exit(0)
-    
+
 
 debuglog("Native messaging host running.")
 
@@ -234,7 +264,7 @@ launchsvc = os.path.expanduser('~/Library/Preferences/com.apple.LaunchServices/c
 if os.path.isfile(launchsvc):
 
     import plistlib
-    
+
     try:
         # parse LaunchServices plist
         plistData = plistlib.readPlistFromString(subprocess.check_output(['/usr/bin/plutil',
@@ -251,14 +281,14 @@ if os.path.isfile(launchsvc):
                 httpHandler = handler['LSHandlerRoleAll']
                 break
 
-        # if it's Chrome, set a flag   $$$$ GENERALIZE THIS FOR WHATEVER -- maybe always use /usr/bin/open -b ??? 
+        # if it's Chrome, set a flag   $$$$ GENERALIZE THIS FOR WHATEVER -- maybe always use /usr/bin/open -b ???
         if httpHandler.lower() == 'com.google.chrome':
             defaultIsChrome = True
-            
+
     except: # $$$$$ subprocess.CalledProcessError + plistlib err
         errlog('Error getting list of browsers.')
 
-    
+
 # MAIN LOOP -- just keep on receiving messages until stdin closes
 while True:
     message = receive_message()
@@ -271,7 +301,7 @@ while True:
                      '"ssbID": "%s", '+
                      '"ssbName": "%s", '+
                      '"ssbShortName": "%s" }') % (appVersion, appID, appDisplayName, appName))
-    
+
     if 'url' in message:
         # open the url
 
@@ -287,10 +317,10 @@ while True:
             # use python webbrowser module
             else:
                 webbrowser.open(message['url'])
-                
+
         except:  # webbrowser.Error or subprocess.CalledProcessError
             send_result("error", message['url'])
         else:
             send_result("success", message['url'])
-            
+
 exit(0)

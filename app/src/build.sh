@@ -77,8 +77,8 @@ myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
 
 # LOAD SCRIPTS
 
-source "$myResourcesPath/Runtime/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
-myLogID="$myLogID|${BASH_SOURCE[0]##*/}"
+myLogID="Epichrome|${BASH_SOURCE[0]##*/}"
+source "$myResourcesPath/Runtime/Contents/Resources/Scripts/core.sh" NOINIT || exit 1
 [[ "$ok" ]] || myabort
 
 safesource "$myResourcesPath/Scripts/update.sh" || myabort

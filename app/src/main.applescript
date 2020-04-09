@@ -28,14 +28,6 @@ local myVersion
 set myVersion to "EPIVERSION"
 
 
--- BUILD FLAGS
-
-local debug
-set debug to "EPIDEBUG"
-local logPreserve
-set logPreserve to "EPILOGPRESERVE"
-
-
 -- MISC CONSTANTS
 local promptNameLoc
 set promptNameLoc to "Select name and location for the app."
@@ -56,17 +48,8 @@ local dlgResult
 
 -- SET UP ENVIRONMENT TO EXPORT TO SCRIPTS THAT LOAD CORE.SH
 
-local scriptEnvFirst
 local scriptEnv
-set scriptEnvFirst to "debug=" & (quoted form of debug)
-set scriptEnvFirst to scriptEnvFirst & " logNoStderr='1'"
-
--- script environment is mostly the same on first and subsequent uses
-set scriptEnv to scriptEnvFirst
-
--- handle logPreserve differently the first time we use the script environment
-set scriptEnvFirst to scriptEnvFirst & " logPreserve=" & (quoted form of logPreserve)
-set scriptEnv to scriptEnv & " logPreserve='1'"
+set scriptEnv to "logNoStderr='1'"
 
 
 -- GET MY ICON FOR DIALOG BOXES
@@ -94,11 +77,17 @@ local myLogFile
 
 -- run core.sh to initialize logging & get key paths
 try
-	set coreOutput to do shell script scriptEnvFirst & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
+	set coreOutput to do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
 	set myDataPath to paragraph 1 of coreOutput
 	set myLogFile to paragraph 2 of coreOutput
+	set scriptEnv to scriptEnv & " myLogFile=" & (quoted form of myLogFile)
 on error errStr number errNum
 	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
+end try
+
+-- $$$ TEMPORARY -- REMOVE FOR RELEASE clean out old logs from earlier betas
+try
+	do shell script "/bin/rm -f " & (quoted form of myDataPath) & "/epichrome_log*.txt > /dev/null 2>&1"
 end try
 
 -- ensure we have a data directory
@@ -128,15 +117,15 @@ local updateCheckVersion
 
 -- WRITEPROPERTIES: write properties back to plist file
 on writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
-
+	
 	local myProperties
-
+	
 	tell application "System Events"
-
+		
 		try
 			-- create enclosing folder if needed and create empty plist file
 			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:mySettingsFile}
-
+			
 			-- fill property list
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
 			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastAppPath", value:lastAppPath}
@@ -154,60 +143,60 @@ end writeProperties
 -- READ PROPERTIES FROM USER DATA OR INITIALIZE THEM IF NONE FOUND
 
 tell application "System Events"
-
+	
 	local myProperties
-
+	
 	-- read in the file
 	try
 		set myProperties to property list file mySettingsFile
 	on error
 		set myProperties to null
 	end try
-
+	
 	-- set properties from the file & if anything went wrong, initialize any unset properties
-
+	
 	-- lastIconPath
 	try
 		set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
 	on error
 		set lastIconPath to ""
 	end try
-
+	
 	-- lastAppPath
 	try
 		set lastAppPath to (value of (get property list item "lastAppPath" of myProperties) as text)
 	on error
 		set lastAppPath to ""
 	end try
-
+	
 	-- doRegisterBrowser
 	try
 		set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
 	on error
 		set doRegisterBrowser to "No"
 	end try
-
+	
 	-- doCustomIcon
 	try
 		set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
 	on error
 		set doCustomIcon to "Yes"
 	end try
-
+	
 	-- updateCheckDate
 	try
 		set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
 	on error
 		set updateCheckDate to (current date) - (1 * days)
 	end try
-
+	
 	-- updateCheckVersion
 	try
 		set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
 	on error
 		set updateCheckVersion to ""
 	end try
-
+	
 end tell
 
 
@@ -224,7 +213,7 @@ on tablist(tabs, tabnum)
 	local ttext
 	local t
 	local ti
-
+	
 	if (count of tabs) is 0 then
 		return "No tabs specified.
 
@@ -238,7 +227,7 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will 
 		end if
 		set ttext to ttext & " specified:
 "
-
+		
 		-- add tabs themselves to the text
 		set ti to 1
 		repeat with t in tabs
@@ -275,36 +264,35 @@ set curDate to current date
 if updateCheckDate < curDate then
 	-- set next update for 1 week from now
 	set updateCheckDate to (curDate + (7 * days))
-
+	
 	-- run the update check script
 	local updateCheckResult
 	try
 		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
-		--set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 	on error errStr number errNum
 		set updateCheckResult to "ERROR
 " & errStr
 	end try
-
+	
 	-- parse update check results
-
+	
 	-- break up result into items
 	set updateCheckResult to paragraphs of updateCheckResult
-
+	
 	-- updateCheckVersion is older than the current version, so update it
 	if ((count of updateCheckResult) > 0) and (item 1 of updateCheckResult is "MYVERSION") then
 		set updateCheckVersion to myVersion
 		set updateCheckResult to rest of updateCheckResult
 	end if
-
+	
 	-- update check error
 	if ((count of updateCheckResult) > 0) and (item 1 of updateCheckResult is "ERROR") then
-
+		
 		-- fail silently, but check again in 3 days instead of 7
 		set updateCheckDate to (curDate + (3 * days))
-
+		
 	else if (count of updateCheckResult) is 2 then
-
+		
 		-- update check found a newer version on GitHub
 		local newVersion
 		local updateURL
@@ -316,7 +304,7 @@ if updateCheckDate < curDate then
 			-- Later: do nothing
 			set dlgResult to false
 		end try
-
+		
 		-- Download or Ignore
 		if dlgResult is "Download" then
 			open location updateURL
@@ -344,20 +332,20 @@ repeat
 			end try
 		end try
 	end repeat
-
-
+	
+	
 	-- APPLICATION FILE SAVE DIALOGUE
 	repeat
 		-- CHOOSE WHERE TO SAVE THE APP
-
+		
 		local appPath
 		set appPath to false
 		local tryAgain
 		set tryAgain to true
-
+		
 		repeat while tryAgain
 			set tryAgain to false -- assume we'll succeed
-
+			
 			-- show file selection dialog
 			local lastAppPathAlias
 			try
@@ -374,7 +362,7 @@ repeat
 			on error number -128
 				exit repeat
 			end try
-
+			
 			-- break down the path & canonicalize app name
 			local appInfo
 			try
@@ -384,7 +372,7 @@ repeat
 				writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 				return -- QUIT
 			end try
-
+			
 			local appDir
 			set appDir to (paragraph 1 of appInfo)
 			set appNameBase to (paragraph 2 of appInfo)
@@ -395,11 +383,11 @@ repeat
 			set appPath to (paragraph 5 of appInfo)
 			local appExtAdded
 			set appExtAdded to (paragraph 6 of appInfo)
-
+			
 			-- update the last path info
 			set lastAppPath to (((POSIX file appDir) as alias) as text)
-
-
+			
+			
 			-- check if we have permission to write to this directory  $$$ REWRITE THIS NATIVE?
 			if (do shell script "#!/bin/sh
 if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
@@ -426,22 +414,22 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 				end if
 			end if
 		end repeat
-
+		
 		if appPath is false then
 			exit repeat
 		end if
-
+		
 		set curStep to curStep + 1
-
+		
 		repeat
-
+			
 			-- STEP 2: SHORT APP NAME
-
+			
 			local appShortNamePrompt
 			set appShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
-
+			
 			set tryAgain to true
-
+			
 			local appShortNameCanceled
 			local appShortNamePrev
 			repeat while tryAgain
@@ -455,7 +443,7 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 					set curStep to curStep - 1
 					exit repeat
 				end try
-
+				
 				if (count of appShortName) > 16 then
 					set tryAgain to true
 					set appShortNamePrompt to "That name is too long. Please limit the name to 16 characters or less."
@@ -466,14 +454,14 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 					set appShortName to appShortNamePrev
 				end if
 			end repeat
-
+			
 			if appShortNameCanceled then
 				exit repeat
 			end if
-
+			
 			-- STEP 3: CHOOSE APP STYLE
 			set curStep to curStep + 1
-
+			
 			repeat
 				local appStyle
 				try
@@ -482,20 +470,20 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 APP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)
 
 BROWSER TABS - The app will display a full browser window with the given tabs." with title step(curStep) with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
-
+					
 				on error number -128 -- Back button
 					set curStep to curStep - 1
 					exit repeat
 				end try
-
+				
 				-- STEP 4: CHOOSE URLS
 				set curStep to curStep + 1
-
+				
 				-- initialize URL list
 				if (appURLs is {}) and (appStyle is "App Window") then
 					set appURLs to {appDefaultURL}
 				end if
-
+				
 				repeat
 					if appStyle is "App Window" then
 						-- APP WINDOW STYLE
@@ -516,7 +504,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								on error number -128 -- Back button
 									set dlgResult to "Back"
 								end try
-
+								
 								if dlgResult is "Back" then
 									if curTab is 1 then
 										set curTab to 0
@@ -544,7 +532,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								else
 									set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
 								end if
-
+								
 								if (backButton is 1) or ((button returned of dlgResult) is "Previous") then
 									if backButton is 1 then
 										set curTab to 0
@@ -568,17 +556,17 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								end if
 							end if
 						end repeat
-
+						
 						if curTab is 0 then
 							-- we hit the back button
 							set curStep to curStep - 1
 							exit repeat
 						end if
 					end if
-
+					
 					-- STEP 5: REGISTER AS BROWSER?
 					set curStep to curStep + 1
-
+					
 					repeat
 						try
 							set doRegisterBrowser to button returned of (display dialog "Register app as a browser?" with title step(curStep) with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
@@ -586,10 +574,10 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 							set curStep to curStep - 1
 							exit repeat
 						end try
-
+						
 						-- STEP 6: SELECT ICON FILE
 						set curStep to curStep + 1
-
+						
 						repeat
 							try
 								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step(curStep) with icon myIcon buttons {"Yes", "No", "Back"} default button doCustomIcon cancel button "Back")
@@ -597,12 +585,12 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								set curStep to curStep - 1
 								exit repeat
 							end try
-
+							
 							repeat
 								if doCustomIcon is "Yes" then
-
+									
 									-- CHOOSE AN APP ICON
-
+									
 									-- show file selection dialog
 									local lastIconPathAlias
 									try
@@ -610,20 +598,20 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									on error
 										set lastIconPathAlias to ""
 									end try
-
+									
 									local appIconSrc
 									try
 										if lastIconPathAlias is not "" then
-
+											
 											set appIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPathAlias without invisibles
 										else
 											set appIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
 										end if
-
+										
 									on error number -128
 										exit repeat
 									end try
-
+									
 									-- get icon path info
 									set appIconSrc to (POSIX path of appIconSrc)
 									-- break down the path & canonicalize icon name
@@ -634,18 +622,18 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
 										return -- QUIT
 									end try
-
+									
 									set lastIconPath to (((POSIX file (paragraph 1 of appInfo)) as alias) as text)
 									local appIconName
 									set appIconName to (paragraph 2 of appInfo)
-
+									
 								else
 									set appIconSrc to ""
 								end if
-
+								
 								-- STEP 7: SELECT ENGINE
 								set curStep to curStep + 1
-
+								
 								repeat
 									local appEngineType
 									try
@@ -660,10 +648,10 @@ The main reason to choose the external browser engine is if your app must run on
 										set curStep to curStep - 1
 										exit repeat
 									end try
-
+									
 									-- STEP 8: CREATE APPLICATION
 									set curStep to curStep + 1
-
+									
 									-- create summary of the app
 									local appSummary
 									set appSummary to "Ready to create!
@@ -702,19 +690,19 @@ Icon: "
 									else
 										set appSummary to appSummary & appIconName
 									end if
-
+									
 									set appSummary to appSummary & "
 
 App Engine: "
 									set appSummary to appSummary & appEngineType
-
+									
 									-- format app engine
-																			if appEngineType starts with "External" then
-											set appEngineType to "external|com.google.Chrome"
-										else
-											set appEngineType to "internal|com.brave.Browser"
-										end if
-
+									if appEngineType starts with "External" then
+										set appEngineType to "external|com.google.Chrome"
+									else
+										set appEngineType to "internal|com.brave.Browser"
+									end if
+									
 									-- set up Chrome command line
 									local appCmdLine
 									set appCmdLine to ""
@@ -725,7 +713,7 @@ App Engine: "
 											set appCmdLine to appCmdLine & " " & quoted form of t
 										end repeat
 									end if
-
+									
 									repeat
 										try
 											display dialog appSummary with title step(curStep) with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
@@ -733,10 +721,10 @@ App Engine: "
 											set curStep to curStep - 1
 											exit repeat
 										end try
-
-
+										
+										
 										-- CREATE THE APP
-
+										
 										repeat
 											local creationSuccess
 											set creationSuccess to false
@@ -745,12 +733,12 @@ App Engine: "
 												--do shell script scriptEnv & " " & buildScript & " " & (quoted form of appPath) & " " & (quoted form of appNameBase) & " " & (quoted form of appShortName) & " " & (quoted form of appIconSrc) & " " & (quoted form of doRegisterBrowser) & " " & (quoted form of appEngineType) & " " & appCmdLine  $$$$ DELETE
 												set creationSuccess to true
 											on error errStr number errNum
-
+												
 												-- unable to create app due to permissions
 												if errStr is "PERMISSION" then
 													set errStr to "Unable to write to \"" & appDir & "\"."
 												end if
-
+												
 												if not creationSuccess then
 													local dlgButtons
 													try
@@ -771,7 +759,7 @@ App Engine: "
 													end try
 												end if
 											end try
-
+											
 											-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 											try
 												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & appNameBase & "\".
@@ -781,7 +769,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
 												return -- QUIT
 											end try
-
+											
 											-- launch or reveal
 											if dlgResult is "Launch Now" then
 												delay 1
@@ -797,31 +785,31 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												tell application "Finder" to reveal ((POSIX file appPath) as alias)
 												tell application "Finder" to activate
 											end if
-
+											
 											writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
 											return -- QUIT
-
+											
 										end repeat
-
+										
 									end repeat
-
+									
 								end repeat
-
+								
 								exit repeat -- We always kick back to the question of whether to use a custom icon
 							end repeat
-
+							
 						end repeat
-
+						
 					end repeat
-
+					
 				end repeat
-
+				
 			end repeat
-
+			
 		end repeat
-
+		
 		exit repeat -- always kick back to the first dialogue (instead of the file save dialog)
-
+		
 	end repeat
-
+	
 end repeat

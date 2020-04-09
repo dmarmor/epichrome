@@ -110,14 +110,15 @@ NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2>
 ifeq ($(BETA),_beta)
 DEBUG_SH:=1
 DEBUG_PY:=True
+LOGPRESERVE_SH:=9
 PACKAGE_README:=build/resources/readme.rtf
 else
 DEBUG_SH:=
 DEBUG_PY:=False
+LOGPRESERVE_SH:=4
 PACKAGE_README:=
 endif
 
-LOGPRESERVE_SH:=
 
 NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
 
@@ -223,7 +224,6 @@ build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
 	../modules/fileicon/bin/fileicon set \
 		build/package/Applications/Epichrome \
 		build/icons/folder.icns
-	false
 	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
 	mv $(APP) build/package/Applications/$(APP)
 	pkgbuild --analyze --root build/package $(@:.pkg=).plist
@@ -387,7 +387,7 @@ $(APP_CT)/Resources/Scripts/main.scpt: src/main.applescript src/version.sh main
 main:
 	@mkdir -p build
 	@rm -rf build/main.app build/main
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' \
+	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		src/main.applescript > build/main.applescript
 #	chmod 444 src/main.applescript
 	osacompile -x -o build/main.app build/main.applescript
@@ -658,6 +658,7 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 		'$(BRAVE_FRAMEWORK)'
 #		'build/brave'
 	@rm -rf build/engine/Brave
+	@mkdir -p build/engine
 	mv build/brave/Contents build/engine/Brave
 	rmdir build/brave
 	tar czvf '$@' --cd build/engine Brave

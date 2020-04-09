@@ -23,9 +23,9 @@
 
 # CORE APP INFO
 
-SSBVersion='EPIVERSION'               # filled in by Makefile
-SSBIdentifier=APPID                   # filled in by updateapp
-CFBundleIdentifier=APPBUNDLEID        # filled in by updateapp
+SSBVersion='EPIVERSION'            # filled in by Makefile
+SSBIdentifier='APPID'              # filled in by updateapp
+CFBundleIdentifier='APPBUNDLEID'   # filled in by updateapp
 
 
 # CORE APP VARIABLES
@@ -35,22 +35,20 @@ myAppPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
 
 # LOAD CORE SCRIPT
 
+myLogID="$SSBIdentifier|Placeholder"
 source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
-myLogID="$myLogID|Placeholder"
 [[ "$ok" ]] || abort
-
-# ensure we have a data directory
-[[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
 
 
 # ATTEMPT TO LAUNCH PARENT APP
 
+debuglog 'Launching parent app.'
+
 try /usr/bin/open -b "$CFBundleIdentifier" --args "$@" \
     'Unable to launch parent app.'
 if [[ "$ok" ]] ; then
-    debuglog 'Launched parent app.'
     exit 0
 else
     # launch failed, so display error alert
-    abort "$errmsg Unless you know what you're doing, you shouldn't try to launch the engine app directly anyway."
+    abort "$errmsg. You'll need to launch it directly."
 fi

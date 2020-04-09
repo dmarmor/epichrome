@@ -25,7 +25,6 @@
 
 # filled in by Makefile
 SSBVersion='EPIVERSION'
-#readonly SSBVersion
 
 # filled in by updateapp
 SSBIdentifier=APPID
@@ -35,7 +34,6 @@ SSBCustomIcon=APPCUSTOMICON
 SSBCommandLine=APPCOMMANDLINE
 SSBEngineType=APPENGINETYPE
 APPENGINESOURCE
-#readonly SSBIdentifier CFBundleDisplayName CFBundleName SSBCustomIcon SSBCommandLine SSBEngineType
 
 export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine SSBEngineType SSBEngineSourceInfo
 
@@ -45,10 +43,42 @@ export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine 
 myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 
 
+# PARSE COMMAND-LINE ARGUMENTS
+
+argsURIs=()
+argsOptions=()
+export argsURIs argsOptions
+while [[ "$#" -gt 0 ]] ; do
+    case "$1" in
+        --epichrome-debug)
+            debug=1
+            ;;
+
+	--epichrome-new-log)
+	    myLogFile=
+	    myLogTempVar=
+	    myRunTimestamp=
+	    ;;
+	
+	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
+	    # this should be sent to the open command
+	    argsURIs+=( "$1" )
+	    ;;
+
+	*)
+	    # pass any other options along to the engine
+	    argsOptions+=( "$1" )
+    esac
+
+    # get next arg
+    shift
+done
+
+
 # LOAD CORE SCRIPT
 
 myLogID=   # reset log ID
-source "$myAppPath/Contents/Resources/Scripts/core.sh" PRESERVELOG || exit 1
+source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
 [[ "$ok" ]] || abort
 
 # ensure we have a data directory
@@ -118,6 +148,7 @@ myLockFile="$myDataPath/lock" ; export myLockFile
 # (do NOT export these -- they should not be inherited)
 lockOn=
 lockPID=
+lockLogFile=
 lockCmd=
 lockEnginePID=
 lockEngineCmd=
@@ -180,13 +211,15 @@ function lockset {
 
     # if we got here, there's either no lock, or we can stomp on an old one
 
-    # reinitialize log
-    [[ "$logPreserve" ]] || initlog
-
+    # initialize log file
+    initlogfile
+    
     # set lock variables and write out lock
-    lockPID="$$" ; lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
+    lockPID="$$" ; lockLogFile="$myLogFile"
+    lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
     getlockcmd "$lockPID" lockCmd
-    writevars "$myLockFile" lockPID lockCmd lockEnginePID lockEngineCmd lockEnginePath
+    writevars "$myLockFile" lockPID lockLogFile lockCmd \
+	      lockEnginePID lockEngineCmd lockEnginePath
     [[ "$ok" ]] || return 1
 
     # return success
@@ -266,36 +299,6 @@ export -f getlockcmd
 # MAIN BODY
 
 
-# PARSE COMMAND-LINE ARGUMENTS
-
-argsURIs=()
-argsOptions=()
-export argsURIs argsOptions
-while [[ "$#" -gt 0 ]] ; do
-    case "$1" in
-        --epichrome-debug)
-            debug=1
-            ;;
-
-	--epichrome-preserve-logs)
-	    logPreserve=1
-	    ;;
-
-	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
-	    # this should be sent to the open command
-	    argsURIs+=( "$1" )
-	    ;;
-
-	*)
-	    # pass any other options along to the engine
-	    argsOptions+=( "$1" )
-    esac
-
-    # get next arg
-    shift
-done
-
-
 # OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
 
 if ! lockset ; then
@@ -303,6 +306,9 @@ if ! lockset ; then
     # lock already in use -- see if it's a live engine
     if kill -0 "$lockEnginePID" 2> /dev/null ; then
 
+	# direct logging to running app's log file
+	initlogfile "$lockLogFile"
+	
 	# engine is already running, so just send any files or URLs to it &
 	# don't run the usual command-line
 	debuglog "Activating already-running engine at '$lockEnginePath'"
@@ -312,7 +318,7 @@ if ! lockset ; then
 	# we're done, so exit one way or the other
 	[[ "$ok" ]] && exit 0 || abort
     else
-
+	
 	# locked but not with a running engine, so log error & quit
 	abortsilent 'Unable to set lock.'
     fi
@@ -695,10 +701,10 @@ fi
 # fi
 
 # build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
-myArgs=( "${argsOptions[@]}" \
-	     '--no-default-browser-check' \
-	     '--enable-features=PasswordImport' \
-	     "${SSBCommandLine[@]}" )
+myEngineArgs=( "${argsOptions[@]}" \
+		   '--no-default-browser-check' \
+		   '--enable-features=PasswordImport' \
+		   "${SSBCommandLine[@]}" )
 
 # temporarily install master prefs if needed
 masterPrefsSet=
@@ -714,7 +720,8 @@ fi
 
 # LAUNCH ENGINE
 
-try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" --args "--user-data-dir=$myProfilePath" "${myArgs[@]}" \
+try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" \
+    --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}" \
     'Error launching app.'
 ok=1 ; errmsg=
 

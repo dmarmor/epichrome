@@ -194,6 +194,14 @@ a:active {
     flex-basis: 100%;
     flex-shrink: 0;
 }
+.changes_user span.ch_update_runtime {
+    color: #800000;
+    font-weight: bold;
+    font-style: italic;
+}
+.change_headline {
+    font-weight: bold;
+}
 .changes_update {
     flex-basis: 100%;
     justify-content: flex-start;
