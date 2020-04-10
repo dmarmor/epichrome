@@ -38,12 +38,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
   <div id="container" class="container">
 
+    <!-- LOOK AT ME DAMMIT -->
+
+    <div id="alert" class="alert bounce_box hide">
+      <div class="alert_message"><p><span class="important">IMPORTANT:</span> Whenever this redesigned welcome page appears, <i>please</i> read it carefully&mdash;especially the action items below.</p><p class="alert_extra al_update_runtime al_ext_reinstall emphasis hide">(For example:<span class="al_update_runtime hide"> This update may have removed Epichrome Helper.</span><span class="al_ext_reinstall hide"> Because of <span class="al_update_runtime hide">other </span>changes to the app, you may <span class="al_update_runtime hide">also </span>need to reinstall your <span class="al_update_runtime hide">other </span><span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>.</span>)</p></p></div>
+      <div id="alert_close" class="alert_close"><span>x</span></div>
+    </div>
+
     <!-- LEFT SIDEBAR -->
 
     <div id="left_column" class="left_column sidebar">
-      <div id="left_title" class="titlebar"></div>
-      <div id="left_content" class="left">
-      </div> <!-- #left_content -->
+      <div id="left_title" class="titlebar left_title">
+        <div class="contents hide"></div>
+      </div>
+      <div id="left_content" class="left contents hide"></div>
     </div> <!-- #left_column -->
 
     <!-- MAIN CONTENT -->
@@ -52,22 +60,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
       <!-- TITLE BAR -->
       <div id="main_title" class="titlebar main_title">
-        <img src="img/app_icon.png" alt="APPDISPLAYNAME icon" />
-        <div id="main_title_text" class="main_title_text">
-          <div class="title_info above">
-            <p class="version group_pg pg_update pg_change_engine pg_reset hide">APPDISPLAYNAME | version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_new">&nbsp;</p>
-          </div>
-          <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App!</h1>
-          <h1 class="title group_pg pg_update hide">Your App Has Been Updated!</h1>
-          <h1 class="title group_pg pg_reset hide">Your App Was Reset</h1>
-          <h1 class="title group_pg pg_change_engine hide">Your App Has Changed</h1>
-          <div class="title_info below">
-            <p class="version group_pg pg_new">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_update pg_change_engine pg_reset hide">&nbsp;</p>
-          </div>
-        </div> <!-- #main_title_text -->
+        <div class="contents hide">
+          <img src="img/app_icon.png" alt="APPDISPLAYNAME icon" />
+          <div id="main_title_text" class="main_title_text">
+            <div class="title_info above">
+              <p class="version group_pg pg_update pg_change_engine pg_reset hide">APPDISPLAYNAME | version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_new">&nbsp;</p>
+            </div>
+            <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App!</h1>
+            <h1 class="title group_pg pg_update hide">Your App Has Been Updated!</h1>
+            <h1 class="title group_pg pg_reset hide">Your App Was Reset</h1>
+            <h1 class="title group_pg pg_change_engine hide">Your App Has Changed</h1>
+            <div class="title_info below">
+              <p class="version group_pg pg_new">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_update pg_change_engine pg_reset hide">&nbsp;</p>
+            </div> <!-- .title_info -->
+          </div> <!-- #main_title_text -->
+        </div> <!-- .contents -->
       </div> <!-- #main_title -->
 
-      <div id="main_content" class="main_content">
+      <div id="main_content" class="main_content contents hide slide">
 
         <!-- MAIN MESSAGE -->
 
@@ -76,7 +86,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <h3 class="group_pg pg_new">Important Information</h3>
             <h3 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h3>
             <ul>
-              <li class="ch_update ch_update_runtime hide"><span class="change_headline">The app has been updated</span> from version <span class="version_old">0.0.0</span> to version <span class="version_cur">EPIVERSION</span><span class="ch_update_runtime hide"> (IMPORTANT: Please check the action items below for information on reinstalling Epichrome Helper, which may have been removed by this update)</span></li><!-- $$$$ UPDATE THIS FOR RELEASE -->
+              <li class="ch_update ch_update_runtime hide"><span class="change_headline">The app has been updated</span> from version <span class="version_old">0.0.0</span> to version <span class="version_cur">EPIVERSION</span></li><!-- $$$$ UPDATE THIS FOR RELEASE -->
               <li class="ch_change_engine hide"><span class="change_headline">The app has switched engines</span><span class="has_engine_old hide"> from <span class="engine_old_type_int hide">the built-in</span><span class="engine_old_type_ext hide">an external</span> <span class="engine_old_browser"></span> engine</span> <span class="has_engine hide">to <span class="engine_type_int hide">the built-in</span><span class="engine_type_ext hide">an external</span> <span class="engine_browser"></span> engine</span></li>
               <li class="ch_reset hide"><span class="change_headline">Some or all of the app&rsquo;s settings have been reset</span> to their default values</li>
               <li class="ch_bookmark_new hide"><span class="change_headline">A folder called <span class="folder_name">APPBUNDLENAME App Info</span> has been created</span> on the bookmarks bar above (as long as you don&rsquo;t delete that folder, every time this page is shown the latest version will be added to end of the folder so you&rsquo;ll have a record of changes to the app)</li>
@@ -108,7 +118,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         </div> <!-- #changes_msg -->
 
         <!-- ACTIONS -->
-        <div id="actions">
+        <div id="actions" class="actions">
           <p class="actions_header group_pg pg_new">Before you get started:</p>
           <p class="actions_header group_pg pg_update pg_reset pg_change_engine hide">Before you get back to using the app:</p>
 
@@ -232,59 +242,61 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
     <!-- RIGHT COLUMN -->
     <div id="right_column" class="right_column sidebar">
-      <div id="right_title" class="titlebar"></div>
-      <div id="right_content" class="right_content">
-        <!-- PATREON -->
-        <div id="patreon" class="patreon">
-          <div class="patreon_header">
-            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
-              <g>
+      <div id="right_title" class="titlebar">
+        <div class="contents hide"></div>
+      </div>
+      <div id="right_content" class="right_content contents hide">
+          <!-- PATREON -->
+          <div id="patreon" class="patreon">
+            <div class="patreon_header">
+              <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
                 <g>
-                  <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
+                  <g>
+                    <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
+                  </g>
+                  <g>
+                    <path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
+                    <path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
+                    <path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
+                    <path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
+                    <path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
+                    <path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
+                    <path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
+                  </g>
                 </g>
+              </svg>
+              <img class="patreon_epichrome" src="img/epichrome_icon.png" alt="Epichrome icon" />
+            </div> <!-- #patreon_header -->
+            <p class="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
+            <a href="https://www.patreon.com/bePatron?u=27108162" class="patreon_button" target="_blank" data-patreon-widget-type="become-patron-button">
+              <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
                 <g>
-                  <path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
-                  <path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
-                  <path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
-                  <path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
-                  <path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
-                  <path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
-                  <path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
+                  <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
+                  <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
                 </g>
-              </g>
-            </svg>
-            <img class="patreon_epichrome" src="img/epichrome_icon.png" alt="Epichrome icon" />
-          </div> <!-- #patreon_header -->
-          <p class="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
-          <a href="https://www.patreon.com/bePatron?u=27108162" class="patreon_button" target="_blank" data-patreon-widget-type="become-patron-button">
-            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
-              <g>
-                <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
-                <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
-              </g>
-            </svg>
-            Become a Patron!</a>
-            <div class="patreon_rockstars">
-              <h2>Rock Star Patrons</h2>
-              <ul>
-                <!-- $$$$$ UPDATE THIS $$$$$ -->
-                <li>Alan Latteri</li>
-                <li>Lyle Barrere</li>
-                <li>Jonathan Berger</li>
-                <li>Andrew Bonham</li>
-                <li>Lev Dubinets</li>
-                <li>Matt Fallshaw</li>
-                <li>Eric Henderson</li>
-                <li>Ben Johnson</li>
-                <li>Gregory Morse</li>
-                <li>Orbital Impact</li>
-                <li>Matthew Scott</li>
-                <li>Samuel Talleux</li>
-                <!-- <li>Orbital Impact</li> -->
-                <!-- <li>Eric Henderson</li> -->
-              </ul>
-            </div> <!-- .patreon_rockstars -->
-          </div> <!-- #patreon -->
+              </svg>
+              Become a Patron!</a>
+              <div class="patreon_rockstars">
+                <h2>Rock Star Patrons</h2>
+                <ul>
+                  <!-- $$$$$ UPDATE THIS $$$$$ -->
+                  <li>Alan Latteri</li>
+                  <li>Lyle Barrere</li>
+                  <li>Jonathan Berger</li>
+                  <li>Andrew Bonham</li>
+                  <li>Lev Dubinets</li>
+                  <li>Matt Fallshaw</li>
+                  <li>Eric Henderson</li>
+                  <li>Ben Johnson</li>
+                  <li>Gregory Morse</li>
+                  <li>Orbital Impact</li>
+                  <li>Matthew Scott</li>
+                  <li>Samuel Talleux</li>
+                  <!-- <li>Orbital Impact</li> -->
+                  <!-- <li>Eric Henderson</li> -->
+                </ul>
+              </div> <!-- .patreon_rockstars -->
+            </div> <!-- #patreon -->
         </div> <!-- #right_content -->
       </div> <!-- #right -->
     </div><!-- #container -->

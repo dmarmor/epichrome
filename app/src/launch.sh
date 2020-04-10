@@ -704,7 +704,6 @@ function setwelcomepage {
 	debuglog "Creating app update welcome page."
 	myStatusWelcomeURL="$baseURL&ov=$(encodeurl "$myStatusNewVersion")"
 	myStatusWelcomeTitle="App Updated ($myStatusNewVersion -> $SSBVersion)"
-	
     fi
     
     if [[ ! "$myStatusNewApp" ]] ; then

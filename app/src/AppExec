@@ -796,10 +796,15 @@ fi
 # SHOW WELCOME PAGE IF NEEDED
 
 if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
-        
+
+    # if we're updating from pre-2.3.0b10, show extra popup alert
+    if vcmp "$myStatusNewVersion" '<' '2.3.0b10' ; then
+	myStatusWelcomeURL+='&m=1'
+    fi
+    
     # pause to allow the app to open
     waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
-    
+
     debuglog "Showing welcome page ($myStatusWelcomeURL)."
     
     # launch the welcome page

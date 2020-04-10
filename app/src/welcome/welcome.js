@@ -164,9 +164,6 @@ function buildPage() {
     // get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
 
-    // HIDE PAGE CONTAINER
-    setDisplay('#container', false);
-
     // GENERAL APP INFO
 
     // app version
@@ -190,6 +187,9 @@ function buildPage() {
     // app changes
     var appChanges = [];
 
+    // alert extras
+    var alertExtras = [];
+    
     // update page
     const oldVersion = urlParams.get('ov');
     const statusUpdate = (oldVersion != null);
@@ -264,12 +264,12 @@ function buildPage() {
     const statusRuntime = urlParams.get('rt');
     if (statusRuntime == 1) {
         runtimeAction = 'rt_update';
-        appChanges.push('ch_update_runtime');
+        alertExtras.push('al_update_runtime');
     } else if (statusRuntime == 2) {
         runtimeAction = 'rt_change_engine';
     } else if (statusRuntime == 3) {
         runtimeAction = 'rt_update_fail';
-        appChanges.push('ch_update_runtime');
+        alertExtras.push('al_update_runtime');
     } else if (statusReset) {
         runtimeAction = 'rt_reset';
     }
@@ -315,12 +315,15 @@ function buildPage() {
         // what type of list are we showing?
         if (urlParams.get('xi')) {
             activeExtList = 'ext_new';
-        } else if (statusEngineChange) {
-            activeExtList = 'ext_change_engine';
-        } else if (statusUpdate) {
-            activeExtList = 'ext_update';
         } else {
-            activeExtList = 'ext_fallback';
+            alertExtras.push('al_ext_reinstall');
+            if (statusEngineChange) {
+                activeExtList = 'ext_change_engine';
+            } else if (statusUpdate) {
+                activeExtList = 'ext_update';
+            } else {
+                activeExtList = 'ext_fallback';
+            }
         }
 
         // show correct ext group
@@ -386,8 +389,25 @@ function buildPage() {
     // special case: only one visible, so hide number
     if (nextNum == 2) { lastItemNum.style.display = 'none'; }
 
-    // SHOW PAGE CONTAINER
-    setDisplay('#container');
+
+    // SHOW PAGE CONTENTS
+    setDisplay('.contents');
+
+    // possibly show look at me dammit alert
+    if (urlParams.get('m') == '1') {
+
+        // turn on any extras
+        if (alertExtras.length > 0) {
+            for (let curExtra of alertExtras) { setDisplay(curExtra); }
+        }
+
+        var alertbox = document.getElementById('alert');
+        setDisplay(alertbox);
+        document.getElementById('alert_close').addEventListener('click', function(evt) {
+            alertbox.style.transitionProperty = 'none';
+            setDisplay(alertbox, false);
+        }, false);
+    }
 }
 
 

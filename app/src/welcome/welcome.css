@@ -21,6 +21,130 @@
 
 */
 
+.bounce_box {
+    animation: bounce_box 8s ease-in-out;
+    /* -webkit-animation-iteration-count: 1; */
+}
+@keyframes bounce_box {
+    0% {
+        background-color: #dfb81c;
+    }
+    5% {
+        background-color: #c4a21a;
+    }
+    15% {
+        background-color: #f7cc20; /* #ffd321; */
+    }
+    25% {
+        background-color: #c4a21a;
+    }
+    35% {
+        background-color: #f7cc20; /* #ffd321; */
+    }
+    45% {
+        background-color: #c4a21a;
+    }
+    55% {
+        background-color: #f7cc20; /* #ffd321; */
+    }
+    65% {
+        background-color: #c4a21a;
+    }
+    75% {
+        background-color: #f7cc20; /* #ffd321; */
+    }
+    85% {
+        background-color: #c4a21a;
+    }
+    95% {
+        background-color: #f7cc20; /* #ffd321; */
+    }
+    100% {
+        background-color: #dfb81c;
+    }
+}
+
+.alert {
+    width: 25em;
+    flex-direction: row;
+    align-items: flex-start;
+    position: absolute;
+    top: 0;
+    left: 0;
+    text-align: center;
+    background-color: #dfb81c;
+    transition-property: all;
+    transition-delay: 2s;
+    transition-duration: .5s;
+    transition-timing-function: ease-in-out;
+    margin: 1em;
+    margin-left: 2em;
+    border-bottom-left-radius: 1em;
+    border-bottom-right-radius: 1em;
+    border-top-left-radius: 1em;
+    border-top-right-radius: 1em;
+    color: white;
+    box-shadow: 0px 4px 8px 0 rgba(0, 0, 0, 0.2);
+}
+.alert.hide {
+    display: flex;
+    opacity: 0;
+    transform: translate(-25%,-100%);
+    box-shadow: none;
+    margin-top: 0;
+    /* height: 0;
+    padding: 0; */
+}
+/* .alert:target {
+    height: 100%;
+} */
+
+.alert_message {
+    margin: 1em;
+    margin-right: 0;
+    /* color: inherit; */
+    font-size: 100%;
+}
+.alert_message p {
+    margin: 0;
+}
+.alert_message .important {
+    font-weight: 500;
+    text-decoration: underline;
+}
+.alert_message .emphasis {
+    font-weight: 500;
+    font-style: italic;
+}
+.alert_message .alert_extra {
+    margin-top: 1em;
+}
+
+.alert_close {
+    margin-right: .75em;
+    margin-top: .5em;
+    margin-left: .75em;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: .25em;
+    padding-right: .25em;
+    border-radius: 100%;
+    color: #dfb81c;
+    font-weight: bold;
+    font-size: 75%;
+    background-color: white;
+    cursor: pointer;
+    border: 0;
+}
+.alert_close:hover {
+    color: white;
+    background: none;
+}
+.alert_close>span {
+    position: relative;
+    top: -.1em;
+}
+
 /* BASIC SETUP */
 
 .hide {
@@ -90,12 +214,16 @@ a:active {
     color: #600000;
 }
 
-.titlebar {
+.titlebar, .titlebar .contents {
     width: 100%;
     background-color: #d3d3d3;
     height: 84px;
 }
-.main_title {
+/* .main_title {
+    position: relative;
+    z-index: 2;
+} */
+.main_title .contents {
     justify-content: center;
     align-items: center;
     flex-direction: row;
@@ -141,7 +269,10 @@ a:active {
 }
 .container {
     flex-direction: row;
-    background-image: linear-gradient(#ffffff, #d3d3d3);
+    background-color: #d3d3d3;
+    background-image: -webkit-linear-gradient(top, #ffffff 0%, #d3d3d3 800px);
+    height: 800px;
+    /* background-image: linear-gradient(#ffffff, #d3d3d3); */
     background-repeat: no-repeat;
     margin: 0;
     padding: 0;
@@ -158,7 +289,7 @@ a:active {
     text-align: left;
     background: none;
     font-size: 100%;
-    padding-top: 1em;
+    /* padding-top: 1em; */
 }
 
 .footnote {
@@ -170,7 +301,8 @@ a:active {
     justify-content: flex-start;
     align-items: center;
     border: 1px solid #a0a0a0;
-    margin-bottom: 1.5em;
+    margin-top: 1em;
+    margin-bottom: .5em;
     padding: 1em;
     padding-bottom: 0;
 }
@@ -193,11 +325,6 @@ a:active {
     margin-bottom: 1em;
     flex-basis: 100%;
     flex-shrink: 0;
-}
-.changes_user span.ch_update_runtime {
-    color: #800000;
-    font-weight: bold;
-    font-style: italic;
 }
 .change_headline {
     font-weight: bold;
@@ -225,6 +352,10 @@ a:active {
 }
 .changes_changelog {
     margin: 0;
+}
+
+.actions {
+    margin-top: 1em;
 }
 
 .actions_header {
