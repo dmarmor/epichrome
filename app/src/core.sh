@@ -37,6 +37,29 @@ coreVersion='EPIVERSION'
 export debug logPreserve
 
 
+# PARSE COMMAND-LINE ARGUMENTS
+
+coreDoInit=1
+[[ "$coreVersion" = 'EPI''VERSION' ]] && coreContext='shell' || coreContext='app'
+while [[ "$#" -gt 0 ]] ; do
+    case "$1" in
+        --noinit)
+            coreDoInit=
+            ;;
+
+	--inepichrome)
+	    coreContext='epichrome'
+	    ;;
+	
+	*)
+	    :  # ignore
+    esac
+    
+    # get next arg
+    shift
+done
+
+
 # CONSTANTS   $$$$ [[ "$X" ]] || X=  TEMPORARY TO FIX BETA 6 BUG
 
 # icon names
@@ -108,10 +131,10 @@ export appConfigVars "${appConfigVars[@]}"
 
 # SET UP CORE INFO
 
-if [[ "$SSBIdentifier" ]] ; then
-
-    # we're running from an app
-
+if [[ "$coreContext" = 'app' ]] ; then
+    
+    # RUNNING IN AN APP
+    
     # set up this app's data path
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
 
@@ -127,25 +150,28 @@ if [[ "$SSBIdentifier" ]] ; then
     
     # export all to helper
     export myDataPath myPauseFifo myConfigFile myProfilePath myLogID
+    
 else
+    
+    # RUNNING IN EPICHROME.APP OR SHELL
     
     # use up Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
     
-    if [[ "$coreVersion" != 'EPI''VERSION' ]] ; then
+    if [[ "$coreContext" = 'epichrome' ]] ; then
 	
 	# we're running from Epichrome.app
 	[[ "$myLogID" ]] || myLogID='Epichrome'
 	
     else
 
-	# running unfiltered outside app
+	# running unfiltered outside the app
 	
 	# logging -- stderr only
 	myLogID='Shell'
 	logNoFile=1
-    fi 
-
+    fi
+    
     # export all to helper
     export myDataPath myLogID
 fi
@@ -203,10 +229,26 @@ function errlog_raw {
 	fi
     fi
 }
-function errlog {
+function errlog {  # ( [DEBUG] msg... )
+    
+    # prefix format: *[PID]LogID(line)/function(line)/...:
 
-    # prefix format: [PID]LogID(line)/function(line)/...:
-
+    # arguments
+    local logType=
+    case "$1" in
+	DEBUG)
+	    logType=' '  # debug message
+	    shift
+	    ;;
+	FATAL)
+	    logType='!'  # fatal error
+	    shift
+	    ;;
+	*)
+	    logType='*'  # error
+	    ;;
+    esac
+    
     # make sure we have some logID
     local logID="$myLogID"
     [[ "$logID" ]] || logID='EpichromeCore'
@@ -230,13 +272,13 @@ function errlog {
     done
 
     # output prefix & message
-    errlog_raw "[$$]$(join_array '/' "${trace[@]}"): $@"
+    errlog_raw "$logType[$$]$(join_array '/' "${trace[@]}"): $@"
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
 }
 function debuglog {
-    [[ "$debug" ]] && errlog "$@"
+    [[ "$debug" ]] && errlog DEBUG "$@"
 }
 export -f errlog_raw errlog debuglog_raw debuglog
 
@@ -257,17 +299,16 @@ function initlogfile {  # ( logFile )
 	myLogFile="$1"
 	doKeepFile=1
 	
-    elif [[ "$SSBIdentifier" ]] ; then
+    elif [[ "$coreContext" = 'epichrome' ]] ; then
+	
+	# Epichrome.app log file
+	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiLogFilePrefix}${myRunTimestamp}.txt"
+    else
 	
 	# app log file
 	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${appLogFilePrefix}${myRunTimestamp}.txt"
-	    
-    else
-	
-	# Epichrome.app log file	    
-	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiLogFilePrefix}${myRunTimestamp}.txt"	
     fi
-
+    
     # trim saved logs
     
     # get all existing logs
@@ -717,7 +758,7 @@ function abort { # ( [myErrMsg [myCode]] )
     
     # log error message
     local myAbortLog="Aborting: $myErrMsg"
-    errlog "$myAbortLog"
+    errlog FATAL "$myAbortLog"
     
     # show dialog & offer to open log
     if [[ "$( type -t dialog )" = function ]] ; then
@@ -1190,7 +1231,7 @@ $try_end" \
 	"Unable to display dialog box with message \"$msg\""
     
     if [[ "$debug" && "$ok" && ("$numbuttons" != 1) ]] ; then
-	errlog "User clicked button '$(eval "echo "\$$var"")'"
+	errlog DEBUG "User clicked button '$(eval "echo "\$$var"")'"
 
     elif [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
 	
@@ -1233,7 +1274,7 @@ export -f alert
 
 # INITIALIZE SCRIPT
 
-if [[ "$1" != NOINIT ]] ; then
+if [[ "$coreDoInit" ]] ; then
 
     # make sure data directory exists
     try '-12' /bin/mkdir -p "$myDataPath" \
@@ -1250,6 +1291,14 @@ if [[ "$1" != NOINIT ]] ; then
 	fi
 	
 	# announce initialization
-	debuglog "Core $coreVersion initialized."
+	if [[ "$coreContext" = 'app' ]] ; then
+	    runningIn="app $SSBIdentifier"
+	elif [[ "$coreContext" = 'epichrome' ]] ; then
+	    runningIn="Epichrome.app"
+	else
+	    runningIn="a shell"
+	fi
+	debuglog "Core $coreVersion initialized in $runningIn."
+	unset runningIn
     fi
 fi

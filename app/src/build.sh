@@ -47,6 +47,11 @@ function cleanup {
 	    fi
 	fi
     fi
+    
+    if [[ ! "$doCleanExit" ]] ; then
+	trap EXIT
+	exit 1
+    fi
 }
 
 
@@ -75,13 +80,11 @@ trap cleanup EXIT
 myResourcesPath="${BASH_SOURCE[0]%/Scripts/build.sh}"
 
 
-# LOAD SCRIPTS
+# LOAD UPDATE SCRIPT
 
 myLogID="Epichrome|${BASH_SOURCE[0]##*/}"
-source "$myResourcesPath/Runtime/Contents/Resources/Scripts/core.sh" NOINIT || exit 1
+source "$myResourcesPath/Scripts/update.sh" --inepichrome --noinit || exit 1
 [[ "$ok" ]] || myabort
-
-safesource "$myResourcesPath/Scripts/update.sh" || myabort
 
 
 # COMMAND LINE ARGUMENTS - ALL ARE REQUIRED IN THIS EXACT ORDER

@@ -89,7 +89,7 @@ source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
 
 function handleexitsignal {
     if [[ "$lockOn" ]] ; then
-	errlog 'Terminated prematurely. Cleaning up.'
+	errlog FATAL 'Terminated prematurely. Cleaning up.'
 	lockrelease
     fi
 }
@@ -127,13 +127,13 @@ function readconfig { # ( myConfigFile )
 	    # array value
 
 	    eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog \"$varname=( \${config$varname[*]} )\""
+	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname=( \${config$varname[*]} )\""
 	else
 
 	    # scalar value
 
 	    eval "config$varname=\"\${$varname}\" ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog \"$varname='\$config$varname'\""
+	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname='\$config$varname'\""
 	fi
     done
 
@@ -798,7 +798,8 @@ fi
 if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
 
     # if we're updating from pre-2.3.0b10, show extra popup alert
-    if vcmp "$myStatusNewVersion" '<' '2.3.0b10' ; then
+    if [[ "$myStatusNewApp" ]] || \
+	   ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
 	myStatusWelcomeURL+='&m=1'
     fi
     

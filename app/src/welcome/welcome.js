@@ -189,7 +189,7 @@ function buildPage() {
 
     // alert extras
     var alertExtras = [];
-    
+
     // update page
     const oldVersion = urlParams.get('ov');
     const statusUpdate = (oldVersion != null);
@@ -199,6 +199,8 @@ function buildPage() {
         pageTitle = document.head.dataset['update'].replace('OLDVERSION', oldVersion).replace('NEWVERSION', appVersion);
 
         appChanges.push('ch_update');
+        alertExtras.push('al_update');
+
         replaceText('version_old', oldVersion);
 
         // statusUpdateSpecial = (vcmp(oldVersion, '2.3.0b9') < 0);

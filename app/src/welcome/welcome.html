@@ -41,7 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <!-- LOOK AT ME DAMMIT -->
 
     <div id="alert" class="alert bounce_box hide">
-      <div class="alert_message"><p><span class="important">IMPORTANT:</span> Whenever this redesigned welcome page appears, <i>please</i> read it carefully&mdash;especially the action items below.</p><p class="alert_extra al_update_runtime al_ext_reinstall emphasis hide">(For example:<span class="al_update_runtime hide"> This update may have removed Epichrome Helper.</span><span class="al_ext_reinstall hide"> Because of <span class="al_update_runtime hide">other </span>changes to the app, you may <span class="al_update_runtime hide">also </span>need to reinstall your <span class="al_update_runtime hide">other </span><span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>.</span>)</p></p></div>
+      <div class="alert_message"><p><span class="important">IMPORTANT:</span> Whenever this <span class="al_update hide">redesigned </span>welcome page appears, <i>please</i> read it carefully&mdash;especially any action items listed below.</p><p class="alert_extra al_update_runtime al_ext_reinstall emphasis hide">(In this case:<span class="al_update_runtime hide"> This update may have removed Epichrome Helper and you&rsquo;ll need to reinstall it.</span><span class="al_ext_reinstall hide"> Because of <span class="al_update_runtime hide">other </span>changes to the app, you will <span class="al_update_runtime hide">also </span>need to reinstall all of your <span class="al_update_runtime hide">other </span><span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>.</span>)</p></p></div>
       <div id="alert_close" class="alert_close"><span>x</span></div>
     </div>
 
@@ -99,8 +99,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               <div id="changes_minor" class="change_list changes_minor changes_version_zerox"> <!-- .changes_version_zero for x.x.0 -->
                 <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
                 <ul>
-                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
-                  <li>Fixed many issues from earlier betas</li>
+                  <li>Improved logging, and logs are now automatically saved for several runs</li>
+                  <li>Fixed a problem switching engines on update</li>
+                  <li>Improvements to this welcome page</li>
                 </ul>
               </div>
               <div id="changes_major" class="change_list changes_major hidex"> <!-- .hide for x.x.0 -->
@@ -109,6 +110,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <li>Completely rewritten for full compatibility with macOS 10.15 Catalina</li>
                   <li>Added built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine for more app-like behavior</li>
                   <li>Fixed microphone and camera permissions, AppleScript interaction, and much more</li>
+                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
                 </ul>
               </div>
             </div> <!-- #changes_update_lists --><!-- $$$$ SHOW CHANGELOG -->
@@ -138,12 +140,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                       </span>
                       Epichrome Helper Extension
                     </h3>
-                    <p><span class="group_rt rt_install">To help your app work better (including redirecting links to the default browser), please install the Epichrome Helper extension</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled</span>.<span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
+                    <p><span class="group_rt rt_install">If you haven't already, please install the Epichrome Helper extension to help your app work better (including redirecting links to the default browser).</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled</span>.<span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
                   </div> <!-- .runtime_text -->
                   <div class="runtime_button">
                     <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
                     <!-- https://superuser.com/questions/1474705/how-to-find-chrome-extension-in-chrome-web-store-by-id/1475146#1475146 -->
-                    <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/EPIEXTIDRELEASE" target="_blank">Install</a>
+                    <a class="install" href="https://chrome.google.com/webstore/detail/epichrome-helper/EPIEXTIDRELEASE" target="_blank"><span class="group_rt rt_install">Install</span><span class="group_rt rt_update rt_change_engine rt_reset hide">Reinstall</span></a>
                   </div> <!-- .runtime_button -->
                 </div> <!-- .runtime_button_message -->
                 <!-- <p class="runtime_beta footnote">
@@ -207,7 +209,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <div id="extension_dummy" class="extension hide">
                     <img class="extension_icon" src="img/epichrome_icon.png" alt="Extension icon" data-template="img/ext/EXTICON" />
                     <div class="extension_name">Extension</div>
-                    <a class="install" href="https://chrome.google.com/webstore/detail/" target="_blank">Install</a>
+                    <a class="install" href="https://chrome.google.com/webstore/detail/" target="_blank"><span class="group_ext ext_new">Install</span><span class="group_ext ext_update ext_change_engine hide">Reinstall</span></a>
                   </div>
                 </div>
 

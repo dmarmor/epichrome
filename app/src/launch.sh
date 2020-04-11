@@ -177,7 +177,7 @@ function waitforcondition {  # ( msg waitTime increment command [args ...] )
 	"$@" && return 0
 	
 	# wait
-	[[ "$curTime" = 0 ]] && errlog "Waiting for $msg..."
+	[[ "$curTime" = 0 ]] && debuglog "Waiting for $msg..."
 	sleep $increment
 	
 	# update time
@@ -391,10 +391,10 @@ function getepichromeinfo {
 	    elif [[ "$debug" ]] ; then
 		if vcmp "$curVersion" '>' 0.0.0 ; then
 		    # failed to get version, so assume this isn't really a version of Epichrome
-		    errlog "Ignoring '$curInstance' (old version $curVersion)."
+		    debuglog "Ignoring '$curInstance' (old version $curVersion)."
 		else
 		    # failed to get version, so assume this isn't really a version of Epichrome
-		    errlog "Ignoring '$curInstance' (unable to get version)."
+		    debuglog "Ignoring '$curInstance' (unable to get version)."
 		fi
 	    fi
 	fi
@@ -403,9 +403,9 @@ function getepichromeinfo {
     # log versions found
     if [[ "$debug" ]] ; then
 	[[ "$epiCurrentPath" ]] && \
-	    errlog "Current version of Epichrome ($SSBVersion) found at '$epiCurrentPath'"
+	    debuglog "Current version of Epichrome ($SSBVersion) found at '$epiCurrentPath'"
 	[[ "$epiLatestPath" && ( "$epiLatestPath" != "$epiCurrentPath" ) ]] && \
-	    errlog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
+	    debuglog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
     fi
     
     # return code based on what we found
@@ -416,53 +416,6 @@ function getepichromeinfo {
     else
 	return 1
     fi	
-}
-
-
-# CHECKGITHUBVERSION: function that checks for a new version of Epichrome on GitHub
-function checkgithubversion { # ( curVersion )
-
-    [[ "$ok" ]] || return 1
-    
-    # set current version to compare against
-    local curVersion="$1" ; shift
-
-    # regex for pulling out version
-    local versionRe='"tag_name": +"v([0-9.bB]+)",'
-    
-    # check github for the latest version
-    local latestVersion=
-    latestVersion="$(/usr/bin/curl --connect-timeout 3 --max-time 5 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
-    
-    if [[ "$?" != 0 ]] ; then
-	
-	# curl returned an error
-	ok=
-	errmsg="Error retrieving data."
-	
-    elif [[ "$latestVersion" =~ $versionRe ]] ; then
-
-	# extract version number from regex
-	latestVersion="${BASH_REMATCH[1]}"
-	
-	# compare versions
-	if vcmp "$curVersion" '<' "$latestVersion" ; then
-	    
-	    # output new available version number & download URL
-	    echo "$latestVersion"
-	    echo 'https://github.com/dmarmor/epichrome/releases/latest'
-	else
-	    debuglog "Latest Epichrome version on GitHub ($latestVersion) is not newer than $curVersion."
-	fi
-    else
-
-	# no version found
-	ok=
-	errmsg='No version information found.'
-    fi
-    
-    # return value tells us if we had any errors
-    [[ "$ok" ]] && return 0 || return 1
 }
 
 
@@ -537,7 +490,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		# temporarily turn OK back on & reload old runtime
 		oldErrmsg="$errmsg" ; errmsg=
 		oldOK="$ok" ; ok=1
-		source "$SSBAppPath/Contents/Resources/Scripts/core.sh" NOINIT || ok=
+		source "$SSBAppPath/Contents/Resources/Scripts/core.sh" --noinit || ok=
 		if [[ ! "$ok" ]] ; then
 
 		    # fatal error
@@ -579,6 +532,67 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 
 # CHECK FOR A NEW VERSION OF EPICHROME ON GITHUB
 
+# CHECKGITHUBVERSION: function that checks for a new version of Epichrome on GitHub
+function checkgithubversion { # ( curVersion [var] )
+    
+    [[ "$ok" ]] || return 1
+
+    # constants
+    local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
+    
+    # arguments
+    local curVersion="$1" ; shift  # current version to compare against
+    local var="$1" ; shift         # array to write info into
+
+    # assume no new version
+    if [[ "$var" ]] ; then
+	eval "$var=()"
+    fi
+    
+    # regex for pulling out version
+    local versionRe='"tag_name": +"v([0-9.bB]+)",'
+    
+    # check github for the latest version
+    local latestVersion=
+    latestVersion="$(/usr/bin/curl --connect-timeout 3 --max-time 5 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
+    
+    if [[ "$?" != 0 ]] ; then
+	
+	# curl returned an error
+	ok=
+	errmsg="Error retrieving data."
+	
+    elif [[ "$latestVersion" =~ $versionRe ]] ; then
+
+	# extract version number from regex
+	latestVersion="${BASH_REMATCH[1]}"
+	
+	# compare versions
+	if vcmp "$curVersion" '<' "$latestVersion" ; then
+	    
+	    # output new available version number & download URL
+	    if [[ "$var" ]] ; then
+		eval "$var=( \"\$latestVersion\" \"\$updateURL\" )"
+	    else
+		# no variable, so write 2 lines to stdout
+		echo "$latestVersion"
+		echo "$updateURL"
+	    fi
+	else
+	    debuglog "Latest Epichrome version on GitHub ($latestVersion) is not newer than $curVersion."
+	fi
+    else
+
+	# no version found
+	ok=
+	errmsg='No version information found.'
+    fi
+    
+    # return value tells us if we had any errors
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
 # CHECKGITHUBUPDATE -- check if there's a new version of Epichrome on GitHub and offer to download
 function checkgithubupdate {
 
@@ -600,7 +614,8 @@ function checkgithubupdate {
 	    SSBUpdateCheckVersion="$epiLatestVersion"
 	
 	# check if there's a new version on Github
-	try '-2' 'updateResult=(n)' checkgithubversion "$SSBUpdateCheckVersion" ''
+	local updateResult=
+	checkgithubversion "$SSBUpdateCheckVersion" updateResult
 	[[ "$ok" ]] || return 1
 	
 	# if there's an update available, display a dialog
@@ -1083,7 +1098,7 @@ ${BASH_REMATCH[5]}}"
 			myErrBookmarks=3  # error trying to add bookmark
 		    fi
 		else
-		    errlog 'Welcome page folder not found in app bookmarks.'
+		    debuglog 'Welcome page folder not found in app bookmarks.'
 		    myErrBookmarks=4  # folder deleted
 		fi
 		
@@ -1360,8 +1375,10 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		oldIFS="$IFS" ; IFS=$'\n'
 		mani_icons=( $(echo "$mani_icons" | \
 				   /usr/bin/sed -E \
-						's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> /dev/null) )
+						's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile") )
 		if [[ "$?" != 0 ]] ; then
+		    local myStderr="$(/bin/cat "$stderrTempFile")"
+		    [[ "$myStderr" ]] && errlog "$myStderr"
 		    errlog "Unable to parse icons for extension $curExtID."
 		    myFailedExtensions+=( "$curExtID" )
 		    continue
@@ -1381,7 +1398,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	    
 	    # get full path to icon (or generic, if none found)
 	    if [[ ! "$curIconSrc" ]] ; then
-		errlog "No icon found for extension $curExtID."
+		debuglog "No icon found for extension $curExtID."
 		curIconSrc="$welcomeExtGenericIcon"
 	    else
 		curIconSrc="$curExtPath/${curIconSrc#/}"
@@ -2049,7 +2066,7 @@ function setenginestate {  # ( ON|OFF )
 	return 1
     fi
     
-    [[ "$debug" ]] && ( de= ; [[ "$newState" != ON ]] && de=de ; errlog "Engine ${de}activated." )
+    [[ "$debug" ]] && ( local de= ; [[ "$newState" != ON ]] && de=de ; errlog DEBUG "Engine ${de}activated." )
     
 }
 export -f setenginestate

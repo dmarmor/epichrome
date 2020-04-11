@@ -35,9 +35,10 @@ updateEpichromeRuntime="$updateEpichromePath/Contents/Resources/Runtime"
 # BOOTSTRAP MY VERSION OF CORE.SH
 
 if [[ "$updateVersion" != "$coreVersion" ]] ; then
-    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" ; then
+    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" "$@" ; then
 	ok=
 	errmsg="Unable to load core $updateVersion."
+	errlog "$errmsg"
     fi
 fi
 
@@ -366,7 +367,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	    
 	    # welcome icon not found, so try to create one
 	    debuglog 'Extracting icon image for welcome page.'
-
+	    
 	    # fallback to generic icon already in bundle
 	    welcomeIconSourcePath=
 	    
@@ -606,30 +607,37 @@ The main advantage of the external Google Chrome engine is if your app must run 
     shoptrestore shoptState
     
     
-    # UPDATE CONFIG & RELAUNCH
+    # RUNNING IN APP -- UPDATE CONFIG & RELAUNCH
     
-    # write out config
-    writeconfig "$myConfigFile" FORCE
-    local myCleanupErr=
-    if [[ ! "$ok" ]] ; then
-	tryalways /bin/rm -f "$myConfigFile" \
-		  'Unable to delete old config file.'
-	myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
-	ok=1 ; errmsg=
-    fi
-    
-    # launch helper
-    launchhelper Relaunch
-    
-    # if relaunch failed, report it
-    if [[ ! "$ok" ]] ; then
-	[[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
-	myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
+    if [[ "$coreContext" = 'app' ]] ; then
+	
+	# write out config
+	writeconfig "$myConfigFile" FORCE
+	local myCleanupErr=
+	if [[ ! "$ok" ]] ; then
+	    tryalways /bin/rm -f "$myConfigFile" \
+		      'Unable to delete old config file.'
+	    myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
+	    ok=1 ; errmsg=
+	fi
+	
+	# launch helper
+	launchhelper Relaunch
+	
+	# if relaunch failed, report it
+	if [[ ! "$ok" ]] ; then
+	    [[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
+	    myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
+	fi
+
+	# show alert with any errors
+	[[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
+	
+	# no matter what, we quit now
+	cleanexit
     fi
 
-    # show alert with any errors
-    [[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
-    
-    # no matter what, we quit now
-    cleanexit
+
+    # RUNNING IN EPICHROME -- RETURN SUCCESS
+    return 0
 }

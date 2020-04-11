@@ -40,7 +40,7 @@ fi
 # HANDLE PREMATURE EXIT
 function handleexitsignal {
     if kill -0 "$myEnginePID" 2> /dev/null ; then
-	errlog 'Terminated prematurely. Engine will not be deactivated.'
+	errlog FATAL 'Terminated prematurely. Engine will not be deactivated.'
     fi
 }
 trap handleexitsignal EXIT

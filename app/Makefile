@@ -109,12 +109,12 @@ NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2>
 
 ifeq ($(BETA),_beta)
 DEBUG_SH:=1
-DEBUG_PY:=True
+DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
 PACKAGE_README:=build/resources/readme.rtf
 else
 DEBUG_SH:=
-DEBUG_PY:=False
+DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
 PACKAGE_README:=
 endif
@@ -439,7 +439,7 @@ $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 $(APP_CT)/Resources/Scripts/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
-		-e 's/EPIDEBUG/$(DEBUG_PY)/g' \
+		-e 's/debug = True/$(DEBUG_PY)/g' \
 		-e 's/APPID//g' \
 		-e 's/APPBUNDLENAME//g' \
 		-e 's/APPDISPLAYNAME//g' \

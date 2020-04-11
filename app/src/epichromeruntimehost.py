@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
 # -*- coding: utf-8 -*-
 #
 #  epichromeruntimehost.py: native messaging host for Epichrome Runtime
@@ -33,7 +33,7 @@ import inspect
 
 # BUILD FLAGS
 
-debug = EPIDEBUG                   # filled in by Makefile
+debug = True                   # filled in by Makefile
 
 
 # CORE APP INFO
@@ -51,6 +51,61 @@ appLogFile = None
 
 # FUNCTION DEFINITIONS
 
+# VCMP -- compare version numbers
+#          return -1 if v1 <  v2
+#          return  0 if v1 == v2
+#          return  1 if v1 >  v2
+def vcmp(v1, v2):
+    
+    # array for comparable version integers
+    vNums = [];
+    
+    # munge version numbers into comparable integers
+    for curV in [v1, v2]:
+
+        curVNum = 0
+        
+        curMatch = re.match('^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?$',
+                                curV)
+        
+        if curMatch:
+            
+            # create single number
+            curVNum = ((int(curMatch.group(1)) * 1000000000) +
+                       (int(curMatch.group(2)) * 1000000) +
+                       (int(curMatch.group(3)) * 1000))
+            
+            # add beta data
+            if curMatch.group(4):
+            
+                # this is a beta
+                curVNum += int(curMatch.group(5))
+            else:
+                # release version
+                curVNum += 999;
+        
+        # if unable to parse version number, call it 0
+        
+        # add to array
+        vNums.append(curVNum)
+    
+    # compare version integers
+    if (vNums[0] < vNums[1]):
+        return(-1)
+    elif (vNums[0] > vNums[1]):
+        return(1)
+    else:
+        return(0)
+
+# assert vcmp('1.0.0', '2.3.0') == -1
+# assert vcmp('4.99.0', '10.0.0b3') == -1
+# assert vcmp('2.3.0', '1.0.0') == 1
+# assert vcmp('3.1.2b3', '03.01.002b003') == 0
+# assert vcmp('12.100.020b99', '012.100.20') == -1
+# assert vcmp('3.x1.2b3', '03.01.002b003') == -1
+# assert vcmp('3.1.2b3', '03.01b.002b003') == 1
+
+
 # SETLOGPATH: set path to this app's log file
 def setlogpath():
 
@@ -66,6 +121,7 @@ def setlogpath():
         appLogFile = os.path.join(dataPath, 'Logs', 'epichrome_app_log.txt')
     
     # read lock
+    lockInfo = None
     try:
         with open(os.path.join(dataPath, 'lock'), 'r') as f:
             lockInfo = f.read()
@@ -73,13 +129,17 @@ def setlogpath():
         errlog("Unable to read app lock. ({})".format(e))
 
     # try to find log path in lock file
-    m = re.search("lockLogFile='([^\n]*)'[ \t]*\n", lockInfo)
-    if m:
-        appLogFile = m.group(1)
+    if lockInfo:
+        m = re.search("lockLogFile='([^\n]*)'[ \t]*\n", lockInfo)
+        if m:
+            appLogFile = m.group(1)
+        else:
+            # assume an older app version with old-style logging
+            appLogFile = os.path.join(dataPath, 'epichrome_app_log.txt')
 
 
 # ERRLOG: log to stderr and log file
-def errlog(msg):
+def errlog(msg, msgType='*'):
 
     global appLogFile
 
@@ -95,7 +155,8 @@ def errlog(msg):
 
     # build log string
     myMsg = (
-        '[{pid}]{app}|{filename}({fileline}){frame}: {msg}\n'.format( pid=os.getpid(),
+        '{mtype}[{pid}]{app}|{filename}({fileline}){frame}: {msg}\n'.format( mtype=msgType,
+                                                         pid=os.getpid(),
                                                          app=appID,
                                                          filename=os.path.basename(myStack[0][1]),
                                                          fileline=myStack[0][2],
@@ -125,7 +186,7 @@ def errlog(msg):
 #DEBUGLOG: log debugging message if debugging enabled
 def debuglog(msg):
     if debug:
-        errlog(msg)
+        errlog(msg, ' ')
 
 
 # SEND_MESSAGE -- send a message to a Chrome extension
@@ -213,7 +274,7 @@ else:
                                                   '-p', str(os.getppid())]).split('\n')[1]
     except Exception as e:
 
-        errlog("Unable to get path of parent engine. ({})".format(e))
+        errlog("Unable to get path of parent engine. ({})".format(e), '!')
         exit(1)
 
     # read engine manifest
@@ -222,7 +283,7 @@ else:
             json_info = json.load(fp)
 
     except Exception as e:
-        errlog(e)
+        errlog(e, '!')
         exit(1)
 
     # set app info from manifest

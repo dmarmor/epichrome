@@ -59,7 +59,7 @@ set myIcon to path to resource "applet.icns"
 
 -- GET PATHS TO USEFUL RESOURCES IN THIS APP
 local coreScript
-set coreScript to POSIX path of (path to resource "core.sh" in directory "Runtime/Contents/Resources/Scripts")
+set coreScript to quoted form of (POSIX path of (path to resource "core.sh" in directory "Runtime/Contents/Resources/Scripts"))
 local buildScript
 set buildScript to quoted form of (POSIX path of (path to resource "build.sh" in directory "Scripts"))
 local pathInfoScript
@@ -77,7 +77,7 @@ local myLogFile
 
 -- run core.sh to initialize logging & get key paths
 try
-	set coreOutput to do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
+	set coreOutput to do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' --inepichrome ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
 	set myDataPath to paragraph 1 of coreOutput
 	set myLogFile to paragraph 2 of coreOutput
 	set scriptEnv to scriptEnv & " myLogFile=" & (quoted form of myLogFile)

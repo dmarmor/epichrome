@@ -7,8 +7,14 @@ variant="$1" ; shift
 # validate and move to dir
 [[ "$dir" ]] || dir='.'
 if [[ ! -d "$dir" ]] ; then
-    echo "Directory '$dir' not found."
-    exit 1
+    if [[ "$variant" ]] ; then
+	echo "Directory '$dir' not found."
+	exit 1
+    fi
+
+    # assume the one argument was a variant
+    variant="$dir"
+    dir='.'
 fi
 cd "$dir"
 dir="$(pwd)"
@@ -18,8 +24,16 @@ dir="$(pwd)"
 appzip="app$variant.zip"
 datazip="data$variant.zip"
 if [[ "$variant" ]] ; then
-    [[ -e "$appzip" ]] || appzip=app.zip
-    [[ -e "$datazip" ]] || datazip=data.zip
+    if [[ ! -e "$appzip" ]] ; then
+	printf "$appzip not found -- " 1>&2
+	appzip=app.zip
+    fi
+    echo "restoring $appzip" 1>&2
+    if [[ ! -e "$datazip" ]] ; then
+	printf "$datazip not found -- " 1>&2
+	datazip=data.zip
+    fi
+    echo "restoring $datazip" 1>&2
 fi
 
 # set up useful info
