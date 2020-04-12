@@ -46,16 +46,17 @@ fi
 # FUNCTION DEFINITIONS
 
 # UPDATEAPP: function that populates an app bundle
-function updateapp { # ( updateAppPath )
+function updateapp { # ( updateAppPath [NORELAUNCH] )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
 
+    # arguments
+    local updateAppPath="$1" ; shift
+    local noRelaunch="$1" ; shift
+    
     # make sure we're logging
     [[ "$myLogFile" ]] || initlogfile
-    
-    # set app path
-    local updateAppPath="$1" ; shift
     
     
     # UPDATE ENGINE VARIABLE FORMAT ($$$ TEMPORARY FOR 2.3.0b1-6)
@@ -609,7 +610,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     
     # RUNNING IN APP -- UPDATE CONFIG & RELAUNCH
     
-    if [[ "$coreContext" = 'app' ]] ; then
+    if [[ ( "$coreContext" = 'app' ) && ( ! "$noRelaunch" ) ]] ; then
 	
 	# write out config
 	writeconfig "$myConfigFile" FORCE

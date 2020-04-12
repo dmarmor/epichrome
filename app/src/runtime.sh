@@ -131,7 +131,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	SSBLastRunEngineType="$SSBEngineType"
 	
 	# run actual update
-	updateapp "$SSBAppPath"
+	updateapp "$SSBAppPath" NORELAUNCH
 	if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
 	
 	
@@ -141,56 +141,50 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    
 	    # UPDATE OLD-STYLE PROFILE DIRECTORY
 	    
-	    # give profile directory temporary name
-	    local oldProfilePath="$(tempname "$myDataPath")"
+	    # remove old External Extensions & NativeMessagingHosts directories
+	    try /bin/rm -rf "$myDataPath/External Extensions" "$myDataPath/$nmhDirName" \
+		'Unable to remove old external extensions and native messaging hosts folders.'
 	    
-	    # don't use try to avoid logging problems
-	    errmsg=
-	    /bin/mv "$myDataPath" "$oldProfilePath" || errmsg='Error renaming old profile folder.'
+	    # create profile directory
+	    try /bin/mkdir -p "$myProfilePath" 'Unable to create profile directory.'
+	    
+	    # move to data directory
+	    try '!1' pushd "$myDataPath" 'Unable to move to data directory.'
 
-	    if [[ ! "$errmsg" ]] ; then
-    		local saveStderrFile="$stderrTempFile"
-		local saveLogFile="$myLogFile"
-		myLogFile="$oldProfilePath/${myLogFile##*/}"
-		stderrTempFile="$oldProfilePath/${stderrTempFile##*/}"
-	    else
-		ok=
-	    fi
-	    
-	    # make empty directory where old profile was
-	    try /bin/mkdir -p "$myDataPath" 'Error creating new data folder.'
-	    
-	    # move log file back into place
 	    if [[ "$ok" ]] ; then
-		errmsg=
-		/bin/mv "$myLogFile" "$saveLogFile" || \
-		    errmsg='Unable to move log file back into place.'
 		
-		if [[ ! "$errmsg" ]] ; then
-    		    myLogFile="$saveLogFile"
-    		    stderrTempFile="$saveStderrFile"
+		# turn on extended glob
+		local shoptState=
+		shoptset shoptState extglob
+		
+		# find all except new log & profile directories
+		local allExcept="!(Logs|${myProfilePath##*/}|${stderrTempFile##*/})"
+		
+		# move everything into profile directory
+		try /bin/mv $allExcept "$myProfilePath" \
+		    'Unable to migrate to new profile directory.'
+		
+		# restore extended glob
+		shoptrestore shoptState
+		
+		# leave data directory no matter what
+		if [[ "$ok" ]] ; then
+		    
+		    # nonfatal if this doesn't work
+		    try '!1' popd 'Unable to restore working directory.'
+		    ok=1 ; errmsg=
 		else
-		    ok=
+
+		    # try to leave even on error
+		    tryalways '!1' popd 'Unable to restore working directory.'
 		fi
 	    fi
 	    
-	    # move profile directory into new data directory
-	    try /bin/mv "$oldProfilePath" "$myDataPath/UserData" \
-		'Error moving old profile into new data directory.'
-	    
-	    # remove External Extensions and NativeMessagingHosts directories from profile
-	    try /bin/rm -rf "$myDataPath/UserData/External Extensions" \
-		'Unable to remove old external extensions folder.'
-	    
-	    local nmhDir="$myDataPath/UserData/$nmhDirName"
-	    try /bin/rm -f "$nmhDir/org.epichrome."* "$nmhDir/$appNMHFile" \
-		'Unable to remove old native messaging host.'
-	fi
-	
-	if [[ ! "$ok" ]] ; then
-	    alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
-		  'Warning' 'caution'
-	    ok=1 ; errmsg=
+	    if [[ ! "$ok" ]] ; then
+		alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
+		      'Warning' 'caution'
+		ok=1 ; errmsg=
+	    fi
 	fi
 	
 	

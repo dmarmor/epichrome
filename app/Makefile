@@ -188,15 +188,6 @@ clean-all: clean
 	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
 		echo rm -f "$${psd%.psd}.png" ; done
 
-# $$$$ FIX THIS
-# install: $(APP)
-# 	rm -rf '/Applications/$(APP)'
-# 	mkdir -p '/Applications/Epichrome'
-# 	cp -a '$(APP)' '/Applications/$(APP)'
-# 	mkdir '/Applications/Epichrome/EpichromeEngines.noindex'
-# 	chmod 1777 '/Applications/Epichrome/EpichromeEngines.noindex'
-# 	touch '/Applications/Epichrome/EpichromeEngines.noindex/.preserve'
-
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
 	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
@@ -226,13 +217,14 @@ build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
 		build/icons/folder.icns
 	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
 	mv $(APP) build/package/Applications/$(APP)
-	pkgbuild --analyze --root build/package $(@:.pkg=).plist
-	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist
-	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@
-	rm -f $(@:.pkg=).plist
+	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
+	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist && \
+	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@ && \
+	rm -f $(@:.pkg=).plist ) ; then \
+		mv build/package/Applications/$(APP) $(APP) ; false ; fi
 	mv build/package/Applications/$(APP) $(APP)
-	rm build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
-	@cd build ; rmdir -p package/Applications/Epichrome/EpichromeEngines.noindex
+	rm -rf build/package/Applications
+	@cd build ; rmdir -p package
 
 build/resources/background.png: ../images/package/background$(BETA).png
 	@mkdir -p '$(dir $@)'

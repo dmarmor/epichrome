@@ -22,7 +22,7 @@
 #  in an answer by Henry posted 12/20/2013 at 12:24
 #
 
-version="2.0.2"
+version="2.0.3"
 
 unset CDPATH
 
@@ -102,17 +102,18 @@ function abort {
     
     # display final message
     [[ "$1" ]] && echo "$1" 1>&2
-
-    # exit with code unless we're here ase a result of an exit trap
-    if [[ "$2" != 5 ]] ; then
-	exit "$2"
-    fi
+    
+    # remove trap
+    trap - EXIT
+    
+    # exit with code
+    exit "$2"
 }
 
 
 # HANDLE EARLY TERMINATION
 
-trap "abort 'Error: unexpected termination.' 5" EXIT
+trap "abort 'Error: unexpected termination.' 3" EXIT
 
 
 # CHECKERROR: check for an error & abort if necessary
