@@ -819,6 +819,50 @@ function pause {  # ( seconds )
 export -f pause
 
 
+# WAITFORCONDITION -- wait for a given condition to become true, or timeout
+function waitforcondition {  # ( msg waitTime increment command [args ...] )
+    
+    # arguments
+    local msg="$1" ; shift
+    local waitTime="$1" ; shift
+    local increment="$1" ; shift
+
+    # get rid of decimals
+    local waitTimeInt="${waitTime#*.}" ; [[ "$waitTimeInt" = "$waitTime" ]] && waitTimeInt=
+    local incrementInt="${increment#*.}" ; [[ "$incrementInt" = "$increment" ]] && incrementInt=
+    local decDiff=$((${#incrementInt} - ${#waitTimeInt}))
+    if [[ decDiff -gt 0 ]] ; then
+	incrementInt="${increment%.*}$incrementInt"
+	waitTimeInt=$(( ${waitTime%.*}$waitTimeInt * ( 10**$decDiff ) ))
+    elif [[ decDiff -lt 0 ]] ; then
+	waitTimeInt="${waitTime%.*}$waitTimeInt"
+	incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
+    else
+	incrementInt="${increment%.*}$incrementInt"
+	waitTimeInt="${waitTime%.*}$waitTimeInt"	
+    fi
+
+    # wait for the condition to be true
+    local curTime=0
+    while [[ "$curTime" -lt "$waitTimeInt" ]] ; do
+		
+	# try the command
+	"$@" && return 0
+	
+	# wait
+	[[ "$curTime" = 0 ]] && debuglog "Waiting for $msg..."
+	sleep $increment
+	
+	# update time
+	curTime=$(( $curTime + $incrementInt ))
+    done
+
+    # if we got here the condition never occurred
+    return 1
+}
+export -f waitforcondition
+
+
 # SHOPTSET -- set shell options that can then be restored with shoptrestore
 function shoptset { # ( saveVar options ... )
 

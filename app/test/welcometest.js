@@ -18,4 +18,8 @@ describe("vcmp", () => {
     it("turns an unparsable v2 into 0.0.0", () => {
 	expect(vcmp('3.1.2b3', '03.01b.002b003')).toEqual(1);
     });
+    it("correctly compares versions with build numbers", () => {
+	expect(vcmp('13.033.7b12', '0013.33.07b012[100]')).toEqual(1);
+    expect(vcmp('04.3.12[1000]', '4.03.12[3938]')).toEqual(-1);
+    });
 });

@@ -116,6 +116,16 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
 
     # relaunch
     debuglog "Parent app has quit. Relaunching..."
+
+    if ! waitforcondition \
+	 "parent app to finish updating" \
+	 5 .5 \
+	 test -x "$SSBAppPath/Contents/MacOS/Epichrome" ; then
+	ok=
+	errmsg="$SSBAppPath/Contents/MacOS/Epichrome executable not found."
+	errlog "$errmsg"
+    fi
+    
     try /usr/bin/open -a "$SSBAppPath" "${argsURIs[@]}" --args "${argsOptions[@]}" --epichrome-new-log \
 	"Error during relaunch of ${SSBAppPath##*/}."
     

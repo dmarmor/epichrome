@@ -93,101 +93,41 @@ function vcmp { # ( version1 operator version2 )
 
     # arguments
     local v1="$1" ; shift
-    local op="$1" ; shift ; [[ "$op" ]] || op='=='
+    local op="$1" ; shift ; [[ "$op" ]] || op='='
     local v2="$1" ; shift
-    
-    # turn operator into a numeric comparator
-    case "$op" in
-	'>')
-	    op='-gt'
-	    ;;
-	'<')
-	    op='-lt'
-	    ;;
-	'>=')
-	    op='-ge'
-	    ;;
-	'<=')
-	    op='-le'
-	    ;;
-	'='|'==')
-	    op='-eq'
-	    ;;
-    esac
-    
+        
     # munge version numbers into comparable integers
-    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$'
-    local vnums=() ; local i=0
+    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?$'
     local curv=
+    local vmaj vmin vbug vbeta vbuild
+    local vstr=()
     for curv in "$v1" "$v2" ; do
 	if [[ "$curv" =~ $vre ]] ; then
 
-	    # munge main part of version number
-	    vnums[$i]=$(( ( ${BASH_REMATCH[1]} * 1000000000 ) \
-			      + ( ${BASH_REMATCH[2]} * 1000000 ) \
-			      + ( ${BASH_REMATCH[3]} * 1000 ) ))
-	    if [[ "${BASH_REMATCH[4]}" ]] ; then
-		# beta version
-		vnums[$i]=$(( ${vnums[$i]} + ${BASH_REMATCH[5]} ))
-	    else
-		# release version
-		vnums[$i]=$(( ${vnums[$i]} + 999 ))
-	    fi
+	    # extract version number parts
+	    vmaj="${BASH_REMATCH[1]}"
+	    vmin="${BASH_REMATCH[2]}"
+	    vbug="${BASH_REMATCH[3]}"
+	    vbeta="${BASH_REMATCH[5]}" ; [[ "$vbeta" ]] || vbeta=1000
+	    vbuild="${BASH_REMATCH[7]}" ; [[ "$vbuild" ]] || vbuild=10000
 	else
+
 	    # no version
-	    vnums[$i]=0
+	    vmaj=0 ; vmin=0 ; vbug=0 ; vbeta=0 ; vbuild=0
 	fi
-	
-	i=$(( $i + 1 ))
+
+	# build string
+	vstr+=( "$(printf '%03d.%03d.%03d.%04d.%05d' "$vmaj" "$vmin" "$vbug" "$vbeta" "$vbuild")" )
     done
-        
+
     # compare versions using the operator & return the result
-    eval "[[ ${vnums[0]} $op ${vnums[1]} ]]"
-}
-
-
-# WAITFORCONDITION -- wait for a given condition to become true, or timeout
-function waitforcondition {  # ( msg waitTime increment command [args ...] )
-    
-    # arguments
-    local msg="$1" ; shift
-    local waitTime="$1" ; shift
-    local increment="$1" ; shift
-
-    # get rid of decimals
-    local waitTimeInt="${waitTime#*.}" ; [[ "$waitTimeInt" = "$waitTime" ]] && waitTimeInt=
-    local incrementInt="${increment#*.}" ; [[ "$incrementInt" = "$increment" ]] && incrementInt=
-    local decDiff=$((${#incrementInt} - ${#waitTimeInt}))
-    if [[ decDiff -gt 0 ]] ; then
-	incrementInt="${increment%.*}$incrementInt"
-	waitTimeInt=$(( ${waitTime%.*}$waitTimeInt * ( 10**$decDiff ) ))
-    elif [[ decDiff -lt 0 ]] ; then
-	waitTimeInt="${waitTime%.*}$waitTimeInt"
-	incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
+    local opre='^[<>]=$'
+    if [[ "$op" =~ $opre ]] ; then
+	eval "[[ ( \"\${vstr[0]}\" ${op:0:1} \"\${vstr[1]}\" ) || ( \"\${vstr[0]}\" = \"\${vstr[1]}\" ) ]]"
     else
-	incrementInt="${increment%.*}$incrementInt"
-	waitTimeInt="${waitTime%.*}$waitTimeInt"	
+	eval "[[ \"\${vstr[0]}\" $op \"\${vstr[1]}\" ]]"
     fi
-    
-    # wait for the condition to be true
-    local curTime=0
-    while [[ "$curTime" -lt "$waitTimeInt" ]] ; do
-		
-	# try the command
-	"$@" && return 0
-	
-	# wait
-	[[ "$curTime" = 0 ]] && debuglog "Waiting for $msg..."
-	sleep $increment
-	
-	# update time
-	curTime=$(( $curTime + $incrementInt ))
-    done
-
-    # if we got here the condition never occurred
-    return 1
 }
-export -f waitforcondition
 
 
 # ENCODEURL -- encode a string for URL
@@ -554,7 +494,7 @@ function checkgithubversion { # ( curVersion [var] )
     
     # check github for the latest version
     local latestVersion=
-    latestVersion="$(/usr/bin/curl --connect-timeout 3 --max-time 5 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
+    latestVersion="$(/usr/bin/curl --connect-timeout 5 --max-time 10 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
     
     if [[ "$?" != 0 ]] ; then
 	

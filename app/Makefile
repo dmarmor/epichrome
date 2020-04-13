@@ -509,7 +509,7 @@ build/icons/%.icns: ../images/icons/%.png
 
 # EPICHROME HELPER
 
-$(APP_RNTM_HLPR): | $(APP_RNTM_HLPR_CT)/Info.plist \
+$(APP_RNTM_HLPR): $(APP_RNTM_HLPR_CT)/Info.plist \
 	$(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper
 
 $(APP_RNTM_HLPR_CT)/Info.plist: src/helper/Info.plist

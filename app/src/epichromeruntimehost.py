@@ -58,52 +58,37 @@ appLogFile = None
 def vcmp(v1, v2):
     
     # array for comparable version integers
-    vNums = [];
+    vStr = [];
     
     # munge version numbers into comparable integers
     for curV in [v1, v2]:
 
-        curVNum = 0
-        
-        curMatch = re.match('^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?$',
+        curMatch = re.match('^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$',
                                 curV)
         
         if curMatch:
             
-            # create single number
-            curVNum = ((int(curMatch.group(1)) * 1000000000) +
-                       (int(curMatch.group(2)) * 1000000) +
-                       (int(curMatch.group(3)) * 1000))
+            # extract version number parts
+            vmaj   = int(curMatch.group(1))
+            vmin   = int(curMatch.group(2))
+            vbug   = int(curMatch.group(3))
+            vbeta  = int(curMatch.group(5)) if curMatch.group(5) else 1000
+            vbuild = int(curMatch.group(7)) if curMatch.group(7) else 10000
+        else:
             
-            # add beta data
-            if curMatch.group(4):
-            
-                # this is a beta
-                curVNum += int(curMatch.group(5))
-            else:
-                # release version
-                curVNum += 999;
-        
-        # if unable to parse version number, call it 0
+            # if unable to parse version number, call it 0
+            vmaj = vmin = vbug = vbeta = vbuild = 0
         
         # add to array
-        vNums.append(curVNum)
+        vStr.append('{:03d}.{:03d}.{:03d}.{:04d}.{:05d}'.format(vmaj, vmin, vbug, vbeta, vbuild))
     
-    # compare version integers
-    if (vNums[0] < vNums[1]):
+    # compare version strings
+    if (vStr[0] < vStr[1]):
         return(-1)
-    elif (vNums[0] > vNums[1]):
+    elif (vStr[0] > vStr[1]):
         return(1)
     else:
         return(0)
-
-# assert vcmp('1.0.0', '2.3.0') == -1
-# assert vcmp('4.99.0', '10.0.0b3') == -1
-# assert vcmp('2.3.0', '1.0.0') == 1
-# assert vcmp('3.1.2b3', '03.01.002b003') == 0
-# assert vcmp('12.100.020b99', '012.100.20') == -1
-# assert vcmp('3.x1.2b3', '03.01.002b003') == -1
-# assert vcmp('3.1.2b3', '03.01b.002b003') == 1
 
 
 # SETLOGPATH: set path to this app's log file
