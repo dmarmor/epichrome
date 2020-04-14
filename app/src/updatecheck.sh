@@ -71,6 +71,8 @@ myVersion="$1" ; shift
 if vcmp "$myUpdateCheckVersion" '<' "$myVersion" ; then
     echo "MYVERSION"
     myUpdateCheckVersion="$myVersion"
+else
+    echo "OK"
 fi
 
 

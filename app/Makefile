@@ -36,18 +36,24 @@ NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
 
 THISYEAR:=$(shell date '+%Y')
 
+GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
+
+
 # VERSION INFO
 
 VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
+
+BUILDNUM:=$(shell source src/version.sh ; \
+			read -p "$$(printf 'Bump build number (%03d -> %03d) ? ' $$epiBuildNum $$(($$epiBuildNum + 1)))" ans && \
+			if [[ "$$ans" =~ ^[Yy] ]] ; then \
+				epiBuildNum="$$(($$epiBuildNum + 1))" ; \
+				sed -i '' -E 's/^epiBuildNum=.*$$/epiBuildNum='"$$epiBuildNum"'/' src/version.sh ; \
+			fi ; \
+			echo "$$epiBuildNum")
+
 VERSIONMAJOR:=$(shell version='$(VERSION)' && echo "$${version%.*}")
 
-VERSIONCODE:=$(shell 	if [[ "$(VERSION)" =~ ^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?$$ ]] ; then \
-			  if [[ "$${BASH_REMATCH[4]}" ]] ; then \
-			    vExtra=$${BASH_REMATCH[5]} ; \
-			  else vExtra=999 ; fi ; \
-			  printf '%d.%d.%d' $${BASH_REMATCH[1]} $${BASH_REMATCH[2]} \
-				$$(( ($${BASH_REMATCH[3]} * 1000) + $$vExtra )) ; \
-			else printf '%s' "FAIL" ; fi)
+VERSIONCODE:=$(shell src/versioncode.sh '$(VERSION)[$(BUILDNUM)]')
 ifeq ($(VERSIONCODE),FAIL)
 $(error Unable to parse version number in version.sh)
 endif
@@ -168,6 +174,8 @@ PRECIOUS_INTERMEDIATES:=\
 
 internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 
+internal: VERSION:=$(VERSION)[$(shell printf '%03d' '$(BUILDNUM)')]
+
 internal: $(APP)
 
 
@@ -196,7 +204,7 @@ clean-all: clean
 # PACKAGE BUILD
 # (adapted from http://thegreyblog.blogspot.com/2014/06/os-x-creating-packages-from-command_2.html)
 
-package: epichrome-$(VERSION).pkg
+package: clean epichrome-$(VERSION).pkg
 
 epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf $(PACKAGE_README) build/resources/license.rtf
 	@rm -f '$@'
@@ -355,8 +363,8 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
-	$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/ext_generic_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/passwords_button.png \
@@ -370,6 +378,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Resources/Scripts/runtime.sh
 
+
 # MAIN APP CORE
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/applet \
@@ -379,7 +388,7 @@ $(APP_CT)/Resources/Scripts/main.scpt: src/main.applescript src/version.sh main
 main:
 	@mkdir -p build
 	@rm -rf build/main.app build/main
-	sed -e 's/EPIVERSION/$(VERSION)/g' \
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
 		src/main.applescript > build/main.applescript
 #	chmod 444 src/main.applescript
 	osacompile -x -o build/main.app build/main.applescript
@@ -418,7 +427,7 @@ $(APP_CT)/Resources/docbg.png: ../images/icons/docbg.png
 $(APP_CT)/Resources/Scripts/version.sh: src/version.sh
 	@mkdir -p '$(dir $@)'
 	touch -c build/icons/*
-	cp '$<' '$@'
+	sed -E 's/^epiVersion=.*$$/epiVersion='\''$(VERSION)'\''/' '$<' > '$@'
 
 $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
 	@mkdir -p '$(dir $@)'
@@ -529,7 +538,7 @@ $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g' '$<' > '$@'
+	sed -e 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'

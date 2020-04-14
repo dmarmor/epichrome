@@ -477,9 +477,6 @@ function checkgithubversion { # ( curVersion [var] )
     
     [[ "$ok" ]] || return 1
 
-    # constants
-    local updateURL='https://github.com/dmarmor/epichrome/releases/latest'
-    
     # arguments
     local curVersion="$1" ; shift  # current version to compare against
     local var="$1" ; shift         # array to write info into
@@ -500,7 +497,7 @@ function checkgithubversion { # ( curVersion [var] )
 	
 	# curl returned an error
 	ok=
-	errmsg="Error retrieving data."
+	errmsg='Error retrieving data.'
 	
     elif [[ "$latestVersion" =~ $versionRe ]] ; then
 
@@ -510,13 +507,12 @@ function checkgithubversion { # ( curVersion [var] )
 	# compare versions
 	if vcmp "$curVersion" '<' "$latestVersion" ; then
 	    
-	    # output new available version number & download URL
+	    # output new available version number
 	    if [[ "$var" ]] ; then
-		eval "$var=( \"\$latestVersion\" \"\$updateURL\" )"
+		eval "$var=\"\$latestVersion\""
 	    else
-		# no variable, so write 2 lines to stdout
+		# no variable, so write version to stdout
 		echo "$latestVersion"
-		echo "$updateURL"
 	    fi
 	else
 	    debuglog "Latest Epichrome version on GitHub ($latestVersion) is not newer than $curVersion."
@@ -556,14 +552,18 @@ function checkgithubupdate {
 	# check if there's a new version on Github
 	local updateResult=
 	checkgithubversion "$SSBUpdateCheckVersion" updateResult
-	[[ "$ok" ]] || return 1
+	if [[ ! "$ok" ]] ; then
+	    # error checking for new version, so set next update in 3 days
+	    SSBUpdateCheckDate=$(($curDate + (3 * 24 * 60 * 60)))
+	    return 1
+	fi
 	
 	# if there's an update available, display a dialog
-	if [[ "${updateResult[*]}" ]] ; then
+	if [[ "$updateResult" ]] ; then
 	    
 	    # display dialog
 	    dialog doEpichromeUpdate \
-		   "A new version of Epichrome (${updateResult[0]}) is available on GitHub." \
+		   "A new version of Epichrome ($updateResult) is available on GitHub." \
 		   "Update Available" \
 		   "|caution" \
 		   "+Download" \
@@ -575,7 +575,7 @@ function checkgithubupdate {
 	    case "$doEpichromeUpdate" in
 		Download)
 		    # open the update URL
-		    try /usr/bin/open "${updateResult[1]}" 'Unable to open update URL.'
+		    try /usr/bin/open 'GITHUBUPDATEURL' 'Unable to open update URL.'
 		    [[ "$ok" ]] || return 1
 		    ;;
 		

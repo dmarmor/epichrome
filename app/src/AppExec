@@ -379,8 +379,9 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     SSBLastRunVersion="$SSBVersion"
     SSBUpdateVersion="$SSBVersion"
 
-    # clear extension install error state
+    # clear error states
     SSBNMHInstallError=
+    SSBUpdateCheckError=
 fi
 
 
@@ -512,26 +513,51 @@ export myEngineAppPath
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
 
-checkappupdate
-if [[ "$?" != 0 ]] ; then
+if [[ ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
 
-    # abort on fatal error
-    [[ "$ok" ]] || abort
+    checkappupdate
+    if [[ "$?" != 0 ]] ; then
 
-    # display warning on non-fatal error
-    alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
-    ok=1
-    errmsg=
-fi
+	# abort on fatal error
+	[[ "$ok" ]] || abort
 
-# CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
+	# display warning on non-fatal error
+	alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+	ok=1
+	errmsg=
+    fi
 
-checkgithubupdate
+    # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
 
-# alert the user to any error, but don't abort
-if [[ ! "$ok" ]] ; then
-    alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" 'Checking For Update' '|caution'
-    ok=1 ; errmsg=
+    checkgithubupdate
+
+    # handle error
+    if [[ ! "$ok" ]] ; then
+	if [[ "$SSBUpdateCheckError" = "$errmsg" ]] ; then
+
+	    # this is the second time we've had the same error, so show an alert
+	    alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" \
+		  'Checking For Update' '|caution'
+	    
+	    # don't show an alert for this error again
+	    SSBUpdateCheckError="IGNORE|$errmsg"
+	    
+	elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
+	      "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
+	    
+	    # new error, so if it comes up a second time, show an alert
+	    SSBUpdateCheckError="$errmsg"
+	fi
+	
+	# clear error state
+	ok=1 ; errmsg=
+    fi
+
+
+    if [[ ! "$ok" ]] ; then
+	alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" 'Checking For Update' '|caution'
+	ok=1 ; errmsg=
+    fi
 fi
 
 

@@ -123,6 +123,7 @@ appConfigVars=( SSBAppPath \
 		    SSBUpdateVersion \
 		    SSBUpdateCheckDate \
 		    SSBUpdateCheckVersion \
+		    SSBUpdateCheckError \
 		    SSBEnginePath \
 		    SSBEngineAppName \
 		    SSBNMHInstallError )

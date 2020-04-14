@@ -269,49 +269,45 @@ if updateCheckDate < curDate then
 	local updateCheckResult
 	try
 		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+		set updateCheckResult to paragraphs of updateCheckResult
 	on error errStr number errNum
-		set updateCheckResult to "ERROR
-" & errStr
+		set updateCheckResult to {"ERROR", errStr}
 	end try
 	
 	-- parse update check results
 	
-	-- break up result into items
-	set updateCheckResult to paragraphs of updateCheckResult
-	
-	-- updateCheckVersion is older than the current version, so update it
-	if ((count of updateCheckResult) > 0) and (item 1 of updateCheckResult is "MYVERSION") then
-		set updateCheckVersion to myVersion
-		set updateCheckResult to rest of updateCheckResult
-	end if
-	
-	-- update check error
-	if ((count of updateCheckResult) > 0) and (item 1 of updateCheckResult is "ERROR") then
-		
-		-- fail silently, but check again in 3 days instead of 7
+	if item 1 of updateCheckResult is "ERROR" then
+		-- update check error: fail silently, but check again in 3 days instead of 7
 		set updateCheckDate to (curDate + (3 * days))
-		
-	else if (count of updateCheckResult) is 2 then
-		
-		-- update check found a newer version on GitHub
-		local newVersion
-		local updateURL
-		set newVersion to item 1 of updateCheckResult
-		set updateURL to item 2 of updateCheckResult
-		try
-			set dlgResult to button returned of (display dialog "A new version of Epichrome (" & newVersion & ") is available on GitHub." with title "Update Available" buttons {"Download", "Later", "Ignore This Version"} default button "Download" cancel button "Later" with icon myIcon)
-		on error number -128
-			-- Later: do nothing
-			set dlgResult to false
-		end try
-		
-		-- Download or Ignore
-		if dlgResult is "Download" then
-			open location updateURL
-		else if dlgResult is "Ignore This Version" then
-			set updateCheckVersion to newVersion
+	else
+		-- if updateCheckVersion is older than the current version, update it
+		if item 1 of updateCheckResult is "MYVERSION" then
+			set updateCheckVersion to myVersion
 		end if
-	end if
+		
+		-- get new version if any
+		set updateCheckResult to rest of updateCheckResult
+		
+		if (count of updateCheckResult) is 1 then
+			
+			-- update check found a newer version on GitHub
+			local newVersion
+			set newVersion to item 1 of updateCheckResult
+			try
+				set dlgResult to button returned of (display dialog "A new version of Epichrome (" & newVersion & ") is available on GitHub." with title "Update Available" buttons {"Download", "Later", "Ignore This Version"} default button "Download" cancel button "Later" with icon myIcon)
+			on error number -128
+				-- Later: do nothing
+				set dlgResult to false
+			end try
+			
+			-- Download or Ignore
+			if dlgResult is "Download" then
+				open location "GITHUBUPDATEURL"
+			else if dlgResult is "Ignore This Version" then
+				set updateCheckVersion to newVersion
+			end if
+		end if -- (count of updateCheckResult) is 1
+	end if -- item 1 of updateCheckResult is "ERROR"
 end if
 
 

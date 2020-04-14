@@ -51,46 +51,6 @@ appLogFile = None
 
 # FUNCTION DEFINITIONS
 
-# VCMP -- compare version numbers
-#          return -1 if v1 <  v2
-#          return  0 if v1 == v2
-#          return  1 if v1 >  v2
-def vcmp(v1, v2):
-    
-    # array for comparable version integers
-    vStr = [];
-    
-    # munge version numbers into comparable integers
-    for curV in [v1, v2]:
-
-        curMatch = re.match('^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$',
-                                curV)
-        
-        if curMatch:
-            
-            # extract version number parts
-            vmaj   = int(curMatch.group(1))
-            vmin   = int(curMatch.group(2))
-            vbug   = int(curMatch.group(3))
-            vbeta  = int(curMatch.group(5)) if curMatch.group(5) else 1000
-            vbuild = int(curMatch.group(7)) if curMatch.group(7) else 10000
-        else:
-            
-            # if unable to parse version number, call it 0
-            vmaj = vmin = vbug = vbeta = vbuild = 0
-        
-        # add to array
-        vStr.append('{:03d}.{:03d}.{:03d}.{:04d}.{:05d}'.format(vmaj, vmin, vbug, vbeta, vbuild))
-    
-    # compare version strings
-    if (vStr[0] < vStr[1]):
-        return(-1)
-    elif (vStr[0] > vStr[1]):
-        return(1)
-    else:
-        return(0)
-
-
 # SETLOGPATH: set path to this app's log file
 def setlogpath():
 

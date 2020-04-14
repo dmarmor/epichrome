@@ -50,59 +50,6 @@ const epiEngines = {
 };
 
 
-// VCMP -- compare version numbers
-//         return -1 if v1 <  v2
-//         return  0 if v1 == v2
-//         return  1 if v1 >  v2
-function vcmp (v1, v2) {
-
-    // regex for pulling out version parts
-    const vRe='^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$';
-
-    // array for comparable version integers
-    var vStr = [];
-
-    // munge version numbers into comparable integers
-    for (const curV of [ v1, v2 ]) {
-
-        let vmaj, vmin, vbug, vbeta, vbuild;
-
-        const curMatch = curV.match(vRe);
-
-        if (curMatch) {
-
-            // extract version number parts
-            vmaj   = parseInt(curMatch[1]);
-            vmin   = parseInt(curMatch[2]);
-            vbug   = parseInt(curMatch[3]);
-            vbeta  = (curMatch[5] ? parseInt(curMatch[5]) : 1000);
-            vbuild = (curMatch[7] ? parseInt(curMatch[7]) : 10000);
-        } else {
-
-            // unable to parse version number
-            console.log('Unable to parse version "' + curV + '"');
-            vmaj = vmin = vbug = vbeta = vbuild = 0;
-        }
-
-        // add to array
-        vStr.push(vmaj.toString().padStart(3,'0')+'.'+
-                  vmin.toString().padStart(3,'0')+'.'+
-                  vbug.toString().padStart(3,'0')+'.'+
-                  vbeta.toString().padStart(4,'0')+'.'+
-                  vbuild.toString().padStart(5,'0'));
-    }
-
-    // compare version strings
-    if (vStr[0] < vStr[1]) {
-        return -1;
-    } else if (vStr[0] > vStr[1]) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-
 // REPLACETEXT -- replace text in all elements with a given class
 function replaceText(className, newText, root=document) {
 
@@ -199,8 +146,6 @@ function buildPage() {
         alertExtras.push('al_update');
 
         replaceText('version_old', oldVersion);
-
-        // statusUpdateSpecial = (vcmp(oldVersion, '2.3.0b9') < 0);
     }
 
     // engine change
