@@ -69,17 +69,19 @@ myUpdateCheckVersion="$1" ; shift
 myVersion="$1" ; shift
 
 if vcmp "$myUpdateCheckVersion" '<' "$myVersion" ; then
-    echo "MYVERSION"
+    echo 'MYVERSION'
     myUpdateCheckVersion="$myVersion"
-else
-    echo "OK"
 fi
 
 
 # COMPARE LATEST SUPPLIED VERSION AGAINST GITHUB
-    
-checkgithubversion "$myUpdateCheckVersion"
 
+local newVersion=
+checkgithubversion "$myUpdateCheckVersion" newVersion
 [[ "$ok" ]] || myabort
+
+# if we got here, check succeeded
+echo 'OK'
+[[ "$newVersion" ]] && echo "$newVersion"
 
 doCleanExit=1 ; exit 0

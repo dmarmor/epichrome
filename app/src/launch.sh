@@ -491,21 +491,20 @@ function checkgithubversion { # ( curVersion [var] )
     
     # check github for the latest version
     local latestVersion=
-    latestVersion="$(/usr/bin/curl --connect-timeout 5 --max-time 10 'https://api.github.com/repos/dmarmor/epichrome/releases/latest' 2> /dev/null)"
+    try '!2' 'latestVersion=' /usr/bin/curl --connect-timeout 5 --max-time 10 \
+	'https://api.github.com/repos/dmarmor/epichrome/releases/latest' \
+	'Error retrieving data.'
+    [[ "$ok" ]] || return 1
     
-    if [[ "$?" != 0 ]] ; then
+    if [[ "$latestVersion" =~ $versionRe ]] ; then
 	
-	# curl returned an error
-	ok=
-	errmsg='Error retrieving data.'
-	
-    elif [[ "$latestVersion" =~ $versionRe ]] ; then
-
 	# extract version number from regex
 	latestVersion="${BASH_REMATCH[1]}"
 	
 	# compare versions
 	if vcmp "$curVersion" '<' "$latestVersion" ; then
+
+	    debuglog "Found new Epichrome version $latestVersion on GitHub."
 	    
 	    # output new available version number
 	    if [[ "$var" ]] ; then
@@ -522,6 +521,7 @@ function checkgithubversion { # ( curVersion [var] )
 	# no version found
 	ok=
 	errmsg='No version information found.'
+	errlog "$errmsg"
     fi
     
     # return value tells us if we had any errors

@@ -555,7 +555,7 @@ if [[ ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" 
 
 
     if [[ ! "$ok" ]] ; then
-	alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" 'Checking For Update' '|caution'
+	alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg (This error will only be reported once. All errors can be found in the app log.)" 'Checking For Update' '|caution'
 	ok=1 ; errmsg=
     fi
 fi

@@ -123,7 +123,7 @@ on writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser,
 	tell application "System Events"
 		
 		try
-			-- create enclosing folder if needed and create empty plist file
+			-- create empty plist file
 			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:mySettingsFile}
 			
 			-- fill property list
@@ -276,16 +276,17 @@ if updateCheckDate < curDate then
 	
 	-- parse update check results
 	
+	if item 1 of updateCheckResult is "MYVERSION" then
+		-- updateCheckVersion is older than the current version, so update it
+		set updateCheckVersion to myVersion
+		set updateCheckResult to rest of updateCheckResult
+	end if
+	
 	if item 1 of updateCheckResult is "ERROR" then
 		-- update check error: fail silently, but check again in 3 days instead of 7
 		set updateCheckDate to (curDate + (3 * days))
 	else
-		-- if updateCheckVersion is older than the current version, update it
-		if item 1 of updateCheckResult is "MYVERSION" then
-			set updateCheckVersion to myVersion
-		end if
-		
-		-- get new version if any
+		-- assume "OK" status
 		set updateCheckResult to rest of updateCheckResult
 		
 		if (count of updateCheckResult) is 1 then
