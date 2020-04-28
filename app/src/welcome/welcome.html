@@ -86,7 +86,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <h3 class="group_pg pg_new">Important Information</h3>
             <h3 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h3>
             <ul>
-              <li class="ch_update ch_update_runtime hide"><span class="change_headline">The app has been updated</span> from version <span class="version_old">0.0.0</span> to version <span class="version_cur">EPIVERSION</span></li><!-- $$$$ UPDATE THIS FOR RELEASE -->
+              <li class="ch_update ch_update_runtime hide"><span class="change_headline">The app has been updated</span> from version <span class="version_old">(unknown)</span> to version <span class="version_cur">EPIVERSION</span></li>
               <li class="ch_change_engine hide"><span class="change_headline">The app has switched engines</span><span class="has_engine_old hide"> from <span class="engine_old_type_int hide">the built-in</span><span class="engine_old_type_ext hide">an external</span> <span class="engine_old_browser"></span> engine</span> <span class="has_engine hide">to <span class="engine_type_int hide">the built-in</span><span class="engine_type_ext hide">an external</span> <span class="engine_browser"></span> engine</span></li>
               <li class="ch_reset hide"><span class="change_headline">Some or all of the app&rsquo;s settings have been reset</span> to their default values</li>
               <li class="ch_bookmark_new hide"><span class="change_headline">A folder called <span class="folder_name">APPBUNDLENAME App Info</span> has been created</span> on the bookmarks bar above (as long as you don&rsquo;t delete that folder, every time this page is shown the latest version will be added to end of the folder so you&rsquo;ll have a record of changes to the app)</li>
@@ -96,25 +96,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
           <div id="changes_update" class="changes_update group_pg pg_update hide">
             <div id="changes_update_lists" class="changes_update_lists">
-              <div id="changes_minor" class="change_list changes_minor changes_version_zerox"> <!-- .changes_version_zero for x.x.0 -->
+              <div id="changes_minor" class="change_list changes_minor changes_version_zero"> <!-- .changes_version_zero for x.x.0 -->
                 <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
                 <ul>
-                  <li>Improved logging, and logs are now automatically saved for several runs</li>
-                  <li>Fixed a problem switching engines on update</li>
-                  <li>Improvements to this welcome page</li>
+                  <li>Completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript</li>
+                  <li>Added built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine for more app-like behavior</li>
+                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
+                  <li>Many, many under-the-hood improvements, including better logging and more robust error-handling</li>
                 </ul>
               </div>
-              <div id="changes_major" class="change_list changes_major hidex"> <!-- .hide for x.x.0 -->
+              <!-- <div id="changes_major" class="change_list changes_major hidex">
                 <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
                 <ul>
-                  <li>Completely rewritten for full compatibility with macOS 10.15 Catalina</li>
-                  <li>Added built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine for more app-like behavior</li>
-                  <li>Fixed microphone and camera permissions, AppleScript interaction, and much more</li>
-                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
+                  <li>TURNED OFF FOR .0 RELEASE</li>
                 </ul>
-              </div>
-            </div> <!-- #changes_update_lists --><!-- $$$$ SHOW CHANGELOG -->
-            <p class="changes_changelog footnote hide">Full Epichrome change log available <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">here</a>.</p>
+              </div> -->
+            </div> <!-- #changes_update_lists -->
+            <p class="changes_changelog footnote">Check out the Epichrome <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">change log</a> for more details.</p>
           </div> <!-- #changes_update -->
 
         </div> <!-- #changes_msg -->
@@ -281,7 +279,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               <div class="patreon_rockstars">
                 <h2>Rock Star Patrons</h2>
                 <ul>
-                  <!-- $$$$$ UPDATE THIS $$$$$ -->
                   <li>Alan Latteri</li>
                   <li>Lyle Barrere</li>
                   <li>Jonathan Berger</li>
@@ -292,11 +289,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <li>Eric Henderson</li>
                   <li>Ben Johnson</li>
                   <li>Gregory Morse</li>
+                  <li>Alex Nauda</li>
                   <li>Orbital Impact</li>
                   <li>Matthew Scott</li>
                   <li>Samuel Talleux</li>
-                  <!-- <li>Orbital Impact</li> -->
-                  <!-- <li>Eric Henderson</li> -->
                 </ul>
               </div> <!-- .patreon_rockstars -->
             </div> <!-- #patreon -->

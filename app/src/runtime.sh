@@ -127,7 +127,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 
 	# set up necessary current variables
 	SSBLastRunVersion="$SSBVersion"
-	SSBEngineType='external|com.google.Chrome'  # $$$ ABSTRACT THIS FOR DEFAULT EXT ENGINE
+	SSBEngineType='external|com.google.Chrome'
 	SSBLastRunEngineType="$SSBEngineType"
 	
 	# run actual update
@@ -141,9 +141,9 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    
 	    # UPDATE OLD-STYLE PROFILE DIRECTORY
 	    
-	    # remove old External Extensions & NativeMessagingHosts directories
-	    try /bin/rm -rf "$myDataPath/External Extensions" "$myDataPath/$nmhDirName" \
-		'Unable to remove old external extensions and native messaging hosts folders.'
+	    # remove old NativeMessagingHosts directory
+	    try /bin/rm -rf "$myDataPath/$nmhDirName" \
+		'Unable to remove old native messaging hosts directory.'
 	    
 	    # create profile directory
 	    try /bin/mkdir -p "$myProfilePath" 'Unable to create profile directory.'

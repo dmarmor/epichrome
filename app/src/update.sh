@@ -45,7 +45,20 @@ fi
 
 # FUNCTION DEFINITIONS
 
-# UPDATEAPP: function that populates an app bundle
+# ESCAPEHTML: escape HTML-reserved characters in a string
+function escapehtml {  # ( str )
+
+    # argument
+    local str="$1" ; shift
+
+    # escape HTML characters & ignore errors
+    echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&rt;/g' \
+		      "Unable to escape HTML characters in string '$str'"
+    ok=1 ; errmsg=
+}
+
+
+# UPDATEAPP: populate an app bundle
 function updateapp { # ( updateAppPath [NORELAUNCH] )
     
     # only run if we're OK
@@ -58,89 +71,14 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
     # make sure we're logging
     [[ "$myLogFile" ]] || initlogfile
     
-    
-    # UPDATE ENGINE VARIABLE FORMAT ($$$ TEMPORARY FOR 2.3.0b1-6)
-    
-    if [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
-
-	# update engine variables
-	SSBEngineType='external|com.google.Chrome'
-	SSBLastRunEngineType="$SSBEngineType"
-	
-    elif [[ ( "$SSBEngineType" = 'Chromium' ) && \
-		( "$SSBVersion" = '2.3.0b6' ) ]] ; then
-
-	# $$$$$ TEMPORARY EXTRA WARNING FOR EXPERIMENTAL B6 CHROME->BRAVE SWITCH
-	
-	local engineWarning='IMPORTANT: Updating will change the app engine from the experimental beta 6 Chrome engine to Brave. All of your preferences, login sessions and saved passwords WILL be lost!
-	
-Before completing this update, please back up any passwords. Instructions are in the Patreon post for this release. On first run, the app will open tabs for each of your extensions to give you a chance to reinstall them. Once they are reinstalled, their settings should be restored.'
-	local doAbort=
-	
-	dialog doAbort \
-	       "$engineWarning" \
-	       "Warning" \
-	       "|caution" \
-	       '+Update Later' 'Update Now'
-	if [[ ! "$ok" ]] ; then
-	    alert "$engineWarning The warning dialog also failed, so if you want to update later, you'll need to kill the app manually." 'Update' '|caution'
-	    ok=1
-	    errmsg=
-	fi
-	
-	if [[ "$doAbort" != 'Update Now' ]] ; then
-	    ok=
-	    errmsg='Update canceled.'
-	    return 1
-	fi
-	
-	# if we got here, we're going ahead with the update
-	SSBLastRunEngineType='internal|com.google.Chrome'
-	SSBEngineType="internal|${epiEngineSource[$iID]}"
-	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
-	
-    elif [[ "$SSBEngineType" = 'Chromium' ]] ; then
-	
-	# $$$$$ TEMPORARY EXTRA WARNING FOR CHROMIUM->BRAVE SWITCH
-	
-	local engineWarning='IMPORTANT: This version changes the internal engine from Chromium to Brave. Your settings should mostly transition properly, including extensions, but saved passwords WILL be lost. Before completing this update, please back up any passwords. Instructions are in the Patreon post for this release.'
-	local doAbort=
-	
-	dialog doAbort \
-	       "$engineWarning" \
-	       "Warning" \
-	       "|caution" \
-	       '+Update Later' 'Update Now'
-	if [[ ! "$ok" ]] ; then
-	    alert "$engineWarning The warning dialog also failed, so if you want to update later, you'll need to kill the application manually." 'Update' '|caution'
-	    ok=1
-	    errmsg=
-	fi
-	
-	if [[ "$doAbort" != 'Update Now' ]] ; then
-	    ok=
-	    errmsg='Update canceled.'
-	    return 1
-	fi
-
-	# if we got here, we're going ahead with the update
-	SSBLastRunEngineType='internal|org.chromium.Chromium'
-	SSBEngineType="internal|${epiEngineSource[$iID]}"
-	SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
-
-    elif [[ "${myStatusEngineChange[0]}" ]] ; then
-	
-	# restore last-run engine for update purposes
+    # on engine change, restore last-run engine for update purposes
+    if [[ "${myStatusEngineChange[0]}" ]] ; then	
 	SSBLastRunEngineType="${myStatusEngineChange[0]}"
-	
     fi
-
-    # $$$$ temp patch -- this has been added to AppExec
-    [[ "$SSBLastRunEngineType" ]] || SSBLastRunEngineType="$SSBEngineType"
     
-    # $$$ EXPERIMENTAL -- ALLOW ENGINE SWITCH
-
-    # $$$$ EVENTUALLY DELETE THIS
+    
+    # ALLOW ENGINE SWITCH FOR ADVANCED USERS ($$$ UNTIL APP EDITING IS IMPLEMENTED)
+    
     if [[ "$SSBAllowEngineSwitch" ]] ; then
 	
 	# ask user to choose  which engine to use (sticking with current is the default)
@@ -433,15 +371,14 @@ The main advantage of the external Google Chrome engine is if your app must run 
     
         
     # FILTER NATIVE MESSAGING HOST INTO PLACE
-
-    # $$$$ fix display & bundle names to python-escape things
+    
     local updateNMHFile="$contentsTmp/Resources/NMH/$appNMHFile"
     filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
 	       "$updateNMHFile" \
 	       'native messaging host' \
-	       APPID "$SSBIdentifier" \
-	       APPDISPLAYNAME "$CFBundleDisplayName" \
-	       APPBUNDLENAME "$CFBundleName"
+	       APPID "$(escapejson "$SSBIdentifier")" \
+	       APPDISPLAYNAME "$(escapejson "$CFBundleDisplayName")" \
+	       APPBUNDLENAME "$(escapejson "$CFBundleName")"
     try /bin/chmod 755 "$updateNMHFile" \
 	'Unable to set permissions for native messaging host.'
 
@@ -453,8 +390,8 @@ The main advantage of the external Google Chrome engine is if your app must run 
     filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
 	       "$contentsTmp/$appWelcomePath/$appWelcomePage" \
 	       'welcome page' \
-	       APPBUNDLENAME "$CFBundleName" \
-	       APPDISPLAYNAME "$CFBundleDisplayName"
+	       APPBUNDLENAME "$(escapehtml "$CFBundleName")" \
+	       APPDISPLAYNAME "$(escapehtml "$CFBundleDisplayName")"
     
     
     # FILTER PROFILE BOOKMARKS FILE INTO PLACE
@@ -462,7 +399,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     filterfile "$updateEpichromeRuntime/Filter/$appBookmarksFile" \
 	       "$contentsTmp/$appBookmarksPath" \
 	       'bookmarks template' \
-	       APPBUNDLENAME "$CFBundleName"
+	       APPBUNDLENAME "$(escapejson "$CFBundleName")"
     
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
@@ -570,42 +507,6 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	# return
 	return 1
     fi
-
-    # UPDATE DATA DIRECTORY $$$ TEMP FIXES FOR OLD BETAS -- GET RID OF THIS FOR RELEASE
-
-    # remove old-style engine directory (ignore failure)
-    if [[ -d "$myDataPath/Engine.noindex" ]] ; then
-	
-	debuglog "Removing old engine directory."
-	
-	try /bin/rm -rf "$myDataPath/Engine.noindex" \
-	    'Unable to remove old engine directory'
-	if [[ ! "$ok" ]] ; then
-	    ok=1 ; errmsg=
-	fi
-    fi
-    
-    # move logs into log directory (ignore failure)
-    
-    local shoptState= ; shoptset shoptState nullglob
-    local oldLogs=( "$myDataPath/$appLogFilePrefix"*.txt )
-    if [[ "$oldLogs" ]] ; then
-	
-	debuglog "Moving old logs into log directory."
-	
-	try /bin/mkdir -p "$myLogDir" \
-	    'Unable to create log directory.'
-	try /bin/mv -f "${oldLogs[@]}" "$myLogDir" \
-	    'Unable to move old logs to log directory.'
-
-	# move worked, so relocate our log file
-	if [[ "$ok" && ( "$myLogFile" = "$myDataPath/$appLogFilePrefix.txt" ) ]] ; then
-	    myLogFile="$myLogDir/$appLogFilePrefix.txt"
-	else
-	    ok=1 ; errmsg=
-	fi
-    fi
-    shoptrestore shoptState
     
     
     # RUNNING IN APP -- UPDATE CONFIG & RELAUNCH

@@ -111,7 +111,7 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     # wait for parent to quit
     debuglog "Waiting for parent app (PID $epiHelperParentPID) to quit..."
     while kill -0 "$epiHelperParentPID" 2> /dev/null ; do
-	pause 1  # $$$ sleep .66
+	pause 1
     done
 
     # relaunch
@@ -135,13 +135,6 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     else
 	alert "$errmsg You may have to launch it manually." 'Warning' '|caution'
     fi
-
-    # $$$ TEMPORARY FOR BETA -- DELETE FOR RELEASE
-    if [[ "$myLogFile" = *"/$appLogFilePrefix.txt" ]] ; then
-	try /bin/mv -f "$myLogFile" "${myLogFile%.txt}${myRunTimestamp}.txt" \
-	    'Unable to rename old log file.'
-	ok=1 ; errmsg=
-    fi
     
     # exit
     cleanexit
@@ -159,7 +152,7 @@ else
     # wait for app to exit
     debuglog "Waiting for engine to quit..."
     while kill -0 "$myEnginePID" 2> /dev/null ; do
-	pause 1  # $$$ sleep .66
+	pause 1
     done
 
     # deactivate engine and quit

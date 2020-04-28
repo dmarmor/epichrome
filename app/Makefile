@@ -139,12 +139,6 @@ APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 
 # META-TARGETS
 
-.DELETE_ON_ERROR:
-
-.PHONY: internal install clean clean-all
-
-.PRECIOUS: $(PRECIOUS_INTERMEDIATES)
-
 INTERMEDIATES:=\
 	build/engine/Brave \
 	build/engine/Chromium \
@@ -156,16 +150,35 @@ INTERMEDIATES:=\
 	build/epichrome-$(VERSION)-dist.xml
 
 PRECIOUS_INTERMEDIATES:=\
-	build/icons/app$(BETA).icns \
-	build/icons/document$(BETA).icns \
-	build/icons/epichrome$(BETA).icns \
+	../images/icons/app.png \
+	../images/icons/app_beta.png \
+	../images/icons/docbg.png \
+	../images/icons/document.png \
+	../images/icons/document_beta.png \
+	../images/icons/epichrome.png \
+	../images/icons/epichrome_beta.png \
+	../images/icons/folder.png \
+	build/icons/app.icns \
+	build/icons/app_beta.icns \
+	build/icons/document.icns \
+	build/icons/document_beta.icns \
+	build/icons/epichrome.icns \
+	build/icons/epichrome_beta.icns \
+	build/icons/folder.icns \
 	build/img/app_icon.png \
+	build/img/app_icon_beta.png \
 	build/img/epichrome_icon.png \
 	build/epichrome-$(VERSION)-main.pkg \
 	build/resources/background.png \
 	build/resources/license.rtf \
 	build/resources/readme.rtf \
 	build/resources/welcome.rtf
+
+.DELETE_ON_ERROR:
+
+.PHONY: internal install clean clean-all
+
+.PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
 .INTERMEDIATE: main engine runtime $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
@@ -426,7 +439,6 @@ $(APP_CT)/Resources/docbg.png: ../images/icons/docbg.png
 
 $(APP_CT)/Resources/Scripts/version.sh: src/version.sh
 	@mkdir -p '$(dir $@)'
-	touch -c build/icons/*
 	sed -E 's/^epiVersion=.*$$/epiVersion='\''$(VERSION)'\''/' '$<' > '$@'
 
 $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
@@ -507,7 +519,7 @@ $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/vers
 
 # RUNTIME ICONS
 
-$(APP_RNTM)/Contents/Resources/%.icns: build/icons/%$(BETA).icns
+$(APP_RNTM)/Contents/Resources/%.icns: build/icons/%$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 

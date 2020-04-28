@@ -119,8 +119,7 @@ shift
 SSBEngineType="$1"
 shift
 if [[ "${SSBEngineType%|*}" = internal ]] ; then
-    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )  # $$$ FIX THIS TO CHOOSE RIGHT SOURCEINFO
-    #readonly SSBEngineType SSBEngineSourceInfo
+    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 fi
 
 # the rest is the command line maybe --app + URLs

@@ -60,29 +60,29 @@ while [[ "$#" -gt 0 ]] ; do
 done
 
 
-# CONSTANTS   $$$$ [[ "$X" ]] || X=  TEMPORARY TO FIX BETA 6 BUG
+# CONSTANTS
 
 # icon names
-[[ "$CFBundleIconFile" ]] || CFBundleIconFile="app.icns"
-[[ "$CFBundleTypeIconFile" ]] || CFBundleTypeIconFile="document.icns"
+CFBundleIconFile="app.icns"
+CFBundleTypeIconFile="document.icns"
 export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
-[[ "$appIDRoot" ]] || appIDRoot='org.epichrome'
-[[ "$appIDBase" ]] || appIDBase="$appIDRoot.app"
-[[ "$appEngineIDBase" ]] || appEngineIDBase="$appIDRoot.eng"
+appIDRoot='org.epichrome'
+appIDBase="$appIDRoot.app"
+appEngineIDBase="$appIDRoot.eng"
 export appIDRoot appIDBase appEngineIDBase
 
 # app internal paths
-[[ "$appHelperPath" ]] || appHelperPath='Resources/EpichromeHelper.app'
-[[ "$appEnginePath" ]] || appEnginePath='Resources/Engine'
-[[ "$appEnginePayloadPath" ]] || appEnginePayloadPath="$appEnginePath/Payload"
-[[ "$appEnginePlaceholderPath" ]] || appEnginePlaceholderPath="$appEnginePath/Placeholder"
-[[ "$appNMHFile" ]] || appNMHFile='epichromeruntimehost.py'
-[[ "$appWelcomePath" ]] || appWelcomePath='Resources/Welcome'
-[[ "$appWelcomePage" ]] || appWelcomePage='welcome.html'
-[[ "$appBookmarksFile" ]] || appBookmarksFile='Bookmarks'
-[[ "$appBookmarksPath" ]] || appBookmarksPath="Resources/Profile/$appBookmarksFile"
+appHelperPath='Resources/EpichromeHelper.app'
+appEnginePath='Resources/Engine'
+appEnginePayloadPath="$appEnginePath/Payload"
+appEnginePlaceholderPath="$appEnginePath/Placeholder"
+appNMHFile='epichromeruntimehost.py'
+appWelcomePath='Resources/Welcome'
+appWelcomePage='welcome.html'
+appBookmarksFile='Bookmarks'
+appBookmarksPath="Resources/Profile/$appBookmarksFile"
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
@@ -261,7 +261,6 @@ function errlog {  # ( [DEBUG] msg... )
     while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
 	curfunc="${FUNCNAME[$i]}"
 	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-	    # trace=( "${BASH_SOURCE[$i]##*/}(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )  # $$$$
 	    trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    break
 	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
@@ -331,12 +330,6 @@ function initlogfile {  # ( logFile )
 	# make sure we have a directory for the log file
 	try /bin/mkdir -p "${myLogFile%/*}" \
 	    'Unable to create log directory.'
-	
-	# make sure we don't go over our log limit
-
-	# create log file
-	try /usr/bin/touch "$myLogFile" \
-	    "Unable to create log file ${myLogFile##*/}."	
 	
     elif [[ ! "$doKeepFile" ]] ; then
 	

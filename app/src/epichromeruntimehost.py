@@ -38,10 +38,10 @@ debug = True                   # filled in by Makefile
 
 # CORE APP INFO
 
-epiVersion     = 'EPIVERSION'      # filled in by Makefile
-appID          = 'APPID'           # filled in by updateapp
-appName        = 'APPBUNDLENAME'   # filled in by updateapp
-appDisplayName = 'APPDISPLAYNAME'  # filled in by updateapp
+epiVersion     = "EPIVERSION"      # filled in by Makefile
+appID          = "APPID"           # filled in by updateapp
+appName        = "APPBUNDLENAME"   # filled in by updateapp
+appDisplayName = "APPDISPLAYNAME"  # filled in by updateapp
 
 
 # IMPORTANT APP INFO
@@ -144,12 +144,11 @@ def send_message(message):
         # send the message itself
         sys.stdout.write(message)
         sys.stdout.flush()
-    except:
-        # $$$$ HANDLE EXCEPTION PROPERLY
-        errlog('Error sending message')
-
-    # log message
-    debuglog('sent message to app: {}'.format(message))
+        
+        # log message
+        debuglog('sent message to app: {}'.format(message))
+    except Exception as e:
+        errlog('Error sending message: {}'.format(e), '*')
 
 
 # SEND_RESULT -- send a result message
@@ -175,9 +174,9 @@ def receive_message():
         json_text = sys.stdin.read(text_length)
 
         result = json.loads(json_text.decode('utf-8'))
-    except:
-        # $$$$$$ HANDLE EXCEPTIONS PROPERLY WITH LOG
-        errlog('Error receiving message')
+        
+    except Exception as e:
+        errlog('Error receiving message: {}'.format(e), '*')
 
     # log received message
     debuglog('received message from app: {}'.format(json_text))
@@ -287,12 +286,12 @@ if os.path.isfile(launchsvc):
                 httpHandler = handler['LSHandlerRoleAll']
                 break
 
-        # if it's Chrome, set a flag   $$$$ GENERALIZE THIS FOR WHATEVER -- maybe always use /usr/bin/open -b ???
+        # if it's Chrome, set a flag
         if httpHandler.lower() == 'com.google.chrome':
             defaultIsChrome = True
 
-    except: # $$$$$ subprocess.CalledProcessError + plistlib err
-        errlog('Error getting list of browsers.')
+    except Exception as e:
+        errlog("Error getting list of browsers: {}".format(e))
 
 
 # MAIN LOOP -- just keep on receiving messages until stdin closes

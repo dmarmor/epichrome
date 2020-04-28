@@ -2,6 +2,16 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.3.0] - 2020-04-XX
+### Changed
+- Completely rewritten for full compatibility with macOS 10.15 Catalina, including system resource permissions (e.g. microphone and camera) and AppleScript interaction
+- Added built-in Chrome-compatible [Brave Browser](https://github.com/brave/brave-browser "Brave Browser") engine for more app-like behavior, including more robust link-routing and custom icons on desktop notifications
+- Rewrote welcome page to give useful contextual information and prompt for important actions like (re)installing extensions
+- Added complete logging system
+### Fixed
+- Improved handling of runtime errors
+
+
 ## [2.2.4] - 2019-03-12
 ### Fixed
 - Addressed very slow opening of links in the default browser under macOS Mojave [(Issue #167)](https://github.com/dmarmor/epichrome/issues/167 "Issue #167") by adding a code signature to Epichrome apps. Thanks to [cmacminn](https://github.com/cmacminn "cmacminn"), [whatknows](https://github.com/whatknows "whatknows"), and everyone else who helped describe the problem.

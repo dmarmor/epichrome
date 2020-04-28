@@ -29,7 +29,6 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 # CONSTANTS
 
 appEnginePathBase='EpichromeEngines.noindex'
-#readonly appEnginePathBase
 
 # external engine browser info
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
@@ -72,7 +71,6 @@ nmhManifestNewID="org.epichrome.runtime"
 nmhManifestOldID="org.epichrome.helper"
 nmhManifestNewFile="$nmhManifestNewID.json"
 nmhManifestOldFile="$nmhManifestOldID.json"
-#readonly nmhDirName nmhManifestNewID nmhManifestNewFile nmhManifestOldID nmhManifestOldFile
 
 # first-run files
 myFirstRunFile="$myProfilePath/First Run"
@@ -171,6 +169,14 @@ function encodeurl {  # ( input [safe] )
 	echo "$encoded"
 	return 0
     fi
+}
+
+
+# ESCAPEJSON: escape \ & " for a JSON string
+function escapejson {  # ( str )
+    local result="${1//\\/\\\\}"
+    result="${result//\"/\\\"}"
+    echo "$result"
 }
 
 
@@ -806,7 +812,7 @@ function updateprofiledir {
     
     errmsg=
     
-    # triple check the directory as we're using rm -rf  $$$$ USE STATUS VAR INSTEAD
+    # triple check the directory as we're using rm -rf
     if [[ "${myStatusEngineChange[0]}" && \
 	      "$appDataPathBase" && ( "${myProfilePath#$appDataPathBase}" != "$myProfilePath" ) && \
 	      "$HOME" && ( "${myProfilePath#$HOME}" != "$myProfilePath" ) ]] ; then
@@ -876,8 +882,6 @@ function updateprofiledir {
 	    fi
 	fi
 
-	# $$$$ ADD MORE DETAIL AS I DO MORE TESTS, E.G. CHROMIUM->CHROME
-	
 	# restore extended glob
 	shoptrestore shoptState
 	
@@ -931,8 +935,8 @@ function updateprofiledir {
 	    filterfile "$SSBAppPath/Contents/$appBookmarksPath" \
 		       "$myBookmarksFile" \
 		       'bookmarks file' \
-		       APPWELCOMETITLE "$myStatusWelcomeTitle" \
-		       APPWELCOMEURL "${myStatusWelcomeURL}&b=$bookmarkResult"
+		       APPWELCOMETITLE "$(escapejson "$myStatusWelcomeTitle")" \
+		       APPWELCOMEURL "$(escapejson "${myStatusWelcomeURL}&b=$bookmarkResult")"
 	    
 	    if [[ ! "$ok" ]] ; then
 		
@@ -983,9 +987,9 @@ function updateprofiledir {
 		    
 		    # add our bookmark & the rest of the file
 		    bookmarksJson+=" {
-${BASH_REMATCH[4]}   \"name\": \"$myStatusWelcomeTitle\",
+${BASH_REMATCH[4]}   \"name\": \"$(escapejson "$myStatusWelcomeTitle")\",
 ${BASH_REMATCH[4]}   \"type\": \"url\",
-${BASH_REMATCH[4]}   \"url\": \"${myStatusWelcomeURL}&b=$bookmarkResult\"
+${BASH_REMATCH[4]}   \"url\": \"$(escapejson "${myStatusWelcomeURL}&b=$bookmarkResult")\"
 ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 
 		    bookmarksChanged=1
@@ -1016,12 +1020,12 @@ ${BASH_REMATCH[4]}} ${BASH_REMATCH[6]}"
 			# add our bookmark
 			bookmarksJson+=" {
 ${BASH_REMATCH[5]}   \"children\": [ {
-${BASH_REMATCH[5]}      \"name\": \"$myStatusWelcomeTitle\",
+${BASH_REMATCH[5]}      \"name\": \"$(escapejson "$myStatusWelcomeTitle")\",
 ${BASH_REMATCH[5]}      \"type\": \"url\",
-${BASH_REMATCH[5]}      \"url\": \"${myStatusWelcomeURL}&b=$bookmarkResult\"
+${BASH_REMATCH[5]}      \"url\": \"$(escapejson "${myStatusWelcomeURL}&b=$bookmarkResult")\"
 ${BASH_REMATCH[5]}} ],
 ${BASH_REMATCH[5]}   \"guid\": \"e91c4703-ee91-c470-3ee9-1c4703ee91c4\",
-${BASH_REMATCH[5]}   \"name\": \"$CFBundleName App Info\",
+${BASH_REMATCH[5]}   \"name\": \"$(escapejson "$CFBundleName App Info")\",
 ${BASH_REMATCH[5]}   \"type\": \"folder\"
 ${BASH_REMATCH[5]}}"
 			
@@ -1724,12 +1728,12 @@ function installnmh {
 		'Unable to create native messaging host folder.'
 	fi
 	
-	# stream-edit the new manifest into place  $$$$ ESCAPE DOUBLE QUOTES IN PATH??
+	# stream-edit the new manifest into place
 	if [[ "$updateNewManifest" ]] ; then
 	    debuglog "Installing host manifest for $nmhManifestNewID."
 	    filterfile "$hostSourcePath/$nmhManifestNewFile" "$nmhManifestNewDest" \
 		       'native messaging host manifest' \
-		       APPHOSTPATH "$hostScriptPath"
+		       APPHOSTPATH "$(escapejson "$hostScriptPath")"
 	fi
 	
 	# duplicate the new manifest with the old ID
@@ -2040,10 +2044,6 @@ function deleteengine {  # ( [mustSucceed] )
 	
 	debuglog "Deleting engine at '$SSBEnginePath'"
 	
-	# $$$$ TEMP FOR KILLING THE UNKILLABLE BETA 6 ENGINE UGH
-	$myTry /bin/chmod -R u+w "$SSBEnginePath" \
-	       "${warning}Unable to fix permissions for old engine."
-	
 	# delete engine
 	$myTry /bin/rm -rf "$SSBEnginePath" \
 	       "${warning}Unable to remove old engine."
@@ -2130,13 +2130,7 @@ function createengine {
 	    if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
 		ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
 		return 1
-	    fi
-	    
-	    # # warn if we're not using the selected app  $$$ IRRELEVANT NOW
-	    # if [[ "${SSBEngineSourceInfo[$iPath]}" != "$myExtEngineSourcePath" ]] ; then
-	    # 	alert "Selected app is not a valid instance of Google Chrome. Using '$SSBExtEngineSrcPath' instead." \
-	    # 	      'Warning' '|caution'
-	    # fi
+	    fi	    
 	fi
 	
 	# make sure external browser is on the same volume as the engine
@@ -2205,7 +2199,6 @@ function createengine {
 		    'Add :LSUIElement bool true' \
 		    'Delete :CFBundleDocumentTypes' \
 		    'Delete :CFBundleURLTypes'
-#		    "Set :CFBundleShortVersionString $SSBVersion" \   $$$$ BAD IDEA?
 	
 	# path to placeholder resources in the app
 	local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
@@ -2423,13 +2416,13 @@ function updatecentralnmh {
 	filterfile "$sourceManifest" \
 		   "$newManifestPath" \
 		   "$nmhManifestNewFile" \
-		   APPHOSTPATH "$nmhScript"
+		   APPHOSTPATH "$(escapejson "$nmhScript")"
 	
 	# old ID
 	filterfile "$sourceManifest" \
 		   "$oldManifestPath" \
 		   "$nmhManifestOldFile" \
-		   APPHOSTPATH "$nmhScript" \
+		   APPHOSTPATH "$(escapejson "$nmhScript")" \
 		   "$nmhManifestNewID" "$nmhManifestOldID"
     fi
 
@@ -2737,34 +2730,32 @@ function launchhelper { # ( mode )
     try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
 	'Got error launching Epichrome helper app.'
 
-    if [[ ! "$ok" ]] ; then
-	return 0
-    else
-
-	# check the process table for our helper
-	function checkforhelper {
-	    local pstable=
-	    try 'pstable=' /bin/ps -x 'Unable to list active processes.'
-	    if [[ ! "$ok" ]] ; then
-		ok=1 ; errmsg=
-		return 1
-	    fi
-	    if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
-		return 0
-	    else
-		return 1
-	    fi
-	}
-	
-	# give our helper five seconds to launch
-	if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
-	    ok=
-	    errmsg="Epichrome helper app failed to launch."
-	    errlog "$errmsg"
+    # open error state is unreliable, so ignore it
+    ok=1 ; errmsg
+    
+    # check the process table for helper
+    function checkforhelper {
+	local pstable=
+	try 'pstable=' /bin/ps -x 'Unable to list active processes.'
+	if [[ ! "$ok" ]] ; then
+	    ok=1 ; errmsg=
+	    return 1
 	fi
-	unset -f checkforhelper
-	
-	# return code
-	[[ "$ok" ]] && return 0 || return 1
+	if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
+	    return 0
+	else
+	    return 1
+	fi
+    }
+    
+    # give helper five seconds to launch
+    if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
+	ok=
+	errmsg="Epichrome helper app failed to launch."
+	errlog "$errmsg"
     fi
+    unset -f checkforhelper
+    
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
 }

@@ -1,105 +1,121 @@
-# Epichrome 2.2.4
+- **# Epichrome 2.3.0
 
-**Epichrome** is made up of two parts: an AppleScript-based Mac application (*Epichrome.app*) and a companion Chrome extension (*Epichrome Helper*). *Epichrome.app* creates Chrome-based site-specific browsers (SSBs) for Mac OSX (Chrome must be installed in order to run them, but they are full Mac apps, each with its own separate Chrome profile).
+## Overview
 
-Each app automatically installs *Epichrome Helper*, which uses rules to decide which links the app should handle itself, and which should be sent to the default web browser.
+Epichrome lets you easily create web-based applications that work like standalone Mac apps while still being compatible with the full range of extensions available in the Chrome Web Store. It includes an extension to route links to the system default browser.
 
-*Please glance through the notes on the latest version and the "Important Notes" section below.*
+Download the latest release **[here](https://github.com/dmarmor/epichrome/releases "Download")**, and please check out the changes and important notes below.
 
-Download the binary release [here](https://github.com/dmarmor/epichrome/releases "Download").
-
-See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for the latest changes.
+If you find a bug or have a feature request, please submit it [here](https://github.com/dmarmor/epichrome/issues "Issues").
 
 
-## New in version 2.2.4
+## How To Support Epichrome
 
-Fixed problems with macOS Mojave. Apps should now run smoothly and route links to the default browser correctly (even if it's Chrome), without the long delay users had been seeing. Apps should also be less prone to losing their icons and dock names (though some users are still reporting seeing this).
+<div id="patreon" class="patreon">
+  <div style="display: flex; align-items: center;">
+    <svg style="width: 140px" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
+      <g>
+        <g>
+          <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
+        </g>
+        <g>
+          <path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
+          <path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
+          <path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
+          <path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
+          <path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
+          <path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
+          <path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
+        </g>
+      </g>
+    </svg>
+    <img style="width: 48px" src="https://github.com/dmarmor/epichrome/raw/master/images/webstore/webstore_icon.png" alt="Epichrome icon" />
+  </div>
+  <p class="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
+  <a href="https://www.patreon.com/bePatron?u=27108162" style="display:inline-flex;
+    justify-content:center;
+    align-items:center;
+    color:rgb(255, 255, 255);
+    font-family:aktiv-grotesk, sans-serif;
+    font-size:14px;
+    font-weight:500;
+    height:34px;
+    width:176px;
+    background-color:rgb(232, 91, 70);
+    border-bottom-left-radius:9999px;
+    border-bottom-right-radius:9999px;
+    border-top-left-radius:9999px;
+    border-top-right-radius:9999px;
+    box-sizing:border-box;
+    cursor:pointer;" target="_blank">
+    <svg style="width: 24px;
+      height: 24px;
+      padding-right: 8px;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
+      <g>
+        <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
+        <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
+      </g>
+    </svg>
+    Become a Patron!</a>
+      <h5 style="text-decoration: underline;">Rock Star Patrons</h5>
+      <ul style="list-style-type: none;
+        font-weight: bold;">
+        <li>Alan Latteri</li>
+        <li>Lyle Barrere</li>
+        <li>Jonathan Berger</li>
+        <li>Andrew Bonham</li>
+        <li>Lev Dubinets</li>
+        <li>Matt Fallshaw</li>
+        <li>Lanny Heidbreder</li>
+        <li>Eric Henderson</li>
+        <li>Ben Johnson</li>
+        <li>Gregory Morse</li>
+        <li>Alex Nauda</li>
+        <li>Orbital Impact</li>
+        <li>Matthew Scott</li>
+        <li>Samuel Talleux</li>
+      </ul>
+  </div> <!-- #patreon -->
 
 
-## New in version 2.2
+## New in version 2.3.0
 
-*Note: I'm only addressing serious bugs at the moment. I probably won't have time to work on new features or major updates for the foreseeable future.*
+- Epichrome has been completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript.
 
-Version 2.2 changes Epichrome's underlying architecture significantly in order to allow it to work with Chrome 69, which has added much stricter security.
+- A new built-in engine has been added, using the Chrome-compatible open source [Brave Browser](https://github.com/brave/brave-browser "Brave Browser") to allow more app-like behavior including better link-routing and custom icons on desktop notifications.
 
-You shouldn't see much change in how your apps work, but there are a few **important points** to be aware of:
+- The welcome page that appears when apps are created or updated now gives useful contextual information and prompts for important actions like (re)installing extensions.
 
-- Epichrome apps are now explicitly *single-user* apps. Because of the way the Chrome engine is dynamically linked at runtime, Epichrome apps cannot be run by multiple users at once. They also cannot be run by users who don't have write permission to the app itself. For this reason, Epichrome no longer allows authentication during app creation. (This means, for instance, that if you don't have an admin account, you cannot create an Epichrome app in the /Applications folder.) The architecture may evolve in future releases, but Epichrome apps will almost certainly remain single-user from now on.
+<!-- ## New in version 2.3 -->
 
-- If you're running Chrome 69 or later, your Epichrome apps must be installed on the *same* physical volume as Chrome, or the apps will at best take a very long time to start up, and at worst may not work at all.
-
-- You should not try to copy or archive an Epichrome app while it is running. If you do, you may end up copying several hundred megabytes of data for no reason. When your apps are not running, they are under 3MB, but during runtime they may appear to be over 100MB. (Rest assured, a running Epichrome app is not actually taking up that much space on your hard drive--unless you try to copy it.)
-
-This version also adds a "Welcome" page that displays the first time you run a new app (or if you delete your profile), with instructions on how to enable Epichrome Helper, which Chrome disables by default.
-
-See [CHANGELOG.md](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG") for more details.
+*Check out the [change log](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for more details.*
 
 
 ## Important Notes
 
-- Using the "Set Up Automatic Updates for All Users" option in Chrome could cause fatal errors in Epichrome apps when a Chrome update is applied. If your system contains the directory /Library/Google/GoogleSoftwareUpdate, then automatic updates are on. The surest way to disable it is by **first** deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ~/Library/Google/GoogleSoftwareUpdate before running the reinstalled Chrome.
+- Do not use the "Set Up Automatic Updates for All Users" option in Chrome if you have any apps with the external Chrome engine (this includes *all* apps updated from earlier versions of Epichrome). This option will cause fatal errors in your apps. If your system contains the directory ```/Library/Google/GoogleSoftwareUpdate```, then automatic updates are on. The surest way to disable it is by *first* deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ```~/Library/Google/GoogleSoftwareUpdate``` before running the reinstalled Chrome.
 
 - Don't click the "Update Now" button on the About Chrome page in your Epichrome apps. It might not actually do anything terrible, but it also won't do anything good.
 
 - It's a good idea to back up your Epichrome apps. You can right-click on an app in the Finder and select Compress. Then if anything goes wrong during an update, you can delete the app and double-click the zip archive to recreate it intact.
 
-
-## Technical Information/Limitations
-
-Built and tested on macOS High Sierra 10.13.6 and Mojave 10.14.3 running Chrome version 72.0.3626.109.
-
-Apps built with Epichrome are self-updating. Apps will notice when Chrome has been updated and update themselves, and if you install a new version of Epichrome.app on your system, the next time you run one of the apps, it will find the new version and update its own runtime engine.
-
-The Chrome profile for an app lives in: ${HOME}/Library/Application Support/Epichrome/Apps/<app-id>
-
-It's not currently easy to "edit" an app.
-
-### Simple method
-
-In order to change an app, you'll need to first make sure Spotlight indexing is on for the root volume. Delete the old app (and empty trash so it's completely gone), then create a new app with the *exact* same name as the old one. If you keep the name identical, the new app will end up with the same ID (this will *only* work if Spotlight indexing is on; otherwise Epichrome always tries to create a unique-looking ID). If all goes well, the new app will use the existing Chrome profile and you won't need to re-create your settings.
-
-Alternately (or if you don't want Spotlight indexing on), you can always copy existing profile folders to a new name to copy settings between apps.
-
-### Advanced method (change app URL)
-
-*Warning: Only try this if you're comfortable editing shell scripts and understand what you're doing inside an app bundle. If you make a mistake with this method, it is possible to render your Epichrome app unusable.*
-
-If you primarily want to change the URL, browse to the folder containing your app. Ctrl-click and choose *Show package contents*. Open /Contents > Resources > Scripts > config.sh/ in a text editor such as TextEdit or Atom. On the final line, you'll see something like:
-
-```shell
-SSBCommandLine=( --app=https://www.example.com )
-```
-
-Change the part after `--app` to your desired new destination. It is not recommended to change the entire app website unless you know what you're doing, but this is a good method to correct minor mistakes.
+- It's also a good idea to periodically backup your apps' data. You can do this the same way as backing up the apps. The path to an app's data is ```~/Library/Application Support/Epichrome/Apps/<AppID>```. In most cases, ```AppID``` will be a short version of the app's name, possible with a 3-digit number at the end (e.g. ```Gmail384```).
 
 
-## Issues
+## Technical Information & Limitations
 
-On certain webside, buttons (or other non-<A> tag items) open links. The way Chrome handles these, the helper extension doesn't currently catch them, so can't redirect them. I'm looking at ways around this, but for now such links just open in the Epichrome app. If you're experiencing this, there's an [open issue](https://github.com/dmarmor/epichrome/issues/27 "Gmail shortcut links aren't delegated #27") where you can add your input.
+- Built and tested on macOS Catalina 10.15.4 and Google Chrome version 81.0.4044.113.
 
-If you notice any other bugs, or have feature requests, please open a [new issue](https://github.com/dmarmor/osx-chrome-ssb-gui/issues/new "New Issue"). I'll get to them as soon as I can.
+- Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
+- It's not currently possible to "edit" an app. The simplest solution right now is to simply delete the app and create a new one with whatever changes you want. If you want, you can then move the old app's browser settings to the new app's data directory.
 
-## Future Development
-
-These are my thoughts on where to take the project next, roughly in order of priority. I'm not committed to any of these specifically, but would love to hear from people using Epichrome as to which, if any, of these would improve your experience. And, of course, do let me know if you have any other/better ideas for what to do next!
-
-- Change *Epichrome.app* from a standalone app to a Chrome extension. I'm not sure if Google would frown on an extension of this type, but given that Chrome has to be installed for Epichrome to work, it makes sense, and would have some big user interface advantages. SSBs could automatically be built using the frontmost tab, or using all the tabs of a window, and I could finally away with the clumsy modal interface.
-
-- Figure out some way to get the apps to show a badge on the dock icon. I tried abusing Chrome's download system, but that didn't work. This is a bit of a long-shot, but it would be cool to have customizable access to the app badge in the same way Fluid apps do.
-
-- Localize Epichrome so it can be used easily in other languages. This probably won't happen until/unless I convert it to a Chrome extension. I haven't found an easy way to localize an AppleScript app.
-
-- Add the ability to open an existing app and edit it. I'd probably also only do this once I'd converted the project to being a Chrome extension.
-
-- Figure out some way to allow the user to customize where the app's Chrome profile is stored. Not sure if anybody would actually want this, so I'm not likely to do it unless I hear from people.
-
-- Automatically make composite document icons using whichever icon the user selects as the main app icon. This is a super low-priority item and I may never get to it unless there's a real clamor for it. It does appear this could be done pretty simply by bundling [docerator](https://code.google.com/p/docerator/ "Docerator") in with Epichrome.
+- On certain websites, buttons (or other non-\<A\> tag items) open links. The way Chrome handles these, the helper extension doesn't currently catch them, so can't redirect them. I'm looking at ways around this, but for now such links just open in the app. If you're experiencing this, there's an [open issue](https://github.com/dmarmor/epichrome/issues/27 "Gmail shortcut links aren't delegated #27") where you can add your input.
 
 
 ## Acknowledgements
 
-- The underlying SSB-creation and runtime engines were inspired by [chrome-ssb-osx](https://github.com/lhl/chrome-ssb-osx "chrome-ssb-osx") by [lhl](https://github.com/lhl "lhl")
+- The underlying SSB-creation and runtime engine were inspired by [chrome-ssb-osx](https://github.com/lhl/chrome-ssb-osx "chrome-ssb-osx") by [lhl](https://github.com/lhl "lhl")
 
 - The icon-creation script makeicon.sh was inspired by Henry's comment on 12/20/2013 at 12:24 on this [StackOverflow thread](http://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil "StackOverflow thread")
 

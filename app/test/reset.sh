@@ -49,4 +49,6 @@ lib=~/"Library/Application Support/Epichrome/Apps"
 rm -rf *.app && \
     rm -rf "$lib/$id" && \
     tar xzf "$appzip" && \
-    tar xzf "$datazip" --cd "$lib"
+    tar xzf "$datazip" --cd "$lib" && \
+    rm -f library && \
+    ln -s "$lib/$id" library

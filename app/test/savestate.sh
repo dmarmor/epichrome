@@ -40,8 +40,9 @@ if tar czf "$appzip.NEW" "$app" && \
 	( [[ ! -f "$datazip" ]] || mv "$datazip" "$datazip.OLD" ) && \
 	mv "$appzip.NEW" "$appzip" && \
 	mv "$datazip.NEW" "$datazip" && \
-	rm -f "$appzip.OLD" "$datazip.OLD"
-	
+	rm -f "$appzip.OLD" "$datazip.OLD" && \
+	rm -f library && \
+	ln -s "$lib/$id" library
 else
     echo "Error archiving app and data directory."
     rm -f "$appzip.NEW" "$datazip.NEW"

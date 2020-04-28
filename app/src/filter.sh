@@ -40,7 +40,7 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
 
 	# escape special characters for sed
 	arg="${arg//\\/\\\\}"
-	arg="${arg//\//\/}"
+	arg="${arg//\//\\\/}"
 	arg="${arg//&/\&}"
 	
 	if [[ "$isToken" ]] ; then
@@ -49,7 +49,6 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
 	    sedCommand+="s/$arg/"
 	    isToken=
 	else
-
 	    # finishing a token-text pair
 	    sedCommand+="$arg/g; "
 	    isToken=1

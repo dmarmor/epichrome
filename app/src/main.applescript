@@ -85,11 +85,6 @@ on error errStr number errNum
 	display dialog "Non-fatal error initializing log: " & errStr & " Logging will not work." with title "Warning" with icon caution buttons {"OK"} default button "OK"
 end try
 
--- $$$ TEMPORARY -- REMOVE FOR RELEASE clean out old logs from earlier betas
-try
-	do shell script "/bin/rm -f " & (quoted form of myDataPath) & "/epichrome_log*.txt > /dev/null 2>&1"
-end try
-
 -- ensure we have a data directory
 try
 	do shell script "if [[ ! -w " & (quoted form of myDataPath) & " ]] ; then false ; fi"
@@ -385,7 +380,7 @@ repeat
 			set lastAppPath to (((POSIX file appDir) as alias) as text)
 			
 			
-			-- check if we have permission to write to this directory  $$$ REWRITE THIS NATIVE?
+			-- check if we have permission to write to this directory
 			if (do shell script "#!/bin/sh
 if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
 				display dialog "You don't have permission to write to that folder. Please choose another location for your app." with title "Error" with icon stop buttons {"OK"} default button "OK"
@@ -727,7 +722,6 @@ App Engine: "
 											set creationSuccess to false
 											try
 												do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
-												--do shell script scriptEnv & " " & buildScript & " " & (quoted form of appPath) & " " & (quoted form of appNameBase) & " " & (quoted form of appShortName) & " " & (quoted form of appIconSrc) & " " & (quoted form of doRegisterBrowser) & " " & (quoted form of appEngineType) & " " & appCmdLine  $$$$ DELETE
 												set creationSuccess to true
 											on error errStr number errNum
 												

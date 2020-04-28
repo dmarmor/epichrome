@@ -455,13 +455,8 @@ if [[ ! -d "$SSBEnginePath" ]] ; then
 	# path is user-level, so just add our app ID
 	SSBEnginePath+="/$SSBIdentifier"
     else
-	# path is root-level, so add our user ID & app ID  $$$ STICKY BIT SHOULD TAKE CARE OF THIS
+	# path is root-level, so add our user ID & app ID
 	SSBEnginePath+="/$USER/$SSBIdentifier"
-	# try /bin/mkdir -p "$SSBEnginePath" \
-	#     "Unable to create user engine directory at '${SSBEnginePath%/$USER}'"
-	# try /bin/chmod 700 "$SSBEnginePath" \
-	#     "Unable to set permissions for user engine directory at '${SSBEnginePath%/$USER}'"
-	# SSBEnginePath+="/$SSBIdentifier"
     fi
 
     debuglog "Setting engine path to '$SSBEnginePath'"
@@ -719,14 +714,7 @@ fi
 
 # PREPARE APP FOR LAUNCH
 
-# export Google API keys for Chromium engine (found on https://github.com/ezeeyahoo/ChromiumSyncEnabler)
-# if [[ "$SSBEngineType" = 'internal|org.chromium.Chromium' ]] ; then
-#     export GOOGLE_API_KEY="AIzaSyCkfPOPZXDKNn8hhgu3JrA62wIgC93d44k"
-#     export GOOGLE_DEFAULT_CLIENT_ID="811574891467.apps.googleusercontent.com"
-#     export GOOGLE_DEFAULT_CLIENT_SECRET="kdloedMFGdGla2P1zacGjAQh"
-# fi
-
-# build command line  $$$ PASSWORD IMPORT TEMPORARILY ENABLED
+# build command line
 myEngineArgs=( "${argsOptions[@]}" \
 		   '--no-default-browser-check' \
 		   '--enable-features=PasswordImport' \
@@ -785,7 +773,7 @@ if [[ "$myEnginePID" ]] ; then
     # engine PID found, so launch helper
     launchhelper Cleanup
     
-    # save any error
+    # if helper didn't launch successfully, store the error
     if [[ ! "$ok" ]] ; then
 	errPostLaunch="$errmsg The app engine will not be deactivated upon quitting."
 	ok=1 ; errmsg=
