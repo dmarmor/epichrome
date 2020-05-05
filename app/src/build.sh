@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  build.sh: Create an Epichrome application
 #

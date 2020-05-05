@@ -357,6 +357,10 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/epichromeruntimehost.py \
 	$(APP_RNTM)/Filter/welcome.html \
 	$(APP_RNTM)/Filter/Bookmarks \
+	$(APP_RNTM)/Filter/Prefs/prefs_com_brave_Browser.json \
+	$(APP_RNTM)/Filter/Prefs/prefs_com_google_Chrome.json \
+	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_brave_Browser.json \
+	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_google_Chrome.json \
 	\
 	$(APP_RNTM)/epichrome.dat \
 	\
@@ -368,9 +372,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
-	\
-	$(APP_RNTM)/Contents/Resources/Profile/Prefs/prefs_com_brave_Browser.json \
-	$(APP_RNTM)/Contents/Resources/Profile/Prefs/prefs_com_google_Chrome.json \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
 	\
@@ -476,7 +477,7 @@ runtime:
 		 --interface-type None \
 		 --app-icon build/fake.icns \
 		 --document-icon build/fake.icns \
-		 --interpreter /bin/sh \
+		 --interpreter /bin/bash \
 		 --app-version $(VERSION) \
 		 --author 'David Marmor' \
 		 --bundle-identifier org.epichrome.APPBUNDLEID \
@@ -546,11 +547,11 @@ $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
+	sed 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
+	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
@@ -563,7 +564,11 @@ $(APP_RNTM)/Filter/Bookmarks: src/profile/bookmarks.json
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-$(APP_RNTM)/Contents/Resources/Profile/Prefs/%.json: src/profile/%.json
+$(APP_RNTM)/Filter/Prefs/prefs_nourl_%.json: src/profile/prefs_%.json
+	@mkdir -p '$(dir $@)'
+	sed 's/"restore_on_startup": 5/"restore_on_startup": 1/' '$<' > '$@'
+
+$(APP_RNTM)/Filter/Prefs/%.json: src/profile/%.json
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
@@ -577,7 +582,7 @@ $(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/versio
 
 # WELCOME PAGE
 
-$(APP_RNTM)/Filter/welcome.html: src/welcome/welcome.html
+$(APP_RNTM)/Filter/welcome.html: src/welcome/welcome.html src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIMAJORVERSION/$(VERSIONMAJOR)/g; s/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/EPIEXTIDBETA/$(EXTN_ID_BETA)/g' '$<' > '$@'
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # info for matching signature to a different app
 ref_app="$1" ; shift

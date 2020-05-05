@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 shopt -s nullglob
 
@@ -59,7 +59,7 @@ if [[ -d "$engdir/Payload" ]] ; then
 fi
 
 # find engine executable
-exc=( "library/Engine/$app/Contents/MacOS"/* )
+exc=( "$dir/library/Engine/$app/Contents/MacOS"/* )
 exc="${exc[0]}"
 if [[ ! -x "$exc" ]] ; then
     echo "No engine executable found in library/Engine/$app/Contents/MacOS."

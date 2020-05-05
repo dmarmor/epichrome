@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  pathinfo.sh: Return information about a given Epichrome app path
 #

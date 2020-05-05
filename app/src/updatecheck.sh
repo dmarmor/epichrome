@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  updatecheck.sh: Check for updates to Epichrome
 #  

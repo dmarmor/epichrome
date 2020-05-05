@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ext="$1" ; shift
 [[ "$ext" ]] && ext="_$ext"

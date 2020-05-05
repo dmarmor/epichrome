@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  runtime.sh: legacy runtime script for updating from older versions of Epichrome
 #
@@ -128,6 +128,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	# set up necessary current variables
 	SSBLastRunVersion="$SSBVersion"
 	SSBEngineType='external|com.google.Chrome'
+	getbrowserinfo SSBEngineSourceInfo
 	SSBLastRunEngineType="$SSBEngineType"
 	
 	# run actual update
@@ -158,7 +159,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		shoptset shoptState extglob
 		
 		# find all except new log & profile directories
-		local allExcept="!(Logs|${myProfilePath##*/}|${stderrTempFile##*/})"
+		local allExcept="!(Logs|${myProfilePath##*/}|${stdoutTempFile##*/}|${stderrTempFile##*/})"
 		
 		# move everything into profile directory
 		try /bin/mv $allExcept "$myProfilePath" \

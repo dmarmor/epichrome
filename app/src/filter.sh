@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  filter.sh: functions for filtering various files
 #
@@ -40,9 +40,9 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
 
 	# escape special characters for sed
 	arg="${arg//\\/\\\\}"
-	arg="${arg//\//\\\/}"
+	arg="${arg//\//\\/}"
 	arg="${arg//&/\&}"
-	
+
 	if [[ "$isToken" ]] ; then
 
 	    # starting a new token-text pair
@@ -117,9 +117,10 @@ export -f filterplist
 
 
 # LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
-function lprojescape { # string
-    s="${1/\\/\\\\\\\\}"  # escape backslashes for both sed & .strings file
-    s="${s//\//\\/}"  # escape forward slashes for sed only
+function lprojescape {  # ( string )
+    s="${1/\\/\\\\\\\\}"    # escape backslashes for both sed & .strings file
+    s="${s//\//\\/}"        # escape forward slashes for sed only
+    s="${s//&/\\&}"         # escape ampersands for sed only
     echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
 }
 

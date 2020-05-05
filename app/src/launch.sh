@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  launch.sh: utility functions for building and launching an Epichrome engine
 #
@@ -30,40 +30,13 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 appEnginePathBase='EpichromeEngines.noindex'
 
-# external engine browser info
+# IDs of allowed external engine browsers
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
 			   'com.vivaldi.Vivaldi' \
 			   'com.operasoftware.Opera' \
 			   'com.brave.Browser' \
 			   'org.chromium.Chromium' \
 			   'com.google.Chrome' )
-
-appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
-					   '' 'Edge' 'Microsoft Edge' \
-					   '' '' '' '' \
-					   'Microsoft Edge' )
-appBrowserInfo_com_vivaldi_Vivaldi=( 'com.vivaldi.Vivaldi' \
-					   '' 'Vivaldi' 'Vivaldi' \
-					   '' '' '' '' \
-					   'Vivaldi' )
-appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
-					   '' 'Opera' 'Opera' \
-					   '' '' '' '' \
-					   'com.operasoftware.Opera' )
-appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
-					   '' 'Brave' 'Brave Browser' \
-					   '' '' '' '' \
-					   'BraveSoftware/Brave-Browser' \
-					   'Chromium Master Preferences' )
-appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
-					   '' 'Chromium' 'Chromium' \
-					   '' '' '' '' \
-					   'Chromium' )
-appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
-					   '' 'Chrome' 'Google Chrome' \
-					   '' '' '' '' \
-					   'Google/Chrome' \
-					   'Google Chrome Master Preferences' )
 
 # native messaging host manifests
 nmhDirName=NativeMessagingHosts
@@ -169,22 +142,6 @@ function encodeurl {  # ( input [safe] )
 	echo "$encoded"
 	return 0
     fi
-}
-
-
-# ESCAPEJSON: escape \ & " for a JSON string
-function escapejson {  # ( str )
-    local result="${1//\\/\\\\}"
-    result="${result//\"/\\\"}"
-    echo "$result"
-}
-
-
-# UNESCAPEJSON: remove escapes from a JSON string
-function unescapejson {  # ( str )
-    local result="${1//\\\\/\\}"
-    result="${result//\\\"/\"}"
-    echo "$result"
 }
 
 
@@ -423,8 +380,9 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	    Update)
 		
 		# read in the new runtime
-		safesource "${epiLatestPath}/Contents/Resources/Scripts/update.sh" \
-			   "update script $epiLatestVersion"
+		if ! source "${epiLatestPath}/Contents/Resources/Scripts/update.sh" ; then
+		    ok= ; errmsg='Unable to load update script $epiLatestVersion.'
+		fi
 		
 		# use new runtime to update the app
 		updateapp "$SSBAppPath"
@@ -1322,7 +1280,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 						's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile") )
 		if [[ "$?" != 0 ]] ; then
 		    local myStderr="$(/bin/cat "$stderrTempFile")"
-		    [[ "$myStderr" ]] && errlog "$myStderr"
+		    [[ "$myStderr" ]] && errlog 'STDERR|sed' "$myStderr"
 		    errlog "Unable to parse icons for extension $curExtID."
 		    myFailedExtensions+=( "$curExtID" )
 		    continue
@@ -1679,7 +1637,14 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	
 	# if we got here, we have a complete copy of the browser,
 	# so set SSBEngineSourceInfo & break out
-	SSBEngineSourceInfo=( "${infoPlist[@]}" )
+	getbrowserinfo SSBEngineSourceInfo
+	SSBEngineSourceInfo[$iID]="${infoPlist[$iID]}"
+	SSBEngineSourceInfo[$iExecutable]="${infoPlist[$iExecutable]}"
+	SSBEngineSourceInfo[$iName]="${infoPlist[$iName]}"
+	SSBEngineSourceInfo[$iDisplayName]="${infoPlist[$iDisplayName]}"
+	SSBEngineSourceInfo[$iVersion]="${infoPlist[$iVersion]}"
+	SSBEngineSourceInfo[$iAppIconFile]="${infoPlist[$iAppIconFile]}"
+	SSBEngineSourceInfo[$iDocIconFile]="${infoPlist[$iDocIconFile]}"
 	SSBEngineSourceInfo[$iPath]="$myEngineSourcePath"
 	
 	debuglog "External engine ${SSBEngineSourceInfo[$iDisplayName]} ${SSBEngineSourceInfo[$iVersion]} found at '${SSBEngineSourceInfo[$iPath]}'."
@@ -2315,11 +2280,11 @@ function updateenginemanifest {
 	
 	try "$myEngineManifest<" echo \
 '{
-	"version": "'"$SSBVersion"'",
-	"appID": "'"$SSBIdentifier"'",
-	"appName": "'"$CFBundleName"'",
-	"appDisplayName": "'"$CFBundleDisplayName"'",
-	"appPath": "'"$SSBAppPath"'"
+	"version": "'"$(escapejson "$SSBVersion")"'",
+	"appID": "'"$(escapejson "$SSBIdentifier")"'",
+	"appName": "'"$(escapejson "$CFBundleName")"'",
+	"appDisplayName": "'"$(escapejson "$CFBundleDisplayName")"'",
+	"appPath": "'"$(escapejson "$SSBAppPath")"'"
 }' 'Unable to write engine manifest.'
     fi
     
@@ -2446,10 +2411,8 @@ function setmasterprefs {
 	debuglog "Setting master prefs for new profile."
 	
 	# get path to master prefs file for this engine
-	local myEngineBrowser=
-	getbrowserinfo myEngineBrowser
-	local myEngineMasterPrefsFile="$userSupportPath/${myEngineBrowser[$iLibraryPath]}/${myEngineBrowser[$iMasterPrefsFile]}"
-	local mySavedMasterPrefsFile="$myDataPath/${myEngineBrowser[$iMasterPrefsFile]}"
+	local myEngineMasterPrefsFile="$userSupportPath/${SSBEngineSourceInfo[$iLibraryPath]}/${SSBEngineSourceInfo[$iMasterPrefsFile]}"
+	local mySavedMasterPrefsFile="$myDataPath/${SSBEngineSourceInfo[$iMasterPrefsFile]}"
 
 	# backup browser's master prefs
 	if [[ -e "$myEngineMasterPrefsFile" ]] ; then
@@ -2460,8 +2423,8 @@ function setmasterprefs {
 		'Unable to back up browser master prefs.'
 	fi
 	
-	# install our master prefs
-	try /bin/cp "$SSBAppPath/Contents/Resources/Profile/Prefs/prefs_${myEngineBrowser[$iID]//./_}.json" \
+	# install master prefs
+	try /bin/cp "$SSBAppPath/Contents/$appMasterPrefsPath" \
 	    "$myEngineMasterPrefsFile" \
 	    'Unable to install app master prefs.'
 	

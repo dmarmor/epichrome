@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  makeicon: create an ICNS file from an image file
 #

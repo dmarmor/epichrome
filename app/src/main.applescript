@@ -77,7 +77,7 @@ local myLogFile
 
 -- run core.sh to initialize logging & get key paths
 try
-	set coreOutput to do shell script scriptEnv & " /bin/sh -c 'source '" & quoted form of coreScript & "' --inepichrome ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
+	set coreOutput to do shell script scriptEnv & " /bin/bash -c 'source '" & quoted form of coreScript & "' --inepichrome ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'"
 	set myDataPath to paragraph 1 of coreOutput
 	set myLogFile to paragraph 2 of coreOutput
 	set scriptEnv to scriptEnv & " myLogFile=" & (quoted form of myLogFile)
@@ -263,7 +263,7 @@ if updateCheckDate < curDate then
 	-- run the update check script
 	local updateCheckResult
 	try
-		set updateCheckResult to do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+		set updateCheckResult to do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 		set updateCheckResult to paragraphs of updateCheckResult
 	on error errStr number errNum
 		set updateCheckResult to {"ERROR", errStr}
@@ -381,7 +381,7 @@ repeat
 			
 			
 			-- check if we have permission to write to this directory
-			if (do shell script "#!/bin/sh
+			if (do shell script "#!/bin/bash
 if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
 				display dialog "You don't have permission to write to that folder. Please choose another location for your app." with title "Error" with icon stop buttons {"OK"} default button "OK"
 				set tryAgain to true
@@ -721,7 +721,7 @@ App Engine: "
 											local creationSuccess
 											set creationSuccess to false
 											try
-												do shell script scriptEnv & " /bin/sh -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+												do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 												set creationSuccess to true
 											on error errStr number errNum
 												

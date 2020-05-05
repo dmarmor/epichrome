@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # <maj><02-min><03-bug>.<03-beta|100>.<build|10000>
 

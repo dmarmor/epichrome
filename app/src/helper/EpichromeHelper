@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  EpichromeHelper: Helper app to clean up engines & relaunch updated apps
 #
@@ -126,10 +126,36 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
 	errlog "$errmsg"
     fi
     
-    try /usr/bin/open -a "$SSBAppPath" "${argsURIs[@]}" --args "${argsOptions[@]}" --epichrome-new-log \
-	"Error during relaunch of ${SSBAppPath##*/}."
+    # launch attempt function
+    launchSuccess=
+    function relaunchparent {
+
+	# try launching
+	local openErr=	
+	try 'openErr&=' /usr/bin/open -a "$SSBAppPath" "${argsURIs[@]}" --args "${argsOptions[@]}" --epichrome-new-log ''
+	if [[ "$ok" ]] ; then
+	    launchSuccess=1
+	    return 0
+	fi
+	
+	# if launch failed due to missing executable, flag that
+	if [[ "$openErr" = *'executable is missing'* ]] ; then
+	    ok=1
+	    errmsg=
+	    return 1
+	fi
+	
+	# launch failed for some other reason, so give up
+	errlog 'ERROR|open' "$openErr"
+	errmsg="Error during relaunch of ${SSBAppPath##*/}."
+	errlog "$errmsg"
+	return 0
+    }
     
-    # report any error
+    # try to launch parent
+    waitforcondition 'parent app to relaunch' 5 .5 relaunchparent
+    
+    # report launch error
     if [[ "$ok" ]] ; then
 	debuglog "Parent app relaunched successfully. Quitting."
     else

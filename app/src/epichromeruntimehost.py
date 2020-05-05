@@ -55,6 +55,10 @@ appLogFile = None
 def setlogpath():
 
     global appLogFile
+    global appLogID
+
+    # set log ID
+    appLogID = appID
     
     # get data path
     dataPath = os.path.join(os.environ['HOME'],
@@ -71,7 +75,7 @@ def setlogpath():
         with open(os.path.join(dataPath, 'lock'), 'r') as f:
             lockInfo = f.read()
     except Exception as e:
-        errlog("Unable to read app lock. ({})".format(e))
+        errlog("Unable to read app lock ({})".format(e))
 
     # try to find log path in lock file
     if lockInfo:
@@ -102,7 +106,7 @@ def errlog(msg, msgType='*'):
     myMsg = (
         '{mtype}[{pid}]{app}|{filename}({fileline}){frame}: {msg}\n'.format( mtype=msgType,
                                                          pid=os.getpid(),
-                                                         app=appID,
+                                                         app=appLogID,
                                                          filename=os.path.basename(myStack[0][1]),
                                                          fileline=myStack[0][2],
                                                          frame=('/{}'.format('/'.join(
@@ -138,22 +142,25 @@ def debuglog(msg):
 def send_message(message):
 
     try:
+        # encode message into json
+        msg_json = json.dumps(message)
+        
         # send the message's size
-        sys.stdout.write(struct.pack('I', len(message)))
+        sys.stdout.write(struct.pack('I', len(msg_json)))
 
         # send the message itself
-        sys.stdout.write(message)
+        sys.stdout.write(msg_json)
         sys.stdout.flush()
         
         # log message
-        debuglog('sent message to app: {}'.format(message))
+        debuglog('sent message to app: {}'.format(msg_json))
     except Exception as e:
-        errlog('Error sending message: {}'.format(e), '*')
+        errlog('Error sending message ({})'.format(e))
 
 
 # SEND_RESULT -- send a result message
 def send_result(result, url):
-    send_message('{"result": "%s", "url": "%s" }' % (result, url))
+    send_message({ "result": result, "url": url })
 
 
 # RECEIVE_MESSAGE -- receive and unpack a message
@@ -176,7 +183,7 @@ def receive_message():
         result = json.loads(json_text.decode('utf-8'))
         
     except Exception as e:
-        errlog('Error receiving message: {}'.format(e), '*')
+        errlog('Error receiving message ({})'.format(e))
 
     # log received message
     debuglog('received message from app: {}'.format(json_text))
@@ -192,7 +199,7 @@ def receive_message():
 if appID:
 
     # we're running from this app's bundle
-
+    
     # set path to this app's log file
     setlogpath()
 
@@ -205,43 +212,48 @@ if appID:
 else:
 
     # we're running from Epichrome.app
-
+    
     # temporarily log to the main Epichrome log
+    appLogID = '<UnknownEpichromeApp>'
     appLogFile = os.path.join(os.environ['HOME'],
                                   'Library/Application Support/Epichrome/Logs',
                                   'epichrome_log_nativemessaginghost.txt')
-    appID = '<UnknownEpichromeApp>'
-
+    
     # get parent process ID & use that to get engine path
     try:
         enginepath = subprocess.check_output(['/bin/ps', '-o', 'comm',
                                                   '-p', str(os.getppid())]).split('\n')[1]
     except Exception as e:
 
-        errlog("Unable to get path of parent engine. ({})".format(e), '!')
+        errlog("Unable to get path of parent engine ({})".format(e), '!')
         exit(1)
-
+        
     # read engine manifest
     try:
         with open(os.path.join(os.path.dirname(enginepath), '../../../info.json')) as fp:
             json_info = json.load(fp)
 
-    except Exception as e:
-        errlog(e, '!')
+    except Exception as e:      
+        errlog("Error reading info.json ({})".format(e), '!')
         exit(1)
-
-    # set app info from manifest
-    appVersion     = json_info['version']
-    appID          = json_info['appID']
-    appName        = json_info['appName']
-    appDisplayName = json_info['appDisplayName']
-    appPath        = json_info['appPath']
-
+    
+    try:
+        # set app info from manifest
+        appVersion     = json_info['version'].encode('utf-8')
+        appID          = json_info['appID'].encode('utf-8')
+        appName        = json_info['appName'].encode('utf-8')
+        appDisplayName = json_info['appDisplayName'].encode('utf-8')
+        appPath        = json_info['appPath'].encode('utf-8')
+    except Exception as e:
+        
+        errlog("Engine info.json missing expected key: {}".format(e), '!')
+        exit(1)
+    
     # set permanent log path
     setlogpath()
 
-    debuglog("App info set: ID={} version={} name='{}' displayName='{}' path='{}'".format(appVersion,
-                                                                                              appID,
+    debuglog("App info set: ID={} version={} name='{}' displayName='{}' path='{}'".format(appID,
+                                                                                              appVersion,
                                                                                               appName,
                                                                                               appDisplayName,
                                                                                               appPath))
@@ -291,7 +303,7 @@ if os.path.isfile(launchsvc):
             defaultIsChrome = True
 
     except Exception as e:
-        errlog("Error getting list of browsers: {}".format(e))
+        errlog("Error getting list of browsers ({})".format(e))
 
 
 # MAIN LOOP -- just keep on receiving messages until stdin closes
@@ -302,10 +314,11 @@ while True:
         break
 
     if 'version' in message:
-        send_message(('{ "version": "%s", '+
-                     '"ssbID": "%s", '+
-                     '"ssbName": "%s", '+
-                     '"ssbShortName": "%s" }') % (appVersion, appID, appDisplayName, appName))
+        
+        send_message({ 'version' : appVersion,
+                           'ssbID' : appID,
+                           'ssbName' : appDisplayName,
+                           'ssbShortName': appName })
 
     if 'url' in message:
         # open the url

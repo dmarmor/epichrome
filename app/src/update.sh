@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  update.sh: functions for updating/or creating Epichrome apps
 #
@@ -52,7 +52,7 @@ function escapehtml {  # ( str )
     local str="$1" ; shift
 
     # escape HTML characters & ignore errors
-    echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&rt;/g' \
+    echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' \
 		      "Unable to escape HTML characters in string '$str'"
     ok=1 ; errmsg=
 }
@@ -247,8 +247,8 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # FILTER APP INFO.PLIST INTO PLACE
     
     # set up default PlistBuddy commands
-    local filterCommands=( "set :CFBundleDisplayName $CFBundleDisplayName" \
-			       "set :CFBundleName $CFBundleName" \
+    local filterCommands=( "set :CFBundleDisplayName $(escape "$CFBundleDisplayName" "\"'")" \
+			       "set :CFBundleName $(escape "$CFBundleName" "\"'")" \
 			       "set :CFBundleIdentifier $myAppBundleID" )
     
     # if not registering as browser, delete URI handlers
@@ -392,6 +392,19 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	       'welcome page' \
 	       APPBUNDLENAME "$(escapehtml "$CFBundleName")" \
 	       APPDISPLAYNAME "$(escapehtml "$CFBundleDisplayName")"
+
+
+    # SELECT MASTER PREFS
+
+    # select different prefs if we're creating an app with no URL
+    local nourl=
+    [[ "${#SSBCommandLine[@]}" = 0 ]] && nourl='_nourl'
+
+    # copy correct prefs file into app bundle
+    local engineID="${SSBEngineType#*|}"
+    safecopy "$updateEpichromeRuntime/Filter/Prefs/prefs${nourl}_${engineID//./_}.json" \
+	"$contentsTmp/$appMasterPrefsPath" \
+	'Unable to create app master prefs.'
     
     
     # FILTER PROFILE BOOKMARKS FILE INTO PLACE
@@ -460,8 +473,8 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
 		    "$updatePayloadPath/Info.plist" \
 		    "app engine payload Info.plist" \
-		    "Set :CFBundleDisplayName $CFBundleDisplayName" \
-		    "Set :CFBundleName $CFBundleName" \
+		    "Set :CFBundleDisplayName $(escape "$CFBundleDisplayName" "\"'")" \
+		    "Set :CFBundleName $(escape "$CFBundleName" "\"'")" \
 		    "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier"
 	
 	# filter localization strings in place

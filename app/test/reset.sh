@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # args
 dir="${1%/}" ; shift

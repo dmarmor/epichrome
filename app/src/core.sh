@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  core.sh: core utility functions for Epichrome creator & apps
 #
@@ -81,6 +81,7 @@ appEnginePlaceholderPath="$appEnginePath/Placeholder"
 appNMHFile='epichromeruntimehost.py'
 appWelcomePath='Resources/Welcome'
 appWelcomePage='welcome.html'
+appMasterPrefsPath='Resources/Profile/prefs.json'
 appBookmarksFile='Bookmarks'
 appBookmarksPath="Resources/Profile/$appBookmarksFile"
 
@@ -106,12 +107,41 @@ iDocIconFile=6
 iPath=7
 iLibraryPath=8
 iMasterPrefsFile=9
+iArgs=10
 export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath \
-       iLibraryPath iMasterPrefsFile
+       iLibraryPath iMasterPrefsFile iArgs
 
-# internal Epichrome engines
-#epiEngineSource=( org.chromium.Chromium Chromium Chromium Chromium )
-epiEngineSource=( com.brave.Browser 'Brave Browser' Brave 'Brave Browser' )
+# info on allowed Epichrome engine browsers
+appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
+					   '' 'Edge' 'Microsoft Edge' \
+					   '' '' '' '' \
+					   'Microsoft Edge' )
+appBrowserInfo_com_vivaldi_Vivaldi=( 'com.vivaldi.Vivaldi' \
+					   '' 'Vivaldi' 'Vivaldi' \
+					   '' '' '' '' \
+					   'Vivaldi' )
+appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
+					   '' 'Opera' 'Opera' \
+					   '' '' '' '' \
+					   'com.operasoftware.Opera' )
+appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
+					   'Brave Browser' 'Brave' 'Brave Browser' \
+					   '' '' '' '' \
+					   'BraveSoftware/Brave-Browser' \
+					   'Chromium Master Preferences' )
+appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
+					   '' 'Chromium' 'Chromium' \
+					   '' '' '' '' \
+					   'Chromium' )
+appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
+					   '' 'Chrome' 'Google Chrome' \
+					   '' '' '' '' \
+					   'Google/Chrome' \
+					   'Google Chrome Master Preferences' \
+					   '--enable-features=PasswordImport' )
+
+# internal Epichrome engine
+epiEngineSource=( "${appBrowserInfo_com_brave_Browser[@]}" )
 
 
 # CORE CONFIG VARIABLES
@@ -185,6 +215,7 @@ fi
 
 # path to stderr temp file
 stderrTempFile="$myDataPath/stderr.txt"
+stdoutTempFile="$myDataPath/stdout.txt"
 
 # variables to suppress logging to stderr or file
 [[ "$logNoStderr" ]] || logNoStderr=  # set this in calling script to prevent logging to stderr
@@ -198,7 +229,7 @@ fi
 [[ "$myLogDir" ]] || myLogDir="$myDataPath/Logs"
 
 # export all to helper
-export myLogFile myLogTempVar stderrTempFile \
+export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
        logNoStderr logNoFile myRunTimestamp myLogDir
 
 
@@ -230,13 +261,16 @@ function errlog_raw {
 	fi
     fi
 }
-function errlog {  # ( [DEBUG] msg... )
+function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
     
     # prefix format: *[PID]LogID(line)/function(line)/...:
 
     # arguments
-    local logType=
-    case "$1" in
+    local logType="${1%%|*}"
+    local logName="${1#*|}" ; [[ "$logName" = "$1" ]] && logName=
+
+    # determine log type & final name element
+    case "$logType" in
 	DEBUG)
 	    logType=' '  # debug message
 	    shift
@@ -245,8 +279,21 @@ function errlog {  # ( [DEBUG] msg... )
 	    logType='!'  # fatal error
 	    shift
 	    ;;
+	ERROR)
+	    logType='*'  # error
+	    shift
+	    ;;
+	STDOUT)
+	    logType='1'  # stdout log
+	    shift
+	    ;;
+	STDERR)
+	    logType='2'  # stderr log
+	    shift
+	    ;;
 	*)
 	    logType='*'  # error
+	    logName=
 	    ;;
     esac
     
@@ -255,7 +302,7 @@ function errlog {  # ( [DEBUG] msg... )
     [[ "$logID" ]] || logID='EpichromeCore'
     
     # build function trace
-    local trace=()
+    local trace=() ; [[ "$logName" ]] && trace=( "{$logName}" )
     local i=1
     local curfunc=
     while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
@@ -263,7 +310,7 @@ function errlog {  # ( [DEBUG] msg... )
 	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
 	    trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    break
-	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) ]] ; then
+	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) || ( "$curfunc" = try ) ]] ; then
 	    : # skip these functions
 	else
 	    trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
@@ -419,6 +466,7 @@ function try {
     local ifscode=
     local storeStderr=
     local dropStdout= ; local dropStderr=
+    local logStdout=1 ; local logStderr=1
 
     # see if we're to drop stdout and/or stderr
     if [[ "$target" =~ ^(\!|-)(1|2|12|21)$ ]] ; then
@@ -435,13 +483,17 @@ function try {
 	case "${BASH_REMATCH[2]}" in
 	    1)
 		dropStdout="$dropAction"
+		logStdout=
 		;;
 	    2)
 		dropStderr="$dropAction"
+		logStderr=
 		;;
 	    12|21)
 		dropStdout="$dropAction"
 		dropStderr="$dropAction"
+		logStdout=
+		logStderr=
 		;;
 	esac
     fi
@@ -484,11 +536,15 @@ function try {
 	ifscode="$IFS"  # no IFS given, so use current value
     fi
     
-    # determine handling of stderr
-    if [[ "$type" && ( "${target:${#target}-1}" = '&' ) ]] ; then
-	# keep stderr
-	target="${target::${#target}-1}"
-	storeStderr=1
+    # determine storing/logging of stdout and stderr
+    if [[ "$type" ]] ; then
+	logStdout=
+	if [[ "${target:${#target}-1}" = '&' ]] ; then
+	    # store stderr too
+	    target="${target::${#target}-1}"
+	    storeStderr=1
+	    logStderr=
+	fi
     fi
     
     # get command-line args
@@ -577,21 +633,20 @@ function try {
 	fi
     else
 	
-	# not storing, so put both stdout & stderr into stderr log
-	# unless we're dropping either or both
+	# not storing, so log both stdout & stderr unless we're dropping either or both
 	if [[ ( ! "$dropStdout" ) && ( ! "$dropStderr" ) ]] ; then
 	    
 	    # log both stdout & stderr
-	    "${args[@]}" > "$stderrTempFile" 2>&1
+	    "${args[@]}" 1> "$stdoutTempFile" 2> "$stderrTempFile"
 	    
 	elif [[ ! "$dropStdout" ]] ; then
 	    
 	    if [[ "$dropStderr" = ignore ]] ; then
 		# log stdout & ignore stderr
-		"${args[@]}" > "$stderrTempFile"
+		"${args[@]}" 1> "$stdoutTempFile"
 	    else
 		# log stdout & suppress stderr
-		"${args[@]}" > "$stderrTempFile" 2> /dev/null
+		"${args[@]}" 1> "$stdoutTempFile" 2> /dev/null
 	    fi
 	    
 	elif [[ ! "$dropStderr" ]] ; then
@@ -601,7 +656,7 @@ function try {
 		"${args[@]}" 2> "$stderrTempFile"
 	    else
 		# log stderr & suppress stdout
-		"${args[@]}" > /dev/null 2> "$stderrTempFile"
+		"${args[@]}" 1> /dev/null 2> "$stderrTempFile"
 	    fi
 	    
 	else
@@ -620,19 +675,43 @@ function try {
     fi
     
     # log unstored output
-    local myStderr=
-    [[ ! ( "$dropStdout" && "$dropStderr" ) ]] && myStderr="$(/bin/cat "$stderrTempFile")"
-    [[ "$myStderr" ]] && errlog "$myStderr"
+    if [[ "$logStdout" || "$logStderr" ]] ; then
+
+	# set up logging state
+	local myOutput=() IFS=$'\n' hasOutput= curOutputLine=
+
+	# log any stdout output
+	if [[ "$logStdout" ]] ; then
+	    myOutput=( $(/bin/cat "$stdoutTempFile" 2> /dev/null) )
+	    for curOutputLine in "${myOutput[@]}" ; do
+		hasOutput=1
+		errlog "STDOUT|${args[0]##*/}" "$curOutputLine"
+	    done
+	fi
+
+	# log any stderr output
+	if [[ "$logStderr" ]] ; then
+	    myOutput=( $(/bin/cat "$stderrTempFile" 2> /dev/null) )
+	    for curOutputLine in "${myOutput[@]}" ; do
+		hasOutput=1
+		errlog "STDERR|${args[0]##*/}" "$curOutputLine"
+	    done
+	fi
+    fi
     
     # check result
     if [[ "$result" != 0 ]]; then
+
+	# set error flag
+	ok=
+	
+	# report if no error output
+	[[ ( ! ( "$dropStdout" && "$dropStderr" ) ) && ! "$hasOutput" ]] && \
+	    errlog "ERROR|${args[0]##*/}" "Returned code $result with no logged output."
 	if [[ "$myerrmsg" ]] ; then
 	    errmsg="$myerrmsg"
 	    errlog "$errmsg"
 	fi
-	ok=
-	[[ ( ! ( "$dropStdout" && "$dropStderr" ) ) && ! "$myStderr" ]] && \
-	    errlog "${args[0]} returned code $result with no stderr output."
 	return "$result"
     fi
     
@@ -1058,6 +1137,58 @@ function isarray {
 export -f isarray
 
 
+# ESCAPE: backslash-escape \ & optional other characters
+function escape {  # ( str [chars] )
+    
+    # arguments
+    local str="$1" ; shift
+    local chars="$1" ; shift
+    
+    local result="${str//\\/\\\\}"
+    
+    # escape any other characters
+    if [[ "$chars" ]] ; then
+	local i
+	for (( i=0 ; i < ${#chars} ; i++ )); do
+	    result="${result//${chars:i:1}/\\${chars:i:1}}"
+	done
+    fi
+    
+    echo "$result"
+}
+
+
+# UNESCAPE: remove escapes from a string
+function unescape {  # ( str [chars] )
+    
+    # arguments
+    local str="$1" ; shift
+    local chars="$1" ; shift
+    
+    local result="${str//\\\\/\\}"
+    
+    # unescape any other characters
+    if [[ "$chars" ]] ; then
+	local i
+	for (( i=0 ; i < ${#chars} ; i++ )); do
+	    result="${result//\\${chars:i:1}/${chars:i:1}}"
+	done
+    fi
+    
+    echo "$result"
+}
+
+# ESCAPEJSON: escape \ & " for a JSON string
+function escapejson { escape "$1" '"' ; }
+
+
+# UNESCAPEJSON: remove escapes from a JSON string
+function unescapejson { unescape "$1" '"' ; }
+
+
+export -f escape unescape escapejson unescapejson
+
+
 # FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval
 function formatscalar { # ( value [noQuotes] )
 
@@ -1187,9 +1318,9 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
 
     # arguments
     local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
-    local msg="${1//\"/\\\"}" ; shift
-    local title="${1//\"/\\\"}" ; shift
-    local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$title_code\""
+    local msg="$1" ; shift
+    local title="$1" ; shift
+    local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$(escapejson "$title_code")\""
     local icon="$1" ; shift
     
     # build icon code
@@ -1200,7 +1331,7 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
 	icon="${icon:1}"
 	[[ ! "$icon" =~ ^stop|caution|note$ ]] && icon=caution
 	if [[ -f "$myIcon" ]] ; then
-	    icon_set="set myIcon to (POSIX file \"$myIcon\")"
+	    icon_set="set myIcon to (POSIX file \"$(escapejson "$myIcon")\")"
 	else
 	    icon_set="set myIcon to $icon"
 	fi
@@ -1224,19 +1355,21 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
 	
 	# identify default and cancel buttons
 	if [[ "${button::1}" = "+" ]] ; then
-	    button="${button:1}"
-	    button_default="default button \"$button\""
+	    button="\"$(escapejson "${button:1}")\""
+	    button_default="default button $button"
 	elif [[ ( "${button::1}" = "-" ) || ( "$button" = "Cancel" ) ]] ; then
-	    button="${button#-}"
-	    button_cancel="cancel button \"$button\""
+	    button="\"$(escapejson "${button#-}")\""
+	    button_cancel="cancel button $button"
 	    try_start="try"
 	    try_end="on error number -128
-    \"$button\"
+    $button
 end try"
+	else
+	    button="\"$(escapejson "$button")\""
 	fi
 	
 	# add to button list
-	buttonlist="$buttonlist, \"$button\""
+	buttonlist="$buttonlist, $button"
     done
     
     # if no buttons specified, make one default OK button
@@ -1249,7 +1382,7 @@ end try"
     
     # close button list
     buttonlist="{ ${buttonlist:2} }"
-
+    
     # log the dialog
     if [[ "$debug" || ("$numbuttons" = 1) ]] ; then
 	local logmsg="${msg%%$'\n'*}"
@@ -1264,7 +1397,7 @@ end try"
     # run the dialog
     try "${var}=" /usr/bin/osascript -e "$icon_set
 $try_start
-    button returned of (display dialog \"$msg\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
+    button returned of (display dialog \"$(escapejson "$msg")\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
 $try_end" \
 	"Unable to display dialog box with message \"$msg\""
     
@@ -1279,7 +1412,7 @@ $try_end" \
 	# display simple alert with fallback icon
 	[[ "$icon" ]] && icon="with icon $icon"
 	try /usr/bin/osascript -e \
-	    "display alert \"$msg\" $icon buttons {\"OK\"} default button \"OK\" $title_code" \
+	    "display alert \"$(escapejson "$msg")\" $icon buttons {\"OK\"} default button \"OK\" $title_code" \
 	    "Unable to display fallback alert with message \"$msg\""
     fi
     
@@ -1321,6 +1454,12 @@ if [[ "$coreDoInit" ]] ; then
     # check if the try function can save stderr output, or if we need to disable it
     if [[ "$ok" ]] ; then
 
+	try '-12' /usr/bin/touch "$stdoutTempFile" \
+	    'Unable to create stdout collector file. Standard output will not be logged.'
+	if [[ ! "$ok" ]] ; then
+	    stdoutTempFile='/dev/null'
+	    ok=1 ; stderr=
+	fi
 	try '-12' /usr/bin/touch "$stderrTempFile" \
 	    'Unable to create stderr collector file. Error output will not be logged.'
 	if [[ ! "$ok" ]] ; then

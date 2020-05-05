@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  AppExec: Run an Epichrome app
 #
@@ -717,7 +717,7 @@ fi
 # build command line
 myEngineArgs=( "${argsOptions[@]}" \
 		   '--no-default-browser-check' \
-		   '--enable-features=PasswordImport' \
+		   "${SSBEngineSourceInfo[@]:$iArgs}" \
 		   "${SSBCommandLine[@]}" )
 
 # temporarily install master prefs if needed
