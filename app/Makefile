@@ -122,7 +122,7 @@ else
 DEBUG_SH:=
 DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
-PACKAGE_README:=
+PACKAGE_README:=build/resources/readme.rtf
 endif
 
 
@@ -217,7 +217,7 @@ clean-all: clean
 # PACKAGE BUILD
 # (adapted from http://thegreyblog.blogspot.com/2014/06/os-x-creating-packages-from-command_2.html)
 
-package: clean epichrome-$(VERSION).pkg
+package: epichrome-$(VERSION).pkg
 
 epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf $(PACKAGE_README) build/resources/license.rtf
 	@rm -f '$@'
