@@ -70,21 +70,21 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 # CHROMIUM ENGINE
 # (Using Marmaduke build with Google APIs and Widevine from https://chromium.woolyss.com/)
 
-CHROMIUM:=$(shell ls Engines/Chromium* 2> /dev/null | sort -r | head -n 1)
-ifeq ($(CHROMIUM),)
-$(error Unable to find Chromium archive)
-endif
-ifneq ($(suffix $(CHROMIUM)),.tgz)
-ifneq ($(suffix $(CHROMIUM)),.zip)
-$(error Unrecognized file in Engines directory: $(CHROMIUM))
-endif
-CHROMIUM:=$(CHROMIUM:.zip=.tgz)
-endif
-CHROMIUM_VERSION:=$(shell if [[ '$(CHROMIUM)' =~ [0-9][0-9.]*[0-9] ]] ; then \
-				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
-ifeq ($(CHROMIUM_VERSION),ERROR)
-$(error Unable to retrieve Chromium version from $(CHROMIUM))
-endif
+# CHROMIUM:=$(shell ls Engines/Chromium* 2> /dev/null | sort -r | head -n 1)
+# ifeq ($(CHROMIUM),)
+# $(error Unable to find Chromium archive)
+# endif
+# ifneq ($(suffix $(CHROMIUM)),.tgz)
+# ifneq ($(suffix $(CHROMIUM)),.zip)
+# $(error Unrecognized file in Engines directory: $(CHROMIUM))
+# endif
+# CHROMIUM:=$(CHROMIUM:.zip=.tgz)
+# endif
+# CHROMIUM_VERSION:=$(shell if [[ '$(CHROMIUM)' =~ [0-9][0-9.]*[0-9] ]] ; then \
+# 				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
+# ifeq ($(CHROMIUM_VERSION),ERROR)
+# $(error Unable to retrieve Chromium version from $(CHROMIUM))
+# endif
 
 
 # BRAVE ENGINE

@@ -1,12 +1,10 @@
-- **# Epichrome 2.3.0
+# Epichrome 2.3.0
 
 ## Overview
 
-Epichrome lets you easily create web-based applications that work like standalone Mac apps while still being compatible with the full range of extensions available in the Chrome Web Store. It includes an extension to route links to the system default browser.
+Epichrome lets you create web-based Mac applications compatible with the full range of extensions available in the Chrome Web Store. It includes an extension to route links to your default browser.
 
-Download the latest release **[here](https://github.com/dmarmor/epichrome/releases "Download")**, and please check out the changes and important notes below.
-
-If you find a bug or have a feature request, please submit it [here](https://github.com/dmarmor/epichrome/issues "Issues").
+Download the latest release **[here](https://github.com/dmarmor/epichrome/releases "Download")**, and please check out the important notes below. If you find a bug or have a feature request, please submit it **[here](https://github.com/dmarmor/epichrome/issues "Issues")**.
 
 
 ## How To Support Epichrome
@@ -104,22 +102,26 @@ If you find a bug or have a feature request, please submit it [here](https://git
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS Catalina 10.15.4 and Google Chrome version 81.0.4044.113.
+- Built and tested on macOS Catalina 10.15.4 and Google Chrome version 81.0.4044.138.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
 - It's not currently possible to "edit" an app. The simplest solution right now is to simply delete the app and create a new one with whatever changes you want. If you want, you can then move the old app's browser settings to the new app's data directory.
 
-- On certain websites, buttons (or other non-\<A\> tag items) open links. The way Chrome handles these, the helper extension doesn't currently catch them, so can't redirect them. I'm looking at ways around this, but for now such links just open in the app. If you're experiencing this, there's an [open issue](https://github.com/dmarmor/epichrome/issues/27 "Gmail shortcut links aren't delegated #27") where you can add your input.
+- On certain websites, buttons (or other non-\<A\> tag items) open links. The way Chrome handles these, the helper extension doesn't currently catch them, so can't redirect them. I'm looking at ways around this, but for now such links just open in the app. If you're experiencing this, there's an [issue](https://github.com/dmarmor/epichrome/issues/27 "Gmail shortcut links aren't delegated #27") where you can add your input.
 
 
 ## Acknowledgements
 
-- The underlying SSB-creation and runtime engine were inspired by [chrome-ssb-osx](https://github.com/lhl/chrome-ssb-osx "chrome-ssb-osx") by [lhl](https://github.com/lhl "lhl")
+- The underlying SSB-creation and runtime engine were inspired by [chrome-ssb-osx](https://github.com/lhl/chrome-ssb-osx "chrome-ssb-osx") by [lhl](https://github.com/lhl "lhl").
 
-- The icon-creation script makeicon.sh was inspired by Henry's comment on 12/20/2013 at 12:24 on this [StackOverflow thread](http://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil "StackOverflow thread")
+- The built-in app engine is based on the open source [Brave Browser](https://github.com/brave/brave-browser "Brave Browser"), which is itself based on [Chromium](https://www.chromium.org/Home "Chromium").
 
-- The idea for using an AppleScript interface came from a utility by Mait Vilbiks posted [here](https://www.lessannoyingcrm.com/blog/2011/01/240/Updates+to+Mac+Chrome+application+shortcuts+and+the+iOS+fullscreen+webapp+generator "Mait Vilbiks utility")
+- Epichrome apps are built using [Platypus](https://sveinbjorn.org/platypus "Platypus") (also on [GitHub](https://github.com/sveinbjornt/Platypus "Platypus on GitHub")) by [sveinbjornt](https://github.com/sveinbjornt "sveinbjornt").
+
+- The icon-creation script makeicon.sh was inspired by Henry's comment on 12/20/2013 at 12:24 on this [StackOverflow thread](http://stackoverflow.com/questions/12306223/how-to-manually-create-icns-files-using-iconutil "StackOverflow thread").
+
+- The idea for using an AppleScript interface came from a utility by Mait Vilbiks posted [here](https://www.lessannoyingcrm.com/blog/2011/01/240/Updates+to+Mac+Chrome+application+shortcuts+and+the+iOS+fullscreen+webapp+generator "Mait Vilbiks utility").
 
 - *Epichrome Helper* uses [jQuery](https://jquery.com/ "jQuery") and [jQuery UI](http://jqueryui.com/ "jQuery UI") in its options page.
 
