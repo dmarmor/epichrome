@@ -1,4 +1,4 @@
-# [![Epichrome](https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png)](#)Epichrome 2.3.0
+# [![Epichrome](https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png?s=64)](#)Epichrome 2.3.0
 
 ## Overview
 
