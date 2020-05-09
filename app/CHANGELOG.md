@@ -2,7 +2,7 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.3.0] - 2020-05-08
+## [2.3.0] - 2020-05-09
 ### Changed
 - Completely rewritten for full compatibility with macOS 10.15 Catalina, including system resource permissions (e.g. microphone and camera) and AppleScript interaction
 - Added built-in Chrome-compatible [Brave Browser](https://github.com/brave/brave-browser "Brave Browser") engine for more app-like behavior, including more robust link-routing and custom icons on desktop notifications
