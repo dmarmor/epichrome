@@ -1,4 +1,4 @@
-# Epichrome 2.3.0
+# [![Epichrome](https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png)](#)Epichrome 2.3.0
 
 ## Overview
 
@@ -9,71 +9,25 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 
 ## How To Support Epichrome
 
-<div id="patreon" class="patreon">
-  <div style="display: flex; align-items: center;">
-    <svg style="width: 140px" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 3200 1260" style="enable-background:new 0 0 3200 1260;" xml:space="preserve" class="patreon_logo">
-      <g>
-        <g>
-          <rect x="3021.2" y="95.9" class="st0" width="78.4" height="1068.6"/>
-        </g>
-        <g>
-          <path class="st0" d="M99.6,452.1h141.8c75,0,123.4,56.6,123.4,122.4s-48.4,122.4-123.4,122.4H178v93.9H99.6V452.1z M286,574.5 c0-31.5-21.3-58.6-54.2-58.6H178v117.1h53.7C264.7,633.1,286,606,286,574.5z"/>
-          <path class="st0" d="M664.9,790.8l-13.1-41.1H531.3l-13.1,41.1h-83.7l121-338.8h72.1l122.4,338.8H664.9z M591.8,548.9l-41.6,139.4 h82.3L591.8,548.9z"/>
-          <path class="st0" d="M881.7,519.8h-76.4v-67.7H1037v67.7h-77v271h-78.4V519.8z"/>
-          <path class="st0" d="M1159,452.1h142.3c75,0,123.4,56.6,123.4,122.4c0,47.4-25.2,89.5-67.3,109.4l67.8,106.9h-91l-60-93.9h-36.8 v93.9H1159V452.1z M1345.3,574.5c0-31.5-21.3-58.6-54.2-58.6h-53.7v117.1h53.7C1324,633.1,1345.3,606,1345.3,574.5z"/>
-          <path class="st0" d="M1636.2,515v76.9h128.2v61.5h-128.2v74.5h128.2v62.9h-206.6V452.1h206.6V515H1636.2z"/>
-          <path class="st0" d="M1891.7,621.5c0-92.9,66.8-178.1,179.6-178.1c112.3,0,179.1,85.2,179.1,178.1s-66.8,178.1-179.1,178.1 C1958.5,799.6,1891.7,714.4,1891.7,621.5z M2170.5,621.5c0-55.7-37.8-107.4-99.2-107.4c-61.9,0-99.2,51.8-99.2,107.4 c0,55.7,37.3,107.4,99.2,107.4C2132.7,728.9,2170.5,677.1,2170.5,621.5z"/>
-          <path class="st0" d="M2584.7,672.8V452.1h77.9v338.8h-81.8l-122-217.8v217.8h-78.4V452.1h81.8L2584.7,672.8z"/>
-        </g>
-      </g>
-    </svg>
-    <img style="width: 48px" src="https://github.com/dmarmor/epichrome/raw/master/images/webstore/webstore_icon.png" alt="Epichrome icon" />
-  </div>
-  <p class="patreon_msg">Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!</p>
-  <a href="https://www.patreon.com/bePatron?u=27108162" style="display:inline-flex;
-    justify-content:center;
-    align-items:center;
-    color:rgb(255, 255, 255);
-    font-family:aktiv-grotesk, sans-serif;
-    font-size:14px;
-    font-weight:500;
-    height:34px;
-    width:176px;
-    background-color:rgb(232, 91, 70);
-    border-bottom-left-radius:9999px;
-    border-bottom-right-radius:9999px;
-    border-top-left-radius:9999px;
-    border-top-right-radius:9999px;
-    box-sizing:border-box;
-    cursor:pointer;" target="_blank">
-    <svg style="width: 24px;
-      height: 24px;
-      padding-right: 8px;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 569 546" style="enable-background:new 0 0 569 546;" xml:space="preserve">
-      <g>
-        <circle id="Oval" style="fill:#FFFFFF;" cx="362.6" cy="204.6" r="204.6"/>
-        <rect id="Rectangle" style="fill:#FFFFFF;" width="100" height="545.8"/>
-      </g>
-    </svg>
-    Become a Patron!</a>
-      <h5 style="text-decoration: underline;">Rock Star Patrons</h5>
-      <ul style="list-style-type: none;
-        font-weight: bold;">
-        <li>Alan Latteri</li>
-        <li>Lyle Barrere</li>
-        <li>Jonathan Berger</li>
-        <li>Andrew Bonham</li>
-        <li>Lev Dubinets</li>
-        <li>Matt Fallshaw</li>
-        <li>Lanny Heidbreder</li>
-        <li>Eric Henderson</li>
-        <li>Ben Johnson</li>
-        <li>Gregory Morse</li>
-        <li>Alex Nauda</li>
-        <li>Orbital Impact</li>
-        <li>Matthew Scott</li>
-        <li>Samuel Talleux</li>
-      </ul>
-  </div> <!-- #patreon -->
+Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
+
+[![Become a patron](https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.png)](https://www.patreon.com/bePatron?u=27108162)
+
+#### Rock Star Patrons
+- **Alan Latteri**
+- **Lyle Barrere**
+- **Jonathan Berger**
+- **Andrew Bonham**
+- **Lev Dubinets**
+- **Matt Fallshaw**
+- **Lanny Heidbreder**
+- **Eric Henderson**
+- **Ben Johnson**
+- **Gregory Morse**
+- **Alex Nauda**
+- **Orbital Impact**
+- **Matthew Scott**
+- **Samuel Talleux**
 
 
 ## New in version 2.3.0
