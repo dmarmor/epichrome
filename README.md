@@ -1,4 +1,4 @@
-# [![Epichrome](https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png)](#)Epichrome 2.3.0
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.0</h1>
 
 ## Overview
 
@@ -9,25 +9,25 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 
 ## How To Support Epichrome
 
+<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162" target="_blank"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>
+
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
-[![Become a patron](https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.png)](https://www.patreon.com/bePatron?u=27108162)
-
-#### Rock Star Patrons
-- **Alan Latteri**
-- **Lyle Barrere**
-- **Jonathan Berger**
-- **Andrew Bonham**
-- **Lev Dubinets**
-- **Matt Fallshaw**
-- **Lanny Heidbreder**
-- **Eric Henderson**
-- **Ben Johnson**
-- **Gregory Morse**
-- **Alex Nauda**
-- **Orbital Impact**
-- **Matthew Scott**
-- **Samuel Talleux**
+<h4 align="center">Rock Star Patrons</h4>
+<p align="center"><b>Alan Latteri</b><br />
+<b>Lyle Barrere</b><br />
+<b>Jonathan Berger</b><br />
+<b>Andrew Bonham</b><br />
+<b>Lev Dubinets</b><br />
+<b>Matt Fallshaw</b><br />
+<b>Lanny Heidbreder</b><br />
+<b>Eric Henderson</b><br />
+<b>Ben Johnson</b><br />
+<b>Gregory Morse</b><br />
+<b>Alex Nauda</b><br />
+<b>Orbital Impact</b><br />
+<b>Matthew Scott</b><br />
+<b>Samuel Talleux</b></p>
 
 
 ## New in version 2.3.0
