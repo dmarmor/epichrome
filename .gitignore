@@ -33,5 +33,6 @@
 /runtime/zip/**
 /images/icons/*.png
 /images/package/*.png
+/images/readme/*.ai
 /images/icons/source/**
 /tests/**

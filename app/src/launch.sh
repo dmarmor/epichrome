@@ -341,7 +341,7 @@ function checkappupdate {
 	local doUpdate=Later
 
 	# set dialog info
-	local updateMsg="Version Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
+	local updateMsg="A new version of Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
 	local updateBtnUpdate='Update'
 	local updateBtnLater='Later'
 	local updateButtonList=( )
