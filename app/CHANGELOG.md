@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.3.1] - 2020-05-14
+### Changed
+- Updated built-in engine to Brave 1.8.96
+### Fixed
+- Fixed typo in update dialog
+
 ## [2.3.0] - 2020-05-09
 ### Changed
 - Completely rewritten for full compatibility with macOS 10.15 Catalina, including system resource permissions (e.g. microphone and camera) and AppleScript interaction

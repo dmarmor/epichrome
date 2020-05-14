@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.0</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.1</h1>
 
 ## Overview
 
@@ -27,10 +27,15 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Alex Nauda</b><br />
 <b>Orbital Impact</b><br />
 <b>Matthew Scott</b><br />
-<b>Samuel Talleux</b></p>
+<b>Samuel Talleux</b><br />
+<b>Thorbergsson</b></p>
 
 
-## New in version 2.3.0
+## New in version 2.3.1
+
+- The built-in engine has been updated to Brave 1.8.96.
+
+## New in version 2.3
 
 - Epichrome has been completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript.
 
