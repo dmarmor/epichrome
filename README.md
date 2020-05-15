@@ -45,7 +45,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 <!-- ## New in version 2.3 -->
 
-*Check out the [change log](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for more details.*
+*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for more details.*
 
 
 ## Important Notes
@@ -58,6 +58,10 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 - It's also a good idea to periodically backup your apps' data. You can do this the same way as backing up the apps. The path to an app's data is ```~/Library/Application Support/Epichrome/Apps/<AppID>```. In most cases, ```AppID``` will be a short version of the app's name, possible with a 3-digit number at the end (e.g. ```Gmail384```).
 
+
+## Troubleshooting
+
+If you're having trouble with an Epichrome app, please first check the [**troubleshooting guide**](https://github.com/dmarmor/epichrome/blob/master/TROUBLESHOOTING.md "troubleshooting guide"). Special thanks to [gregschroeder](https://github.com/gregschroeder "gregschroeder") for creating this guide!
 
 ## Technical Information & Limitations
 
