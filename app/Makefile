@@ -91,7 +91,7 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 BRAVE:=$(shell ls Engines/Brave* 2> /dev/null | sort -r | head -n 1)
 ifeq ($(BRAVE),)
-$(error Unable to find Brave archive)
+$(error Unable to find Brave archive, download to Engines/Brave-<release>.dmg)
 endif
 ifneq ($(suffix $(BRAVE)),.tgz)
 ifneq ($(suffix $(BRAVE)),.dmg)
@@ -167,6 +167,7 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/folder.icns \
 	build/img/app_icon.png \
 	build/img/app_icon_beta.png \
+	build/img/bookmark.png \
 	build/img/epichrome_icon.png \
 	build/epichrome-$(VERSION)-main.pkg \
 	build/resources/background.png \
@@ -210,8 +211,9 @@ clean-all: clean
 		echo rm -f "$${psd%.psd}.png" ; done
 
 %.png: %.psd
-	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
-	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
+	sips -s format png "$<" --out "$@"
+#	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
+#	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
 
 
 # PACKAGE BUILD
@@ -329,10 +331,12 @@ notarize-staple:
 
 %.app: src/package/entitlements.plist
 	xattr -cr '$@'
-	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
-		-s 'David Marmor' $@
-	codesign --verify --deep --strict --verbose=2 $@
-	spctl --assess --type execute --verbose=4 $@
+	@if [[ -f private/notarize_credentials.txt ]]; then \
+        codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
+            -s 'David Marmor' $@; \
+        codesign --verify --deep --strict --verbose=2 $@; \
+        spctl --assess --type execute --verbose=4 $@; \
+    fi
 	touch $@
 
 
@@ -604,6 +608,10 @@ $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichro
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
+$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png: build/img/bookmark.png
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
 $(APP_RNTM)/Contents/Resources/Welcome/img/%: src/welcome/img/%
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
@@ -616,6 +624,8 @@ build/img/epichrome_icon.png: ../images/icons/app.png
 	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 
+build/img/bookmark.png: ../images/icons/bookmark.psd
+	cp '$<' '$@'
 
 # *** ENGINE ***
 
@@ -675,12 +685,13 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
 	xattr -cr build/brave
-	src/signmatch.sh '' \
-		'$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
-		'$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
-		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
-		'$(BRAVE_FRAMEWORK)'
-#		'build/brave'
+	@if [[ -f private/notarize_credentials.txt ]]; then \
+        src/signmatch.sh '' \
+            '$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
+            '$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
+            '$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
+            '$(BRAVE_FRAMEWORK)'; \
+    fi
 	@rm -rf build/engine/Brave
 	@mkdir -p build/engine
 	mv build/brave/Contents build/engine/Brave
