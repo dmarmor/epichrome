@@ -33,7 +33,7 @@ for path in "$@" ; do
 	ref_app_path="$path"
     fi
     
-    cmdline=( --verbose=2 --force -s 'David Marmor' )
+    cmdline=( --verbose=2 --force -s `cat private/notarize_identity.txt` )
 
     entitlements=
     

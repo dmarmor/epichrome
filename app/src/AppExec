@@ -59,7 +59,7 @@ while [[ "$#" -gt 0 ]] ; do
 	    myLogTempVar=
 	    myRunTimestamp=
 	    ;;
-	
+
 	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
 	    # this should be sent to the open command
 	    argsURIs+=( "$1" )
@@ -213,7 +213,7 @@ function lockset {
 
     # initialize log file
     initlogfile
-    
+
     # set lock variables and write out lock
     lockPID="$$" ; lockLogFile="$myLogFile"
     lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
@@ -308,7 +308,7 @@ if ! lockset ; then
 
 	# direct logging to running app's log file
 	initlogfile "$lockLogFile"
-	
+
 	# engine is already running, so just send any files or URLs to it &
 	# don't run the usual command-line
 	debuglog "Activating already-running engine at '$lockEnginePath'"
@@ -318,7 +318,7 @@ if ! lockset ; then
 	# we're done, so exit one way or the other
 	[[ "$ok" ]] && exit 0 || abort
     else
-	
+
 	# locked but not with a running engine, so log error & quit
 	abortsilent 'Unable to set lock.'
     fi
@@ -433,7 +433,7 @@ if [[ ( -d "$SSBEnginePath" ) && \
 
     # delete old engine
     deleteengine
-    
+
 fi
 if [[ ! -d "$SSBEnginePath" ]] ; then
 
@@ -533,17 +533,17 @@ if [[ ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" 
 	    # this is the second time we've had the same error, so show an alert
 	    alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" \
 		  'Checking For Update' '|caution'
-	    
+
 	    # don't show an alert for this error again
 	    SSBUpdateCheckError="IGNORE|$errmsg"
-	    
+
 	elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
 	      "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
-	    
+
 	    # new error, so if it comes up a second time, show an alert
 	    SSBUpdateCheckError="$errmsg"
 	fi
-	
+
 	# clear error state
 	ok=1 ; errmsg=
     fi
@@ -700,7 +700,7 @@ fi
 
 # UPDATE/CREATE CENTRAL NATIVE MESSAGING HOST MANIFESTS
 
-if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
+if [[ "${SSBEngineSourceInfo[$iName]}" = Brave || "${SSBEngineSourceInfo[$iName]}" = Chromium ]] ; then
 
     updatecentralnmh
 
@@ -747,7 +747,7 @@ launchFailed=
 # UNINSTALL MASTER PREFS (IF INSTALLED)
 
 if [[ "$masterPrefsSet" ]] ; then
-    
+
     clearmasterprefs
 
     # errors clearing master prefs are nonfatal
@@ -772,13 +772,13 @@ if [[ "$myEnginePID" ]] ; then
 
     # engine PID found, so launch helper
     launchhelper Cleanup
-    
+
     # if helper didn't launch successfully, store the error
     if [[ ! "$ok" ]] ; then
 	errPostLaunch="$errmsg The app engine will not be deactivated upon quitting."
 	ok=1 ; errmsg=
     fi
-    
+
     # disown our lock
     debuglog 'Leaving lock in place for Epichrome Helper.'
     lockOn=
@@ -816,17 +816,17 @@ if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
 	   ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
 	myStatusWelcomeURL+='&m=1'
     fi
-    
+
     # pause to allow the app to open
     waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
 
     debuglog "Showing welcome page ($myStatusWelcomeURL)."
-    
+
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
 	"--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
 	'Unable to open welcome page.'
-    
+
     # save any error
     if [[ ! "$ok" ]] ; then
 	[[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
@@ -839,15 +839,15 @@ fi
 # SAVE LOST RUNTIME EXTENSION SETTINGS IF NEEDED
 
 if [[ "${myStatusFixRuntime[0]}" ]] ; then
-    
+
     # give the app 5 seconds to delete the runtime extension settings
     waitforcondition 'app to delete Epichrome Helper settings' \
 		     5 .5 test '!' -d "${myStatusFixRuntime[0]}"
-    
+
     if [[ ! -d "${myStatusFixRuntime[0]}" ]] ; then
-	
+
 	debuglog "Restoring Epichrome Helper settings."
-	
+
 	# move copied settings back into place
 	try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
 	    'Unable to restore Epichrome Helper settings.'
@@ -858,7 +858,7 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
 	fi
     else
 	debuglog "No need to restore Epichrome Helper settings."
-	
+
 	# silently remove unused backup
 	try /bin/rm -rf "${myStatusFixRuntime[1]}" \
 	    'Unable to remove backup of Epichrome Helper settings.'

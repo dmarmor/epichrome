@@ -32,6 +32,7 @@ EXTN_ID_RELEASE:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTN_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
 EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
+NOTARIZE_IDENTITY:=$(shell cat private/notarize_identity.txt)
 NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
 
 THISYEAR:=$(shell date '+%Y')
@@ -66,29 +67,38 @@ MIN_OS:="$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/C
 
 BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
+ENGINE:=brave
 
 # CHROMIUM ENGINE
 # (Using Marmaduke build with Google APIs and Widevine from https://chromium.woolyss.com/)
 
-# CHROMIUM:=$(shell ls Engines/Chromium* 2> /dev/null | sort -r | head -n 1)
-# ifeq ($(CHROMIUM),)
-# $(error Unable to find Chromium archive)
-# endif
-# ifneq ($(suffix $(CHROMIUM)),.tgz)
-# ifneq ($(suffix $(CHROMIUM)),.zip)
-# $(error Unrecognized file in Engines directory: $(CHROMIUM))
-# endif
-# CHROMIUM:=$(CHROMIUM:.zip=.tgz)
-# endif
-# CHROMIUM_VERSION:=$(shell if [[ '$(CHROMIUM)' =~ [0-9][0-9.]*[0-9] ]] ; then \
-# 				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
-# ifeq ($(CHROMIUM_VERSION),ERROR)
-# $(error Unable to retrieve Chromium version from $(CHROMIUM))
-# endif
+ifeq ($(ENGINE),chromium)
+CHROMIUM:=$(shell ls Engines/Chromium* 2> /dev/null | sort -r | head -n 1)
+ifeq ($(CHROMIUM),)
+$(error Unable to find Chromium archive, download sync version from https://chromium.woolyss.com/ to Engines/Chromium.<release>.sync.app.zip)
+endif
+ifneq ($(suffix $(CHROMIUM)),.tgz)
+ifneq ($(suffix $(CHROMIUM)),.zip)
+$(error Unrecognized file in Engines directory: $(CHROMIUM))
+endif
+CHROMIUM:=$(CHROMIUM:.zip=.tgz)
+endif
+CHROMIUM_VERSION:=$(shell if [[ '$(CHROMIUM)' =~ [0-9][0-9.]*[0-9] ]] ; then \
+				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
+ifeq ($(CHROMIUM_VERSION),ERROR)
+$(error Unable to retrieve Chromium version from $(CHROMIUM))
+endif
 
+ENGINE_NAME=Chromium
+ENGINE_LABEL=Chromium
+ENGINE_BUNDLE_ID=org.chromium.Chromium
+ENGINE_INTERMEDIATE:=build/engine/Chromium
+ENGINE_ARCHIVE=$(CHROMIUM)
+endif
 
 # BRAVE ENGINE
 
+ifeq ($(ENGINE),brave)
 BRAVE:=$(shell ls Engines/Brave* 2> /dev/null | sort -r | head -n 1)
 ifeq ($(BRAVE),)
 $(error Unable to find Brave archive, download to Engines/Brave-<release>.dmg)
@@ -104,6 +114,19 @@ BRAVE_VERSION:=$(shell if [[ '$(BRAVE)' =~ [0-9][0-9.]*[0-9] ]] ; then \
 ifeq ($(BRAVE_VERSION),ERROR)
 $(error Unable to retrieve Brave version from $(BRAVE))
 endif
+
+ENGINE_NAME=Brave Browser
+ENGINE_LABEL=Brave
+ENGINE_BUNDLE_ID=com.brave.Browser
+ENGINE_INTERMEDIATE:=build/engine/Brave
+ENGINE_ARCHIVE=$(BRAVE)
+endif
+
+# common engine
+
+ENGINE_BUNDLE_NAME=$(subst .,_,$(ENGINE_BUNDLE_ID))
+ENGINE_PREFS:=prefs_$(ENGINE_BUNDLE_NAME)
+ENGINE_NORUL_PREFS:=prefs_nourl_$(ENGINE_BUNDLE_NAME)
 
 
 # NOTARIZE INFO
@@ -140,8 +163,7 @@ APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 # META-TARGETS
 
 INTERMEDIATES:=\
-	build/engine/Brave \
-	build/engine/Chromium \
+	$(ENGINE_INTERMEDIATE) \
 	build/fake.icns \
 	build/fake.sh \
 	build/Chromium.app \
@@ -183,7 +205,6 @@ PRECIOUS_INTERMEDIATES:=\
 
 .INTERMEDIATE: main engine runtime $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
-
 # INTERNAL BUILD (DEFAULT TARGET)
 
 internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
@@ -198,7 +219,9 @@ internal: $(APP)
 clean:
 	rm -rf Epichrome/Epichrome.app
 	rm -rf build/main* build/runtime* build/engine build/resources $(INTERMEDIATES)
+ifeq ($(ENGINE),brave)
 	@hdiutil detach build/brave 2> /dev/null || true
+endif
 
 clean-package:
 	rm -f epichrome-*.pkg
@@ -209,6 +232,7 @@ clean-all: clean
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
 		echo rm -f "$${psd%.psd}.png" ; done
+	rm -f $(ENGINE_ARCHIVE)
 
 %.png: %.psd
 	sips -s format png "$<" --out "$@"
@@ -226,7 +250,7 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 	productbuild --distribution build/epichrome-$(VERSION)-dist.xml \
 		--package-path build \
 		--resources build/resources \
-		--sign 'David Marmor' \
+		--sign '$(NOTARIZE_IDENTITY)' \
 		'$@'
 
 build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
@@ -331,12 +355,9 @@ notarize-staple:
 
 %.app: src/package/entitlements.plist
 	xattr -cr '$@'
-	@if [[ -f private/notarize_credentials.txt ]]; then \
-        codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
-            -s 'David Marmor' $@; \
-        codesign --verify --deep --strict --verbose=2 $@; \
-        spctl --assess --type execute --verbose=4 $@; \
-    fi
+	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist -s '$(NOTARIZE_IDENTITY)' $@
+	codesign --verify --deep --strict --verbose=2 $@
+	spctl --assess --type execute --verbose=4 $@ || [ -n '$(IGNORE_SPCTL_ERRORS)' ]
 	touch $@
 
 
@@ -367,9 +388,9 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/epichromeruntimehost.py \
 	$(APP_RNTM)/Filter/welcome.html \
 	$(APP_RNTM)/Filter/Bookmarks \
-	$(APP_RNTM)/Filter/Prefs/prefs_com_brave_Browser.json \
+	$(APP_RNTM)/Filter/Prefs/$(ENGINE_PREFS).json \
 	$(APP_RNTM)/Filter/Prefs/prefs_com_google_Chrome.json \
-	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_brave_Browser.json \
+	$(APP_RNTM)/Filter/Prefs/$(ENGINE_NORUL_PREFS).json \
 	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_google_Chrome.json \
 	\
 	$(APP_RNTM)/epichrome.dat \
@@ -412,7 +433,10 @@ $(APP_CT)/Resources/Scripts/main.scpt: src/main.applescript src/version.sh main
 main:
 	@mkdir -p build
 	@rm -rf build/main.app build/main
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
+	sed -e 's/EPIVERSION/$(VERSION)/g' \
+	  -e 's/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
+	  -e 's/ENGINE_LABEL/$(ENGINE_LABEL)/g' \
+	  -e 's/ENGINE_BUNDLE_ID/$(ENGINE_BUNDLE_ID)/g' \
 		src/main.applescript > build/main.applescript
 #	chmod 444 src/main.applescript
 	osacompile -x -o build/main.app build/main.applescript
@@ -557,7 +581,11 @@ $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
+	sed -e 's/EPIVERSION/$(VERSION)/g' \
+	  -e 's/EPIDEBUG/$(DEBUG_SH)/g' \
+	  -e 's/EPIDEBUG/$(DEBUG_SH)/g' \
+	  -e 's/ENGINE_BUNDLE_NAME/$(ENGINE_BUNDLE_NAME)/g' \
+	  '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
@@ -632,7 +660,7 @@ build/img/bookmark.png: ../images/icons/bookmark.psd
 build/engine/%:
 	@rm -rf build/engine/$*
 	@mkdir -p '$(dir $@)'
-	tar xzvf '$<' --cd build/engine
+	tar xzvf '$(ENGINE_ARCHIVE)' --cd build/engine
 
 
 # CODESIGNED CHROMIUM
@@ -685,13 +713,11 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
 	xattr -cr build/brave
-	@if [[ -f private/notarize_credentials.txt ]]; then \
-        src/signmatch.sh '' \
-            '$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
-            '$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
-            '$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
-            '$(BRAVE_FRAMEWORK)'; \
-    fi
+	src/signmatch.sh '' \
+	    '$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
+	    '$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
+	    '$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
+	    '$(BRAVE_FRAMEWORK)'
 	@rm -rf build/engine/Brave
 	@mkdir -p build/engine
 	mv build/brave/Contents build/engine/Brave
@@ -699,30 +725,29 @@ $(BRAVE): $(BRAVE:.tgz=.dmg)
 	tar czvf '$@' --cd build/engine Brave
 	@touch build/engine/Brave
 
-
 # ENGINE FILTER ELEMENTS
 
 $(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engine/Link/Frameworks: \
 		$(BRAVE) src/version.sh engine
 
-engine: build/engine/Brave
-	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' build/engine/Brave/Info.plist)" != 'app.icns' ]] ; then \
+engine: $(ENGINE_INTERMEDIATE)
+	@if [[ "$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' $(ENGINE_INTERMEDIATE)/Info.plist)" != 'app.icns' ]] ; then \
 		echo '*** Internal engine app icon name has changed.' 1>&2 ; false ; fi
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString $(VERSION)' \
 				-c 'Delete :CFBundleDocumentTypes' \
 				-c 'Delete :CFBundleURLTypes' \
-				build/engine/Brave/Info.plist
+				$(ENGINE_INTERMEDIATE)/Info.plist
 	@mkdir -p $(APP_RNTM)/Engine/Filter
-	mv -f build/engine/Brave/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
+	mv -f $(ENGINE_INTERMEDIATE)/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
 	rm -rf $(APP_RNTM)/Engine/Link $(APP_RNTM)/Engine/Payload
 	mkdir -p $(APP_RNTM)/Engine/Link
-	mv build/engine/Brave/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
+	mv $(ENGINE_INTERMEDIATE)/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
 	@touch $(APP_RNTM)/Engine/Link/Frameworks
-	rm -f build/engine/Brave/Resources/*.icns
-	openssl AES-128-CBC -k data -in 'build/engine/Brave/MacOS/Brave Browser' -out '$(APP_RNTM)/Engine/exec.dat'
-	rm 'build/engine/Brave/MacOS/Brave Browser'
-	rmdir build/engine/Brave/MacOS
-	mv build/engine/Brave $(APP_RNTM)/Engine/Payload
+	rm -f $(ENGINE_INTERMEDIATE)/Resources/*.icns
+	openssl AES-128-CBC -k data -in '$(ENGINE_INTERMEDIATE)/MacOS/$(ENGINE_NAME)' -out '$(APP_RNTM)/Engine/exec.dat'
+	rm '$(ENGINE_INTERMEDIATE)/MacOS/$(ENGINE_NAME)'
+	rmdir $(ENGINE_INTERMEDIATE)/MacOS
+	mv $(ENGINE_INTERMEDIATE) $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
 
 $(APP_RNTM)/Engine/Filter/PlaceholderExec: src/PlaceholderExec src/version.sh
