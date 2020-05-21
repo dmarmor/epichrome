@@ -61,7 +61,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## Troubleshooting
 
-If you're having trouble with an Epichrome app, please first check the [**troubleshooting guide**](https://github.com/dmarmor/epichrome/blob/master/TROUBLESHOOTING.md "troubleshooting guide"). Special thanks to [gregschroeder](https://github.com/gregschroeder "gregschroeder") for creating this guide!
+If you're having trouble with an Epichrome app, please first check the [**troubleshooting guide**](https://github.com/dmarmor/epichrome/blob/master/TROUBLESHOOTING.md "troubleshooting guide").
 
 ## Technical Information & Limitations
 
