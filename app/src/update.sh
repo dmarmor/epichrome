@@ -233,15 +233,10 @@ The main advantage of the external Google Chrome engine is if your app must run 
     try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
     if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
-    # decrypt executable into place
-    try /bin/mkdir -p "$contentsTmp/MacOS" \
-	'Unable to create app executable directory.'
-    try /usr/bin/openssl AES-128-CBC -d -k data \
-	-in "$updateEpichromeRuntime/epichrome.dat" \
-	-out "$contentsTmp/MacOS/Epichrome" \
-	'Unable to copy app executable.'
-    try /bin/chmod +x "$contentsTmp/MacOS/Epichrome" \
-	'Unable to set app executable permissions.'
+    # copy executable into place
+    safecopy "$updateEpichromeRuntime/Exec/Epichrome" \
+	     "$contentsTmp/MacOS/Epichrome" \
+	     'app executable.'
     
     
     # FILTER APP INFO.PLIST INTO PLACE
@@ -459,15 +454,10 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	# path to payload
 	local updatePayloadPath="$updateEnginePath/Payload"
 	
-	# decrypt executable into place
-	try /bin/mkdir -p "$updatePayloadPath/MacOS" \
-	    'Unable to create app engine payload executable directory.'
-	try /usr/bin/openssl AES-128-CBC -d -k data \
-	    -in "$updateEpichromeRuntime/Engine/exec.dat" \
-	    -out "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	    'Unable to copy app engine payload executable.'
-	try /bin/chmod +x "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	    'Unable to set app engine payload executable permissions.'
+	# copy executable into place
+	safecopy "$updateEpichromeRuntime/Engine/Exec/${SSBEngineSourceInfo[$iExecutable]}" \
+	    "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+	    'app engine payload executable'
 	
 	# filter payload Info.plist into place
 	filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \

@@ -1096,7 +1096,7 @@ function safecopy {
 	
 	# get dirname for destination
 	local dstDir=
-	try 'dstDir=' dirname "$dst" "Unable to get destination directory listing for $filetype."
+	try 'dstDir=' dirname "$dst" "Unable to get destination directory for $filetype."
 	
 	# make sure destination directory exists
 	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."

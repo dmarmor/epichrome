@@ -16,7 +16,7 @@
 /app/epichrome-*.notarize*
 /app/Engines/**
 /app/Epichrome
-/app/build/**
+/app/build
 /app/icons/**
 /app/runtime/**
 /app/src/welcome/img/ext

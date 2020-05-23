@@ -12,6 +12,7 @@ if [[ "$ref_app" ]] ; then
 fi
 
 tmpentitlementsfile=build/curentitlements.plist
+dev_id="$(cat "private/codesign_identity.txt")"
 
 for path in "$@" ; do
 
@@ -33,7 +34,7 @@ for path in "$@" ; do
 	ref_app_path="$path"
     fi
     
-    cmdline=( --verbose=2 --force -s 'David Marmor' )
+    cmdline=( --verbose=2 --force -s "$dev_id" )
 
     entitlements=
     

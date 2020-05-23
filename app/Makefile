@@ -34,6 +34,8 @@ EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
 NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
 
+CODESIGN_IDENTITY:=$(shell cat private/codesign_identity.txt)
+
 THISYEAR:=$(shell date '+%Y')
 
 GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
@@ -142,12 +144,18 @@ APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 INTERMEDIATES:=\
 	build/engine/Brave \
 	build/engine/Chromium \
+	build/engine_tmp/brave \
+	build/engine_tmp/brave_dmg \
+	build/engine_tmp/brave_recodesign.sh \
+	build/engine_tmp/brave_signature.txt \
+	build/engine_tmp/brave_entitlements.plist \
 	build/fake.icns \
 	build/fake.sh \
 	build/Chromium.app \
 	build/package \
 	build/epichrome-$(VERSION)-main.plist \
 	build/epichrome-$(VERSION)-dist.xml
+
 
 PRECIOUS_INTERMEDIATES:=\
 	../images/icons/app.png \
@@ -176,7 +184,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .DELETE_ON_ERROR:
 
-.PHONY: internal package clean clean-all notarize notarize-check notarize-staple
+.PHONY: internal package clean clean-package clean-engine clean-all notarize notarize-check notarize-staple
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
@@ -196,14 +204,17 @@ internal: $(APP)
 
 clean:
 	rm -rf Epichrome/Epichrome.app
-	rm -rf build/main* build/runtime* build/engine build/resources $(INTERMEDIATES)
-	@hdiutil detach build/brave 2> /dev/null || true
+	rm -rf build/main* build/runtime* build/engine build/engine_tmp build/resources $(INTERMEDIATES)
+	@hdiutil detach build/dmg 2> /dev/null || true
 
 clean-package:
 	rm -f epichrome-*.pkg
 	rm -rf build/resources build/epichrome-*.pkg build/epichrome-*.xml build/main* build/runtime* $(INTERMEDIATES)
 
-clean-all: clean
+clean-engine:
+	rm -f $(BRAVE)
+
+clean-all: clean clean-package clean-engine
 	rm -rf build
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
@@ -224,7 +235,7 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 	productbuild --distribution build/epichrome-$(VERSION)-dist.xml \
 		--package-path build \
 		--resources build/resources \
-		--sign 'David Marmor' \
+		--sign '$(CODESIGN_IDENTITY)' \
 		'$@'
 
 build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
@@ -330,7 +341,7 @@ notarize-staple:
 %.app: src/package/entitlements.plist
 	xattr -cr '$@'
 	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
-		-s 'David Marmor' $@
+		-s '$(CODESIGN_IDENTITY)' $@
 	codesign --verify --deep --strict --verbose=2 $@
 	spctl --assess --type execute --verbose=4 $@
 	touch $@
@@ -368,7 +379,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_brave_Browser.json \
 	$(APP_RNTM)/Filter/Prefs/prefs_nourl_com_google_Chrome.json \
 	\
-	$(APP_RNTM)/epichrome.dat \
+	$(APP_RNTM)/Exec/Epichrome \
 	\
 	$(APP_RNTM)/Contents/Resources/MainMenu.nib \
 	$(APP_RNTM)/Contents/Resources/AppSettings.plist \
@@ -471,7 +482,7 @@ $(APP_CT)/Resources/Scripts/epichromeruntimehost.py: src/epichromeruntimehost.py
 
 # RUNTIME CORE
 
-$(APP_RNTM)/epichrome.dat \
+$(APP_RNTM)/Exec/Epichrome \
 $(APP_RNTM)/Contents/Resources/MainMenu.nib \
 $(APP_RNTM)/Contents/Resources/AppSettings.plist: runtime
 
@@ -494,7 +505,6 @@ runtime:
 		 --uri-schemes 'http|https|ftp|file' \
 		 --optimize-nib \
 		 build/fake.sh build/runtime.app
-#	alt:	--suffixes 'gif|html|htm|xhtml|js|jpg|jpeg|mhtml|mht|oga|ogg|ogv|png|svg|txt|text|webm|webp|pdf|'
 	mv build/runtime.app/Contents build/runtime
 	rmdir build/runtime.app
 	@rm build/fake.icns build/fake.sh
@@ -502,8 +512,14 @@ runtime:
 	@mkdir -p $(APP_RNTM)/Contents/Resources
 	mv -f build/runtime/Resources/MainMenu.nib $(APP_RNTM)/Contents/Resources/MainMenu.nib
 	mv -f build/runtime/Resources/AppSettings.plist $(APP_RNTM)/Contents/Resources/AppSettings.plist
-	openssl AES-128-CBC -k data -in 'build/runtime/MacOS/Epichrome' -out '$(APP_RNTM)/epichrome.dat'
-	@rm build/runtime/MacOS/Epichrome
+	@mkdir -p $(APP_RNTM)/Exec
+	mv -f 'build/runtime/MacOS/Epichrome' $(APP_RNTM)/Exec
+	xattr -c $(APP_RNTM)/Exec/Epichrome
+	codesign -vv -s '$(CODESIGN_IDENTITY)' \
+		--identifier 'org.epichrome.launcher' \
+		--option runtime \
+		--entitlements 'src/package/entitlements.plist' \
+		$(APP_RNTM)/Exec/Epichrome
 	@rmdir build/runtime/MacOS
 	@cd build && if ! rmdir -p runtime/Resources ; then \
 		echo '*** Unexpected files found in Platypus runtime app (check build/runtime).' 1>&2 ; false ; fi
@@ -658,40 +674,81 @@ $(CHROMIUM): $(CHROMIUM:.tgz=.zip)
 	@touch build/engine/Chromium
 
 
+
 # BRAVE MINUS SPARKLE
 
 build/engine/Brave: $(BRAVE)
 
-BRAVE_FRAMEWORK:=build/brave/Contents/Frameworks/Brave Browser Framework.framework
-$(BRAVE): $(BRAVE:.tgz=.dmg)
-	@rm -rf build/brave
-	hdiutil attach -nobrowse -mountpoint build/bravedmg '$<'
-	cp -PRv 'build/bravedmg/Brave Browser.app' build/brave
-	hdiutil detach build/bravedmg
-	codesign --remove-signature -vv build/brave
-	rmdir build/brave/Contents/_CodeSignature
-	rm build/brave/Contents/CodeResources
+BRAVE_FRAMEWORK:=build/engine_tmp/brave/Contents/Frameworks/Brave Browser Framework.framework
+$(BRAVE): build/engine_tmp/brave
+	@rm -rf build/engine/Brave
+	@mkdir -p build/engine
+	mv build/engine_tmp/brave/Contents build/engine/Brave
+	rmdir build/engine_tmp/brave
+	tar czvf '$@' --cd build/engine Brave
+	@touch build/engine/Brave
+	rm -rf build/engine_tmp
+
+build/engine_tmp/brave: build/engine_tmp/brave_dmg build/engine_tmp/brave_recodesign.sh
+	@rm -rf '$@'
+	mv -f '$<' '$@'
+	codesign --remove-signature build/engine_tmp/brave
+	rmdir build/engine_tmp/brave/Contents/_CodeSignature
+	rm build/engine_tmp/brave/Contents/CodeResources
+	mkdir build/engine_tmp/brave/Contents/Exec
+	mv -f 'build/engine_tmp/brave/Contents/MacOS/Brave Browser' build/engine_tmp/brave/Contents/Exec
+	rmdir build/engine_tmp/brave/Contents/MacOS
+	xattr -c 'build/engine_tmp/brave/Contents/Exec/Brave Browser'
+	/bin/sh 'build/engine_tmp/brave_recodesign.sh'
+	codesign --display -vv --entitlements - 'build/engine_tmp/brave/Contents/Exec/Brave Browser' 1>&2
+	rm -f 'build/engine_tmp/brave_recodesign.sh' 'build/engine_tmp/brave_entitlements.plist'
 	@if [[ ! -d '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework' ]] ; then \
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
-	xattr -cr build/brave
+	xattr -cr build/engine_tmp/brave
 	src/signmatch.sh '' \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
 		'$(BRAVE_FRAMEWORK)'
-#		'build/brave'
-	@rm -rf build/engine/Brave
-	@mkdir -p build/engine
-	mv build/brave/Contents build/engine/Brave
-	rmdir build/brave
-	tar czvf '$@' --cd build/engine Brave
-	@touch build/engine/Brave
+
+#flags="$${opts#*CodeDirectory}" && flags="$${flags%%Signature*}"
+build/engine_tmp/brave_recodesign.sh:
+	@mkdir -p build/engine_tmp
+	printf "codesign -s '$(CODESIGN_IDENTITY)' -vv --identifier org.epichrome.engine.brave" > '$@'
+	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/brave_dmg/Contents/MacOS/Brave Browser' 2>&1)" && \
+	ents="<?xml$${opts##*<?xml}" && \
+	touch 'build/engine_tmp/brave_entitlements.plist' && \
+	if [[ "$$opts" =~ flags=0x[0-9a-z]+\(([^ ]+)\) ]] ; then \
+		if [[ "$${BASH_REMATCH[1]}" != 'none' ]] ; then \
+			printf " --options \"$${BASH_REMATCH[1]}\"" >> '$@' ; \
+			if [[ "$$ents" != "$$opts" ]] ; then \
+				echo "$$ents" > 'build/engine_tmp/brave_entitlements.plist' ; \
+				printf " --entitlements 'build/engine_tmp/brave_entitlements.plist'" >> '$@' ; \
+				/usr/libexec/PlistBuddy \
+					-c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave'  \
+					-c 'Delete :keychain-access-groups' \
+					'build/engine_tmp/brave_entitlements.plist' ; \
+			fi ; \
+		fi ; \
+	fi
+	printf " 'build/engine_tmp/brave/Contents/Exec/Brave Browser'" >> '$@'
+
+build/engine_tmp/brave_dmg: $(BRAVE:.tgz=.dmg)
+	@rm -rf build/engine_tmp
+	@mkdir -p build/engine_tmp
+	hdiutil attach -nobrowse -mountpoint build/dmg '$<' && \
+	cp -PRv 'build/dmg/Brave Browser.app' build/engine_tmp/brave_dmg ; \
+	hdiutil detach build/dmg
+	touch build/engine_tmp/brave_dmg
 
 
 # ENGINE FILTER ELEMENTS
 
-$(APP_RNTM)/Engine/Filter/Info.plist $(APP_RNTM)/Engine/Payload $(APP_RNTM)/Engine/Link/Frameworks: \
+$(APP_RNTM)/Engine/Filter/Info.plist \
+$(APP_RNTM)/Engine/Exec/Brave Browser \
+$(APP_RNTM)/Engine/Payload \
+$(APP_RNTM)/Engine/Link/Frameworks: \
 		$(BRAVE) src/version.sh engine
 
 engine: build/engine/Brave
@@ -703,14 +760,16 @@ engine: build/engine/Brave
 				build/engine/Brave/Info.plist
 	@mkdir -p $(APP_RNTM)/Engine/Filter
 	mv -f build/engine/Brave/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
-	rm -rf $(APP_RNTM)/Engine/Link $(APP_RNTM)/Engine/Payload
+	rm -rf $(APP_RNTM)/Engine/Exec $(APP_RNTM)/Engine/Link $(APP_RNTM)/Engine/Payload
+	mv -f build/engine/Brave/Exec $(APP_RNTM)/Engine
 	mkdir -p $(APP_RNTM)/Engine/Link
 	mv build/engine/Brave/Frameworks $(APP_RNTM)/Engine/Link/Frameworks
 	@touch $(APP_RNTM)/Engine/Link/Frameworks
 	rm -f build/engine/Brave/Resources/*.icns
-	openssl AES-128-CBC -k data -in 'build/engine/Brave/MacOS/Brave Browser' -out '$(APP_RNTM)/Engine/exec.dat'
-	rm 'build/engine/Brave/MacOS/Brave Browser'
-	rmdir build/engine/Brave/MacOS
+	@mkdir -p $(APP_RNTM)/Engine/Exec
+#	openssl AES-128-CBC -k data -in 'build/engine/Brave/MacOS/Brave Browser' -out '$(APP_RNTM)/Engine/exec.dat'
+#	rm 'build/engine/Brave/MacOS/Brave Browser'
+#	rmdir build/engine/Brave/MacOS
 	mv build/engine/Brave $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
 
