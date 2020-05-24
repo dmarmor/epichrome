@@ -38,6 +38,11 @@ set iconPrompt to "Select an image to use as an icon."
 local iconTypes
 set iconTypes to {"public.jpeg", "public.png", "public.tiff", "com.apple.icns"}
 
+local engineBuiltin
+local engineExternal
+set engineBuiltin to {id:"internal|com.brave.Browser", buttonName:"Built-In (Brave)"}
+set engineExternal to {id:"external|com.google.Chrome", buttonName:"External (Google Chrome)"}
+
 
 -- USEFUL UTILITY VARIABLES
 
@@ -102,32 +107,34 @@ set mySettingsFile to myDataPath & "/epichrome.plist"
 
 -- PERSISTENT PROPERTIES
 
-local lastIconPath
-local lastAppPath
-local doRegisterBrowser
-local doCustomIcon
-local updateCheckDate
-local updateCheckVersion
+local epichromeState
+local appState
+set epichromeState to {lastIconPath:"", lastAppPath:"", updateCheckDate:(current date) - (1 * days), updateCheckVersion:""}
+set appState to {appNameBase:"My Epichrome App", appStyle:"App Window", appURLs:{}, doRegisterBrowser:"No", doCustomIcon:"Yes", appEngineType:id of engineBuiltin}
 
 
 -- WRITEPROPERTIES: write properties back to plist file
-on writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
-	
+on writeProperties(mySettingsFile, epichromeState, appState)
+
 	local myProperties
-	
+
 	tell application "System Events"
-		
+
 		try
 			-- create empty plist file
 			set myProperties to make new property list file with properties {contents:make new property list item with properties {kind:record}, name:mySettingsFile}
-			
-			-- fill property list
-			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastAppPath", value:lastAppPath}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doRegisterBrowser", value:doRegisterBrowser}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doCustomIcon", value:doCustomIcon}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:date, name:"updateCheckDate", value:updateCheckDate}
-			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"updateCheckVersion", value:updateCheckVersion}
+
+			-- fill property list with epichromeState
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastIconPath", value:lastIconPath of epichromeState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"lastAppPath", value:lastAppPath of epichromeState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:date, name:"updateCheckDate", value:updateCheckDate of epichromeState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"updateCheckVersion", value:updateCheckVersion of epichromeState}
+
+			-- fill property list with appState
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"appStyle", value:appStyle of appState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doRegisterBrowser", value:doRegisterBrowser of appState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:boolean, name:"doCustomIcon", value:doCustomIcon of appState}
+			make new property list item at end of property list items of contents of myProperties with properties {kind:string, name:"appEngineType", value:appEngineType of appState}
 		on error errStr number errNum
 			-- ignore errors, we just won't have persistent properties
 		end try
@@ -138,60 +145,79 @@ end writeProperties
 -- READ PROPERTIES FROM USER DATA OR INITIALIZE THEM IF NONE FOUND
 
 tell application "System Events"
-	
+
 	local myProperties
-	
+
 	-- read in the file
 	try
 		set myProperties to property list file mySettingsFile
 	on error
 		set myProperties to null
 	end try
-	
+
 	-- set properties from the file & if anything went wrong, initialize any unset properties
-	
+
 	-- lastIconPath
 	try
-		set lastIconPath to (value of (get property list item "lastIconPath" of myProperties) as text)
+		set lastIconPath of epichromeState to (value of (get property list item "lastIconPath" of myProperties) as text)
 	on error
-		set lastIconPath to ""
+		set lastIconPath of epichromeState to ""
 	end try
-	
+
 	-- lastAppPath
 	try
-		set lastAppPath to (value of (get property list item "lastAppPath" of myProperties) as text)
+		set lastAppPath of epichromeState to (value of (get property list item "lastAppPath" of myProperties) as text)
 	on error
-		set lastAppPath to ""
+		set lastAppPath of epichromeState to ""
 	end try
-	
-	-- doRegisterBrowser
-	try
-		set doRegisterBrowser to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
-	on error
-		set doRegisterBrowser to "No"
-	end try
-	
-	-- doCustomIcon
-	try
-		set doCustomIcon to (value of (get property list item "doCustomIcon" of myProperties) as text)
-	on error
-		set doCustomIcon to "Yes"
-	end try
-	
+
 	-- updateCheckDate
 	try
-		set updateCheckDate to (value of (get property list item "updateCheckDate" of myProperties) as date)
+		set updateCheckDate of epichromeState to (value of (get property list item "updateCheckDate" of myProperties) as date)
 	on error
-		set updateCheckDate to (current date) - (1 * days)
+		set updateCheckDate of epichromeState to (current date) - (1 * days)
 	end try
-	
+
 	-- updateCheckVersion
 	try
-		set updateCheckVersion to (value of (get property list item "updateCheckVersion" of myProperties) as string)
+		set updateCheckVersion of epichromeState to (value of (get property list item "updateCheckVersion" of myProperties) as string)
 	on error
-		set updateCheckVersion to ""
+		set updateCheckVersion of epichromeState to ""
 	end try
-	
+
+	-- appStyle
+	try
+		set appStyle of appState to (value of (get property list item "appStyle" of myProperties) as text)
+	on error
+		set appStyle of appState to "App Window"
+	end try
+
+	-- doRegisterBrowser
+	try
+		set doRegisterBrowser of appState to (value of (get property list item "doRegisterBrowser" of myProperties) as text)
+	on error
+		set doRegisterBrowser of appState to "No"
+	end try
+
+	-- doCustomIcon
+	try
+		set doCustomIcon of appState to (value of (get property list item "doCustomIcon" of myProperties) as text)
+	on error
+		set doCustomIcon of appState to "Yes"
+	end try
+
+	-- appEngineType
+	try
+		set appEngineType of appState to (value of (get property list item "appEngineType" of myProperties) as text)
+		if appEngineType of appState starts with "external" then
+			set appEngineType of appState to (id of engineExternal)
+		else
+			set appEngineType of appState to (id of engineBuiltin)
+		end if
+	on error
+		set appEngineType of appState to (id of engineBuiltin)
+	end try
+
 end tell
 
 
@@ -208,7 +234,7 @@ on tablist(tabs, tabnum)
 	local ttext
 	local t
 	local ti
-	
+
 	if (count of tabs) is 0 then
 		return "No tabs specified.
 
@@ -222,7 +248,7 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will 
 		end if
 		set ttext to ttext & " specified:
 "
-		
+
 		-- add tabs themselves to the text
 		set ti to 1
 		repeat with t in tabs
@@ -244,48 +270,41 @@ Click \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will 
 end tablist
 
 
--- INITIALIZE IMPORTANT VARIABLES
-local appNameBase
-set appNameBase to "My Epichrome App"
-local appURLs
-set appURLs to {}
-
-
 -- CHECK FOR UPDATES TO EPICHROME
 
 local curDate
 set curDate to current date
 
-if updateCheckDate < curDate then
+if (updateCheckDate of epichromeState) < curDate then
 	-- set next update for 1 week from now
-	set updateCheckDate to (curDate + (7 * days))
-	
+	set updateCheckDate of epichromeState to (curDate + (7 * days))
+
 	-- run the update check script
 	local updateCheckResult
 	try
-		set updateCheckResult to do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of updateCheckVersion)) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+		set updateCheckResult to do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of updateCheckScript) & "' '" & (quoted form of (quoted form of (updateCheckVersion of epichromeState))) & "' '" & (quoted form of (quoted form of myVersion)) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 		set updateCheckResult to paragraphs of updateCheckResult
 	on error errStr number errNum
 		set updateCheckResult to {"ERROR", errStr}
 	end try
-	
+
 	-- parse update check results
-	
+
 	if item 1 of updateCheckResult is "MYVERSION" then
 		-- updateCheckVersion is older than the current version, so update it
-		set updateCheckVersion to myVersion
+		set updateCheckVersion of epichromeState to myVersion
 		set updateCheckResult to rest of updateCheckResult
 	end if
-	
+
 	if item 1 of updateCheckResult is "ERROR" then
 		-- update check error: fail silently, but check again in 3 days instead of 7
-		set updateCheckDate to (curDate + (3 * days))
+		set updateCheckDate of epichromeState to (curDate + (3 * days))
 	else
 		-- assume "OK" status
 		set updateCheckResult to rest of updateCheckResult
-		
+
 		if (count of updateCheckResult) is 1 then
-			
+
 			-- update check found a newer version on GitHub
 			local newVersion
 			set newVersion to item 1 of updateCheckResult
@@ -295,12 +314,12 @@ if updateCheckDate < curDate then
 				-- Later: do nothing
 				set dlgResult to false
 			end try
-			
+
 			-- Download or Ignore
 			if dlgResult is "Download" then
 				open location "GITHUBUPDATEURL"
 			else if dlgResult is "Ignore This Version" then
-				set updateCheckVersion to newVersion
+				set updateCheckVersion of epichromeState to newVersion
 			end if
 		end if -- (count of updateCheckResult) is 1
 	end if -- item 1 of updateCheckResult is "ERROR"
@@ -318,56 +337,56 @@ repeat
 		on error number -128
 			try
 				display dialog "The app has not been created. Are you sure you want to quit?" with title "Confirm" with icon myIcon buttons {"No", "Yes"} default button "Yes" cancel button "No"
-				writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(mySettingsFile, epichromeState, appState)
 				return -- QUIT
 			on error number -128
 			end try
 		end try
 	end repeat
-	
-	
+
+
 	-- APPLICATION FILE SAVE DIALOGUE
 	repeat
 		-- CHOOSE WHERE TO SAVE THE APP
-		
+
 		local appPath
 		set appPath to false
 		local tryAgain
 		set tryAgain to true
-		
+
 		repeat while tryAgain
 			set tryAgain to false -- assume we'll succeed
-			
+
 			-- show file selection dialog
 			local lastAppPathAlias
 			try
-				set lastAppPathAlias to (lastAppPath as alias)
+				set lastAppPathAlias to ((lastAppPath of epichromeState) as alias)
 			on error
 				set lastAppPathAlias to ""
 			end try
 			try
 				if lastAppPathAlias is not "" then
-					set appPath to (choose file name with prompt promptNameLoc default name appNameBase default location lastAppPathAlias) as text
+					set appPath to (choose file name with prompt promptNameLoc default name (appNameBase of appState) default location lastAppPathAlias) as text
 				else
-					set appPath to (choose file name with prompt promptNameLoc default name appNameBase) as text
+					set appPath to (choose file name with prompt promptNameLoc default name (appNameBase of appState)) as text
 				end if
 			on error number -128
 				exit repeat
 			end try
-			
+
 			-- break down the path & canonicalize app name
 			local appInfo
 			try
 				set appInfo to do shell script pathInfoScript & " app " & quoted form of (POSIX path of appPath)
 			on error errStr number errNum
 				display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-				writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+				writeProperties(mySettingsFile, epichromeState, appState)
 				return -- QUIT
 			end try
-			
+
 			local appDir
 			set appDir to (paragraph 1 of appInfo)
-			set appNameBase to (paragraph 2 of appInfo)
+			set appNameBase of appState to (paragraph 2 of appInfo)
 			local appShortName
 			set appShortName to (paragraph 3 of appInfo)
 			local appName
@@ -375,11 +394,11 @@ repeat
 			set appPath to (paragraph 5 of appInfo)
 			local appExtAdded
 			set appExtAdded to (paragraph 6 of appInfo)
-			
+
 			-- update the last path info
-			set lastAppPath to (((POSIX file appDir) as alias) as text)
-			
-			
+			set lastAppPath of epichromeState to (((POSIX file appDir) as alias) as text)
+
+
 			-- check if we have permission to write to this directory
 			if (do shell script "#!/bin/bash
 if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is not "Yes" then
@@ -406,22 +425,22 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 				end if
 			end if
 		end repeat
-		
+
 		if appPath is false then
 			exit repeat
 		end if
-		
+
 		set curStep to curStep + 1
-		
+
 		repeat
-			
+
 			-- STEP 2: SHORT APP NAME
-			
+
 			local appShortNamePrompt
 			set appShortNamePrompt to "Enter the app name that should appear in the menu bar (16 characters or less)."
-			
+
 			set tryAgain to true
-			
+
 			local appShortNameCanceled
 			local appShortNamePrev
 			repeat while tryAgain
@@ -435,7 +454,7 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 					set curStep to curStep - 1
 					exit repeat
 				end try
-				
+
 				if (count of appShortName) > 16 then
 					set tryAgain to true
 					set appShortNamePrompt to "That name is too long. Please limit the name to 16 characters or less."
@@ -446,41 +465,40 @@ if [[ -w \"" & appDir & "\" ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") is 
 					set appShortName to appShortNamePrev
 				end if
 			end repeat
-			
+
 			if appShortNameCanceled then
 				exit repeat
 			end if
-			
+
 			-- STEP 3: CHOOSE APP STYLE
 			set curStep to curStep + 1
-			
+
 			repeat
-				local appStyle
 				try
-					set appStyle to button returned of (display dialog "Choose App Style:
+					set appStyle of appState to button returned of (display dialog "Choose App Style:
 
 APP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)
 
-BROWSER TABS - The app will display a full browser window with the given tabs." with title step(curStep) with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button "App Window" cancel button "Back")
-					
+BROWSER TABS - The app will display a full browser window with the given tabs." with title step(curStep) with icon myIcon buttons {"App Window", "Browser Tabs", "Back"} default button (appStyle of appState) cancel button "Back")
+
 				on error number -128 -- Back button
 					set curStep to curStep - 1
 					exit repeat
 				end try
-				
+
 				-- STEP 4: CHOOSE URLS
 				set curStep to curStep + 1
-				
+
 				-- initialize URL list
-				if (appURLs is {}) and (appStyle is "App Window") then
-					set appURLs to {appDefaultURL}
+				if (appURLs of appState is {}) and (appStyle of appState is "App Window") then
+					set appURLs of appState to {appDefaultURL}
 				end if
-				
+
 				repeat
-					if appStyle is "App Window" then
+					if appStyle of appState is "App Window" then
 						-- APP WINDOW STYLE
 						try
-							set (item 1 of appURLs) to text returned of (display dialog "Choose URL:" with title step(curStep) with icon myIcon default answer (item 1 of appURLs) buttons {"OK", "Back"} default button "OK" cancel button "Back")
+							set (item 1 of (appURLs of appState)) to text returned of (display dialog "Choose URL:" with title step(curStep) with icon myIcon default answer (item 1 of (appURLs of appState)) buttons {"OK", "Back"} default button "OK" cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
@@ -490,13 +508,13 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 						local curTab
 						set curTab to 1
 						repeat
-							if curTab > (count of appURLs) then
+							if curTab > (count of (appURLs of appState)) then
 								try
-									set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer appDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
+									set dlgResult to display dialog tablist(appURLs of appState, curTab) with title step(curStep) with icon myIcon default answer appDefaultURL buttons {"Add", "Done (Don't Add)", "Back"} default button "Add" cancel button "Back"
 								on error number -128 -- Back button
 									set dlgResult to "Back"
 								end try
-								
+
 								if dlgResult is "Back" then
 									if curTab is 1 then
 										set curTab to 0
@@ -506,7 +524,7 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 									end if
 								else if (button returned of dlgResult) is "Add" then
 									-- add the current text to the end of the list of URLs
-									set (end of appURLs) to text returned of dlgResult
+									set (end of (appURLs of appState)) to text returned of dlgResult
 									set curTab to curTab + 1
 								else -- "Done (Don't Add)"
 									-- we're done, don't add the current text to the list
@@ -517,93 +535,93 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 								set backButton to 0
 								if curTab is 1 then
 									try
-										set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
+										set dlgResult to display dialog tablist(appURLs of appState, curTab) with title step(curStep) with icon myIcon default answer (item curTab of (appURLs of appState)) buttons {"Next", "Remove", "Back"} default button "Next" cancel button "Back"
 									on error number -128
 										set backButton to 1
 									end try
 								else
-									set dlgResult to display dialog tablist(appURLs, curTab) with title step(curStep) with icon myIcon default answer (item curTab of appURLs) buttons {"Next", "Remove", "Previous"} default button "Next"
+									set dlgResult to display dialog tablist(appURLs of appState, curTab) with title step(curStep) with icon myIcon default answer (item curTab of (appURLs of appState)) buttons {"Next", "Remove", "Previous"} default button "Next"
 								end if
-								
+
 								if (backButton is 1) or ((button returned of dlgResult) is "Previous") then
 									if backButton is 1 then
 										set curTab to 0
 										exit repeat
 									else
-										set (item curTab of appURLs) to text returned of dlgResult
+										set (item curTab of (appURLs of appState)) to text returned of dlgResult
 										set curTab to curTab - 1
 									end if
 								else if (button returned of dlgResult) is "Next" then
-									set (item curTab of appURLs) to text returned of dlgResult
+									set (item curTab of (appURLs of appState)) to text returned of dlgResult
 									set curTab to curTab + 1
 								else -- "Remove"
 									if curTab is 1 then
-										set appURLs to rest of appURLs
-									else if curTab is (count of appURLs) then
-										set appURLs to (items 1 thru -2 of appURLs)
+										set appURLs of appState to rest of (appURLs of appState)
+									else if curTab is (count of (appURLs of appState)) then
+										set appURLs of appState to (items 1 thru -2 of (appURLs of appState))
 										set curTab to curTab - 1
 									else
-										set appURLs to ((items 1 thru (curTab - 1) of appURLs)) & ((items (curTab + 1) thru -1 of appURLs))
+										set appURLs of appState to ((items 1 thru (curTab - 1) of (appURLs of appState))) & ((items (curTab + 1) thru -1 of (appURLs of appState)))
 									end if
 								end if
 							end if
 						end repeat
-						
+
 						if curTab is 0 then
 							-- we hit the back button
 							set curStep to curStep - 1
 							exit repeat
 						end if
 					end if
-					
+
 					-- STEP 5: REGISTER AS BROWSER?
 					set curStep to curStep + 1
-					
+
 					repeat
 						try
-							set doRegisterBrowser to button returned of (display dialog "Register app as a browser?" with title step(curStep) with icon myIcon buttons {"No", "Yes", "Back"} default button doRegisterBrowser cancel button "Back")
+							set doRegisterBrowser of appState to button returned of (display dialog "Register app as a browser?" with title step(curStep) with icon myIcon buttons {"No", "Yes", "Back"} default button (doRegisterBrowser of appState) cancel button "Back")
 						on error number -128 -- Back button
 							set curStep to curStep - 1
 							exit repeat
 						end try
-						
+
 						-- STEP 6: SELECT ICON FILE
 						set curStep to curStep + 1
-						
+
 						repeat
 							try
-								set doCustomIcon to button returned of (display dialog "Do you want to provide a custom icon?" with title step(curStep) with icon myIcon buttons {"Yes", "No", "Back"} default button doCustomIcon cancel button "Back")
+								set doCustomIcon of appState to button returned of (display dialog "Do you want to provide a custom icon?" with title step(curStep) with icon myIcon buttons {"Yes", "No", "Back"} default button (doCustomIcon of appState) cancel button "Back")
 							on error number -128 -- Back button
 								set curStep to curStep - 1
 								exit repeat
 							end try
-							
+
 							repeat
-								if doCustomIcon is "Yes" then
-									
+								if doCustomIcon of appState is "Yes" then
+
 									-- CHOOSE AN APP ICON
-									
+
 									-- show file selection dialog
 									local lastIconPathAlias
 									try
-										set lastIconPathAlias to (lastIconPath as alias)
+										set lastIconPathAlias to ((lastIconPath of epichromeState) as alias)
 									on error
 										set lastIconPathAlias to ""
 									end try
-									
+
 									local appIconSrc
 									try
 										if lastIconPathAlias is not "" then
-											
+
 											set appIconSrc to choose file with prompt iconPrompt of type iconTypes default location lastIconPathAlias without invisibles
 										else
 											set appIconSrc to choose file with prompt iconPrompt of type iconTypes without invisibles
 										end if
-										
+
 									on error number -128
 										exit repeat
 									end try
-									
+
 									-- get icon path info
 									set appIconSrc to (POSIX path of appIconSrc)
 									-- break down the path & canonicalize icon name
@@ -611,39 +629,55 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 										set appInfo to do shell script pathInfoScript & " icon " & quoted form of appIconSrc
 									on error errStr number errNum
 										display dialog errStr with title "Error" with icon stop buttons {"OK"} default button "OK"
-										writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+										writeProperties(mySettingsFile, epichromeState, appState)
 										return -- QUIT
 									end try
-									
-									set lastIconPath to (((POSIX file (paragraph 1 of appInfo)) as alias) as text)
+
+									set lastIconPath of epichromeState to (((POSIX file (paragraph 1 of appInfo)) as alias) as text)
 									local appIconName
 									set appIconName to (paragraph 2 of appInfo)
-									
+
 								else
 									set appIconSrc to ""
 								end if
-								
+
 								-- STEP 7: SELECT ENGINE
 								set curStep to curStep + 1
-								
+
+								-- initialize engine choice buttons
+								local appEngineButton
+								if appEngineType of appState starts with "external" then
+									set appEngineButton to buttonName of engineExternal
+								else
+									set appEngineButton to buttonName of engineBuiltin
+								end if
+
 								repeat
-									local appEngineType
 									try
-										set appEngineType to button returned of (display dialog "Use built-in app engine, or external browser engine?
+										set appEngineButton to button returned of (display dialog "Use built-in app engine, or external browser engine?
 
 NOTE: If you don't know what this question means, choose Built-In.
 
 In almost all cases, using the built-in engine will result in a more functional app. Using an external browser engine has several disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.
 
-The main reason to choose the external browser engine is if your app must run on a signed browser (for things like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step(curStep) with icon myIcon buttons {"Built-In (Brave)", "External (Google Chrome)", "Back"} default button "Built-In (Brave)" cancel button "Back")
+The main reason to choose the external browser engine is if your app must run on a signed browser (for things like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension)." with title step(curStep) with icon myIcon buttons {buttonName of engineBuiltin, buttonName of engineExternal, "Back"} default button appEngineButton cancel button "Back")
 									on error number -128 -- Back button
 										set curStep to curStep - 1
 										exit repeat
 									end try
-									
+
+									-- set app engine
+									if appEngineButton is (buttonName of engineExternal) then
+										set appEngineType of appState to (id of engineExternal)
+									else
+										set appEngineType of appState to (id of engineBuiltin)
+									end if
+
+
+
 									-- STEP 8: CREATE APPLICATION
 									set curStep to curStep + 1
-									
+
 									-- create summary of the app
 									local appSummary
 									set appSummary to "Ready to create!
@@ -655,18 +689,18 @@ Menubar Name: " & appShortName & "
 Path: " & appDir & "
 
 "
-									if appStyle is "App Window" then
+									if appStyle of appState is "App Window" then
 										set appSummary to appSummary & "Style: App Window
 
-URL: " & (item 1 of appURLs)
+URL: " & (item 1 of (appURLs of appState))
 									else
 										set appSummary to appSummary & "Style: Browser Tabs
 
 Tabs: "
-										if (count of appURLs) is 0 then
+										if (count of (appURLs of appState)) is 0 then
 											set appSummary to appSummary & "<none>"
 										else
-											repeat with t in appURLs
+											repeat with t in (appURLs of appState)
 												set appSummary to appSummary & "
   -  " & t
 											end repeat
@@ -674,7 +708,7 @@ Tabs: "
 									end if
 									set appSummary to appSummary & "
 
-Register as Browser: " & doRegisterBrowser & "
+Register as Browser: " & doRegisterBrowser of appState & "
 
 Icon: "
 									if appIconSrc is "" then
@@ -682,30 +716,23 @@ Icon: "
 									else
 										set appSummary to appSummary & appIconName
 									end if
-									
+
 									set appSummary to appSummary & "
 
 App Engine: "
-									set appSummary to appSummary & appEngineType
-									
-									-- format app engine
-									if appEngineType starts with "External" then
-										set appEngineType to "external|com.google.Chrome"
-									else
-										set appEngineType to "internal|com.brave.Browser"
-									end if
-									
+									set appSummary to appSummary & appEngineButton
+
 									-- set up Chrome command line
 									local appCmdLine
 									set appCmdLine to ""
-									if appStyle is "App Window" then
-										set appCmdLine to quoted form of ("--app=" & (item 1 of appURLs))
-									else if (count of appURLs) > 0 then
-										repeat with t in appURLs
+									if appStyle of appState is "App Window" then
+										set appCmdLine to quoted form of ("--app=" & (item 1 of (appURLs of appState)))
+									else if (count of (appURLs of appState)) > 0 then
+										repeat with t in (appURLs of appState)
 											set appCmdLine to appCmdLine & " " & quoted form of t
 										end repeat
 									end if
-									
+
 									repeat
 										try
 											display dialog appSummary with title step(curStep) with icon myIcon buttons {"Create", "Back"} default button "Create" cancel button "Back"
@@ -713,23 +740,23 @@ App Engine: "
 											set curStep to curStep - 1
 											exit repeat
 										end try
-										
-										
+
+
 										-- CREATE THE APP
-										
+
 										repeat
 											local creationSuccess
 											set creationSuccess to false
 											try
-												do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of appNameBase)) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of doRegisterBrowser)) & "' '" & (quoted form of (quoted form of appEngineType)) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
+												do shell script scriptEnv & " /bin/bash -c 'source '" & (quoted form of buildScript) & "' '" & (quoted form of (quoted form of appPath)) & "' '" & (quoted form of (quoted form of (appNameBase of appState))) & "' '" & (quoted form of (quoted form of appShortName)) & "' '" & (quoted form of (quoted form of appIconSrc)) & "' '" & (quoted form of (quoted form of (doRegisterBrowser of appState))) & "' '" & (quoted form of (quoted form of (appEngineType of appState))) & "' '" & (quoted form of appCmdLine) & "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'"
 												set creationSuccess to true
 											on error errStr number errNum
-												
+
 												-- unable to create app due to permissions
 												if errStr is "PERMISSION" then
 													set errStr to "Unable to write to \"" & appDir & "\"."
 												end if
-												
+
 												if not creationSuccess then
 													local dlgButtons
 													try
@@ -743,24 +770,24 @@ App Engine: "
 															tell application "Finder" to reveal ((POSIX file myLogFile) as alias)
 															tell application "Finder" to activate
 														end if
-														writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- Quit button
+														writeProperties(mySettingsFile, epichromeState, appState) -- Quit button
 														return -- QUIT
 													on error number -128 -- Back button
 														exit repeat
 													end try
 												end if
 											end try
-											
+
 											-- SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 											try
-												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & appNameBase & "\".
+												set dlgResult to button returned of (display dialog "Created Epichrome app \"" & appNameBase of appState & "\".
 
 IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it." with title "Success!" buttons {"Launch Now", "Reveal in Finder", "Quit"} default button "Launch Now" cancel button "Quit" with icon myIcon)
 											on error number -128
-												writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- "Quit" button
+												writeProperties(mySettingsFile, epichromeState, appState) -- "Quit" button
 												return -- QUIT
 											end try
-											
+
 											-- launch or reveal
 											if dlgResult is "Launch Now" then
 												delay 1
@@ -768,7 +795,7 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 													do shell script "/usr/bin/open " & quoted form of (POSIX path of appPath)
 													--tell application appName to activate
 												on error
-													writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion)
+													writeProperties(mySettingsFile, epichromeState, appState)
 													return -- QUIT
 												end try
 											else
@@ -776,31 +803,31 @@ IMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically inst
 												tell application "Finder" to reveal ((POSIX file appPath) as alias)
 												tell application "Finder" to activate
 											end if
-											
-											writeProperties(mySettingsFile, lastIconPath, lastAppPath, doRegisterBrowser, doCustomIcon, updateCheckDate, updateCheckVersion) -- We're done!
+
+											writeProperties(mySettingsFile, epichromeState, appState) -- We're done!
 											return -- QUIT
-											
+
 										end repeat
-										
+
 									end repeat
-									
+
 								end repeat
-								
+
 								exit repeat -- We always kick back to the question of whether to use a custom icon
 							end repeat
-							
+
 						end repeat
-						
+
 					end repeat
-					
+
 				end repeat
-				
+
 			end repeat
-			
+
 		end repeat
-		
+
 		exit repeat -- always kick back to the first dialogue (instead of the file save dialog)
-		
+
 	end repeat
-	
+
 end repeat

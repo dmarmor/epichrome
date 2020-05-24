@@ -537,7 +537,7 @@ $(APP_RNTM)/Filter/AppExec: src/AppExec src/version.sh
 
 $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_PY)/g' $< > $@
+	sed -e 's/EPIVERSION/$(VERSION)/g; s/debug = True/$(DEBUG_PY)/g' $< > $@
 
 
 # RUNTIME ICONS

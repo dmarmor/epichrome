@@ -15,12 +15,25 @@ Adjust to application installation location as necessary.
 
 ## To delete an Epichrome app
 
+Note that not all of these files or folders will exist for every app. This is normal. Just delete the ones you find.
+
 1. Delete `/Applications/<AppName>` (or wherever you created the SSB app)
-1. Delete `/Applications/Epichrome/EpichromeEngines.noindex/<User>/<AppID>`
+
+1. Delete `/Applications/Epichrome/EpichromeEngines.noindex/<User>/<AppID>` (or
+wherever Epichrome is installed)
+
 1. Delete `~/Library/Application Support/Epichrome/Apps/<AppID>`
+
+1. Delete `~/Library/Preferences/org.epichrome.app.<AppID>.plist`
+
 1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
-1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
+
+1. Delete `~/Library/Caches/org.epichrome.app.<AppID>`
+
 1. Delete `~/Library/Caches/org.epichrome.eng.<AppID>`
+
+1. Delete `~/Library/Saved Application State/org.epichrome.app.<AppID>.savedState`
+
 1. Delete `~/Library/Saved Application State/org.epichrome.eng.<AppID>.savedState`
 
 ## Login data not saving
