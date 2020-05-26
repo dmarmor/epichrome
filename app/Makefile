@@ -46,7 +46,7 @@ GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
 VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
 
 BUILDNUM:=$(shell source src/version.sh ; \
-			read -p "$$(printf 'Bump build number (%03d -> %03d) ? ' $$epiBuildNum $$(($$epiBuildNum + 1)))" ans && \
+			read -p "$$(printf 'Bump build number (%03d -> %03d)? [n] ' $$epiBuildNum $$(($$epiBuildNum + 1)))" ans && \
 			if [[ "$$ans" =~ ^[Yy] ]] ; then \
 				epiBuildNum="$$(($$epiBuildNum + 1))" ; \
 				sed -i '' -E 's/^epiBuildNum=.*$$/epiBuildNum='"$$epiBuildNum"'/' src/version.sh ; \

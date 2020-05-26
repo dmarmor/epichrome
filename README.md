@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.1</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.2</h1>
 
 ## Overview
 
@@ -31,9 +31,14 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Thorbergsson</b></p>
 
 
-## New in version 2.3.1
+## New in version 2.3.2
 
-- The built-in engine has been updated to Brave 1.8.96.
+- The built-in engine has been updated to Brave 1.9.72.
+
+- Fixed a problem that caused anti-virus software to report a false virus match on Epichrome apps ([issue #213](https://github.com/dmarmor/epichrome/issues/213 "issue #213")).
+
+- Made changes to try to fix an occasional problem where Brave-based apps lose session state and saved passwords between runs. This is a rare issue, so this fix is not confirmed. If you run into it after updating to 2.3.2, please report it in [issue #215](https://github.com/dmarmor/epichrome/issues/215 "issue #215").
+
 
 ## New in version 2.3
 
@@ -65,7 +70,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS Catalina 10.15.4 and Google Chrome version 81.0.4044.138.
+- Built and tested on macOS Catalina 10.15.4 and Google Chrome version 83.0.4103.61.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 

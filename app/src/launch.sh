@@ -2694,7 +2694,7 @@ function launchhelper { # ( mode )
 	'Got error launching Epichrome helper app.'
 
     # open error state is unreliable, so ignore it
-    ok=1 ; errmsg
+    ok=1 ; errmsg=
     
     # check the process table for helper
     function checkforhelper {
