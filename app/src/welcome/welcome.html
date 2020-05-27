@@ -41,7 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <!-- LOOK AT ME DAMMIT -->
 
     <div id="alert" class="alert bounce_box hide">
-      <div class="alert_message"><p><span class="important">IMPORTANT:</span> Whenever this <span class="al_update hide">redesigned </span>welcome page appears, <i>please</i> read it carefully&mdash;especially any action items listed below.</p><p class="alert_extra al_update_runtime al_ext_reinstall emphasis hide">(In this case:<span class="al_update_runtime hide"> This update may have removed Epichrome Helper and you&rsquo;ll need to reinstall it.</span><span class="al_ext_reinstall hide"> Because of <span class="al_update_runtime hide">other </span>changes to the app, you will <span class="al_update_runtime hide">also </span>need to reinstall all of your <span class="al_update_runtime hide">other </span><span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>.</span>)</p></p></div>
+      <div class="alert_message"><p><span class="important">IMPORTANT:</span> Whenever this <span class="al_update hide">redesigned </span>welcome page appears, <i>please</i> read it carefully&mdash;especially any action items listed below.</p><p class="alert_extra al_update_runtime al_ext_reinstall emphasis hide">(In this case:<span class="al_update_runtime hide"> This update may have removed Epichrome Helper and you&rsquo;ll need to reinstall it.</span><span class="al_ext_reinstall hide"> Because of <span class="al_update_runtime hide">other </span>changes to the app, you will <span class="al_update_runtime hide">also </span>need to reinstall all of your <span class="al_update_runtime hide">other </span><span class="has_exts">extensions</span><span class="has_exts_apps hide"> and </span><span class="has_apps hide">apps</span>.</span>)</p></div>
       <div id="alert_close" class="alert_close"><span>x</span></div>
     </div>
 
@@ -96,21 +96,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
           <div id="changes_update" class="changes_update group_pg pg_update hide">
             <div id="changes_update_lists" class="changes_update_lists">
-              <div id="changes_minor" class="change_list changes_minor changes_version_zero"> <!-- .changes_version_zero for x.x.0 -->
+              <div id="changes_minor" class="change_list changes_minor"> <!-- add .changes_version_zero for x.x.0 -->
                 <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
                 <ul>
+                  <li>Built-in engine updated to Brave 1.9.72</li>
+                  <li>Anti-virus software should no longer report a false virus match on Epichrome apps (<a href="https://github.com/dmarmor/epichrome/issues/213" target="_blank">issue #213</a>)</li>
+                  <li>[Unconfirmed] Brave-based apps should (hopefully) no longer lose session state and saved passwords between runs (<a href="https://github.com/dmarmor/epichrome/issues/215" target="_blank">issue #215</a>)</li>
+                </ul>
+              </div>
+              <!-- hide this for x.x.0 releases -->
+              <div id="changes_major" class="change_list changes_major">
+                <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
+                <ul>
+                  <!-- <li>TURNED OFF FOR .0 RELEASE</li> -->
                   <li>Completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript</li>
-                  <li>Added built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine for more app-like behavior</li>
+                  <li>Optional built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine added for more app-like behavior</li>
                   <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
                   <li>Many, many under-the-hood improvements, including better logging and more robust error-handling</li>
                 </ul>
               </div>
-              <!-- <div id="changes_major" class="change_list changes_major hidex">
-                <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
-                <ul>
-                  <li>TURNED OFF FOR .0 RELEASE</li>
-                </ul>
-              </div> -->
             </div> <!-- #changes_update_lists -->
             <p class="changes_changelog footnote">Check out the Epichrome <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">change log</a> for more details.</p>
           </div> <!-- #changes_update -->
