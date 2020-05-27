@@ -32,12 +32,20 @@ updateEpichromePath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}"
 updateEpichromeRuntime="$updateEpichromePath/Contents/Resources/Runtime"
 
 
-# BOOTSTRAP MY VERSION OF CORE.SH
+# BOOTSTRAP MY VERSION OF CORE.SH & LAUNCH.SH
 
 if [[ "$updateVersion" != "$coreVersion" ]] ; then
     if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" "$@" ; then
 	ok=
 	errmsg="Unable to load core $updateVersion."
+	errlog "$errmsg"
+    fi
+fi
+
+if [[ "$ok" ]] ; then
+    if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/launch.sh" ; then
+	ok=
+	errmsg="Unable to load launch.sh $updateVersion."
 	errlog "$errmsg"
     fi
 fi
@@ -515,34 +523,43 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # RUNNING IN APP -- UPDATE CONFIG & RELAUNCH
     
     if [[ ( "$coreContext" = 'app' ) && ( ! "$noRelaunch" ) ]] ; then
-	
-	# write out config
-	writeconfig "$myConfigFile" FORCE
-	local myCleanupErr=
-	if [[ ! "$ok" ]] ; then
-	    tryalways /bin/rm -f "$myConfigFile" \
-		      'Unable to delete old config file.'
-	    myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
-	    ok=1 ; errmsg=
-	fi
-	
-	# launch helper
-	launchhelper Relaunch
-	
-	# if relaunch failed, report it
-	if [[ ! "$ok" ]] ; then
-	    [[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
-	    myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
-	fi
-
-	# show alert with any errors
-	[[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
-	
-	# no matter what, we quit now
-	cleanexit
+	updaterelaunch  # this will always quit
     fi
 
 
     # RUNNING IN EPICHROME -- RETURN SUCCESS
     return 0
+}
+
+
+# UPDATERELAUNCH -- relaunch an updated app
+function updaterelaunch {
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # write out config
+    writeconfig "$myConfigFile" FORCE
+    local myCleanupErr=
+    if [[ ! "$ok" ]] ; then
+	tryalways /bin/rm -f "$myConfigFile" \
+		  'Unable to delete old config file.'
+	myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
+	ok=1 ; errmsg=
+    fi
+    
+    # launch helper
+    launchhelper Relaunch
+    
+    # if relaunch failed, report it
+    if [[ ! "$ok" ]] ; then
+	[[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
+	myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
+    fi
+    
+    # show alert with any errors
+    [[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
+    
+    # no matter what, we quit now
+    cleanexit
 }

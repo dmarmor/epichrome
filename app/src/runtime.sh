@@ -45,7 +45,7 @@ function updatessb { # ( SSBAppPath )
     saveProfilePath="$myProfilePath"
     unset myProfilePath
     
-    # load update.sh
+    # load update.sh (which loads core.sh & launch.sh)
     if ! source "${BASH_SOURCE[0]%/Runtime/Resources/Scripts/runtime.sh}/Scripts/update.sh" ; then
 	ok= ; errmsg='Unable to load update script $mcssbVersion.'
 	restoreoldruntime
@@ -54,13 +54,6 @@ function updatessb { # ( SSBAppPath )
 
     # set up log file
     initlogfile
-    
-    # load launch.sh (for launchhelper and writeconfig)
-    if ! source "${BASH_SOURCE[0]%/Resources/Scripts/runtime.sh}/Contents/Resources/Scripts/launch.sh" ; then
-	ok= ; errmsg='Unable to load launch script $updateVersion.'
-	restoreoldruntime
-	return 1
-    fi
     
     # flag for deciding whether to update
     local doUpdate=Update
@@ -76,6 +69,8 @@ function updatessb { # ( SSBAppPath )
 	
 	# OLD DIALOG CODE NOT WORKING, SO SHOW UPDATE DIALOG
 
+	errlog "Old app was unable to display update dialog."
+	
 	# assume nothing
 	doUpdate=
 	
@@ -83,43 +78,34 @@ function updatessb { # ( SSBAppPath )
 	ok=1
 	errmsg=
 	
-	if [[ "$SSBChromeVersion" != "$chromeVersion" ]] ; then
-	    
-	    # let the app update its Chrome version first
-	    doUpdate=Later
-	else
-	    
-	    local updateMsg="A new version of Epichrome was found ($coreVersion).  This app is using version $SSBVersion. Would you like to update it?"
-	    local updateBtnUpdate='Update'
-	    local updateBtnLater='Later'
-	    
-	    if visbeta "$coreVersion" ; then
-		updateMsg="$updateMsg
+	local updateMsg="A new version of Epichrome was found ($coreVersion).  This app is using version $SSBVersion. Would you like to update it?"
+	local updateBtnUpdate='Update'
+	local updateBtnLater='Later'
+	local updateButtonList=( )
+	
+	if visbeta "$coreVersion" ; then
+	    updateMsg="$updateMsg
 			
 IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
-		#updateBtnUpdate="-$updateBtnUpdate"
-		updateBtnLater="+$updateBtnLater"
-	    else
-		updateBtnUpdate="+$updateBtnUpdate"
-		updateBtnLater="-$updateBtnLater"
-	    fi
-	    
-	    # show the update choice dialog
-	    dialog doUpdate \
-		   "$updateMsg" \
-		   "Update" \
-		   "|caution" \
-		   "$updateBtnUpdate" \
-		   "$updateBtnLater" \
-		   "Don't Ask Again For This Version"
-	    
-	    if [[ ! "$ok" ]] ; then
-		alert "Epichrome version $coreVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
-		doUpdate="Update"
-		ok=1
-		errmsg=
-	    fi
+	    updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
+	else
+	    updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 	fi
+	updateButtonList+=( "Don't Ask Again For This Version" )
+	
+	# show the update choice dialog
+	dialog doUpdate \
+	       "$updateMsg" \
+	       "Update" \
+	       "|caution" \
+	       "${updateButtonList[@]}"
+	
+	if [[ ! "$ok" ]] ; then
+	    alert "Epichrome version $coreVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
+	    doUpdate="Update"
+	    ok=1
+	    errmsg=
+	fi	
     fi
     if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
         
@@ -196,20 +182,9 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	
 	# write out config
 	[[ -d "$myDataPath" ]] || try /bin/mkdir -p "$myDataPath" 'Unable to create data directory.'
-	writeconfig "$myDataPath/config.sh"
-	[[ "$ok" ]] || \
-	    abort "Update succeeded, but unable to write new config. ($errmsg) Some settings may be lost on first run."
-	
-	# launch helper
-	launchhelper Relaunch
-	
-	# if relaunch failed, report it
-	[[ "$ok" ]] || \
-	    alert "Update succeeded, but updated app didn't launch: $errmsg" \
-		  'Update' '|caution'
-	
-	# no matter what, we have to quit now
-	cleanexit
+
+	# relaunch updated app
+	updaterelaunch
     else
     
 	# HANDLE NON-UPDATES

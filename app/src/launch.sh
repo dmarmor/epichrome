@@ -368,6 +368,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	       "Update" \
 	       "|caution" \
 	       "${updateButtonList[@]}"
+	
 	if [[ ! "$ok" ]] ; then
 	    alert "Epichrome version $epiLatestVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
 	    doUpdate="Update"
@@ -2662,6 +2663,61 @@ function importarray { # ( var1 [var2 ...] )
     done    
 }
 export -f importarray
+
+
+# LAUNCHAPP -- launch an app
+function launchapp {  # ( appPath execName appDesc openArgs ... )
+    
+    # only run if OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local appPath="$1" ; shift
+    local execName="$1" ; shift
+    local appDesc="$1" ; shift
+
+    debuglog "Launching $appDesc."
+    
+    if ! waitforcondition \
+	 "$appDesc executable to appear" \
+	 5 .5 \
+	 test -x "$appPath/Contents/MacOS/$execName" ; then
+	ok=
+	errmsg="Executable for $appDesc not found."
+	errlog "$errmsg"
+	return 1
+    fi
+    
+    # launch attempt function
+    function launchapp_attempt {  # ( openArgs )
+	
+	# try launching
+	local openErr=	
+	try 'openErr&=' /usr/bin/open -a "$appPath" "$@" ''
+	[[ "$ok" ]] && return 0
+	
+	# launch failed due to missing executable, so try again
+	if [[ "$openErr" = *'executable is missing'* ]] ; then
+	    ok=1
+	    errmsg=
+	    return 1
+	fi
+	
+	# launch failed for some other reason, so give up
+	errlog 'ERROR|open' "$openErr"
+	errmsg="Error launching $appDesc."
+	errlog "$errmsg"
+	return 0
+    }
+    
+    # try to launch app
+    waitforcondition "$appDesc to launch" 5 .5 launchapp_attempt "$@"
+    unset -f launchapp_attempt
+    
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
+}
+export -f launchapp
 
 
 # LAUNCHHELPER -- launch Epichrome Helper app

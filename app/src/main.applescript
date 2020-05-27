@@ -32,6 +32,7 @@ set myVersion to "EPIVERSION"
 
 local g
 
+
 -- MISC CONSTANTS
 set g to {promptNameLoc:"Select name and location for the app."}
 set g to g & {appDefaultURL:"https://www.google.com/mail/"}
@@ -44,8 +45,7 @@ set g to g & {engineExternal:{id:"external|com.google.Chrome", buttonName:"Exter
 -- USEFUL UTILITY VARIABLES
 
 local dlgResult
-local errStr  -- $$$$
-local errNum  -- $$$$
+local errStr, errNum
 
 
 -- SET UP ENVIRONMENT TO EXPORT TO SCRIPTS THAT LOAD CORE.SH

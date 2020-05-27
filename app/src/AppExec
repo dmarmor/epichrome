@@ -734,9 +734,9 @@ fi
 
 # LAUNCH ENGINE
 
-try /usr/bin/open -a "$myEngineAppPath" "${argsURIs[@]}" \
-    --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}" \
-    'Error launching app.'
+launchapp "$myEngineAppPath" "${SSBEngineSourceInfo[$iExecutable]}" "app engine" \
+	  "${argsURIs[@]}" \
+	  --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}"
 ok=1 ; errmsg=
 
 # start collecting post-launch errors
