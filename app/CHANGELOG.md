@@ -2,14 +2,16 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.3.2] - 2020-05-26
+## [2.3.2] - 2020-05-28
 ### Changed
 - Updated built-in engine to Brave 1.9.72
 - Abstracted codesigning identity as a first step toward making it easier for anyone to build
 - Refactored main Epichrome.app code to prepare for adding app editing in a future release
 ### Fixed
+- Fixed problem updating certain 2.2.4 apps that could not display the update dialog and also couldn't update their Chrome engine due to incompatibility with Chrome 83 ([issue #228](https://github.com/dmarmor/epichrome/issues/228 "issue #228"))
 - Added code signature to main Platypus app executable to prevent anti-virus software from reporting a false virus match ([issue #213](https://github.com/dmarmor/epichrome/issues/213 "issue #213"))
 - [Unconfirmed] Added code signature to Brave executable for built-in engine in hopes of preventing occasional problem where Brave-based apps lose session state and saved passwords between runs ([issue #215](https://github.com/dmarmor/epichrome/issues/215 "issue #215"))
+- [Unconfirmed] Added workaround to /usr/bin/open bug that could cause app engine or an updated app to fail to launch ([issue #232](https://github.com/dmarmor/epichrome/issues/232 "issue #232"))
 
 ## [2.3.1] - 2020-05-14
 ### Changed
