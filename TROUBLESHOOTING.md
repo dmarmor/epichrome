@@ -19,7 +19,6 @@ Adjust to application installation location as necessary.
 1. Delete `/Applications/Epichrome/EpichromeEngines.noindex/<User>/<AppID>`
 1. Delete `~/Library/Application Support/Epichrome/Apps/<AppID>`
 1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
-1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
 1. Delete `~/Library/Caches/org.epichrome.eng.<AppID>`
 1. Delete `~/Library/Saved Application State/org.epichrome.eng.<AppID>.savedState`
 
