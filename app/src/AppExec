@@ -102,42 +102,12 @@ trap handleexitsignal EXIT
 
 # CLEANUP -- release any lock we've set
 function cleanup {
+
+    # if necessary, try to write config
+    [[ "$doAbortWriteconfig" ]] && runalways writeconfig "$myConfigFile"
+    
     [[ "$lockOn" ]] && lockrelease
 }
-
-
-# READCONFIG: read in config.sh file & save config versions to track changes
-function readconfig { # ( myConfigFile )
-
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-
-    # arguments
-    local myConfigFile="$1" ; shift
-
-    # read in config file
-    safesource "$myConfigFile" 'configuration file'
-    [[ "$ok" ]] || return 1
-
-    # save all relevant config variables prefixed with "config"
-    for varname in "${appConfigVars[@]}" ; do
-
-	if isarray "$varname" ; then
-
-	    # array value
-
-	    eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname=( \${config$varname[*]} )\""
-	else
-
-	    # scalar value
-
-	    eval "config$varname=\"\${$varname}\" ; export config$varname"
-	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname='\$config$varname'\""
-	fi
-    done
-
-} ; export -f readconfig
 
 
 # LOCK FUNCTIONS
@@ -298,6 +268,9 @@ export -f getlockcmd
 
 # MAIN BODY
 
+# if we abort early, don't try to write config
+doAbortWriteconfig=
+
 
 # OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
 
@@ -413,6 +386,10 @@ SSBLastRunEngineType="$SSBEngineType"
 # UPDATE APP PATH
 
 SSBAppPath="$myAppPath"
+
+
+# if we got this far, we should write out any new config even on abort
+doAbortWriteconfig=1
 
 
 # GET EPICHROME INFO

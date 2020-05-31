@@ -2553,6 +2553,40 @@ function getengineinfo { # path
 }
 
 
+# READCONFIG: read in config.sh file & save config versions to track changes
+function readconfig { # ( myConfigFile )
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local myConfigFile="$1" ; shift
+
+    # read in config file
+    safesource "$myConfigFile" 'configuration file'
+    [[ "$ok" ]] || return 1
+
+    # save all relevant config variables prefixed with "config"
+    for varname in "${appConfigVars[@]}" ; do
+
+	if isarray "$varname" ; then
+
+	    # array value
+
+	    eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
+	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname=( \${config$varname[*]} )\""
+	else
+
+	    # scalar value
+
+	    eval "config$varname=\"\${$varname}\" ; export config$varname"
+	    [[ "$debug" ]] && eval "errlog DEBUG \"$varname='\$config$varname'\""
+	fi
+    done
+
+}
+
+
 # WRITECONFIG: write out config.sh file
 function writeconfig {  # ( myConfigFile force )
     

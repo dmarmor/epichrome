@@ -720,19 +720,19 @@ function try {
 export -f try
 
 
-# TRYALWAYS -- like TRY above, but runs even if there's already been an error
-function tryalways {
+# RUNALWAYS -- run a command even if there's already been an error
+function runalways {
     
-    # try a command whether we're OK or not
+    # run a command whether we're OK or not
     
     # save old try state
     local oldok="$ok" ; ok=1
     local olderrmsg="$errmsg" ; errmsg=
     
     # run the command
-    try "$@"
+    "$@"
     local result="$?"
-
+    
     # restore OK state
     [[ ! "$oldok" ]] && ok=
     
@@ -744,7 +744,13 @@ function tryalways {
     fi
     
     return "$result"
-    
+}
+export -f runalways
+
+
+# TRYALWAYS -- try a command even if there's already been an error
+function tryalways {
+    runalways try "$@"
 }
 export -f tryalways
 
