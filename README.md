@@ -23,6 +23,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Lanny Heidbreder</b><br />
 <b>Eric Henderson</b><br />
 <b>Ben Johnson</b><br />
+<b>David Mankin</b><br />
 <b>Gregory Morse</b><br />
 <b>Alex Nauda</b><br />
 <b>Orbital Impact</b><br />
@@ -33,7 +34,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## New in version 2.3.2
 
-- The built-in engine has been updated to Brave 1.9.72.
+- The built-in engine has been updated to Brave 1.9.76.
 
 - Fixed a problem that caused anti-virus software to report a false virus match on Epichrome apps ([issue #213](https://github.com/dmarmor/epichrome/issues/213 "issue #213")).
 
@@ -55,7 +56,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## Important Notes
 
-- Do not use the "Set Up Automatic Updates for All Users" option in Chrome if you have any apps with the external Chrome engine (this includes *all* apps updated from earlier versions of Epichrome). This option will cause fatal errors in your apps. If your system contains the directory ```/Library/Google/GoogleSoftwareUpdate```, then automatic updates are on. The surest way to disable it is by *first* deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ```~/Library/Google/GoogleSoftwareUpdate``` before running the reinstalled Chrome.
+- Do not use the "Automatically update Chrome for all users" option on Chrome's About page if you have any apps with the external Chrome engine (this includes *all* apps updated from earlier versions of Epichrome). This option will cause fatal errors in your apps. If your system contains the directory ```/Library/Google/GoogleSoftwareUpdate```, then automatic updates are on. The surest way to disable it is by *first* deleting that directory (you'll need administrator privileges), then deleting Chrome and reinstalling the latest release from Google. In rare cases, you may also need to delete your user-specific directory at ```~/Library/Google/GoogleSoftwareUpdate``` before running the reinstalled Chrome.
 
 - Don't click the "Update Now" button on the About Chrome page in your Epichrome apps. It might not actually do anything terrible, but it also won't do anything good.
 

@@ -2,9 +2,9 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.3.2] - 2020-05-28
+## [2.3.2] - 2020-05-31
 ### Changed
-- Updated built-in engine to Brave 1.9.72
+- Updated built-in engine to Brave 1.9.76
 - Abstracted codesigning identity as a first step toward making it easier for anyone to build
 - Refactored main Epichrome.app code to prepare for adding app editing in a future release
 ### Fixed

@@ -579,7 +579,6 @@ BROWSER TABS - The app will display a full browser window with the given tabs." 
 
 		end if
 
-
 	else if stepNum is stepBROWSER then
 
 		-- STEP 5: REGISTER AS BROWSER?
