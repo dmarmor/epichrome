@@ -102,10 +102,11 @@ trap handleexitsignal EXIT
 
 # CLEANUP -- release any lock we've set
 function cleanup {
-
-    # if necessary, try to write config
-    [[ "$doAbortWriteconfig" ]] && runalways writeconfig "$myConfigFile"
     
+    # if necessary, try to write config
+    #[[ "$doAbortWriteconfig" ]] && runalways writeconfig "$myConfigFile"
+
+    # release any lock
     [[ "$lockOn" ]] && lockrelease
 }
 
@@ -485,9 +486,16 @@ export myEngineAppPath
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
 
-if [[ ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
+# if there's no current Epichrome installed & we have a built-in engine,
+# we need to force the update to be offered no matter what
+noCurrentEpichrome=
+[[ "$epiCurrentPath" || ( "${SSBEngineType%%|*}" != internal ) ]] || \
+    noCurrentEpichrome=1
 
-    checkappupdate
+if [[ "$noCurrentEpichrome" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
+    
+    checkappupdate "$noCurrentEpichrome"
+    
     if [[ "$?" != 0 ]] ; then
 
 	# abort on fatal error

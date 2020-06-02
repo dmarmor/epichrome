@@ -323,23 +323,30 @@ function getepichromeinfo {
 
 
 # CHECKAPPUPDATE -- check for a new version of Epichrome and offer to update app
-function checkappupdate {
+function checkappupdate {  # ( [ noCurrentEpichrome ] )
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
-    
+
     # if no Epichrome on the system, we're done
     [[ "$epiLatestVersion" ]] || return 0
+    
+    # arguments
+    local noCurrentEpichrome="$1" ; shift
     
     # assume success
     local result=0
 
+    # version to check against
+    local myVersion="$SSBUpdateVersion"
+    [[ "$noCurrentEpichrome" ]] && myVersion="$SSBVersion"
+    
     # compare versions and possibly offer update
-    if vcmp "$SSBUpdateVersion" '<' "$epiLatestVersion" ; then
-
+    if vcmp "$myVersion" '<' "$epiLatestVersion" ; then
+	
 	# by default, don't update
 	local doUpdate=Later
-
+	
 	# set dialog info
 	local updateMsg="A new version of Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
 	local updateBtnUpdate='Update'
@@ -358,7 +365,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 	
 	# if the Epichrome version corresponding to this app's version is not found, and
 	# the app uses an internal engine, don't allow the user to ignore this version
-	if [[ "$epiCurrentPath" || ( "${SSBEngineType%%|*}" != internal ) ]] ; then
+	if [[ ! "$noCurrentEpichrome" ]] ; then
 	    updateButtonList+=( "Don't Ask Again For This Version" )
 	fi
 	
