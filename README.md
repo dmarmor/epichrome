@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.2</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.3</h1>
 
 ## Overview
 
@@ -32,13 +32,9 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Thorbergsson</b></p>
 
 
-## New in version 2.3.2
+## New in version 2.3.3
 
-- Updating should now work for certain 2.2.4 apps that had stopped running due to incompatibility with Chrome 83 ([issue #228](https://github.com/dmarmor/epichrome/issues/228 "issue #228")).
-
-- Anti-virus software should no longer report a false virus match on Epichrome apps ([issue #213](https://github.com/dmarmor/epichrome/issues/213 "issue #213")).
-
-- Made changes to try to fix an occasional problem where Brave-based apps lose session state and saved passwords between runs. This is a rare issue, so this fix is not confirmed. If you run into it after updating to 2.3.2, please report it in [issue #215](https://github.com/dmarmor/epichrome/issues/215 "issue #215").
+- Brave-based apps will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they're set to skip the new version (<a href="https://github.com/dmarmor/epichrome/issues/248" target="_blank">issue #248</a>).
 
 - The built-in engine has been updated to Brave 1.9.76.
 

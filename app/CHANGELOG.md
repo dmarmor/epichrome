@@ -2,6 +2,10 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.3.3] - 2020-06-XX
+### Fixed
+- Apps using built-in engine will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they've previously chosen to skip the new version
+
 ## [2.3.2] - 2020-05-31
 ### Changed
 - Updated built-in engine to Brave 1.9.76
