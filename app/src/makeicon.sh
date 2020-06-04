@@ -708,7 +708,7 @@ if ($makeComp) {
 ?>'
     
     # run PHP
-    cmdtext=$( time (echo "$phpcode" | /usr/bin/php -- "${phpargs[@]}" 2>&1 ) )
+    cmdtext=$( echo "$phpcode" | /usr/bin/php -- "${phpargs[@]}" 2>&1 )
     if [[ "$?" != 0 ]] ; then
 	errtext="${cmdtext#*:CONVERTERR:}"
 	cmdtext="${cmdtext%:CONVERTERR:*}"
