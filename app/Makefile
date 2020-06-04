@@ -363,7 +363,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_CT)/Resources/Scripts/build.sh \
 	$(APP_CT)/Resources/Scripts/makeicon.sh \
-	$(APP_CT)/Resources/Scripts/pathinfo.sh \
 	$(APP_CT)/Resources/Scripts/updatecheck.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
@@ -414,19 +413,19 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/applet \
 $(APP_CT)/Resources/applet.rsrc \
-$(APP_CT)/Resources/Scripts/main.scpt: src/main.applescript src/version.sh main
+$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/version.sh main
 
 main:
 	@mkdir -p build
 	@rm -rf build/main.app build/main
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
-		src/main.applescript > build/main.applescript
-#	chmod 444 src/main.applescript
-	osacompile -x -o build/main.app build/main.applescript
-#	chmod 644 src/main.applescript
+		src/main.js > build/main.js
+#	chmod 444 src/main.js
+	osacompile -l JavaScript -x -o build/main.app build/main.js
+#	chmod 644 src/main.js
 #	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works
 	@mv build/main.app build/main
-	@rm -f build/main.applescript
+	@rm -f build/main.js
 	@cd build/main/Contents && rm -f Info.plist Resources/applet.icns
 	@mkdir -p $(APP_CT)/MacOS $(APP_CT)/Resources/Scripts
 	mv -f build/main/Contents/Resources/Scripts/main.scpt $(APP_CT)/Resources/Scripts/main.scpt

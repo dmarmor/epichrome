@@ -22,7 +22,7 @@
 #  in an answer by Henry posted 12/20/2013 at 12:24
 #
 
-version="2.0.3"
+version="2.0.4"
 
 unset CDPATH
 
@@ -389,10 +389,12 @@ fi
 # BUILD MAIN AND/OR COMPOSITE ICONSETS
 
 if [[ ( "$mainAction" = convert ) || "$composite" ]] ; then
+
+    # get name for temp PNG in case we need it
+    inputPNG=$(tempname "$input" ".png")
     
     # if input not already a PNG, convert to PNG
     if [[ "$inputFormat" != "png" ]] ; then
-	inputPNG=$(tempname "$input" ".png")
 
 	# if input is an icon, use iconutil to get the biggest PNG
 	if [[ "$inputFormat" = 'icns' ]] ; then
@@ -428,17 +430,34 @@ if [[ ( "$mainAction" = convert ) || "$composite" ]] ; then
 		checkerror "Error: unable to extract PNG image from icon." 2
 	    else
 		abort "Error: unable to find PNG image in icon." 2
-	    fi
+	    fi	    
 	else
-	    cmdtext=$(sips -s format png "$input" --out "$inputPNG" 2>&1)
+	    cmdtext=$(sips -s format png --resampleHeightWidthMax 1024 "$input" --out "$inputPNG" 2>&1)
 	    checkerror "Error: unable to convert image to PNG." 2
 	fi
 	
 	phpargs=("$inputPNG")
+	
     else
-	phpargs=("$input")
+	cmdtext=$(sips -g pixelWidth -g pixelHeight "$input" 2>&1)
+	checkerror "Error: unable to get size of input PNG." 2
+	dimRe='pixelWidth: *([0-9]+).*pixelHeight: *([0-9]+)'
+	if [[ "$cmdtext" =~ $dimRe ]] ; then
+	    if [[ ( ${BASH_REMATCH[1]} -gt 1024 ) || \
+		      ( ${BASH_REMATCH[2]} -gt 1024 ) ]] ; then
+		cmdtext=$(sips --resampleHeightWidthMax 1024 "$input" --out "$inputPNG" 2>&1)
+		checkerror "Error: unable to downsample image." 2
+		
+		phpargs=("$inputPNG")
+	    else
+		phpargs=("$input")
+	    fi
+	else
+	    phpargs=("$input")
+	fi
     fi
     
+
     # we're converting the main image
     if [[ "$mainAction" = convert ]] ; then
 	
@@ -689,7 +708,7 @@ if ($makeComp) {
 ?>'
     
     # run PHP
-    cmdtext=$(echo "$phpcode" | /usr/bin/php -- "${phpargs[@]}" 2>&1)
+    cmdtext=$( time (echo "$phpcode" | /usr/bin/php -- "${phpargs[@]}" 2>&1 ) )
     if [[ "$?" != 0 ]] ; then
 	errtext="${cmdtext#*:CONVERTERR:}"
 	cmdtext="${cmdtext%:CONVERTERR:*}"
