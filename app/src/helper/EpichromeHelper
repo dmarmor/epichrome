@@ -30,7 +30,7 @@ if [[ "$epiHelperMode" =~ ^Start(.+)$ ]] ; then
     epiHelperMode="${BASH_REMATCH[1]}"
     debuglog "Forking child daemon..."
     "$0" "$@" &
-    exit 0
+    cleanexit
 fi
 
 
@@ -38,12 +38,7 @@ fi
 
 
 # HANDLE PREMATURE EXIT
-function handleexitsignal {
-    if kill -0 "$myEnginePID" 2> /dev/null ; then
-	errlog FATAL 'Terminated prematurely. Engine will not be deactivated.'
-    fi
-}
-trap handleexitsignal EXIT
+coreEarlyExitMsg='Engine will not be deactivated.'
 
 
 # LOCKREPLACE -- replace a lock set by the parent app

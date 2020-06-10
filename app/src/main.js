@@ -22,7 +22,7 @@
 
 // VERSION
 
-const kVersion = "2.3.2b3";  // $$$$ "EPIVERSION"
+const kVersion = "EPIVERSION";
 
 
 // JXA SETUP
@@ -58,11 +58,7 @@ const kEngineInfo = {
 };
 
 // script paths
-const kScriptCore = quotedForm(kApp.pathToResource("core.sh", {
-    inDirectory:"Runtime/Contents/Resources/Scripts" }).toString());
-const kScriptBuild = quotedForm(kApp.pathToResource("build.sh", {
-    inDirectory:"Scripts" }).toString());
-const kScriptUpdateCheck = quotedForm(kApp.pathToResource("updatecheck.sh", {
+const kEpichromeScript = quotedForm(kApp.pathToResource("epichrome.sh", {
     inDirectory:"Scripts" }).toString());
 
 // app resources
@@ -74,7 +70,7 @@ const kDay = 24 * 60 * 60 * 1000;
 
 // GLOBAL VARIABLES
 
-let gScriptEnv = "logNoStderr='1'";
+let gScriptLogVar = "";
 let gDataPath = null;
 let gLogFile = null;
 
@@ -89,9 +85,9 @@ function initDataDir() {
     // run core.sh to initialize logging & get key paths
     try {
 
-        // run core script to initialize log
-        coreOutput = kApp.doShellScript(gScriptEnv + " /bin/bash -c 'source '" +
-        quotedForm(kScriptCore) + "' --inepichrome ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; else initlogfile ; echo \"$myDataPath\" ; echo \"$myLogFile\" ; fi'").split("\r");
+        // run core script to initialize
+        coreOutput = kApp.doShellScript(kEpichromeScript +
+            " 'coreDoInit=1' 'epiAction=init'").split("\r");
 
         // make sure we get 2 lines of output
         if (coreOutput.length != 2) { throw('Unexpected output.'); }
@@ -99,7 +95,7 @@ function initDataDir() {
         // parse output lines
         gDataPath = coreOutput[0];
         gLogFile = coreOutput[1];
-        gScriptEnv += " myLogFile=" + quotedForm(gLogFile);
+        gScriptLogVar = quotedForm("myLogFile=" + gLogFile);
 
         // check that the data path is writeable
         coreOutput = kApp.doShellScript("if [[ ! -w " + quotedForm(gDataPath) + " ]] ; then echo FAIL ; fi");
@@ -118,6 +114,20 @@ function initDataDir() {
     return true;
 }
 if (! initDataDir()) { kApp.quit(); }
+
+// ERRLOG -- log an error message
+function errlog(aMsg, aType='ERROR') {
+    kApp.doShellScript(kEpichromeScript + ' ' +
+        gScriptLogVar + ' ' +
+        "'epiAction=log' " +
+        quotedForm('epiLogType=' + aType) + ' ' +
+        quotedForm('epiLogMsg=' + aMsg));
+}
+
+// DEBUGLOG -- log a debugging message
+function debuglog(aMsg) {
+    errlog(aMsg, 'DEBUG');
+}
 
 
 // SETTINGS FILE
@@ -155,6 +165,8 @@ let gAppEngineButton = kEngineInfo.internal.buttonName;
 function writeProperties() {
 
     let myProperties, myErr;
+
+    debuglog("Writing preferences.");
 
     try {
         // create empty plist file
@@ -232,6 +244,8 @@ function readProperties() {
 
     let myProperties, myErr;
 
+    debuglog("Reading preferences.");
+
 	// read in the property list
     try {
         myProperties =  kSysEvents.propertyListFiles.byName(kSettingsFile).contents.value();
@@ -243,19 +257,15 @@ function readProperties() {
 
     // EPICHROME SETTINGS
 
-    // $$$$ SANITY-CHECK ALL THESE, ESP THE BUTTON NAME ONES
-
     // lastIconPath
     if (typeof myProperties["lastIconPath"] === 'string') {
         gEpiLastIconDir = myProperties["lastIconPath"];
     }
-    // $$$$ CONVERT TO POSIX PATH??
 
     // lastAppPath
 	if (typeof myProperties["lastAppPath"] === 'string') {
         gEpiLastAppDir = myProperties["lastAppPath"];
     }
-    // $$$$ CONVERT TO POSIX PATH??
 
     // updateCheckDate
 	if (myProperties["updateCheckDate"] instanceof Date) {
@@ -313,7 +323,11 @@ function checkForUpdate() {
         // run the update check script
         let myUpdateCheckResult;
         try {
-            myUpdateCheckResult = kApp.doShellScript(gScriptEnv + " /bin/bash -c 'source '" + quotedForm(kScriptUpdateCheck) + "' '" + quotedForm(quotedForm(gEpiUpdateCheckVersion)) + "' '" + quotedForm(quotedForm(myVersion)) + "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'").split('\n');
+            myUpdateCheckResult = kApp.doShellScript(kEpichromeScript + ' ' +
+                gScriptLogVar + ' ' +
+                "'epiAction=updatecheck' " +
+                quotedForm('myUpdateCheckVersion=' + gEpiUpdateCheckVersion) + ' ' +
+                quotedForm('myVersion=' + myVersion)).split('\r');
         } catch(myErr) {
             myUpdateCheckResult = ["ERROR", myErr.toString()];
         }
@@ -1049,32 +1063,21 @@ function doStep(aStepNum) {
         Progress.description = "Building app...";
         Progress.additionalDescription = "This may take up to 30 seconds. The progress bar will not advance.";
 
-        // $$$$$ kApp.displayDialog("Processing... (this might take a while, will disappear)", {
-        //     withTitle: "Processing",
-        //     withIcon: kEpiIcon,
-        //     buttons: ["Dismiss"],
-        //     defaultButton: 1,
-        //     givingUpAfter: 5
-        // });
-
+        // this somehow allows the progress bar to appear
         delay(0.1);
-        // $$$$$ kApp.displayNotification("Processing (might take a while)", {
-        //     withTitle: "Processing",
-        //     subtitle: "Processing yo."
-        // });
 
         try {
-
-            kApp.doShellScript(gScriptEnv + " /bin/bash -c 'source '" +
-                quotedForm(kScriptBuild) + "' '" +
-                quotedForm(quotedForm(gAppPath)) + "' '" +
-                quotedForm(quotedForm(gAppNameBase)) + "' '" +
-                quotedForm(quotedForm(gAppShortName)) + "' '" +
-                quotedForm(quotedForm(gAppIconSrc)) + "' '" +
-                quotedForm(quotedForm(gAppRegisterBrowser)) + "' '" +
-                quotedForm(quotedForm(gAppEngineType)) + "' '" +
-                quotedForm(myAppCmdLine) +
-                "' ; if [[ ! \"$ok\" ]] ; then echo \"$errmsg\" 1>&2 ; exit 1 ; fi'");
+            kApp.doShellScript(kEpichromeScript + ' ' +
+                gScriptLogVar + ' ' +
+                "'epiAction=build' " +
+                quotedForm('myAppPath=' + gAppPath) + ' ' +
+                quotedForm('CFBundleDisplayName=' + gAppNameBase) + ' ' +
+                quotedForm('CFBundleName=' + gAppShortName) + ' ' +
+                quotedForm('SSBCustomIcon=' + gAppCustomIcon) + ' ' +
+                quotedForm('myIconSource=' + gAppIconSrc) + ' ' +
+                quotedForm('SSBRegisterBrowser=' + gAppRegisterBrowser) + ' ' +
+                quotedForm('SSBEngineType=' + gAppEngineType) + ' ' +
+                "'SSBCommandLine=('" + myAppCmdLine + "')'");
 
                 Progress.completedUnitCount = 2;
                 Progress.description = "Build complete.";

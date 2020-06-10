@@ -361,9 +361,8 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/applet.icns \
 	$(APP_CT)/Resources/docbg.png \
 	\
-	$(APP_CT)/Resources/Scripts/build.sh \
+	$(APP_CT)/Resources/Scripts/epichrome.sh \
 	$(APP_CT)/Resources/Scripts/makeicon.sh \
-	$(APP_CT)/Resources/Scripts/updatecheck.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
 	$(APP_CT)/Resources/Scripts/epichromeruntimehost.py \

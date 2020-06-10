@@ -402,7 +402,7 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		# temporarily turn OK back on & reload old runtime
 		oldErrmsg="$errmsg" ; errmsg=
 		oldOK="$ok" ; ok=1
-		source "$SSBAppPath/Contents/Resources/Scripts/core.sh" --noinit || ok=
+		source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
 		if [[ ! "$ok" ]] ; then
 
 		    # fatal error

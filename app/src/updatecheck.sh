@@ -56,7 +56,7 @@ trap "handleexitsignal" EXIT
 # BOOTSTRAP RUNTIME SCRIPTS
 
 myLogID="Epichrome|${BASH_SOURCE[0]##*/}"
-source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh" --inepichrome --noinit || exit 1
+source "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/core.sh" "$@" || exit 1
 [[ "$ok" ]] || myabort
 
 safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/launch.sh"
@@ -64,9 +64,6 @@ safesource "${BASH_SOURCE[0]%/Scripts/*}/Runtime/Contents/Resources/Scripts/laun
 
 
 # COMPARE SUPPLIED VERSIONS
-
-myUpdateCheckVersion="$1" ; shift
-myVersion="$1" ; shift
 
 if vcmp "$myUpdateCheckVersion" '<' "$myVersion" ; then
     echo 'MYVERSION'

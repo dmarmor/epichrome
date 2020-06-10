@@ -26,6 +26,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>David Mankin</b><br />
 <b>Gregory Morse</b><br />
 <b>Alex Nauda</b><br />
+<b>Alan Ogilvie</b><br />
 <b>Orbital Impact</b><br />
 <b>Matthew Scott</b><br />
 <b>Samuel Talleux</b><br />

@@ -37,27 +37,61 @@ coreVersion='EPIVERSION'
 export debug logPreserve
 
 
-# PARSE COMMAND-LINE ARGUMENTS
+# INITIALIZE CORE VARIABLES
 
-coreDoInit=1
+# by default, do not run init code at end
+coreDoInit=
+
+# assume we're running in an app unless coreVersion isn't set
 [[ "$coreVersion" = 'EPI''VERSION' ]] && coreContext='shell' || coreContext='app'
-while [[ "$#" -gt 0 ]] ; do
-    case "$1" in
-        --noinit)
-            coreDoInit=
-            ;;
 
-	--inepichrome)
-	    coreContext='epichrome'
-	    ;;
+
+# SET COMMAND-LINE ENVIRONMENT
+
+while [[ "$#" -gt 0 ]] ; do
+    if [[ "$1" =~ ^([a-zA-Z][a-zA-Z0-9_]*)=(.*)$ ]] ; then
+
+	# move past this argument
+	shift
 	
-	*)
-	    :  # ignore
-    esac
-    
-    # get next arg
-    shift
+	foundArray=
+	if [[ "${BASH_REMATCH[2]}" = '(' ]] ; then
+	    
+	    # this looks like the start of an array variable
+
+	    # save rest of args in temp variable
+	    tempArgs=( "$@" )
+
+	    # look for the end of the array variables
+	    for ((i=0 ; i < "${#tempArgs[@]}" ; i++)) ; do
+		if [[ "${tempArgs[$i]}" = ')' ]] ; then
+		    foundArray=1
+		    break
+		fi
+	    done	    
+	fi
+
+	# save array or scalar value
+	if [[ "$foundArray" ]] ; then
+
+	    # save as an array
+	    eval "${BASH_REMATCH[1]}=( \"\${tempArgs[@]::\$i}\" )"
+	    
+	    # remove array elements from args
+	    for ((j=0 ; j <= $i ; j++)) ; do shift ; done
+	else
+	    
+	    # save as a scalar variable
+	    eval "${BASH_REMATCH[1]}=\"\${BASH_REMATCH[2]}\""
+	fi
+    else
+	# assume any further args are not variables
+	break
+    fi
 done
+
+# set variable with remaining command-line
+coreCommandLine=( "$@" )
 
 
 # CONSTANTS
@@ -186,19 +220,25 @@ else
     
     # RUNNING IN EPICHROME.APP OR SHELL
     
-    # use up Epichrome's data path
+    # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
     
     if [[ "$coreContext" = 'epichrome' ]] ; then
 	
-	# we're running from Epichrome.app
-	[[ "$myLogID" ]] || myLogID='Epichrome'
+	# set logging ID
+	if [[ ! "$myLogID" ]] ; then
+	    myLogID='Epichrome'
+	    [[ "$epiAction" ]] && myLogID+="|$epiAction" || myLogID+='|epichrome.sh'
+	fi
 	
-    else
+	# file logging only
+	logNoStderr=1
+	
+    else  # shell
 
 	# running unfiltered outside the app
 	
-	# logging -- stderr only
+	# stderr logging only
 	myLogID='Shell'
 	logNoFile=1
     fi
@@ -804,7 +844,7 @@ export -f safesource
 
 
 # CLEANEXIT -- call any defined cleanup function and exit
-function cleanexit { # [code]
+function cleanexit { # [myCode]
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
     
@@ -812,13 +852,16 @@ function cleanexit { # [code]
     if [[ "$( type -t cleanup )" = function ]] ; then
 	cleanup "$myCode"
     fi
-
+    
     # delete any pause fifo
     [[ -p "$myPauseFifo" ]] && tryalways /bin/rm -f "$myPauseFifo" \
 					 'Unable to delete pause FIFO.'
+
+    # let EXIT signal handler know we're clean
+    readyToExit=1
     
-    # exit
-    exit "$myCode"
+    # exit unless we got here from an exit signal
+    [[ "$myCode" = 'SIGEXIT' ]] || exit "$myCode"
 }
 export -f cleanexit
 
@@ -836,23 +879,31 @@ function abort { # ( [myErrMsg [myCode]] )
     fi
     
     # log error message
-    local myAbortLog="Aborting: $myErrMsg"
+    local myAbortLog="Aborting"
+    [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
     errlog FATAL "$myAbortLog"
     
-    # show dialog & offer to open log
-    if [[ "$( type -t dialog )" = function ]] ; then
-	local buttons=( '+Quit' )
-	[[ "$logNoFile" ]] || buttons+=( '-View Log' )
-	local choice=
-	dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
-	if [[ "$choice" = 'View Log' ]] ; then
-	    
-	    # clear OK state so try works & ignore result
-	    ok=1 ; errmsg=
-	    try /usr/bin/osascript -e '
+    if [[ "$coreContext" = 'app' ]] ; then
+
+	# show dialog & offer to open log
+	if [[ "$( type -t dialog )" = function ]] ; then
+	    local buttons=( '+Quit' )
+	    [[ "$logNoFile" ]] || buttons+=( '-View Log' )
+	    local choice=
+	    dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
+	    if [[ "$choice" = 'View Log' ]] ; then
+		
+		# clear OK state so try works & ignore result
+		ok=1 ; errmsg=
+		try /usr/bin/osascript -e '
 tell application "Finder" to reveal ((POSIX file "'"$myLogFile"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
+	    fi
 	fi
+    elif [[ "$coreContext" = 'epichrome' ]] ; then
+
+	# log just the error message to stderr
+	[[ "$myErrMsg" ]] && echo "$myErrMsg" 1>&2
     fi
     
     # quit with error code
@@ -868,6 +919,25 @@ function abortsilent { # ( [myErrMsg myCode] )
 }
 
 export -f abort abortsilent
+
+
+# HANDLEEXITSIGNAL -- handle an exit signal, cleaning up if needed
+readyToExit=
+coreEarlyExitMsg=
+function handleexitsignal {
+    if [[ ! "$readyToExit" ]] ; then
+	local exitMsg='Unexpected termination.'
+	[[ "$coreEarlyExitMsg" ]] && exitMsg+=" $coreEarlyExitMsg"
+	errlog FATAL "$exitMsg"
+	cleanexit 'SIGEXIT'
+    fi
+}
+export -f handleexitsignal
+
+# set SIGEXIT handler
+trap handleexitsignal EXIT
+
+
 
 
 # PAUSE -- sleep for the specified number of seconds (without spawning /bin/sleep processes)
@@ -1484,4 +1554,11 @@ if [[ "$coreDoInit" ]] ; then
 	debuglog "Core $coreVersion initialized in $runningIn."
 	unset runningIn
     fi
+fi
+
+
+# REPORT ANY ERRORS TO EPICHROME
+
+if [[ ( "$coreContext" = 'epichrome' ) && ( ! "$ok" ) ]] ; then
+    abort
 fi

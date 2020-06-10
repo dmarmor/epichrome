@@ -36,7 +36,7 @@ myAppPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
 # LOAD CORE SCRIPT
 
 myLogID="$SSBIdentifier|Placeholder"
-source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
+source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 [[ "$ok" ]] || abort
 
 
@@ -47,7 +47,7 @@ debuglog 'Launching parent app.'
 try /usr/bin/open -b "$CFBundleIdentifier" --args "$@" \
     'Unable to launch parent app.'
 if [[ "$ok" ]] ; then
-    exit 0
+    cleanexit
 else
     # launch failed, so display error alert
     abort "$errmsg. You'll need to launch it directly."

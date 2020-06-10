@@ -78,23 +78,16 @@ done
 # LOAD CORE SCRIPT
 
 myLogID=   # reset log ID
-source "$myAppPath/Contents/Resources/Scripts/core.sh" || exit 1
+source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 [[ "$ok" ]] || abort
 
 # ensure we have a data directory
 [[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
 
 
-# HANDLE KILL SIGNALS
+# DON'T TRAP SIGINT
 
-function handleexitsignal {
-    if [[ "$lockOn" ]] ; then
-	errlog FATAL 'Terminated prematurely. Cleaning up.'
-	lockrelease
-    fi
-}
 trap '' INT
-trap handleexitsignal EXIT
 
 
 # FUNCTION DEFINITIONS
@@ -103,9 +96,6 @@ trap handleexitsignal EXIT
 # CLEANUP -- release any lock we've set
 function cleanup {
     
-    # if necessary, try to write config
-    #[[ "$doAbortWriteconfig" ]] && runalways writeconfig "$myConfigFile"
-
     # release any lock
     [[ "$lockOn" ]] && lockrelease
 }
@@ -290,7 +280,7 @@ if ! lockset ; then
 	    'Unable to connect to running app engine.'
 
 	# we're done, so exit one way or the other
-	[[ "$ok" ]] && exit 0 || abort
+	[[ "$ok" ]] && cleanexit || abort
     else
 	
 	# locked but not with a running engine, so log error & quit
