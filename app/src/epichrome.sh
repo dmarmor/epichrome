@@ -32,9 +32,6 @@ source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "$@" || exit 1
 [[ "$ok" ]] || abort
 
 
-debuglog "EPIACTION == $epiAction"
-
-
 # DETERMINE REQUESTED ACTION
 
 # abort if no action sent
@@ -68,8 +65,6 @@ elif [[ "$epiAction" = 'log' ]] ; then
 elif [[ "$epiAction" = 'updatecheck' ]] ; then
     
     # ACTION: CHECK FOR UPDATES ON GITHUB
-
-    debuglog "Checking for updates to Epichrome on GitHub."
     
     # load launch.sh
     if ! source "$myRuntimeScriptsPath/launch.sh" ; then
@@ -129,6 +124,8 @@ elif [[ "$epiAction" = 'build' ]] ; then
     
     # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 
+    debuglog "Starting build for '$myAppPath'."
+    
     # get engine info
     if [[ "${SSBEngineType%|*}" = internal ]] ; then
         SSBEngineSourceInfo=( "${epiEngineSource[@]}" )

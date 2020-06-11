@@ -1077,7 +1077,7 @@ function doStep(aStepNum) {
                 quotedForm('myIconSource=' + gAppIconSrc) + ' ' +
                 quotedForm('SSBRegisterBrowser=' + gAppRegisterBrowser) + ' ' +
                 quotedForm('SSBEngineType=' + gAppEngineType) + ' ' +
-                "'SSBCommandLine=('" + myAppCmdLine + "')'");
+                "'SSBCommandLine=(' " + myAppCmdLine + " ')'");
 
                 Progress.completedUnitCount = 2;
                 Progress.description = "Build complete.";
@@ -1086,25 +1086,10 @@ function doStep(aStepNum) {
         } catch(myErr) {
 
             if (myErr.errorNumber == -128) {
-                // progress bar Stop button
-                // Progress.completedUnitCount = 0;
-                // Progress.description = "Build canceled.";
-                // Progress.additionalDescription = "";
-                //
-                // myDlgResult = kApp.displayDialog("Build canceled.", {
-                //     withTitle: "Application Not Created",
-                //     withIcon: kEpiIcon,
-                //     buttons: ["Back", "Quit"],
-                //     defaultButton: 1
-                // }).buttonReturned;
-                // if (myDlgResult == "Back") {
-                    Progress.completedUnitCount = 0;
-                    Progress.description = "Configuring app...";
-                    Progress.additionalDescription = "";
-                    return aStepNum;
-                // } else {
-                //     return false;
-                // }
+                Progress.completedUnitCount = 0;
+                Progress.description = "Configuring app...";
+                Progress.additionalDescription = "";
+                return aStepNum;
             }
 
             Progress.completedUnitCount = 0;
