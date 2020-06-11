@@ -23,6 +23,7 @@
 /app/src/welcome/img/bookmark.png
 /app/src/welcome/img/epichrome_icon.png
 /app/src/welcome/img/app_icon.png
+/app/test/icons/*.png
 /builder/**
 /dmg/images/*.png
 /dmg/images/*.icns
