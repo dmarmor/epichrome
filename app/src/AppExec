@@ -305,8 +305,21 @@ safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
 
 # read config file (if any)
 if [[ -f "$myConfigFile" ]] ; then
+    
+    # if we're running an internal engine, don't let config.sh override SSBEngineSourceInfo
+    tempEngInfo=
+    [[ "${SSBEngineSourceInfo[*]}" ]] && tempEngInfo=( "${SSBEngineSourceInfo[@]}" )
+
+    # read config file
     readconfig "$myConfigFile"
     [[ "$ok" ]] || abort
+
+    # restore SSBEngineSourceInfo if needed
+    if [[ "${tempEngInfo[*]}" ]] ; then
+	debuglog 'Overriding SSBEngineSourceInfo from config.sh with built-in value.'
+	SSBEngineSourceInfo=( "${tempEngInfo[@]}" )
+    fi
+    
 else
     debuglog "No configuration file found."
 fi
@@ -354,7 +367,7 @@ fi
 if [[ ( ! "$myStatusNewApp" ) && \
 	  ( "$SSBLastRunEngineType" && \
 		( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ) ]] ; then
-
+    
     # mark engine change
     getbrowserinfo myStatusEngineChange "${SSBLastRunEngineType#*|}"
     myStatusEngineChange[0]="$SSBLastRunEngineType"

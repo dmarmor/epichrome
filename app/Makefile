@@ -119,11 +119,13 @@ ifeq ($(BETA),_beta)
 DEBUG_SH:=1
 DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
+EPICHROME_DISPNAME:=Epichrome Beta
 PACKAGE_README:=build/resources/readme.rtf
 else
 DEBUG_SH:=
 DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
+EPICHROME_DISPNAME:=Epichrome
 PACKAGE_README:=build/resources/readme.rtf
 endif
 
@@ -184,7 +186,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .DELETE_ON_ERROR:
 
-.PHONY: internal package clean clean-package clean-engine clean-all notarize notarize-check notarize-staple
+.PHONY: internal package clean clean-package clean-engine clean-all verify notarize notarize-check notarize-staple
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
@@ -248,13 +250,13 @@ build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
 		build/package/Applications/Epichrome \
 		build/icons/folder.icns
 	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
-	mv $(APP) build/package/Applications/$(APP)
+	mv $(APP) 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app'
 	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
 	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist && \
-	pkgbuild --root build/package --component-plist $(@:.pkg=).plist $@ && \
-	rm -f $(@:.pkg=).plist ) ; then \
-		mv build/package/Applications/$(APP) $(APP) ; false ; fi
-	mv build/package/Applications/$(APP) $(APP)
+	pkgbuild --root build/package --component-plist $(@:.pkg=).plist '$@' && \
+	rm -f '$(@:.pkg=).plist' ) ; then \
+		mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP) ; false ; fi
+	mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP)
 	rm -rf build/package/Applications
 	@cd build ; rmdir -p package
 
@@ -341,10 +343,14 @@ notarize-staple:
 %.app: src/package/entitlements.plist
 	xattr -cr '$@'
 	codesign -vv --force --options runtime --entitlements src/package/entitlements.plist \
-		-s '$(CODESIGN_IDENTITY)' $@
-	codesign --verify --deep --strict --verbose=2 $@
-	spctl --assess --type execute --verbose=4 $@
-	touch $@
+		-s '$(CODESIGN_IDENTITY)' '$@'
+	codesign --verify --deep --strict --verbose=2 '$@'
+	spctl --assess --type execute --verbose=4 '$@'
+	touch '$@'
+
+verify: $(APP)
+	codesign --verify --deep --strict --verbose=2 '$<'
+	spctl --assess --type execute --verbose=4 '$<'
 
 
 # *** MAIN APP ***
@@ -443,7 +449,7 @@ main:
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/applet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'

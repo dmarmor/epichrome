@@ -3,8 +3,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [2.3.3] - 2020-06-XX
+### Changed
+- Updated built-in engine to Brave 1.9.80
+- Rewrote main Epichrome.app code in JavaScript and unified interface scripts into a single API to prepare for adding app editing in a future release
+- Added progress bar to Epichrome.app during app creation both to give a better sense of how long it can sometimes take, and to allow it to be aborted
 ### Fixed
-- Apps using built-in engine will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they've previously chosen to skip the new version
+- Apps using built-in engine will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they've previously chosen to skip the new version ([issue #248](https://github.com/dmarmor/epichrome/issues/248 "issue #248")
+- Added a check for the rare situation where a new app with the built-in engine is created with the same ID as another app with an external engine, so the new app will no longer refuse to launch ([issue #247](https://github.com/dmarmor/epichrome/issues/247 "issue #247")
+
 
 ## [2.3.2] - 2020-05-31
 ### Changed

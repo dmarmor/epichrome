@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Epichrome</string>
+	<string>EPIDISPNAME</string>
 	<key>CFBundleName</key>
 	<string>Epichrome</string>
 	<key>CFBundleIdentifier</key>
