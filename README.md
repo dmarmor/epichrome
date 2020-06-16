@@ -18,6 +18,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Lyle Barrere</b><br />
 <b>Jonathan Berger</b><br />
 <b>Andrew Bonham</b><br />
+<b>Buck Doyle</b><br />
 <b>Lev Dubinets</b><br />
 <b>Matt Fallshaw</b><br />
 <b>Lanny Heidbreder</b><br />

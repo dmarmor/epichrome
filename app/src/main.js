@@ -34,8 +34,16 @@ const kFinder = Application('Finder');
 
 // CORE UTILITY FUNCTIONS
 
-function quotedForm(s) {
-    return "'" + s.replace(/'/g, "'\\''") + "'";
+function shellQuote(...aArgs) {
+    let result = [];
+    for (let s of aArgs) {
+        result.push("'" + s.replace(/'/g, "'\\''") + "'");
+    }
+    return result.join(' ');
+}
+
+function shell(...aArgs) {
+    return kApp.doShellScript(shellQuote.apply(null, aArgs));
 }
 
 
@@ -58,8 +66,8 @@ const kEngineInfo = {
 };
 
 // script paths
-const kEpichromeScript = quotedForm(kApp.pathToResource("epichrome.sh", {
-    inDirectory:"Scripts" }).toString());
+const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
+    inDirectory:"Scripts" }).toString();
 
 // app resources
 const kEpiIcon = kApp.pathToResource("applet.icns");
@@ -86,8 +94,9 @@ function initDataDir() {
     try {
 
         // run core script to initialize
-        coreOutput = kApp.doShellScript(kEpichromeScript +
-            " 'coreDoInit=1' 'epiAction=init'").split("\r");
+        coreOutput = shell(kEpichromeScript,
+            'coreDoInit=1',
+            'epiAction=init').split("\r");
 
         // make sure we get 2 lines of output
         if (coreOutput.length != 2) { throw('Unexpected output.'); }
@@ -95,10 +104,10 @@ function initDataDir() {
         // parse output lines
         gDataPath = coreOutput[0];
         gLogFile = coreOutput[1];
-        gScriptLogVar = quotedForm("myLogFile=" + gLogFile);
+        gScriptLogVar = "myLogFile=" + gLogFile;
 
         // check that the data path is writeable
-        coreOutput = kApp.doShellScript("if [[ ! -w " + quotedForm(gDataPath) + " ]] ; then echo FAIL ; fi");
+        coreOutput = kApp.doShellScript("if [[ ! -w " + shellQuote(gDataPath) + " ]] ; then echo FAIL ; fi");
         if (coreOutput == 'FAIL') { throw('Application data folder is not writeable.'); }
 
     } catch(myErr) {
@@ -117,11 +126,11 @@ if (! initDataDir()) { kApp.quit(); }
 
 // ERRLOG -- log an error message
 function errlog(aMsg, aType='ERROR') {
-    kApp.doShellScript(kEpichromeScript + ' ' +
-        gScriptLogVar + ' ' +
-        "'epiAction=log' " +
-        quotedForm('epiLogType=' + aType) + ' ' +
-        quotedForm('epiLogMsg=' + aMsg));
+    shell(kEpichromeScript,
+        gScriptLogVar,
+        'epiAction=log',
+        'epiLogType=' + aType,
+        'epiLogMsg=' + aMsg);
 }
 
 // DEBUGLOG -- log a debugging message
@@ -323,11 +332,11 @@ function checkForUpdate() {
         // run the update check script
         let myUpdateCheckResult;
         try {
-            myUpdateCheckResult = kApp.doShellScript(kEpichromeScript + ' ' +
-                gScriptLogVar + ' ' +
-                "'epiAction=updatecheck' " +
-                quotedForm('myUpdateCheckVersion=' + gEpiUpdateCheckVersion) + ' ' +
-                quotedForm('myVersion=' + myVersion)).split('\r');
+            myUpdateCheckResult = shell(kEpichromeScript,
+                gScriptLogVar,
+                'epiAction=updatecheck',
+                'myUpdateCheckVersion=' + gEpiUpdateCheckVersion,
+                'myVersion=' + myVersion).split('\r');
         } catch(myErr) {
             myUpdateCheckResult = ["ERROR", myErr.toString()];
         }
@@ -586,7 +595,7 @@ function doStep(aStepNum) {
 			gEpiLastAppDir = myAppInfo.dir;
 
 			// check if we have permission to write to this directory
-			if (kApp.doShellScript("if [[ -w " + quotedForm(myAppInfo.dir) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") != "Yes") {
+			if (kApp.doShellScript("if [[ -w " + shellQuote(myAppInfo.dir) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") != "Yes") {
                 kApp.displayDialog("You don't have permission to write to that folder. Please choose another location for your app.", {
                     withTitle: "Error",
                     withIcon: 'stop',
@@ -601,7 +610,7 @@ function doStep(aStepNum) {
                 if (myAppInfo.extAdded) {
 
                     // see if an app with the given base name exists
-                    if (kApp.doShellScript("if [[ -e " + quotedForm(myAppInfo.path) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") == "Yes") {
+                    if (kApp.doShellScript("if [[ -e " + shellQuote(myAppInfo.path) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") == "Yes") {
                         try {
                             kApp.displayDialog("A file or folder named \"" + myAppInfo.name + "\" already exists. Do you want to replace it?", {
                                 withTitle: "File Exists",
@@ -1028,13 +1037,11 @@ function doStep(aStepNum) {
 		myAppSummary += "\n\nApp Engine: " + gAppEngineButton;
 
 		// set up app command line
-		let myAppCmdLine = "";
+		let myAppCmdLine = [];
 		if (gAppStyle == "App Window") {
-			myAppCmdLine = quotedForm("--app=" + gAppURLs[0]);
+			myAppCmdLine.push('--app=' + gAppURLs[0]);
 		} else if (gAppURLs.length > 0) {
-            for (let t of gAppURLs) {
-                myAppCmdLine += " " + quotedForm(t);
-            }
+            myAppCmdLine = gAppURLs;
         }
 
 		// display summary
@@ -1058,26 +1065,30 @@ function doStep(aStepNum) {
 
         // CREATE THE APP
 
-        Progress.totalUnitCount = 2;
-        Progress.completedUnitCount = 1;
-        Progress.description = "Building app...";
-        Progress.additionalDescription = "This may take up to 30 seconds. The progress bar will not advance.";
-
-        // this somehow allows the progress bar to appear
-        delay(0.1);
-
         try {
-            kApp.doShellScript(kEpichromeScript + ' ' +
-                gScriptLogVar + ' ' +
-                "'epiAction=build' " +
-                quotedForm('myAppPath=' + gAppPath) + ' ' +
-                quotedForm('CFBundleDisplayName=' + gAppNameBase) + ' ' +
-                quotedForm('CFBundleName=' + gAppShortName) + ' ' +
-                quotedForm('SSBCustomIcon=' + gAppCustomIcon) + ' ' +
-                quotedForm('myIconSource=' + gAppIconSrc) + ' ' +
-                quotedForm('SSBRegisterBrowser=' + gAppRegisterBrowser) + ' ' +
-                quotedForm('SSBEngineType=' + gAppEngineType) + ' ' +
-                "'SSBCommandLine=(' " + myAppCmdLine + " ')'");
+
+            Progress.totalUnitCount = 2;
+            Progress.completedUnitCount = 1;
+            Progress.description = "Building app...";
+            Progress.additionalDescription = "This may take up to 30 seconds. The progress bar will not advance.";
+
+            // this somehow allows the progress bar to appear
+            delay(0.1);
+
+            shell.apply(null, Array.prototype.concat( [
+                kEpichromeScript,
+                gScriptLogVar,
+                'epiAction=build',
+                'myAppPath=' + gAppPath,
+                'CFBundleDisplayName=' + gAppNameBase,
+                'CFBundleName=' + gAppShortName,
+                'SSBCustomIcon=' + gAppCustomIcon,
+                'myIconSource=' + gAppIconSrc,
+                'SSBRegisterBrowser=' + gAppRegisterBrowser,
+                'SSBEngineType=' + gAppEngineType,
+                'SSBCommandLine=(' ],
+                myAppCmdLine,
+                [ ')' ]));
 
                 Progress.completedUnitCount = 2;
                 Progress.description = "Build complete.";
@@ -1135,7 +1146,7 @@ function doStep(aStepNum) {
         if (myDlgResult == "Launch Now") {
             delay(1);
             try {
-                kApp.doShellScript("/usr/bin/open " + quotedForm(gAppPath));
+                shell("/usr/bin/open ", gAppPath);
             } catch(myErr) {
                 // do I want some error reporting? /usr/bin/open is unreliable with errors
             }
