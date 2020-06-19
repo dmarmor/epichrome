@@ -36,7 +36,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## New in version 2.3.3
 
-- Brave-based apps will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they're set to skip the new version (<a href="https://github.com/dmarmor/epichrome/issues/248" target="_blank">issue #248</a>).
+- Brave-based apps will now always prompt to update if their version of Epichrome is not installed, even on first run and even if they're set to skip the new version ([issue #248](https://github.com/dmarmor/epichrome/issues/248)).
 
 - The built-in engine has been updated to Brave 1.10.90.
 
