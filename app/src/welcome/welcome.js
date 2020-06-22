@@ -148,6 +148,16 @@ function buildPage() {
         replaceText('version_old', oldVersion);
     }
 
+    // edited app page
+    const statusEdited = (urlParams.get('ed') != null);
+    if (statusEdited) {
+        if (!activePage) {
+            activePage = 'pg_edited';
+            pageTitle = document.head.dataset['edited'];
+        }
+        appChanges.push('ch_edited');
+    }
+    
     // engine change
     var activePassword = null;
     const oldEngine = setEngine(urlParams.get('oe'), 'old');

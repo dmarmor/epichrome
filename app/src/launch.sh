@@ -583,7 +583,7 @@ function updatedatadir {
     
     # UPDATE WELCOME PAGE
     
-    if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
+    if [[ "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEdited" || \
 	      "${myStatusEngineChange[0]}" || "$myStatusReset" || \
 	  ( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
 	
@@ -630,10 +630,29 @@ function setwelcomepage {
 	# updated app
 	debuglog "Creating app update welcome page."
 	myStatusWelcomeURL="$baseURL&ov=$(encodeurl "$myStatusNewVersion")"
-	myStatusWelcomeTitle="App Updated ($myStatusNewVersion -> $SSBVersion)"
+	if [[ "$myStatusEdited" ]] ; then
+	    myStatusWelcomeTitle="App Edited and Updated "
+	else
+	    myStatusWelcomeTitle="App Updated "
+	fi
+	myStatusWelcomeTitle+="($myStatusNewVersion -> $SSBVersion)"
     fi
     
     if [[ ! "$myStatusNewApp" ]] ; then
+
+	if [[ "$myStatusEdited" ]] ; then
+	    
+	    # edited app
+	    if [[ ! "$myStatusWelcomeURL" ]] ; then
+		
+		debuglog "Creating edited app welcome page."
+		myStatusWelcomeURL="$baseURL"
+		myStatusWelcomeTitle="App Edited"
+	    fi
+	    
+	    # set up arguments
+	    myStatusWelcomeURL+="&ed=1"
+	fi
 	
 	if [[ "${myStatusEngineChange[0]}" ]] ; then
 	    

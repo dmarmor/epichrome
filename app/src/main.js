@@ -335,8 +335,8 @@ function checkForUpdate() {
             myUpdateCheckResult = shell(kEpichromeScript,
                 gScriptLogVar,
                 'epiAction=updatecheck',
-                'myUpdateCheckVersion=' + gEpiUpdateCheckVersion,
-                'myVersion=' + myVersion).split('\r');
+                'epiUpdateCheckVersion=' + gEpiUpdateCheckVersion,
+                'epiVersion=' + kVersion).split('\r');
         } catch(myErr) {
             myUpdateCheckResult = ["ERROR", myErr.toString()];
         }
@@ -345,7 +345,7 @@ function checkForUpdate() {
 
         if (myUpdateCheckResult[0] == "MYVERSION") {
             // updateCheckVersion is older than the current version, so update it
-            gEpiUpdateCheckVersion = myVersion;
+            gEpiUpdateCheckVersion = kVersion;
             myUpdateCheckResult.shift();
         }
 
@@ -1079,11 +1079,11 @@ function doStep(aStepNum) {
                 kEpichromeScript,
                 gScriptLogVar,
                 'epiAction=build',
-                'myAppPath=' + gAppPath,
+                'epiAppPath=' + gAppPath,
                 'CFBundleDisplayName=' + gAppNameBase,
                 'CFBundleName=' + gAppShortName,
                 'SSBCustomIcon=' + gAppCustomIcon,
-                'myIconSource=' + gAppIconSrc,
+                'epiIconSource=' + gAppIconSrc,
                 'SSBRegisterBrowser=' + gAppRegisterBrowser,
                 'SSBEngineType=' + gAppEngineType,
                 'SSBCommandLine=(' ],

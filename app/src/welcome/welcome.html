@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <html lang="en">
-<head data-new="App Created (APPVERSION)" data-update="App Updated (OLDVERSION -> NEWVERSION)" data-reset="App Reset" data-change-engine="App Engine Changed (OLDENGINE -> NEWENGINE)">
+<head data-new="App Created (APPVERSION)" data-update="App Updated (OLDVERSION -> NEWVERSION)" data-editupdate="App Edited and Updated (OLDVERSION -> NEWVERSION)" data-edited="App Edited" data-reset="App Reset" data-change-engine="App Engine Changed (OLDENGINE -> NEWENGINE)">
   <meta charset="utf-8"/>
   <title>App (EPIVERSION)</title>
   <link rel="stylesheet" type="text/css" href="welcome.css" />
@@ -64,14 +64,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           <img src="img/app_icon.png" alt="APPDISPLAYNAME icon" />
           <div id="main_title_text" class="main_title_text">
             <div class="title_info above">
-              <p class="version group_pg pg_update pg_change_engine pg_reset hide">APPDISPLAYNAME | version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_new">&nbsp;</p>
+              <p class="version group_pg pg_update pg_edited pg_change_engine pg_reset hide">APPDISPLAYNAME | version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_new">&nbsp;</p>
             </div>
             <h1 class="title group_pg pg_new">Welcome to Your APPDISPLAYNAME App!</h1>
-            <h1 class="title group_pg pg_update hide">Your App Has Been Updated!</h1>
+            <h1 class="title group_pg pg_update hide">Your App Has Been <span class="ch_edited hide">Edited and </span>Updated</h1>
+            <h1 class="title group_pg pg_edited hide">Your App Has Been Edited</h1>
             <h1 class="title group_pg pg_reset hide">Your App Was Reset</h1>
-            <h1 class="title group_pg pg_change_engine hide">Your App Has Changed</h1>
+            <h1 class="title group_pg pg_change_engine hide">Your App Engine Changed</h1>
             <div class="title_info below">
-              <p class="version group_pg pg_new">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_update pg_change_engine pg_reset hide">&nbsp;</p>
+              <p class="version group_pg pg_new">version <span class="version_cur">EPIVERSION</span><span class="has_engine hide"> | <span class="engine_type_int hide">built-in</span><span class="engine_type_ext hide">external</span> <span class="engine_browser"></span> engine</span></p><p class="version group_pg pg_update pg_edited pg_change_engine pg_reset hide">&nbsp;</p>
             </div> <!-- .title_info -->
           </div> <!-- #main_title_text -->
         </div> <!-- .contents -->
@@ -84,8 +85,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         <div id="changes_msg" class="changes_msg hide">
           <div id="changes_user" class="changes_user change_list">
             <h3 class="group_pg pg_new">Important Information</h3>
-            <h3 class="group_pg pg_update pg_change_engine pg_reset">Changes to This App</h3>
+            <h3 class="group_pg pg_update pg_edited pg_change_engine pg_reset">Changes to This App</h3>
             <ul>
+              <li class="ch_edited hide"><span class="change_headline">The app&rsquo;s basic info has been edited</li>
               <li class="ch_update ch_update_runtime hide"><span class="change_headline">The app has been updated</span> from version <span class="version_old">(unknown)</span> to version <span class="version_cur">EPIVERSION</span></li>
               <li class="ch_change_engine hide"><span class="change_headline">The app has switched engines</span><span class="has_engine_old hide"> from <span class="engine_old_type_int hide">the built-in</span><span class="engine_old_type_ext hide">an external</span> <span class="engine_old_browser"></span> engine</span> <span class="has_engine hide">to <span class="engine_type_int hide">the built-in</span><span class="engine_type_ext hide">an external</span> <span class="engine_browser"></span> engine</span></li>
               <li class="ch_reset hide"><span class="change_headline">Some or all of the app&rsquo;s settings have been reset</span> to their default values</li>

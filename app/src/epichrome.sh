@@ -26,6 +26,7 @@
 myResourcesPath="${BASH_SOURCE[0]%/Scripts/epichrome.sh}"
 myRuntimeScriptsPath="$myResourcesPath/Runtime/Contents/Resources/Scripts"
 
+
 # LOAD UPDATE SCRIPT (THIS ALSO LOADS CORE AND LAUNCH)
 
 source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "$@" || exit 1
@@ -75,14 +76,14 @@ elif [[ "$epiAction" = 'updatecheck' ]] ; then
     fi
     
     # compare supplied versions
-    if vcmp "$myUpdateCheckVersion" '<' "$myVersion" ; then
+    if vcmp "$epiUpdateCheckVersion" '<' "$epiVersion" ; then
 	echo 'MYVERSION'
-	myUpdateCheckVersion="$myVersion"
+	epiUpdateCheckVersion="$epiVersion"
     fi
 
     # compare latest supplied version against github
     local newVersion=
-    checkgithubversion "$myUpdateCheckVersion" newVersion
+    checkgithubversion "$epiUpdateCheckVersion" newVersion
     [[ "$ok" ]] || abort
     
     # if we got here, check succeeded, so submit result back to main.js
@@ -124,7 +125,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     
     # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
 
-    debuglog "Starting build for '$myAppPath'."
+    debuglog "Starting build for '$epiAppPath'."
     
     # get engine info
     if [[ "${SSBEngineType%|*}" = internal ]] ; then
@@ -132,7 +133,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     fi
     
     # create the app directory in a temporary location
-    appTmp=$(tempname "$myAppPath")
+    appTmp=$(tempname "$epiAppPath")
     cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
     if [[ "$?" != 0 ]] ; then
 	# if we don't have permission, let the app know to try for admin privileges
@@ -148,38 +149,6 @@ elif [[ "$epiAction" = 'build' ]] ; then
     [[ "$ok" ]] || abort
 
 
-    # PREPARE CUSTOM ICON IF WE'RE USING ONE
-
-    if [[ "$myIconSource" ]] ; then
-	
-	# get name for temporary icon directory
-	customIconDir="$appTmp/Contents/Resources"
-	try /bin/mkdir -p "$customIconDir" 'Unable to create app Resources directory.'
-	[[ "$ok" ]] || abort
-	
-	# find makeicon.sh
-	makeIconScript="$myResourcesPath/Scripts/makeicon.sh"
-	[[ -e "$makeIconScript" ]] || abort "Unable to locate icon creation script."
-	[[ -x "$makeIconScript" ]] || abort "Unable to run icon creation script."
-	
-	# build command-line
-	docArgs=(-c "$myResourcesPath/docbg.png" \
-		    256 286 512 "$myIconSource" "$customIconDir/$CFBundleTypeIconFile")
-	
-	# run script to convert image into an ICNS
-	makeIconErr=
-	try 'makeIconErr&=' "$makeIconScript" -f -o "$customIconDir/$CFBundleIconFile" "${docArgs[@]}" ''
-	
-	# handle errors
-	if [[ ! "$ok" ]] ; then
-	    errmsg="${makeIconErr#*Error: }"
-	    errmsg="${errmsg%.*}"
-	    [[ "$errmsg" ]] && errmsg=" ($errmsg)"
-	    abort "Unable to create icon${errmsg}."
-	fi
-    fi
-
-
     # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
     # populate the app bundle
@@ -187,9 +156,28 @@ elif [[ "$epiAction" = 'build' ]] ; then
     [[ "$ok" ]] || abort
 
     # move new app to permanent location (overwriting any old app)
-    permanent "$appTmp" "$myAppPath" "app bundle"
+    permanent "$appTmp" "$epiAppPath" "app bundle"
     [[ "$ok" ]] || abort
 
+elif [[ "$epiAction" = 'edit' ]] ; then
+
+    # CLEANUP -- clean up any half-finished edit
+    function cleanup {
+	
+	# clean up from any aborted update
+	[[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup	
+    }
+    
+    # EDIT (AND POSSIBLY UPDATE) THIS APP
+    
+    # populate the app bundle
+    updateapp "$epiAppPath"
+    [[ "$ok" ]] || abort
+    
+    # $$$$ MOVE DATA FOLDER IF ID CHANGED
+    
+    # $$$$ MOVE TO NEW NAME IF DISPLAYNAME CHANGED
+    
 else
     abort "Unable to perform action '$epiAction'."
 fi

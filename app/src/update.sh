@@ -28,8 +28,13 @@ updateVersion='EPIVERSION'
 
 # PATH TO THIS SCRIPT'S EPICHROME APP BUNDLE
 
-updateEpichromePath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}"
-updateEpichromeRuntime="$updateEpichromePath/Contents/Resources/Runtime"
+updateEpichromeResources="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}/Contents/Resources"
+updateEpichromeRuntime="$updateEpichromeResources/Runtime"
+
+
+# TEMP CONTENTS DIRECTORY FOR CLEANUP
+
+updateContentsTmp=
 
 
 # BOOTSTRAP MY VERSION OF CORE.SH & LAUNCH.SH
@@ -63,6 +68,16 @@ function escapehtml {  # ( str )
     echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' \
 		      "Unable to escape HTML characters in string '$str'"
     ok=1 ; errmsg=
+}
+
+
+# UPDATECLEANUP: clean up from an aborted update
+
+function updatecleanup {
+    if [[ -d "$updateContentsTmp" ]] ; then
+	rmtemp "$updateContentsTmp" 'Contents folder'
+    fi
+    updateContentsTmp=
 }
 
 
@@ -141,7 +156,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     [[ "$ok" ]] || return 1
     
     
-    # SET UNIQUE APP ID
+    # ENSURE UNIQUE APP ID
     
     if [[ ! "$SSBIdentifier" ]] ; then
 	
@@ -149,9 +164,11 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	
 	# see if we can pull it from CFBundleIdentifier
 	SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
-	if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
+	
+	if [[ ( ! "$SSBIdentifier" ) || \
+		  ( "$SSBIdentifier" = "$CFBundleIdentifier" ) ]] ; then
 	    
-	    # no identifier found, so create a new ID
+	    # CREATE A NEW APP ID
 	    
 	    # get max length for SSBIdentifier, given that CFBundleIdentifier
 	    # must be 30 characters or less (the extra 1 accounts for the .
@@ -219,9 +236,9 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	    done
 	    
 	    # if we got out of the loop, we have a unique-ish ID (or we got an error)
+	    [[ "$ok" ]] || return 1
 	fi
     fi
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
     
     # set app bundle ID
     local myAppBundleID="$appIDBase.$SSBIdentifier"
@@ -235,15 +252,16 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # BEGIN POPULATING APP BUNDLE
     
     # put updated bundle in temporary Contents directory
-    local contentsTmp="$(tempname "$updateAppPath/Contents")"
+    updateContentsTmp="$(tempname "$updateAppPath/Contents")"
+    local resourcesTmp="$updateContentsTmp/Resources"
     
     # copy in the boilerplate for the app
-    try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$contentsTmp" 'Unable to populate app bundle.'
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$updateContentsTmp" 'Unable to populate app bundle.'
+    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
 
     # copy executable into place
     safecopy "$updateEpichromeRuntime/Exec/Epichrome" \
-	     "$contentsTmp/MacOS/Epichrome" \
+	     "$updateContentsTmp/MacOS/Epichrome" \
 	     'app executable.'
     
     
@@ -260,7 +278,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
     
     # filter boilerplate Info.plist with info for this app
     filterplist "$updateEpichromeRuntime/Filter/Info.plist" \
-		"$contentsTmp/Info.plist" \
+		"$updateContentsTmp/Info.plist" \
 		"app Info.plist" \
 		"${filterCommands[@]}"
 
@@ -268,10 +286,13 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # FILTER APP MAIN SCRIPT INTO PLACE
 
     local appExecEngineSource=
-    [[ "${SSBEngineType%%|*}" = internal ]] && \
+    if [[ "${SSBEngineType%%|*}" = internal ]] ; then
 	appExecEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")"
+    else
+	appExecEngineSource="# SSBEngineSourceInfo set in config.sh"
+    fi
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
-	       "$contentsTmp/Resources/script" \
+	       "$resourcesTmp/script" \
 	       'app executable' \
 	       APPID "$(formatscalar "$SSBIdentifier")" \
 	       APPDISPLAYNAME "$(formatscalar "$CFBundleDisplayName")" \
@@ -279,103 +300,163 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	       APPCUSTOMICON "$(formatscalar "$SSBCustomIcon")" \
 	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
 	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
-	       APPENGINESOURCE "$appExecEngineSource"
+	       APPENGINESOURCE "$appExecEngineSource" \
+	       APPEDITED "$(formatscalar "$SSBEdited")"
     
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
 
     
-    # COPY IN CUSTOM APP ICONS
+    # COPY OR CREATE CUSTOM APP ICONS
     
     if [[ "$SSBCustomIcon" = Yes ]] ; then
-	
-	# MAIN ICONS
-	
-	local iconSourcePath="$updateAppPath/Contents/Resources"	
-	safecopy "$iconSourcePath/$CFBundleIconFile" \
-		 "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
-	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
-		 "$contentsTmp/Resources/$CFBundleTypeIconFile" "document icon"
-	if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
 
-
-	# WELCOME PAGE ICON
-	
+	# relative path for welcome icon
 	local welcomeIconBase="$appWelcomePath/img/app_icon.png"
-	local welcomeIconSourcePath="$updateAppPath/Contents/$welcomeIconBase"
-	local tempIconset=
 	
-	# check if welcome icon exists in bundle
-	if [[ ! -f "$welcomeIconSourcePath" ]] ; then
+	if [[ "$epiIconSource" ]] ; then
 	    
-	    # welcome icon not found, so try to create one
-	    debuglog 'Extracting icon image for welcome page.'
-	    
-	    # fallback to generic icon already in bundle
-	    welcomeIconSourcePath=
-	    
-	    # create iconset from app icon
-	    tempIconset="$(tempname "$contentsTmp/$appWelcomePath/img/app" ".iconset")"
-	    try /usr/bin/iconutil -c iconset \
-		-o "$tempIconset" \
-		"$iconSourcePath/$CFBundleIconFile" \
-		'Unable to convert app icon to iconset.'
-	    
-	    if [[ "$ok" ]] ; then
-		
-		# pull out the PNG closest to 128x128
-		local f=
-		local curMax=()
-		local curSize=
-		local iconRe='icon_([0-9]+)x[0-9]+(@2x)?\.png$'
-		for f in "$tempIconset"/* ; do
-		    if [[ "$f" =~ $iconRe ]] ; then
+	    # CREATE NEW CUSTOM ICONS
 
-			# get actual size of this image
-			curSize="${BASH_REMATCH[1]}"
-			[[ "${BASH_REMATCH[2]}" ]] && curSize=$(($curSize * 2))
-
-			# see if this is a better match
-			if [[ (! "${curMax[0]}" ) || \
-				  ( ( "${curMax[0]}" -lt 128 ) && \
-					( "$curSize" -gt "${curMax[0]}" ) ) || \
-				  ( ( "$curSize" -ge 128 ) && \
-					( "$curSize" -lt "${curMax[0]}" ) ) ]] ; then
-			    curMax=( "$curSize" "$f" )
-			fi
-		    fi
-		done
-		
-		# if we found a suitable image, use it
-		[[ -f "${curMax[1]}" ]] && welcomeIconSourcePath="${curMax[1]}"
-		
-	    else
-		# fail silently, we'll just use the default
-		ok=1 ; errmsg=
+	    # ensure a valid source image file
+	    try '-1' /usr/bin/sips --getProperty format "$epiIconSource" \
+		"Unable to parse icon source file."
+	    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
+	    
+	    # find makeicon.sh
+	    makeIconScript="$updateEpichromeResources/Scripts/makeicon.sh"
+	    if [[ ! -e "$makeIconScript" ]] ; then
+		ok= ; errmsg="Unable to locate icon creation script."
+		updatecleanup
+		return 1
 	    fi
-	else
-	    debuglog 'Found existing icon image for welcome page.'
-	fi
+	    if [[ ! -x "$makeIconScript" ]] ; then
+		ok= ; errmsg="Unable to run icon creation script."
+		updatecleanup
+		return 1
+	    fi
+	    
+	    # build command-line
+	    local docArgs=(-c "$updateEpichromeResources/docbg.png" \
+			      256 286 512 "$epiIconSource" "$resourcesTmp/$CFBundleTypeIconFile")
+	    
+	    # run script to convert image into an ICNS
+	    local makeIconErr=
+	    try 'makeIconErr&=' "$makeIconScript" -f -o "$resourcesTmp/$CFBundleIconFile" "${docArgs[@]}" ''
+	    
+	    # handle errors
+	    if [[ ! "$ok" ]] ; then
+		errmsg="Unable to create icon"
+		makeIconErr="${makeIconErr#*Error: }"
+		makeIconErr="${makeIconErr%.*}"
+		[[ "$makeIconErr" ]] && errmsg+=" ($makeIconErr)"
+		errmsg+='.'
+		updatecleanup
+		return 1
+	    fi
 
-	# copy welcome icon
-	if [[ "$welcomeIconSourcePath" ]] ; then
-	    safecopy "$welcomeIconSourcePath" \
-		     "$contentsTmp/$welcomeIconBase" \
-		     'Unable to add app icon to welcome page.'
+
+	    # CREATE WELCOME PAGE ICON
+	    
+	    try '-1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
+		"$epiIconSource" --out "$updateContentsTmp/$welcomeIconBase" \
+		'Unable to create welcome page icon.'
+	    
+	    # error is nonfatal, we'll just use the default from boilerplate
+	    if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
+	    
+	else
+	
+	    
+	    # COPY ICONS FROM EXISTING APP
+
+	    # MAIN ICONS
+	    
+	    local iconSourcePath="$updateAppPath/Contents/Resources"	
+	    safecopy "$iconSourcePath/$CFBundleIconFile" \
+		     "$resourcesTmp/$CFBundleIconFile" "app icon"
+	    safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
+		     "$resourcesTmp/$CFBundleTypeIconFile" "document icon"
+	    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
+	    
+	    
+	    # WELCOME PAGE ICON
+	    
+	    local welcomeIconSourcePath="$updateAppPath/Contents/$welcomeIconBase"
+	    local tempIconset=
+	    
+	    # check if welcome icon exists in bundle
+	    if [[ ! -f "$welcomeIconSourcePath" ]] ; then
+		
+		# welcome icon not found, so try to create one
+		debuglog 'Extracting icon image for welcome page.'
+		
+		# fallback to generic icon already in bundle
+		welcomeIconSourcePath=
+		
+		# create iconset from app icon
+		tempIconset="$(tempname "$updateContentsTmp/$appWelcomePath/img/app" ".iconset")"
+		try /usr/bin/iconutil -c iconset \
+		    -o "$tempIconset" \
+		    "$iconSourcePath/$CFBundleIconFile" \
+		    'Unable to convert app icon to iconset.'
+		
+		if [[ "$ok" ]] ; then
+		    
+		    # pull out the PNG closest to 128x128
+		    local f=
+		    local curMax=()
+		    local curSize=
+		    local iconRe='icon_([0-9]+)x[0-9]+(@2x)?\.png$'
+		    for f in "$tempIconset"/* ; do
+			if [[ "$f" =~ $iconRe ]] ; then
+			    
+			    # get actual size of this image
+			    curSize="${BASH_REMATCH[1]}"
+			    [[ "${BASH_REMATCH[2]}" ]] && curSize=$(($curSize * 2))
+			    
+			    # see if this is a better match
+			    if [[ (! "${curMax[0]}" ) || \
+				      ( ( "${curMax[0]}" -lt 128 ) && \
+					    ( "$curSize" -gt "${curMax[0]}" ) ) || \
+				      ( ( "$curSize" -ge 128 ) && \
+					    ( "$curSize" -lt "${curMax[0]}" ) ) ]] ; then
+				curMax=( "$curSize" "$f" )
+			    fi
+			fi
+		    done
+		    
+		    # if we found a suitable image, use it
+		    [[ -f "${curMax[1]}" ]] && welcomeIconSourcePath="${curMax[1]}"
+		    
+		else
+		    # fail silently, we'll just use the default
+		    ok=1 ; errmsg=
+		fi
+	    else
+		debuglog 'Found existing icon image for welcome page.'
+	    fi
+	    
+	    # copy welcome icon
+	    if [[ "$welcomeIconSourcePath" ]] ; then
+		safecopy "$welcomeIconSourcePath" \
+			 "$updateContentsTmp/$welcomeIconBase" \
+			 'Unable to add app icon to welcome page.'
+	    fi
+	    
+	    # get rid of any temp iconset we created
+	    [[ "$tempIconset" && -e "$tempIconset" ]] && \
+		tryalways /bin/rm -rf "$tempIconset" \
+			  'Unable to remove temporary iconset.'
+	    
+	    # welcome page icon error is nonfatal, just log it
+	    if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
 	fi
-	
-	# get rid of any temp iconset we created
-	[[ "$tempIconset" && -e "$tempIconset" ]] && \
-	    tryalways /bin/rm -rf "$tempIconset" \
-		      'Unable to remove temporary iconset.'
-	
-	# welcome page icon error is nonfatal, just log it
-	if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
     fi
     
         
     # FILTER NATIVE MESSAGING HOST INTO PLACE
     
-    local updateNMHFile="$contentsTmp/Resources/NMH/$appNMHFile"
+    local updateNMHFile="$resourcesTmp/NMH/$appNMHFile"
     filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
 	       "$updateNMHFile" \
 	       'native messaging host' \
@@ -385,13 +466,13 @@ The main advantage of the external Google Chrome engine is if your app must run 
     try /bin/chmod 755 "$updateNMHFile" \
 	'Unable to set permissions for native messaging host.'
 
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
 
 
     # FILTER WELCOME PAGE INTO PLACE
     
     filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
-	       "$contentsTmp/$appWelcomePath/$appWelcomePage" \
+	       "$updateContentsTmp/$appWelcomePath/$appWelcomePage" \
 	       'welcome page' \
 	       APPBUNDLENAME "$(escapehtml "$CFBundleName")" \
 	       APPDISPLAYNAME "$(escapehtml "$CFBundleDisplayName")"
@@ -406,24 +487,24 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # copy correct prefs file into app bundle
     local engineID="${SSBEngineType#*|}"
     safecopy "$updateEpichromeRuntime/Filter/Prefs/prefs${nourl}_${engineID//./_}.json" \
-	"$contentsTmp/$appMasterPrefsPath" \
+	"$updateContentsTmp/$appMasterPrefsPath" \
 	'Unable to create app master prefs.'
     
     
     # FILTER PROFILE BOOKMARKS FILE INTO PLACE
     
     filterfile "$updateEpichromeRuntime/Filter/$appBookmarksFile" \
-	       "$contentsTmp/$appBookmarksPath" \
+	       "$updateContentsTmp/$appBookmarksPath" \
 	       'bookmarks template' \
 	       APPBUNDLENAME "$(escapejson "$CFBundleName")"
     
-    if [[ ! "$ok" ]] ; then rmtemp "$contentsTmp" 'Contents folder' ; return 1 ; fi
+    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
     
 
     # POPULATE ENGINE
     
     # path to engine
-    local updateEnginePath="$contentsTmp/Resources/Engine"
+    local updateEnginePath="$resourcesTmp/Engine"
     
     # create engine directory
     try mkdir -p "$updateEnginePath" 'Unable to create app engine.'
@@ -510,11 +591,12 @@ The main advantage of the external Google Chrome engine is if your app must run 
     # MOVE CONTENTS TO PERMANENT HOME
     
     if [[ "$ok" ]] ; then
-	permanent "$contentsTmp" "$updateAppPath/Contents" "app bundle Contents directory"
+	permanent "$updateContentsTmp" "$updateAppPath/Contents" "app bundle Contents directory"
+	updateContentsTmp=
     else
 	# remove temp contents on error
-	[[ "$contentsTmp" && -d "$contentsTmp" ]] && rmtemp "$contentsTmp" 'Contents folder'
-
+	[[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] && updatecleanup
+	
 	# return
 	return 1
     fi

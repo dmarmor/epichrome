@@ -34,8 +34,10 @@ SSBCustomIcon=APPCUSTOMICON
 SSBCommandLine=APPCOMMANDLINE
 SSBEngineType=APPENGINETYPE
 APPENGINESOURCE
+SSBEdited=APPEDITED
 
-export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine SSBEngineType SSBEngineSourceInfo
+export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine \
+       SSBEngineType SSBEngineSourceInfo SSBEdited
 
 
 # CORE APP VARIABLES
@@ -98,6 +100,9 @@ function cleanup {
     
     # release any lock
     [[ "$lockOn" ]] && lockrelease
+
+    # clean up from any aborted update
+    [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup	
 }
 
 
@@ -329,6 +334,7 @@ fi
 
 myStatusNewApp=        # on new app, this is set
 myStatusNewVersion=    # on update, this contains old version
+myStatusEdited=        # on first run of an edited app, this is set
 myStatusFixRuntime=    # set by updateprofiledir to a copy of Epichrome Helper settings if we need to preserve them
 myStatusEngineChange=  # on engine change, this contains old engine info
 myStatusReset=         # set if app settings appear to have been reset
@@ -360,6 +366,18 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     SSBNMHInstallError=
     SSBUpdateCheckError=
 fi
+
+
+# DETERMINE IF THIS IS FIRST RUN OF AN EDITED APP
+
+if [[ "$SSBEdited" && \
+	  ( ( ! "$SSBLastRunEdited" ) || \
+		( "$SSBEdited" -gt "$SSBLastRunEdited" ) ) ]] ; then
+    myStatusEdited=1
+fi
+
+# update last run variable
+SSBLastRunEdited="$SSBEdited"
 
 
 # DETERMINE IF WE'VE JUST CHANGED ENGINES
