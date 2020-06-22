@@ -459,11 +459,18 @@ export -f initlogfile
 
 # JOIN_ARRAY -- join a bash array into a string with an arbitrary delimiter
 function join_array { # (DELIMITER)
+    
     local delim=$1; shift
     
-    printf "$1"
+    local result="$1"
     shift
-    printf "%s" "${@/#/$delim}"
+    
+    local item
+    for item in "$@" ; do
+	result+="/$item"
+    done
+    
+    printf "$result"
 }
 export -f join_array
 
@@ -1091,53 +1098,53 @@ export -f tempname
 
 
 # PERMANENT: move temporary file or directory to permanent location safely
-function permanent {
+function permanent {  # ( temp perm filetype [saveTempOnError] )
 
-    if [[ "$ok" ]]; then
-	
-	local temp="$1"
-	local perm="$2"
-	local filetype="$3"
-	local saveTempOnError="$4"  # optional argument
-	
-	local permOld=
-	
-	# MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
-	
-	# move the permanent file to a holding location for later removal
-	if [[ -e "$perm" ]] ; then
-	    permOld="$(tempname "$perm")"
-	    try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
-	    [[ "$ok" ]] || permOld=
-	fi
-	
-	# move the temp file or directory to its permanent name
-	try /bin/mv -f "$temp" "$perm" "Unable to move new $filetype into place."
-	
-	# remove the old permanent file or folder if there is one
-	if [[ "$ok" ]] ; then
-	    temp=
-	    if [ -e "$permOld" ]; then
-		try /bin/rm -rf "$permOld" "Unable to remove old $filetype."
-	    fi
-	fi
-	
-	# IF WE FAILED, CLEAN UP
-	
-	if [[ ! "$ok" ]] ; then
-	    
-	    # move old permanent file back
-	    if [[ "$permOld" ]] ; then
-		tryalways /bin/mv "$permOld" "$perm" "Unable to restore old $filetype."
-	    fi
-	    
-	    # delete temp file
-	    [[ ( ! "$saveTempOnError" ) && ( -e "$temp" ) ]] && rmtemp "$temp" "$filetype"
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local temp="$1" ; shift
+    local perm="$1" ; shift
+    local filetype="$1" ; shift
+    local saveTempOnError="$1" ; shift  # optional argument
+    
+    local permOld=
+    
+    # MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
+    
+    # move the permanent file to a holding location for later removal
+    if [[ -e "$perm" ]] ; then
+	permOld="$(tempname "$perm")"
+	try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
+	[[ "$ok" ]] || permOld=
+    fi
+    
+    # move the temp file or directory to its permanent name
+    try /bin/mv -f "$temp" "$perm" "Unable to move new $filetype into place."
+    
+    # remove the old permanent file or folder if there is one
+    if [[ "$ok" ]] ; then
+	temp=
+	if [ -e "$permOld" ]; then
+	    try /bin/rm -rf "$permOld" "Unable to remove old $filetype."
 	fi
     fi
     
-    [[ "$ok" ]] && return 0
-    return 1
+    # IF WE FAILED, CLEAN UP
+    
+    if [[ ! "$ok" ]] ; then
+	
+	# move old permanent file back
+	if [[ "$permOld" ]] ; then
+	    tryalways /bin/mv "$permOld" "$perm" "Unable to restore old $filetype."
+	fi
+	
+	# delete temp file
+	[[ ( ! "$saveTempOnError" ) && ( -e "$temp" ) ]] && rmtemp "$temp" "$filetype"
+    fi
+    
+    [[ "$ok" ]] && return 0 || return 1
 }
 export -f permanent
 

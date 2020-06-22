@@ -127,11 +127,6 @@ elif [[ "$epiAction" = 'build' ]] ; then
 
     debuglog "Starting build for '$epiAppPath'."
     
-    # get engine info
-    if [[ "${SSBEngineType%|*}" = internal ]] ; then
-        SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
-    fi
-    
     # create the app directory in a temporary location
     appTmp=$(tempname "$epiAppPath")
     cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
@@ -161,6 +156,15 @@ elif [[ "$epiAction" = 'build' ]] ; then
 
 elif [[ "$epiAction" = 'edit' ]] ; then
 
+    # load update.sh
+    if ! source "$myResourcesPath/Scripts/update.sh" ; then
+	ok=
+	errmsg="Unable to load update.sh."
+	errlog "$errmsg"
+	abort
+    fi
+    
+    
     # CLEANUP -- clean up any half-finished edit
     function cleanup {
 	

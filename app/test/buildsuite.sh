@@ -172,11 +172,11 @@ for engine in 'Brave' 'Chrome' ; do
 		       "${myAppCmdLine[@]}"
 	else
 	    "$epiScript" "myLogFile=$myLogFile" 'epiAction=build' \
-			 "myAppPath=$myAppPath" \
+			 "epiAppPath=$myAppPath" \
 			 "CFBundleDisplayName=$CFBundleDisplayName" \
 			 "CFBundleName=$myID" \
 			 "SSBCustomIcon=Yes" \
-			 "myIconSource=$myScriptDir/icons/${engine}_$style.icns" \
+			 "epiIconSource=$myScriptDir/icons/${engine}_$style.icns" \
 			 "SSBRegisterBrowser=$SSBRegisterBrowser" \
 			 "SSBEngineType=$SSBEngineType" \
 			 'SSBCommandLine=(' \

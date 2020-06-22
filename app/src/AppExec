@@ -634,11 +634,18 @@ elif [[ "$myStatusNewVersion" ]] ; then
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
 
+elif [[ "$myStatusEdited" ]] ; then
+
+    # this app was edited, so we need a new engine
+    doCreateEngine=1
+    debuglog "Updating engine for edited app."
+    createEngineErrMsg="Unable to update engine for edited app"
+
 elif [[ "${myStatusEngineChange[0]}" ]] ; then
 
-    # this app was changed, so we need a new engine
+    # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
-    debuglog "App engine type has changed. Updating engine."
+    debuglog "Updating engine for new app engine type."
     createEngineErrMsg="Unable to update engine to new type"
 
 else
