@@ -98,6 +98,8 @@ fi
 
 [[ "$myVersion" ]] || myVersion="$topVersion"
 
+echo "Using Epichrome.app version $myVersion at '$myEpichrome'" 1>&2
+
 myVExt="${myVersion%[*}"
 myVNum="${myVExt//[^0-9b]/}"
 myShortPrefix="${myPrefix//[^A-Za-z0-9]/}"
@@ -111,8 +113,17 @@ mkdir "./$myDir" ; errcheck "Unable to create test directory."
 cd -P "./$myDir" ; errcheck "Unable to move to test directory."
 myTestPath="$(pwd -P)" ; errcheck "Unable to get full path."
 
+# handle old versions of Epichrome
 oldEpi=
-vcmp "$myVersion" '<=' '2.3.2' && oldEpi=1
+if vcmp "$myVersion" '<=' '2.3.2' ; then
+    oldEpi=1
+elif vcmp "$myVersion" '<' '2.4.0b1[001]' ; then
+    epiAppPathVar=myAppPath
+    epiIconSourceVar=myIconSource
+else
+    epiAppPathVar=epiAppPath
+    epiIconSourceVar=epiIconSource    
+fi
 
 if [[ "$oldEpi" ]] ; then
     paths=( $( logNoStderr=1 source "$myEpichrome/Contents/Resources/Runtime/Contents/Resources/Scripts/core.sh" --inepichrome ; \
@@ -172,11 +183,11 @@ for engine in 'Brave' 'Chrome' ; do
 		       "${myAppCmdLine[@]}"
 	else
 	    "$epiScript" "myLogFile=$myLogFile" 'epiAction=build' \
-			 "myAppPath=$myAppPath" \
+			 "$epiAppPathVar=$myAppPath" \
 			 "CFBundleDisplayName=$CFBundleDisplayName" \
 			 "CFBundleName=$myID" \
 			 "SSBCustomIcon=Yes" \
-			 "myIconSource=$myScriptDir/icons/${engine}_$style.icns" \
+			 "$epiIconSourceVar=$myScriptDir/icons/${engine}_$style.icns" \
 			 "SSBRegisterBrowser=$SSBRegisterBrowser" \
 			 "SSBEngineType=$SSBEngineType" \
 			 'SSBCommandLine=(' \
