@@ -328,7 +328,7 @@ notarize-check:
 		echo 'Created check file & issues manifest.' ; \
 	else echo 'No request file found.' ; fi
 
-notarize-staple:
+notarize-staple: notarize-check
 	@if [[ ! -f 'epichrome-$(VERSION).pkg' ]] ; then \
 		echo '*** Unable to find epichrome-$(VERSION).pkg' ; false ; \
 	fi
