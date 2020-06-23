@@ -156,6 +156,8 @@ elif [[ "$epiAction" = 'build' ]] ; then
 
 elif [[ "$epiAction" = 'edit' ]] ; then
 
+    # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
+    
     # load update.sh
     if ! source "$myResourcesPath/Scripts/update.sh" ; then
 	ok=
@@ -172,16 +174,33 @@ elif [[ "$epiAction" = 'edit' ]] ; then
 	[[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup	
     }
     
-    # EDIT (AND POSSIBLY UPDATE) THIS APP
     
     # populate the app bundle
     updateapp "$epiAppPath"
     [[ "$ok" ]] || abort
     
+    
     # $$$$ MOVE DATA FOLDER IF ID CHANGED
+    
+    if [[ "$epiOldIdentifier" && \
+	      ( "$epiOldIdentifier" != "$SSBIdentifier" ) ]] ; then
+
+	# $$$ I AM HERE -- WHERE SHOULD ID BE MADE?
+    fi
+
     
     # $$$$ MOVE TO NEW NAME IF DISPLAYNAME CHANGED
     
+    if [[ "$epiOldDisplayName" && \
+	      ( "$epiOldDisplayName" != "$CFBundleDisplayName" ) ]] ; then
+
+	# $$$ I AM HERE -- WHERE SHOULD PATHS COME FROM?
+	newPath=$(cd $epiAppPath/.. && pwd)
+	# move new app to permanent location (overwriting any old app)
+	permanent "$appTmp" "$epiAppPath" "app bundle"
+	[[ "$ok" ]] || abort
+    fi
+
 else
     abort "Unable to perform action '$epiAction'."
 fi

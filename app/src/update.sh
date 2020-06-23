@@ -298,7 +298,7 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
 
     # create edited timestamp
     local editedTimestamp=
-    [[ "$SSBEdited" ]] && editedTimestamp="${myRunTimestamp//_/}"
+    [[ "$epiAction" = 'edit' ]] && editedTimestamp="${myRunTimestamp//_/}"
     
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
 	       "$resourcesTmp/script" \
@@ -327,7 +327,7 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
 	    # CREATE NEW CUSTOM ICONS
 
 	    # ensure a valid source image file
-	    try '-1' /usr/bin/sips --getProperty format "$epiIconSource" \
+	    try '!1' /usr/bin/sips --getProperty format "$epiIconSource" \
 		"Unable to parse icon source file."
 	    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
 	    
@@ -366,7 +366,7 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
 
 	    # CREATE WELCOME PAGE ICON
 	    
-	    try '-1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
+	    try '!1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
 		"$epiIconSource" --out "$updateContentsTmp/$welcomeIconBase" \
 		'Unable to create welcome page icon.'
 	    
