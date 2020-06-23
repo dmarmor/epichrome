@@ -1146,7 +1146,7 @@ function doStep(aStepNum) {
         if (myDlgResult == "Launch Now") {
             delay(1);
             try {
-                shell("/usr/bin/open ", gAppPath);
+                shell("/usr/bin/open", gAppPath);
             } catch(myErr) {
                 // do I want some error reporting? /usr/bin/open is unreliable with errors
             }

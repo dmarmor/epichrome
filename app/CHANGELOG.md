@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [2.3.4] - 2020-06-23
 ### Changed
 - Updated built-in engine to Brave 1.10.97
+### Fixed
+- The "Launch Now" button at the end of app creation works again after being broken in 2.3.3
 
 ## [2.3.3] - 2020-06-18
 ### Changed

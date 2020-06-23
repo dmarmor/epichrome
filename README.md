@@ -39,6 +39,8 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 - The built-in engine has been updated to Brave 1.10.97.
 
+- The "Launch Now" button at the end of app creation works again after being broken in 2.3.3.
+
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
 
