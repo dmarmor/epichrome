@@ -467,7 +467,7 @@ function join_array { # (DELIMITER)
     
     local item
     for item in "$@" ; do
-	result+="/$item"
+	result+="$delim$item"
     done
     
     printf "$result"
@@ -1126,7 +1126,7 @@ function permanent {  # ( temp perm filetype [saveTempOnError] )
     # remove the old permanent file or folder if there is one
     if [[ "$ok" ]] ; then
 	temp=
-	if [ -e "$permOld" ]; then
+	if [[ "$permOld" && ( -e "$permOld" ) ]]; then
 	    try /bin/rm -rf "$permOld" "Unable to remove old $filetype."
 	fi
     fi

@@ -336,6 +336,7 @@ myStatusNewApp=        # on new app, this is set
 myStatusNewVersion=    # on update, this contains old version
 myStatusEdited=        # on first run of an edited app, this is set
 myStatusFixRuntime=    # set by updateprofiledir to a copy of Epichrome Helper settings if we need to preserve them
+myStatusEngineMoved=   # set if app engine needs to move
 myStatusEngineChange=  # on engine change, this contains old engine info
 myStatusReset=         # set if app settings appear to have been reset
 myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
@@ -421,44 +422,45 @@ getepichromeinfo
 
 # UPDATE ENGINE PATH
 
-if [[ ( -d "$SSBEnginePath" ) && \
-	  ( "$epiCurrentPath" && \
-		( "${SSBEnginePath%/$appEnginePathBase/*}" != "${epiCurrentPath%/*}" ) ) ||
-	      ( ( ! "$epiCurrentPath" ) && "$epiLatestPath" && \
-		    ( "${SSBEnginePath%/$appEnginePathBase/*}" != "${epiLatestPath%/*}" ) ) ]] ; then
+# determine where our engine should be
+myEnginePath=
 
-    # engine path is not next to the current Epichrome (or latest one if no current), so we'll move it
-    debuglog "Engine path '$SSBEnginePath' in outdated location."
+# start with Epichrome.app location
+if [[ -d "$epiCurrentPath" ]] ; then
+    myEnginePath="$epiCurrentPath"
+elif [[ -d "$epiLatestPath" ]] ; then
+    myEnginePath="$epiLatestPath"
+else
+    # last ditch -- use default install location
+    myEnginePath='/Applications/Epichrome/Epichrome.app'
+fi
+
+# get directory path
+myEnginePath="${myEnginePath%/*}/$appEnginePathBase"
+
+# determine if path is in our user path
+if [[ "${myEnginePath::${#HOME}}" = "$HOME" ]] ; then
+    # path is user-level, so just add our app ID
+    myEnginePath+="/$SSBIdentifier"
+else
+    # path is root-level, so add our user ID & app ID
+    myEnginePath+="/$USER/$SSBIdentifier"
+fi
+
+# check if engine path matches what it should be
+if [[ "$SSBEnginePath" != "$myEnginePath" ]] ; then
+    
+    # engine path is out of date, so we'll recreate it
+    debuglog "Engine path '$SSBEnginePath' is out of date. Removing."
 
     # delete old engine
-    deleteengine
+    [[ -d "$SSBEnginePath" ]] && deleteengine
+
+    # set status variable
+    myStatusEngineMoved="$SSBEnginePath"
     
-fi
-if [[ ! -d "$SSBEnginePath" ]] ; then
-
-    # start with Epichrome.app location
-    if [[ -d "$epiCurrentPath" ]] ; then
-	SSBEnginePath="$epiCurrentPath"
-    elif [[ -d "$epiLatestPath" ]] ; then
-	SSBEnginePath="$epiLatestPath"
-    else
-	# last ditch -- use default install location
-	SSBEnginePath='/Applications/Epichrome/Epichrome.app'
-    fi
-
-    # get directory path
-    SSBEnginePath="${SSBEnginePath%/*}/$appEnginePathBase"
-
-    # determine if path is in our user path
-    if [[ "${SSBEnginePath::${#HOME}}" = "$HOME" ]] ; then
-	# path is user-level, so just add our app ID
-	SSBEnginePath+="/$SSBIdentifier"
-    else
-	# path is root-level, so add our user ID & app ID
-	SSBEnginePath+="/$USER/$SSBIdentifier"
-    fi
-
-    debuglog "Setting engine path to '$SSBEnginePath'"
+    # set new engine path
+    SSBEnginePath="$myEnginePath"
 fi
 
 # subsidiary paths
@@ -648,6 +650,13 @@ elif [[ "${myStatusEngineChange[0]}" ]] ; then
     debuglog "Updating engine for new app engine type."
     createEngineErrMsg="Unable to update engine to new type"
 
+elif [[ "$myStatusEngineMoved" ]] ; then
+    
+    # the app engine was changed, so we need a new engine (probably never reached)
+    doCreateEngine=1
+    debuglog "Recreating engine in new location '$SSBEnginePath'."
+    createEngineErrMsg="Unable to recreate engine in new location"
+    
 else
 
     # check the state of the engine

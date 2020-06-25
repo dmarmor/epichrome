@@ -154,6 +154,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     permanent "$appTmp" "$epiAppPath" "app bundle"
     [[ "$ok" ]] || abort
 
+    
 elif [[ "$epiAction" = 'edit' ]] ; then
 
     # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
@@ -179,28 +180,50 @@ elif [[ "$epiAction" = 'edit' ]] ; then
     updateapp "$epiAppPath"
     [[ "$ok" ]] || abort
     
+
+    # capture post-update action warnings
+    warnings=()
     
-    # $$$$ MOVE DATA FOLDER IF ID CHANGED
+    # MOVE DATA FOLDER IF ID CHANGED
     
     if [[ "$epiOldIdentifier" && \
 	      ( "$epiOldIdentifier" != "$SSBIdentifier" ) ]] ; then
 
-	# $$$ I AM HERE -- WHERE SHOULD ID BE MADE?
+	# common warning prefix
+	warnPrefix="WARN:Unable to migrate app data to new ID $SSBIdentifier"
+	
+	if [[ -e "$appDataPathBase/$SSBIdentifier" ]] ; then
+	    warnings+=( "$warnPrefix: App data with that ID already exists. This app will use that data." )
+	else
+	    permanent "$appDataPathBase/$epiOldIdentifier" \
+		      "$appDataPathBase/$SSBIdentifier" "app bundle"
+	    [[ "$ok" ]] || warnings+=( "$warnPrefix: $errmsg This app will create a new data directory on first run." )
+	fi
     fi
 
     
-    # $$$$ MOVE TO NEW NAME IF DISPLAYNAME CHANGED
+    # MOVE TO NEW NAME IF DISPLAYNAME CHANGED
     
-    if [[ "$epiOldDisplayName" && \
-	      ( "$epiOldDisplayName" != "$CFBundleDisplayName" ) ]] ; then
-
-	# $$$ I AM HERE -- WHERE SHOULD PATHS COME FROM?
-	newPath=$(cd $epiAppPath/.. && pwd)
-	# move new app to permanent location (overwriting any old app)
-	permanent "$appTmp" "$epiAppPath" "app bundle"
-	[[ "$ok" ]] || abort
+    if [[ "$epiNewAppPath" && \
+	      ( "$epiNewAppPath" != "$epiAppPath" ) ]] ; then
+	
+	# common warning prefix & postfix
+	warnPrefix="WARN:Unable to rename app"
+	warnPostfix="The app is intact under the old name of ${epiAppPath##*/}."
+	
+	if [[ -e "$epiNewPath" ]] ; then
+	    warnings+=( "$warnPrefix: ${epiNewPath##*/} already exists. $warnPostfix" )
+	else
+	    permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
+	    [[ "$ok" ]] || warnings+=( "$warnPrefix: $errmsg $warnPostfix" )
+	fi
     fi
-
+    
+    
+    # IF ANY WARNINGS FOUND, REPORT THEM
+    
+    [[ "${warnings[*]}" ]] && abort "$(join_array $'\n' "${warnings[@]}")"
+    
 else
     abort "Unable to perform action '$epiAction'."
 fi
