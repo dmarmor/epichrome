@@ -232,8 +232,8 @@ else
 	    [[ "$epiAction" ]] && myLogID+="|$epiAction" || myLogID+='|epichrome.sh'
 	fi
 	
-	# file logging only
-	logNoStderr=1
+	# file logging only (unless explicitly turned off)
+	[[ "$logNoFile" ]] && logNoStderr= || logNoStderr=1
 	
     else  # shell
 

@@ -1,40 +1,22 @@
 # Troubleshooting Epichrome Issues
 
-## To find all Epichrome application IDs
+## Contents
 
-```
-mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.app.*'"
-```
+### [Opening an app from the dock opens a generic browser](#opening-an-app-from-the-dock-opens-a-generic-browser)
+### [Login data not saving](login-data-not-saving)
+### [Microphone, camera, or other system resource not enabled](microphone-camera-or-other-system-resource-not-enabled)
+### [To delete an Epichrome app](to-delete-an-epichrome-app)
+### [To find Epichrome application IDs](to-find-epichrome-application-ids)
 
-## To find a specific Epichrome application ID
 
-```
-mdls -name kMDItemCFBundleIdentifier -r /Applications/<AppName>.app
-```
-Adjust to application installation location as necessary.
+## Opening an app from the dock opens a generic browser
 
-## To delete an Epichrome app
+If you keep your apps in the dock, you may find that launching them from there (especially after a system crash) brings up a generic browser window rather than your app.
 
-Note that not all of these files or folders will exist for every app. This is normal. Just delete the ones you find.
+This can happen if the app engine was not properly deactivated the last time the app quit (which is why it often occurs after a system crash). The solution is simple: launch the app once from the main app (the one you created with Epichrome.app). To make sure you're launching the main app, either use Spotlight to find it, or open a Finder window and launch it from there.
 
-1. Delete `/Applications/<AppName>` (or wherever you created the SSB app)
+Once you have a successful launch of the app, quit it. The next time you launch it from the dock, it should launch properly again.
 
-1. Delete `/Applications/Epichrome/EpichromeEngines.noindex/<User>/<AppID>` (or
-wherever Epichrome is installed)
-
-1. Delete `~/Library/Application Support/Epichrome/Apps/<AppID>`
-
-1. Delete `~/Library/Preferences/org.epichrome.app.<AppID>.plist`
-
-1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
-
-1. Delete `~/Library/Caches/org.epichrome.app.<AppID>`
-
-1. Delete `~/Library/Caches/org.epichrome.eng.<AppID>`
-
-1. Delete `~/Library/Saved Application State/org.epichrome.app.<AppID>.savedState`
-
-1. Delete `~/Library/Saved Application State/org.epichrome.eng.<AppID>.savedState`
 
 ## Login data not saving
 
@@ -61,6 +43,7 @@ keep you logged in (I actually use GitHub to test this) and save the password in
 Then quit the app and run it again. You should still be logged in, and if you go to
 Settings, you should see the password in your saved passwords.
 
+
 ## Microphone, camera, or other system resource not enabled
 
 When one of your apps goes to a site that requests microphone or camera access, you will get a browser notification asking if you want to allow that site access to the resource. After you click the `Allow` button in the app, you should get a macOS dialog
@@ -78,3 +61,44 @@ Camera: ```tccutil reset Camera```
 
 Then run the app again, go to a site that accesses the resource, and wait
 a few seconds, and the dialog should appear.
+
+
+## To delete an Epichrome app
+
+Note that not all of these files or folders will exist for every app. This is normal. Just delete the ones you find.
+
+1. Delete `/Applications/<AppName>` (or wherever you created the SSB app)
+
+1. Delete `/Applications/Epichrome/EpichromeEngines.noindex/<User>/<AppID>` (or
+wherever Epichrome is installed)
+
+1. Delete `~/Library/Application Support/Epichrome/Apps/<AppID>`
+
+1. Delete `~/Library/Preferences/org.epichrome.app.<AppID>.plist`
+
+1. Delete `~/Library/Preferences/org.epichrome.eng.<AppID>.plist`
+
+1. Delete `~/Library/Caches/org.epichrome.app.<AppID>`
+
+1. Delete `~/Library/Caches/org.epichrome.eng.<AppID>`
+
+1. Delete `~/Library/Saved Application State/org.epichrome.app.<AppID>.savedState`
+
+1. Delete `~/Library/Saved Application State/org.epichrome.eng.<AppID>.savedState`
+
+
+## To find Epichrome application IDs
+
+### Find IDs for all Epichrome apps
+
+```
+mdfind "kMDItemCFBundleIdentifier == 'org.epichrome.app.*'"
+```
+
+### Find the ID for a specific Epichrome app
+
+```
+mdls -name kMDItemCFBundleIdentifier -r /Applications/<AppName>.app
+```
+
+Adjust the application installation location as necessary.

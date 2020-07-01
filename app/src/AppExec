@@ -30,14 +30,16 @@ SSBVersion='EPIVERSION'
 SSBIdentifier=APPID
 CFBundleDisplayName=APPDISPLAYNAME
 CFBundleName=APPBUNDLENAME
+SSBRegisterBrowser=APPREGISTERBROWSER
 SSBCustomIcon=APPCUSTOMICON
-SSBCommandLine=APPCOMMANDLINE
 SSBEngineType=APPENGINETYPE
 APPENGINESOURCE
+SSBCommandLine=APPCOMMANDLINE
 SSBEdited=APPEDITED
 
-export SSBIdentifier SSBVersion CFBundleDisplayName CFBundleName SSBCommandLine \
-       SSBEngineType SSBEngineSourceInfo SSBEdited
+export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
+       SSBCustomIcon SSBRegisterBrowser SSBEngineType SSBEngineSourceInfo \
+       SSBCommandLine SSBEdited
 
 
 # CORE APP VARIABLES

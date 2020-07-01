@@ -307,9 +307,10 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
 	       APPDISPLAYNAME "$(formatscalar "$CFBundleDisplayName")" \
 	       APPBUNDLENAME "$(formatscalar "$CFBundleName")" \
 	       APPCUSTOMICON "$(formatscalar "$SSBCustomIcon")" \
-	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
+	       APPREGISTERBROWSER "$(formatscalar "$SSBRegisterBrowser")" \
 	       APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
 	       APPENGINESOURCE "$appExecEngineSource" \
+	       APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
 	       APPEDITED "$(formatscalar "$editedTimestamp")"
     
     if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi

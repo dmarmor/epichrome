@@ -358,13 +358,13 @@ verify: $(APP)
 # MAIN APP DEPENDENCIES
 
 $(APP):	$(APP_CT)/PkgInfo \
-	$(APP_CT)/MacOS/applet \
-	$(APP_CT)/Resources/applet.rsrc \
+	$(APP_CT)/MacOS/droplet \
+	$(APP_CT)/Resources/droplet.rsrc \
 	$(APP_CT)/Resources/Scripts/main.scpt \
 	\
 	$(APP_CT)/Info.plist \
 	\
-	$(APP_CT)/Resources/applet.icns \
+	$(APP_CT)/Resources/droplet.icns \
 	$(APP_CT)/Resources/docbg.png \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
@@ -416,8 +416,8 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 # MAIN APP CORE
 
-$(APP_CT)/PkgInfo $(APP_CT)/MacOS/applet \
-$(APP_CT)/Resources/applet.rsrc \
+$(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet \
+$(APP_CT)/Resources/droplet.rsrc \
 $(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/version.sh main
 
 main:
@@ -431,14 +431,14 @@ main:
 #	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works
 	@mv build/main.app build/main
 	@rm -f build/main.js
-	@cd build/main/Contents && rm -f Info.plist Resources/applet.icns
+	@cd build/main/Contents && rm -f Info.plist Resources/droplet.icns
 	@mkdir -p $(APP_CT)/MacOS $(APP_CT)/Resources/Scripts
 	mv -f build/main/Contents/Resources/Scripts/main.scpt $(APP_CT)/Resources/Scripts/main.scpt
 	@touch $(APP_CT)/Resources/Scripts/main.scpt
 	mv -f build/main/Contents/PkgInfo $(APP_CT)/PkgInfo
-	mv -f build/main/Contents/MacOS/applet $(APP_CT)/MacOS/applet
-	mv -f build/main/Contents/Resources/applet.rsrc $(APP_CT)/Resources/applet.rsrc
-	@touch $(APP_CT)/PkgInfo $(APP_CT)/MacOS/applet $(APP_CT)/Resources/applet.rsrc
+	mv -f build/main/Contents/MacOS/droplet $(APP_CT)/MacOS/droplet
+	mv -f build/main/Contents/Resources/droplet.rsrc $(APP_CT)/Resources/droplet.rsrc
+	@touch $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet $(APP_CT)/Resources/droplet.rsrc
 	rmdir build/main/Contents/MacOS
 	@cd build && if ! rmdir -p main/Contents/Resources/Scripts ; then \
 		echo "*** Unexpected files found in main app (check build/main)." 1>&2 ; false ; fi
@@ -451,7 +451,7 @@ $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(APP_CT)/Resources/applet.icns: build/icons/epichrome$(BETA).icns
+$(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 

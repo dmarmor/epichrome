@@ -2,11 +2,20 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.0] - 2020-07-XX
+### Changed
+- Added ability to edit existing Epichrome apps
+- Updated built-in engine to Brave 1.XX.XX
+### Fixed
+- Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
+
+
 ## [2.3.4] - 2020-06-23
 ### Changed
 - Updated built-in engine to Brave 1.10.97
 ### Fixed
 - The "Launch Now" button at the end of app creation works again after being broken in 2.3.3
+
 
 ## [2.3.3] - 2020-06-18
 ### Changed
@@ -29,11 +38,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - [Unconfirmed] Added code signature to Brave executable for built-in engine in hopes of preventing occasional problem where Brave-based apps lose session state and saved passwords between runs ([issue #215](https://github.com/dmarmor/epichrome/issues/215 "issue #215"))
 - [Unconfirmed] Added workaround to /usr/bin/open bug that could cause app engine or an updated app to fail to launch ([issue #232](https://github.com/dmarmor/epichrome/issues/232 "issue #232"))
 
+
 ## [2.3.1] - 2020-05-14
 ### Changed
 - Updated built-in engine to Brave 1.8.96
 ### Fixed
 - Fixed typo in update dialog
+
 
 ## [2.3.0] - 2020-05-09
 ### Changed

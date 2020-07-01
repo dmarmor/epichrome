@@ -91,6 +91,128 @@ elif [[ "$epiAction" = 'updatecheck' ]] ; then
     [[ "$newVersion" ]] && echo "$newVersion"
     
     
+elif [[ "$epiAction" = 'read' ]] ; then
+    
+    # ACTION: READ EXISTING APP
+
+    # error prefix
+    myErrPrefix="Error reading ${epiAppPath##*/}"
+    
+    # main app settings locations
+    myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
+    myConfigPath="$epiAppPath/Contents/Resources/script"
+    
+    if [[ -e "$myOldConfigPath" ]] ; then
+	abort "$myErrPrefix: Editing of pre-2.3 apps not yet implemented."
+    elif [[ ! -e "$myConfigPath" ]] ; then
+	abort "$myErrPrefix: This does not appear to be an Epichrome app."
+    else
+
+	# read in app config
+	myConfigScript=
+	try 'myConfigScript=' /bin/cat "$myConfigPath" "$myErrPrefix: Unable to read app data."
+	[[ "$ok" ]] || abort
+	
+	# pull config from current flavor of app
+	myConfigPart="${myConfigScript#*# CORE APP INFO}"
+	myConfig="${myConfigPart%%# CORE APP VARIABLES*}"
+	
+	# if either delimiter string wasn't found, that's an error
+	if [[ ( "$myConfigPart" = "$myConfigScript" ) || \
+		  ( "$myConfig" = "$myConfigPart" ) ]] ; then
+	    abort "$myErrPrefix: Unexpected app configuration."
+	fi
+	
+	# remove any trailing export statement
+	# myConfig="${myConfig%%$'\n'export*}"
+	
+	# read in config variables
+	try eval "$myConfig" "$myErrPrefix: Unable to parse app configuration."
+	[[ "$ok" ]] || abort
+    fi
+    
+    
+    # SANITY-CHECK CORE APP INFO
+    
+    # basic info
+    ynRe='^(Yes|No)$'
+    if [[ ! ( "$SSBVersion" && "$SSBIdentifier" && \
+		  "$CFBundleDisplayName" && "$CFBundleName" && \
+		  ( "$SSBCustomIcon" =~ $ynRe ) && \
+		  ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) ) ]] ; then
+	abort "$myErrPrefix: Basic app info is missing or corrupt."
+    fi
+    
+    # engine type
+    engRe='^(in|ex)ternal\|'
+    if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
+	
+	# $$$$ HANDLE MISSING ENGINE & OLD ENGINE TYPES HERE
+	abort "$myErrPrefix: App engine type is missing or unreadable."
+    fi
+    
+    # command line
+    if ( ! isarray SSBCommandLine ) || [[ "${#SSBCommandLine[@]}" -lt 1 ]] ; then
+	abort "$myErrPrefix: App URLs are missing or unreadable."
+    fi
+    
+    # fill in register browser if missing
+    if [[ ! "$SSBRegisterBrowser" ]] ; then
+	try '!12' /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$epiAppPath/Contents/Info.plist" ''
+	if [[ "$ok" ]] ; then
+	    SSBRegisterBrowser=Yes	    
+	else
+	    ok=1 ; errmsg=
+	    SSBRegisterBrowser=No
+	fi
+    fi
+
+
+    # GET PATH TO ICON
+    myAppIcon=
+    try 'myAppIcon=' /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' \
+	"$epiAppPath/Contents/Info.plist" \
+	"$myErrPrefix: Unable to find icon file in Info.plist"
+    if [[ "$ok" ]] ; then
+	myAppIcon="$epiAppPath/Contents/Resources/$myAppIcon"
+	if [[ -e "$myAppIcon" ]] ; then
+	    myAppIcon="
+    \"appIconPath\": \"$(escapejson "$myAppIcon")\","
+	else
+	    myAppIcon=
+	fi
+    else
+	# fail silently, and we just won't use a custom icon in dialogs
+	ok=1 ; errmsg=
+	myAppIcon=
+    fi
+    
+    
+    # EXPORT INFO BACK TO MAIN.JS
+
+    # escape each command-line URL for JSON
+    cmdLineJson=()
+    for url in "${SSBCommandLine[@]}" ; do
+	cmdLineJson+=( "\"$(escapejson "$url")\"" )
+    done
+
+    # export JSON
+    echo "{$myAppIcon
+    \"appInfo\": {
+        \"version\": \"$(escapejson "$SSBVersion")\",
+    	\"identifier\": \"$(escapejson "$SSBIdentifier")\",
+	\"displayName\": \"$(escapejson "$CFBundleDisplayName")\",
+	\"shortName\": \"$(escapejson "$CFBundleName")\",
+        \"registerBrowser\": \"$(escapejson "$SSBRegisterBrowser")\",
+        \"customIcon\": \"$(escapejson "$SSBCustomIcon")\",
+        \"engineTypeID\": \"$(escapejson "$SSBEngineType")\",
+        \"commandLine\": [
+            $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
+        ]
+    }
+}"
+    
+    
 elif [[ "$epiAction" = 'build' ]] ; then
 
     # ACTION: BUILD NEW APP
@@ -187,8 +309,9 @@ elif [[ "$epiAction" = 'edit' ]] ; then
     # MOVE DATA FOLDER IF ID CHANGED
     
     if [[ "$epiOldIdentifier" && \
-	      ( "$epiOldIdentifier" != "$SSBIdentifier" ) ]] ; then
-
+	      ( "$epiOldIdentifier" != "$SSBIdentifier" ) && \
+	      (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
+	
 	# common warning prefix
 	warnPrefix="WARN:Unable to migrate app data to new ID $SSBIdentifier"
 	
