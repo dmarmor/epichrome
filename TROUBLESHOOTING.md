@@ -2,11 +2,11 @@
 
 ## Contents
 
-### [Opening an app from the dock opens a generic browser](#opening-an-app-from-the-dock-opens-a-generic-browser)
-### [Login data not saving](login-data-not-saving)
-### [Microphone, camera, or other system resource not enabled](microphone-camera-or-other-system-resource-not-enabled)
-### [To delete an Epichrome app](to-delete-an-epichrome-app)
-### [To find Epichrome application IDs](to-find-epichrome-application-ids)
+- [Opening an app from the dock opens a generic browser](#opening-an-app-from-the-dock-opens-a-generic-browser)
+- [Login data not saving](login-data-not-saving)
+- [Microphone, camera, or other system resource not enabled](microphone-camera-or-other-system-resource-not-enabled)
+- [To delete an Epichrome app](to-delete-an-epichrome-app)
+- [To find Epichrome application IDs](to-find-epichrome-application-ids)
 
 
 ## Opening an app from the dock opens a generic browser
