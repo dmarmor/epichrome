@@ -94,23 +94,20 @@ elif [[ "$epiAction" = 'updatecheck' ]] ; then
 elif [[ "$epiAction" = 'read' ]] ; then
     
     # ACTION: READ EXISTING APP
-
-    # error prefix
-    myErrPrefix="Error reading ${epiAppPath##*/}"
     
     # main app settings locations
     myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
     myConfigPath="$epiAppPath/Contents/Resources/script"
     
     if [[ -e "$myOldConfigPath" ]] ; then
-	abort "$myErrPrefix: Editing of pre-2.3 apps not yet implemented."
+	abort "Editing of pre-2.3 apps not yet implemented"
     elif [[ ! -e "$myConfigPath" ]] ; then
-	abort "$myErrPrefix: This does not appear to be an Epichrome app."
+	abort "This does not appear to be an Epichrome app"
     else
 
 	# read in app config
 	myConfigScript=
-	try 'myConfigScript=' /bin/cat "$myConfigPath" "$myErrPrefix: Unable to read app data."
+	try 'myConfigScript=' /bin/cat "$myConfigPath" "Unable to read app data"
 	[[ "$ok" ]] || abort
 	
 	# pull config from current flavor of app
@@ -120,14 +117,14 @@ elif [[ "$epiAction" = 'read' ]] ; then
 	# if either delimiter string wasn't found, that's an error
 	if [[ ( "$myConfigPart" = "$myConfigScript" ) || \
 		  ( "$myConfig" = "$myConfigPart" ) ]] ; then
-	    abort "$myErrPrefix: Unexpected app configuration."
+	    abort "Unexpected app configuration"
 	fi
 	
 	# remove any trailing export statement
 	# myConfig="${myConfig%%$'\n'export*}"
 	
 	# read in config variables
-	try eval "$myConfig" "$myErrPrefix: Unable to parse app configuration."
+	try eval "$myConfig" "Unable to parse app configuration"
 	[[ "$ok" ]] || abort
     fi
     
@@ -140,20 +137,24 @@ elif [[ "$epiAction" = 'read' ]] ; then
 		  "$CFBundleDisplayName" && "$CFBundleName" && \
 		  ( "$SSBCustomIcon" =~ $ynRe ) && \
 		  ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) ) ]] ; then
-	abort "$myErrPrefix: Basic app info is missing or corrupt."
+	abort "Basic app info is missing or corrupt"
     fi
+
+    # make sure version isn't newer than ours
+    vcmp "$SSBVersion" '>' "$coreVersion" && \
+        abort "App version ($SSBVersion) is newer than Epichrome version."
     
     # engine type
     engRe='^(in|ex)ternal\|'
     if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
 	
 	# $$$$ HANDLE MISSING ENGINE & OLD ENGINE TYPES HERE
-	abort "$myErrPrefix: App engine type is missing or unreadable."
+	abort "App engine type is missing or unreadable"
     fi
     
     # command line
-    if ( ! isarray SSBCommandLine ) || [[ "${#SSBCommandLine[@]}" -lt 1 ]] ; then
-	abort "$myErrPrefix: App URLs are missing or unreadable."
+    if ! isarray SSBCommandLine ; then
+	abort "App URLs are missing or unreadable"
     fi
     
     # fill in register browser if missing
@@ -172,12 +173,12 @@ elif [[ "$epiAction" = 'read' ]] ; then
     myAppIcon=
     try 'myAppIcon=' /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' \
 	"$epiAppPath/Contents/Info.plist" \
-	"$myErrPrefix: Unable to find icon file in Info.plist"
+	"Unable to find icon file in Info.plist"
     if [[ "$ok" ]] ; then
-	myAppIcon="$epiAppPath/Contents/Resources/$myAppIcon"
-	if [[ -e "$myAppIcon" ]] ; then
+	myAppIcon="Contents/Resources/$myAppIcon"
+	if [[ -e "$epiAppPath/$myAppIcon" ]] ; then
 	    myAppIcon="
-    \"appIconPath\": \"$(escapejson "$myAppIcon")\","
+    \"iconPath\": \"$(escapejson "$myAppIcon")\","
 	else
 	    myAppIcon=
 	fi
@@ -195,21 +196,36 @@ elif [[ "$epiAction" = 'read' ]] ; then
     for url in "${SSBCommandLine[@]}" ; do
 	cmdLineJson+=( "\"$(escapejson "$url")\"" )
     done
+    
+    # adapt registerBrowser value
+    if [[ "$SSBRegisterBrowser" = 'No' ]] ; then
+	myRegisterBrowser='false'
+    else
+	myRegisterBrowser='true'
+    fi
+
+    # adapt icon value
+    if [[ "$SSBCustomIcon" = 'Yes' ]] ; then
+	myIcon='true'
+    else
+	myIcon='false'
+    fi
 
     # export JSON
     echo "{$myAppIcon
-    \"appInfo\": {
-        \"version\": \"$(escapejson "$SSBVersion")\",
-    	\"identifier\": \"$(escapejson "$SSBIdentifier")\",
-	\"displayName\": \"$(escapejson "$CFBundleDisplayName")\",
-	\"shortName\": \"$(escapejson "$CFBundleName")\",
-        \"registerBrowser\": \"$(escapejson "$SSBRegisterBrowser")\",
-        \"customIcon\": \"$(escapejson "$SSBCustomIcon")\",
-        \"engineTypeID\": \"$(escapejson "$SSBEngineType")\",
-        \"commandLine\": [
-            $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
-        ]
-    }
+    \"version\": \"$(escapejson "$SSBVersion")\",
+    \"id\": \"$(escapejson "$SSBIdentifier")\",
+    \"displayName\": \"$(escapejson "$CFBundleDisplayName")\",
+    \"shortName\": \"$(escapejson "$CFBundleName")\",
+    \"registerBrowser\": $myRegisterBrowser,
+    \"icon\": $myIcon,
+    \"engine\": {
+        \"type\": \"$(escapejson "${SSBEngineType%%|*}")\",
+	\"id\": \"$(escapejson "${SSBEngineType#*|}")\"
+    },
+    \"commandLine\": [
+        $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
+    ]
 }"
     
     
@@ -250,22 +266,15 @@ elif [[ "$epiAction" = 'build' ]] ; then
     debuglog "Starting build for '$epiAppPath'."
     
     # create the app directory in a temporary location
-    appTmp=$(tempname "$epiAppPath")
-    cmdtext=$(/bin/mkdir -p "$appTmp" 2>&1)
-    if [[ "$?" != 0 ]] ; then
-	# if we don't have permission, let the app know to try for admin privileges
-	errRe='Permission denied$'
-	[[ "$cmdtext" =~ $errRe ]] && abort 'PERMISSION' 2
-
-	# regular error
-	abort 'Unable to create temporary app bundle.' 1
-    fi
-
-    # set ownership of app bundle to this user (only necessary if running as admin)
-    try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
+    appTmp="$(tempname "$epiAppPath")"
+    try 'cmdtext&=' /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
     [[ "$ok" ]] || abort
-
-
+    
+    # set ownership of app bundle to this user (only necessary if running as admin) $$$ LEFTOVER?
+    # try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
+    # [[ "$ok" ]] || abort
+    
+    
     # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
 
     # populate the app bundle

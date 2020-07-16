@@ -348,9 +348,9 @@ notarize-staple: notarize-check
 	spctl --assess --type execute --verbose=4 '$@'
 	touch '$@'
 
-verify: $(APP)
-	codesign --verify --deep --strict --verbose=2 '$<'
-	spctl --assess --type execute --verbose=4 '$<'
+verify:
+	codesign --verify --deep --strict --verbose=2 '$(APP)'
+	spctl --assess --type execute --verbose=4 '$(APP)'
 
 
 # *** MAIN APP ***

@@ -103,25 +103,444 @@ function vcmp (v1, v2) {
 }
 
 
+// HASLOGFILE: check if a log file for this run exists
+function hasLogFile() {
+    return kFinder.exists(Path(gLogFile));
+}
+
+
+// SHOWLOGFILE: reveal log file in the Finder
+function showLogFile() {
+    kFinder.select(Path(gLogFile));
+    kFinder.activate();
+}
+
+
+// ENGINENAME: generate engine name from ID
+function engineName(aEngine, aCapType=true) {
+    let myResult;
+    if (aEngine.type == 'internal') {
+        myResult = 'Built-In';
+    } else {
+        myResult = 'External';
+    }
+    if (!aCapType) { myResult = myResult.toLowerCase(); }
+
+    if (kBrowserInfo[aEngine.id]) {
+        myResult += ' (' + kBrowserInfo[aEngine.id].shortName + ')';
+    }
+    return myResult;
+}
+
+
+// SETDLGICON: set the dialog icon using app info, defaulting to Epichrome icon
+function setDlgIcon(aAppInfo) {
+
+    if (aAppInfo.iconPath) {
+        let myCustomIcon = Path(aAppInfo.file.path + '/' + aAppInfo.iconPath);
+        if (kFinder.exists(myCustomIcon)) {
+            return myCustomIcon;
+        }
+    }
+
+    // if we got here, custom icon not found
+    if (kFinder.exists(kEpiIcon)) {
+        return kEpiIcon;
+    } else {
+        // fallback default
+        return 'note';
+    }
+}
+
+
+// OBJCOPY: deep copy object
+function objCopy(aObj) {
+
+  if (aObj !== undefined) {
+    return JSON.parse(JSON.stringify(aObj));
+  }
+}
+
+
+// OBJEQUALS: deep-compare simple objects (including arrays)
+function objEquals(aObj1, aObj2) {
+
+	// identical objects
+	if ( aObj1 === aObj2 ) return true;
+
+    // if not strictly equal, both must be objects
+    if (!((aObj1 instanceof Object) && (aObj2 instanceof Object))) { return false; }
+
+    // they must have the exact same prototype chain, the closest we can do is
+    // test there constructor
+    if ( aObj1.constructor !== aObj2.constructor ) { return false; }
+
+    for ( let curProp in aObj1 ) {
+        if (!aObj1.hasOwnProperty(curProp) ) { continue; }
+
+        if (!aObj2.hasOwnProperty(curProp) ) { return false; }
+
+        if (aObj1[curProp] === aObj2[curProp] ) { continue; }
+
+        if (typeof(aObj1[curProp] ) !== "object" ) { return false; }
+
+        if (!objEqauls(aObj1[curProp], aObj2[curProp])) { return false; }
+    }
+
+	// if aObj2 has any properties aObj1 does not have, they're not equal
+    for (let curProp in aObj2) {
+	    if (aObj2.hasOwnProperty(curProp) && !aObj1.hasOwnProperty(curProp)) {
+		    return false;
+		}
+	}
+
+    return true;
+}
+
+
+// INDENT: indent a string
+function indent(aStr, aIndent) {
+    // regex that includes empty lines: /^/gm
+
+    if (typeof aIndent != 'number') { aIndent = 1; }
+    if (aIndent < 0) { return aStr; }
+
+    // indent string
+    return aStr.replace(/^(?!\s*$)/gm, kIndent.repeat(aIndent));
+}
+
+
+// DIALOGINFO: set up button map and other info for a step dialog
+function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
+
+    let myResult = {
+        options: {
+            withTitle: aInfo.stepInfo.dlgTitle,
+            withIcon: aInfo.stepInfo.dlgIcon,
+            buttons: [],
+            defaultButton: 1
+        },
+        buttonMap: {}
+    };
+
+    if (!aValues) { aValues = aButtonBases; }
+
+    for (let i = 0; i < aValues.length; i++) {
+
+        let curButton = aButtonBases[i];
+
+        // put a dot on the selected button
+        if (objEquals(aValues[i], aInfo.appInfo[aKey])) {
+            let curDot = ((aInfo.stepInfo.action == kActionCREATE) ? kDotSelected :
+                            ((objEquals(aInfo.appInfo[aKey], aInfo.oldAppInfo[aKey])) ?
+                            kDotCurrent : kDotChanged));
+            curButton = curDot + ' ' + curButton;
+            myResult.options.defaultButton = i + 1;
+        }
+
+        // build custom button map with these button names
+        myResult.options.buttons.push(curButton);
+        myResult.buttonMap[curButton] = aValues[i];
+    }
+
+    // add back button
+    if (aInfo.stepInfo.backButton) {
+        myResult.options.buttons.push(aInfo.stepInfo.backButton);
+        myResult.options.cancelButton = myResult.options.buttons.length;
+    }
+
+    return myResult;
+}
+
+
+// UPDATEAPPINFO: update an app setting
+function updateAppInfo(aInfo, aKey, aValue) {
+
+    // normalize aKey
+    if (!(aKey instanceof Array)) {
+        aKey = [aKey.toString()];
+    }
+
+    // make sure we have necessary objects
+    if (!aInfo.appInfo) { aInfo.appInfo = {}; }
+    if (!aInfo.appInfoStatus) { aInfo.appInfoStatus = {}; }
+
+    // loop through all keys
+    for (let curKey of aKey) {
+
+        let curValue = aValue;
+
+        // path & version keys are only for summary
+        if (!((curKey == 'path') || (curKey == 'version'))) {
+
+            // get default value
+            let curDefaultValue;
+            if (aInfo.oldAppInfo) {
+                curDefaultValue = aInfo.oldAppInfo[curKey];
+            } else {
+                curDefaultValue = gAppInfoDefault[curKey];
+            }
+
+            // if no value & not already a key, use default
+            if ((curValue === undefined) && (!aInfo.appInfo.hasOwnProperty(curKey))) {
+                curValue = curDefaultValue;
+            }
+
+            // if we now have a value, copy it into appInfo
+            if (curValue !== undefined) {
+                aInfo.appInfo[curKey] = objCopy(curValue);
+            }
+        }
+
+        // initialize status object
+        let curStatus = {};
+        aInfo.appInfoStatus[curKey] = curStatus;
+
+        // set changed status
+        if (aInfo.stepInfo.action == kActionEDIT) {
+            if (curKey == 'urls') {
+                let myUrlSlice = (aInfo.appInfo.windowStyle == kWinStyleApp) ? 1 : undefined;
+                let myOldUrlSlice = (aInfo.oldAppInfo.windowStyle == kWinStyleApp) ? 1 : undefined;
+                curStatus.changed = !objEquals(aInfo.appInfo.urls.slice(0,myUrlSlice),
+                                                aInfo.oldAppInfo.urls.slice(0,myOldUrlSlice));
+            } else if (curKey == 'path') {
+                curStatus.changed = false;
+            } else if (curKey == 'version') {
+                curStatus.changed = (aInfo.appInfo.version != kVersion);
+            } else {
+                curStatus.changed = !objEquals(aInfo.appInfo[curKey], aInfo.oldAppInfo[curKey]);
+            }
+        } else {
+            curStatus.changed = false;
+        }
+
+
+        // SET SUMMARIES
+
+        // initialize summaries
+        curStatus.stepSummary = '';
+        curStatus.buildSummary = '';
+
+        // function to select dot
+        function dot() {
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                if (curStatus.changed) {
+                    return kDotChanged + ' ';
+                } else {
+                    return kDotCurrent + ' ';
+                }
+            } else {
+                return kDotSelected + ' ';
+            }
+        }
+
+        if (curKey == 'path') {
+
+            if (aInfo.stepInfo.action == kActionCREATE) {
+
+                // set build summary only in create mode
+                curStatus.buildSummary = kAppInfoKeys.path + ':\n' + kIndent + dot() +
+                    (aInfo.appInfo.file ? aInfo.appInfo.file.path : '[not yet set]');
+            }
+
+        } else if (curKey == 'version') {
+
+            if ((aInfo.stepInfo.action == kActionEDIT) && curStatus.changed) {
+
+                // set build summary only if in edit mode & we need an update
+                curStatus.buildSummary = kAppInfoKeys.version + ':\n' + kIndent +
+                    kDotNeedsUpdate + ' ' + aInfo.appInfo.version;
+            }
+
+        } else if ((curKey == 'displayName') || (curKey == 'shortName')) {
+
+            // step summary -- show old value only
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                if (curStatus.changed) {
+                    curStatus.stepSummary = '\n\n' + kIndent + kDotChanged + ' Was: ' + aInfo.oldAppInfo[curKey];
+                } else {
+                    curStatus.stepSummary = '\n\n' + kIndent + kDotCurrent + ' [not edited]';
+                }
+            }
+
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + dot() + aInfo.appInfo[curKey];
+
+        } else if (curKey == 'urls') {
+            if (aInfo.appInfo.windowStyle == kWinStyleApp) {
+
+                // APP STYLE
+
+                // set step summary
+                if (aInfo.stepInfo.action == kActionEDIT) {
+
+                    // display old value in step summary
+                    if (curStatus.changed) {
+                        curStatus.stepSummary = '\n\n' + kIndent + kDotChanged + ' Was: ';
+                        if (aInfo.oldAppInfo.windowStyle == kWinStyleApp) {
+                            // app URL summary
+                            curStatus.stepSummary += aInfo.oldAppInfo.urls[0];
+                        } else {
+                            // browser tab summary
+                            if (aInfo.oldAppInfo.urls.length == 0) {
+                                curStatus.stepSummary += ' [none]';
+                            } else {
+                                let myUrlPrefix = '\n' + kIndent + kIndent + kDotUnselected + ' ';
+                                curStatus.stepSummary += myUrlPrefix + aInfo.oldAppInfo.urls.join(myUrlPrefix);
+                            }
+                        }
+                    } else {
+                        let myUrlName = (aInfo.appInfo.windowStyle == kWinStyleApp) ? 'URL' : 'URLs';
+                        curStatus.stepSummary = '\n\n' + kIndent + kDotCurrent + ' [' + myUrlName + ' not edited]';
+                    }
+                }
+            }
+
+            // set build summary
+            if (aInfo.appInfo.windowStyle == kWinStyleApp) {
+                // app-style URL summary
+                curStatus.buildSummary = kAppInfoKeys.urls[0] + ':\n' + kIndent + dot() + aInfo.appInfo.urls[0];
+            } else {
+                // browser-style URL summary
+                let myUrlPrefix = kIndent + dot();
+                curStatus.buildSummary = kAppInfoKeys.urls[1] + ':\n' + myUrlPrefix;
+                if (aInfo.appInfo.urls.length == 0) {
+                    curStatus.buildSummary += '[none]';
+                } else {
+                    curStatus.buildSummary += aInfo.appInfo.urls.join('\n' + myUrlPrefix);
+                }
+            }
+        } else if (curKey == 'registerBrowser') {
+
+            // set common summary
+            let curSummary = dot() +
+                (aInfo.appInfo.registerBrowser ? 'Yes' : 'No');
+
+            // no step summary needed, but we'll set one for safety
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                curStatus.stepSummary = '\n\n' + kIndent + curSummary;
+            }
+
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys.registerBrowser + ':\n' + kIndent + curSummary;
+
+        } else if (curKey == 'icon') {
+
+            // set common summary
+            let curSummary;
+            if (aInfo.appInfo.icon) {
+                curSummary = dot() +
+                    ((aInfo.appInfo.icon instanceof Object) ? aInfo.appInfo.icon.name : '[existing custom]');
+            } else {
+                curSummary = dot() + '[default]';
+            }
+
+            // set step summary
+            if (aInfo.stepInfo.action == kActionEDIT) {
+
+                curStatus.stepSummary = '\n\n' + kIndent + curSummary;
+
+                // display old value
+                if (curStatus.changed) {
+                    curStatus.stepSummary += '  |  Was: ' +
+                        (aInfo.oldAppInfo.icon ? '[existing custom]' : '[default]');
+                }
+            }
+
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys.icon + ':\n' + kIndent + curSummary;
+
+        } else if (curKey == 'engine') {
+
+            // set common summary
+            let curSummary = dot() + aInfo.appInfo.engine.button;
+
+            // no step summary needed, but we'll set one for safety
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                curStatus.stepSummary = '\n\n' + kIndent + curSummary;
+            }
+
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys.engine + ':\n' + kIndent + curSummary;
+
+        } else {
+
+            // ALL OTHER KEYS
+
+            // set common summary
+            let curSummary = dot() + aInfo.appInfo[curKey];
+
+            // set step summary
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                curStatus.stepSummary = '\n\n' + kIndent + curSummary;
+            }
+
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + curSummary;
+        }
+    }
+}
+
+
 // CONSTANTS
 
+// app info and their summary headers
+const kAppInfoKeys = {
+    path: 'Path',
+    version: 'Version',
+    displayName: 'App Name',
+    shortName: 'Short Name',
+    id: 'App ID',
+    windowStyle: 'Style',
+    urls: ['URL', 'Tabs'],
+    registerBrowser: 'Register as Browser',
+    icon: 'Icon',
+    engine: 'App Engine'
+};
+
 // app defaults & settings
-const kPromptNameLoc = "Select name and location for the app.";
 const kWinStyleApp = 'App Window';
 const kWinStyleBrowser = 'Browser Tabs';
 const kAppDefaultURL = "https://www.google.com/mail/";
-const kIconPrompt = "Select an image to use as an icon.";
-const kIconTypes = ["public.jpeg", "public.png", "public.tiff", "com.apple.icns"];
-const kEngineInfo = {
-    internal: {
-        id:"internal|com.brave.Browser",
-        buttonName:"Built-In (Brave)"
+const kBrowserInfo = {
+    'com.microsoft.edgemac': {
+        shortName: 'Edge',
+        displayName: 'Microsoft Edge'
     },
-    external: {
-        id:"external|com.google.Chrome",
-        buttonName:"External (Google Chrome)"
+    'com.vivaldi.Vivaldi': {
+        shortName: 'Vivaldi',
+        displayName: 'Vivaldi'
+    },
+    'com.operasoftware.Opera': {
+        shortName: 'Opera',
+        displayName: 'Opera'
+    },
+    'com.brave.Browser': {
+        shortName: 'Brave',
+        displayName: 'Brave Browser'
+    },
+    'org.chromium.Chromium': {
+        shortName: 'Chromium',
+        displayName: 'Chromium'
+    },
+    'com.google.Chrome': {
+        shortName: 'Chrome',
+        displayName: 'Google Chrome'
     }
 };
+const kEngines = [
+    {
+        type: 'internal',
+        id: 'com.brave.Browser'
+    },
+    {
+        type: 'external',
+        id: 'com.google.Chrome'
+    }
+];
+for (let curEng of kEngines) {
+    curEng.button = engineName(curEng);
+}
 
 // script paths
 const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
@@ -132,7 +551,29 @@ const kEpiIcon = kApp.pathToResource("droplet.icns");
 
 // general utility
 const kDay = 24 * 60 * 60 * 1000;
+const kIndent = ' '.repeat(3);
 
+// actions
+const kActionCREATE = 0;
+const kActionEDIT = 1;
+const kActionUPDATE = 2;
+
+// step results
+const kStepResultSUCCESS = 0;
+const kStepResultERROR = 1;
+const kStepResultQUIT = 2;
+const kStepResultSKIP = 3;
+
+// status dots
+const kDotSelected = '▪️'; //❇️
+const kDotUnselected = '▫️';
+const kDotCurrent = '🔹';
+const kDotChanged = '🔸';
+const kDotNeedsUpdate = '🔺';
+const kDotSuccess = '✅'; // ✔️
+const kDotError = '🚫';
+const kDotSkip = '✖️'; // ◼️
+const kDotWarning = '⚠️';
 
 // GLOBAL VARIABLES
 
@@ -217,9 +658,9 @@ let gAppInfoDefault = {
     shortName: false,
     windowStyle: kWinStyleApp,
     urls: [],
-    registerBrowser: 'No',
-    customIcon: 'Yes',
-    engineTypeID: kEngineInfo.internal.id
+    registerBrowser: false,
+    icon: true,
+    engine: kEngines[0]
 };
 
 
@@ -276,25 +717,34 @@ function writeProperties() {
                 value:gAppInfoDefault.windowStyle
             })
         );
+        let myRegisterBrowser = (gAppInfoDefault.registerBrowser ? 'Yes' : 'No');
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
-                kind:"string",
-                name:"doRegisterBrowser",
-                value:gAppInfoDefault.registerBrowser
+                kind: "string",
+                name: "doRegisterBrowser",
+                value: myRegisterBrowser
             })
         );
+        let myIcon = (gAppInfoDefault.icon ? 'Yes' : 'No');
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
                 name:"doCustomIcon",
-                value:gAppInfoDefault.customIcon
+                value: myIcon
             })
         );
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
                 name:"appEngineType",
-                value:gAppInfoDefault.engineTypeID
+                value:gAppInfoDefault.engine.type
+            })
+        );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"string",
+                name:"appEngineID",
+                value:gAppInfoDefault.engine.id
             })
         );
     } catch(myErr) {
@@ -353,15 +803,15 @@ function readProperties() {
 
 	// doRegisterBrowser
 	if (myYesNoRegex.test(myProperties["doRegisterBrowser"])) {
-        gAppInfoDefault.registerBrowser = myProperties["doRegisterBrowser"];
+        gAppInfoDefault.registerBrowser = (myProperties["doRegisterBrowser"] != 'No');
     }
 
 	// doCustomIcon
 	if (myYesNoRegex.test(myProperties["doCustomIcon"])) {
-        gAppInfoDefault.customIcon = myProperties["doCustomIcon"];
+        gAppInfoDefault.icon = (myProperties["doCustomIcon"] != 'No');
     }
 
-	// appEngineType
+	// appEngineType  $$$ would need to be fixed
 	// if (myProperties["appEngineType"]) {
     //     gAppInfoDefault.engineTypeID = myProperties["appEngineType"];
     //     if (gAppInfoDefault.engineTypeID.startsWith("external") {
@@ -468,7 +918,7 @@ function getPathInfo(aPath, aAppInfo) {
         };
 
         // if we were given an appInfo object, add result to it
-        if (aAppInfo) {
+        if (typeof(aAppInfo) == 'object') {
             aAppInfo.file = myResult;
         }
 
@@ -478,19 +928,18 @@ function getPathInfo(aPath, aAppInfo) {
 
     if (aAppInfo) {
 
-        // remove any .app extension
-        myMatch = aAppInfo.file.name.match(/^(.+)\.app$/i);
+        // this is an app path, so set up extra info
+        myMatch = myResult.name.match(/^(.+)\.app$/i);
         if (myMatch) {
-            aAppInfo.file.base = myMatch[1];
-            aAppInfo.file.extAdded = false;
+            myResult.base = myMatch[1];
+            myResult.extAdded = false;
         } else {
-            aAppInfo.file.base = aAppInfo.file.name;
-            aAppInfo.file.extAdded = true;
+            myResult.base = myResult.name;
+            myResult.extAdded = true;
         }
+    }
 
-        // add canonical .app extension to base name
-        aAppInfo.file.name = aAppInfo.file.base + '.app';
-
+    if (typeof(aAppInfo) == 'object') {
 
         // CREATE DISPLAY NAME & DEFAULT SHORTNAME
 
@@ -524,7 +973,8 @@ function getPathInfo(aPath, aAppInfo) {
             aAppInfo.shortName = aAppInfo.shortName.slice(0, 16);
         }
 
-        // canonicalize app path
+        // canonicalize app name & path
+        aAppInfo.file.name = aAppInfo.file.base + '.app';
         aAppInfo.file.path = aAppInfo.file.dir + '/' + aAppInfo.file.name;
     }
 
@@ -537,6 +987,10 @@ function openDocuments(aApps) {
 
     let myDlgResult;
     let myApps = [];
+    let myErrApps = [];
+    let myAppList = [];
+    let myErrAppList = [];
+    let myHasUpdates = false;
 
     for (let curAppPath of aApps) {
 
@@ -544,144 +998,314 @@ function openDocuments(aApps) {
         curAppPath = curAppPath.toString();
 
         // break down path into components
-        let curAppFileInfo = getPathInfo(curAppPath);
+        let curAppFileInfo = getPathInfo(curAppPath, true);
 
-        // app object
-        let curApp = {};
+        // initialize app object
+        let curApp = {
+            result: kStepResultSKIP,
+        };
 
         try {
 
             // run core script to initialize
             curApp.appInfo = JSON.parse(shell(kEpichromeScript,
                 'epiAction=read',
-                'epiAppPath=' + curApp
+                'epiAppPath=' + curAppPath
             ));
 
-            // add in app file info
-            curApp.appInfo.file = curAppFileInfo;
-
-            // determine app window style and get URL list
-            if (curApp.appInfo.commandLine[0] &&
-                (curApp.appInfo.commandLine[0].startsWith('--app='))) {
-                curApp.appInfo.windowStyle = kWinStyleApp;
-                curApp.appInfo.urls = [ curApp.appInfo.commandLine[0].slice(6) ];
-            } else {
-                curApp.appInfo.windowStyle = kWinStyleBrowser;
-                curApp.appInfo.urls = curApp.appInfo.commandLine;
-            }
-            delete curApp.appInfo.commandLine;
-
-            // set dialog icon
-            curApp.icon = (curApp.appInfo.appIconPath ?
-                Path(curApp.appInfo.appIconPath) : kEpiIcon);
-
-            //     titlePrefix: 'Editing ' + curApp.appInfo.file.base,
-
-            // add to list of apps to process
-            myApps.push(curApp);
-
         } catch(myErr) {
-            kApp.displayDialog(myErr.message, {
-                withTitle: 'Error',
-                withIcon: 'stop',
-                buttons: ["OK"],
-                defaultButton: 1
-            });
+            curApp.error = myErr.message;
+            curApp.appInfo = {
+                file: curAppFileInfo
+            }
+            myErrApps.push(curApp);
+            myErrAppList.push(kIndent + kDotError + ' ' + curApp.appInfo.file.name + ': ' + curApp.error);
             continue;
         }
-    }
 
-    let myHasUpdates = false;
-    let myAppList = [];
-    for (let curApp in myApps) {
+        // add in app file info
+        curApp.appInfo.file = curAppFileInfo;
 
+        // determine app window style and get URL list
+        if (curApp.appInfo.commandLine[0] &&
+            (curApp.appInfo.commandLine[0].startsWith('--app='))) {
+                curApp.appInfo.windowStyle = kWinStyleApp;
+                curApp.appInfo.urls = [ curApp.appInfo.commandLine[0].slice(6) ];
+        } else {
+            curApp.appInfo.windowStyle = kWinStyleBrowser;
+            curApp.appInfo.urls = curApp.appInfo.commandLine;
+        }
+        delete curApp.appInfo.commandLine;
+
+        // fill out engine info
+        curApp.appInfo.engine.button = engineName(curApp.appInfo.engine);
+
+        // $$$ CHECK FOR LEGAL ENGINE?
+
+        // start stepInfo
+        let myDlgIcon = setDlgIcon(curApp.appInfo);
+        curApp.stepInfo = {
+            action: kActionEDIT,
+            titlePrefix: 'Editing "' + curApp.appInfo.displayName + '"',
+            dlgIcon: myDlgIcon,
+            isOnlyApp: false,
+            isLastApp: false,
+            isOrigFilename: (curApp.appInfo.file.base == curApp.appInfo.displayName)
+        };
+
+        // check if this app needs to be updated
         let curAppText = curApp.appInfo.file.name;
-
         if (vcmp(curApp.appInfo.version, kVersion) < 0) {
             myHasUpdates = true;
             curApp.update = true;
-            curAppText = kDotNeedsUpdate + ' ' + curAppText + '(' + curApp.appInfo.version + ')';
+            curAppText = kIndent + kDotNeedsUpdate + ' ' + curAppText + '(' + curApp.appInfo.version + ')';
         } else {
-            curAppText = kDotCurrent + ' ' + curAppText;
+            curApp.update = false;
+            curAppText = kIndent + kDotCurrent + ' ' + curAppText;
         }
+
+        // add to list of apps for summary
+        myAppList.push(curAppText);
+
+        // add to list of apps to process
+        myApps.push(curApp);
+    }
+
+    // mark the last app
+    if (myApps.length >= 1) {
+        myApps[myApps.length - 1].stepInfo.isLastApp = true;
     }
 
     // by default, edit apps
     let myDoEdit = true;
 
+    // set up dialog text & buttons depending if one or multiple apps
+    let myDlgMessage, myDlgTitle, myBtnEdit, myBtnUpdate;
+    let myDlgIcon = kEpiIcon;
+    let myDlgButtons = [];
+
     // if any apps need updating, give option to only update
     if (myHasUpdates) {
 
-        // set up dialog text & buttons depending if one or multiple apps
-        let myDlgText, myBtnEdit, myBtnUpdate;
-        if (myApps.length == 1) {
-            myDlgText = '';
-            myBtnEdit = 'Edit';
-            myBtnUpdate = 'Update';
+        // set base title
+        myDlgTitle = 'Choose Action';
+
+        // set base buttons
+        myBtnEdit = 'Edit';
+        myBtnUpdate = 'Update';
+
+        if (aApps.length == 1) {
+            myDlgMessage = 'This app will be updated from version ' + myApps[0].appInfo.version + ' to ' + kVersion + '. Do you want to edit this app, or just update it?';
+            myDlgIcon = myApps[0].stepInfo.dlgIcon;
         } else {
-            myDlgText = "You've selected at least one app with an older version (marked " + kDotNeedsUpdate + "). Edit and update all selected apps, or just update the " + kDotNeedsUpdate + " apps?\n\n" + myAppList.join('\n');
-            myBtnEdit = 'Edit All';
-            myBtnUpdate = 'Update ' + kDotNeedsUpdate;
+            myDlgMessage = "You've selected at least one app with an older version (marked " + kDotNeedsUpdate + "). Edit and update all selected apps, or just update the " + kDotNeedsUpdate + " apps?\n\n" + myAppList.join('\n');
+            myBtnEdit += ' All';
+            myBtnUpdate += ' ' + kDotNeedsUpdate;
         }
 
+        // set button list
+        myDlgButtons = [myBtnEdit, myBtnUpdate];
+
+    } else if (myApps.length > 0) {
+
+        // no updates, so only offer editing
+
+        // set base title and button
+        myDlgTitle = 'Edit';
+        myBtnEdit = 'OK';
+
+        if (aApps.length == 1) {
+            myDlgMessage = 'Click OK to begin editing "' + myApps[0].appInfo.displayName + '". Any changes will not be applied until you complete the process.';
+            myDlgTitle += myApps[0].stepInfo.titlePrefix.replace(/^Editing/,'');
+            myDlgIcon = myApps[0].stepInfo.dlgIcon;
+        } else {
+            myDlgMessage = "Click OK to begin editing the selected apps. Each app's changes will be applied as soon as you complete the process for that app. The following apps will be edited:\n\n" + myAppList.join('\n');
+            myDlgTitle += ' Apps';
+        }
+
+        // set button list
+        myDlgButtons = [myBtnEdit];
+    } else {
+
+        // no apps remain
+        myDlgMessage = 'There are no apps to process.';
+    }
+
+    // list apps with errors
+    if (myErrApps.length > 0) {
+        if (myApps.length == 0) {
+            myDlgTitle = 'Error';
+            myDlgMessage = 'Error reading ' + myErrApps[0].appInfo.file.name + ': ' + myErrApps[0].error + '.';
+            myDlgIcon = 'stop';
+        } else {
+            myDlgMessage += '\n\n' + kDotWarning + ' ';
+            if (myErrApps.length == 1) {
+                myDlgMessage += 'There was an error reading the following app and it cannot be edited:\n\n';
+            } else {
+                myDlgMessage += 'There were errors reading the following apps and they cannot be edited:\n\n';
+            }
+            myDlgMessage += myErrAppList.join('\n');
+        }
+    }
+
+    // add Quit button
+    myDlgButtons.push('Quit');
+
+    while (true) {
         try {
-            myDlgResult = kApp.displayDialog(myDlgText, {
-                withTitle: 'Choose Action',
-                withIcon: kEpiIcon,
-                buttons: [myBtnEdit, myBtnUpdate + kDotNeedsUpdate, "Quit"],
-                defaultButton: 1,
-                cancelButton: 3
-            }).buttonReturned;
+            // set up dialog options
+            let myDlgOptions = {
+                withTitle: myDlgTitle + ' | Epichrome EPIVERSION',
+                withIcon: myDlgIcon,
+                buttons: myDlgButtons,
+                defaultButton: 1
+            };
+            if (myDlgButtons.length > 1) { myDlgOptions.cancelButton = myDlgButtons.length; }
+
+            // display dialog
+            myDlgResult = kApp.displayDialog(myDlgMessage, myDlgOptions).buttonReturned;
+
         } catch(myErr) {
             if (myErr.errorNumber == -128) {
-                //  $$$$ hANDLE THIS
-                freakout;
+                if (confirmQuit()) { return; }
+                continue;
             } else {
                 // some other dialog error
                 throw myErr;
             }
         }
 
-        if (myDlgResult != myBtnEdit) {
-            // $$$ just run edit script with no dialogs
+        // special case: only a quit button
+        if (myDlgResult == 'Quit') {
+            // quit immediately
+            return;
+        } else if (myDlgResult == myBtnUpdate) {
+            // updates only, no app editing
             myDoEdit = false;
         }
+
+        break;
     }
 
+    // build text to represent will be done (editing and/or updating)
+    let myActionText = [];
+    if (myDoEdit) { myActionText.push('edited'); }
+    if (myHasUpdates) { myActionText.push('updated'); }
+    myActionText = myActionText.join(' and ');
 
-    // RUN EDIT STEPS
 
-    for (let curApp in myApps) {
+    // RUN EDIT/UPDATE STEPS
 
-        let myResult = true;
+    // mark if this is the only app we're processing
+    if ((aApps.length == 1) && (myApps.length == 1)) {
+        myApps[0].stepInfo.isOnlyApp = true;
+        myApps[0].stepInfo.actionText = myActionText;
+    }
+
+    for (let curApp of myApps) {
 
         if (myDoEdit) {
-            myResult = doSteps(curApp, steps);
+
+            // change appInfo to oldAppInfo
+            curApp.oldAppInfo = objCopy(curApp.appInfo);
+
+            // initialize relevant info
+            updateAppInfo(curApp, Object.keys(kAppInfoKeys));
+
+            // run edit steps
+            curApp.result = doSteps([
+                stepEditDisplayName,
+                stepShortName,
+                stepWinStyle,
+                stepURLs,
+                stepBrowser,
+                stepIcon,
+                stepEngine,
+                stepBuild
+            ], curApp);
+        } else {
+
+            // run update-only step
+            if (curApp.update) {
+                curApp.stepInfo.action = kActionUPDATE;
+                curApp.result = doSteps([stepBuild], curApp);
+            }
         }
 
-        if (myResult) {
-            // run update
-
-        } else if (myResult == 'SKIPTHISAPP') {
-            setsomestate;
-            continue;
-        }
+        // handle result
+        if (curApp.result == kStepResultQUIT) { break; }
     }
 
+    // build summary
+    if (aApps.length > 1) {
 
-    // handle success or failure
-    if (backedout) {
-        confirmquit;
-    } else {
-        //show summary of success & failure
+        let mySuccessText = [], myHasSuccess = false;
+        let myErrorText = [], myHasError = false;
+        let myAbortText = [], myHasAbort = false;
+
+        for (let curApp of myApps) {
+            if (curApp.result == kStepResultSUCCESS) {
+                mySuccessText.push(kIndent + kDotSuccess + ' ' + curApp.appInfo.displayName);
+                myHasSuccess = true;
+            } else if (curApp.result == kStepResultERROR) {
+                myErrorText.push(kIndent + kDotError + ' ' + curApp.appInfo.displayName);
+                myHasError = true;
+            } else if ((curApp.result == kStepResultSKIP) || (curApp.result == kStepResultQUIT)) {
+                myAbortText.push(kIndent + kDotSkip + ' ' + curApp.appInfo.displayName);
+                myHasAbort = true;
+            }
+        }
+
+        let myDlgMessage;
+        let myDlgButtons = ['Quit'];
+
+        if (!myHasError && !myHasAbort) {
+            if (myHasSuccess) {
+                myDlgMessage = 'All apps were ' + myActionText + ' successfully!';
+            } else {
+                myDlgMessage = 'No apps were processed!';
+            }
+        } else {
+
+            // if errors encountered, add log button
+            if (myHasError && hasLogFile()) {
+                myDlgButtons.push('View Log & Quit');
+            }
+
+            // build summary message
+            myDlgMessage = [];
+            if (myHasSuccess) {
+                myDlgMessage.push('These apps were ' + myActionText + ' successfully:\n\n' + mySuccessText.join('\n'));
+            }
+            if (myHasError) {
+                myDlgMessage.push('These apps encountered errors:\n\n' + myErrorText.join('\n'));
+            }
+            if (myHasAbort) {
+                myDlgMessage.push('These apps were skipped:\n\n' + myAbortText.join('\n'));
+            }
+            myDlgMessage = myDlgMessage.join('\n\n');
+        }
+
+        // show summary
+        let myDlgResult = kApp.displayDialog(myDlgMessage, {
+            withTitle: 'Summary',
+            withIcon: kEpiIcon,
+            buttons: myDlgButtons,
+            defaultButton: 1
+        }).buttonReturned;
+
+        if (myDlgResult != 'Quit') {
+            // show log
+            showLogFile();
+        }
     }
 }
 
 
 // --- BUILD STEPS ---
 
-// STEPDISPLAYNAME: step function to get display name and app path
-function stepDisplayName(aInfo) {
+// STEPCREATEDISPLAYNAME: step function to get display name and app path for CREATE action
+function stepCreateDisplayName(aInfo) {
 
     // status variables
 	let myTryAgain, myErr;
@@ -689,6 +1313,14 @@ function stepDisplayName(aInfo) {
     // CHOOSE WHERE TO SAVE THE APP
 
     myTryAgain = true;
+
+    const myPromptNameLoc = 'Select name and location for the app.';
+
+    let myDlgOptions = {
+        withPrompt: aInfo.stepInfo.numText + ': ' + myPromptNameLoc,
+        defaultName: aInfo.appInfo.displayName
+    };
+    if (gEpiLastAppDir) { myDlgOptions.defaultLocation = gEpiLastAppDir; }
 
     while (myTryAgain) {
 
@@ -698,35 +1330,24 @@ function stepDisplayName(aInfo) {
 
         // show file selection dialog
         try {
-            if (gEpiLastAppDir) {
-                try {
-                    myAppPath = kApp.chooseFileName({
-                        withPrompt: aInfo.stepInfo.numText + ': ' + kPromptNameLoc,
-                        defaultName: aInfo.appInfo.displayName,
-                        defaultLocation: gEpiLastAppDir
-                    }).toString();
-                } catch(myErr) {
-
-                    if (myErr.errorNumber == -1700) {
-                        // bad defaultLocation, so try this again
-                        gEpiLastAppDir = '';
-                        myTryAgain = true;
-                        continue;
-                    } else {
-                        // hand off to enclosing try
-                        throw myErr;
-                    }
-                }
-            } else {
-                myAppPath = kApp.chooseFileName({
-                    withPrompt: kPromptNameLoc,
-                    defaultName: aInfo.appInfo.displayName
-                }).toString();
-            }
+            myAppPath = kApp.chooseFileName(myDlgOptions).toString();
         } catch(myErr) {
+
             if (myErr.errorNumber == -128) {
+
+                // cancel button
                 return -1;
+
+            } else if (myErr.errorNumber == -1700) {
+
+                // bad defaultLocation, so try this again with no default
+                gEpiLastAppDir = '';
+                delete myDlgOptions.defaultLocation;
+                myTryAgain = true;
+                continue;
+
             } else {
+                // hand off to enclosing try
                 throw myErr;
             }
         }
@@ -791,7 +1412,82 @@ function stepDisplayName(aInfo) {
         }
     }
 
-    // if we got here, assume success and move on
+    // if we got here, we have a good path and display name
+    updateAppInfo(aInfo, ['path', 'displayName']);
+
+    // move on
+    return 1;
+}
+
+
+// STEPEDITDISPLAYNAME: step function to get display name and app path for CREATE action
+function stepEditDisplayName(aInfo) {
+
+    // status variables
+    let myErr, myDlgResult;
+
+    let myDlgMessage = 'Edit the name of the app.';
+
+    if (aInfo.stepInfo.isOrigFilename) {
+        myDlgMessage += '\n\n' + kDotWarning + ' Warning: Changing this will also rename the app file.';
+    }
+
+    try {
+        myDlgResult = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.displayName.stepSummary, {
+            withTitle: aInfo.stepInfo.dlgTitle,
+            withIcon: aInfo.stepInfo.dlgIcon,
+            defaultAnswer: aInfo.appInfo.displayName,
+            buttons: ['OK', aInfo.stepInfo.backButton],
+            defaultButton: 1,
+            cancelButton: 2
+        }).textReturned;
+    } catch(myErr) {
+        if (myErr.errorNumber == -128) {
+            // Back button
+            return -1;
+        } else {
+            throw myErr;
+        }
+    }
+
+    // if display name changed and this would result in renaming the app, confirm
+    if (aInfo.stepInfo.isOrigFilename &&
+        (aInfo.appInfo.displayName == aInfo.oldAppInfo.displayName) &&
+        (myDlgResult != aInfo.oldAppInfo.displayName)) {
+
+        let myConfResult;
+
+        try {
+            myConfResult = kApp.displayDialog("Are you sure you want to change the app's name? This will rename the app file:\n\n" + kIndent + kDotUnselected + " Old name: " + aInfo.oldAppInfo.file.name + "\n" + kIndent + kDotSelected + " New name: " + myDlgResult + ".app", {
+                withTitle: 'Confirm Rename App',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1
+            }).buttonReturned;
+        } catch(myErr) {
+            if (myErr.errorNumber == -128) {
+                myConfResult = 'Cancel';
+            } else {
+                throw myErr;
+            }
+        }
+
+        if (myConfResult != 'OK') {
+            // repeat this step
+            return 0;
+        }
+
+        // update path for new display name
+        aInfo.appInfo.file.base = myDlgResult;
+        aInfo.appInfo.file.name = myDlgResult + '.app';
+        aInfo.appInfo.file.path = aInfo.appInfo.file.dir + '/' + aInfo.appInfo.file.name;
+        updateAppInfo(aInfo, 'path');
+    }
+
+    // if we got here, set the display name
+    updateAppInfo(aInfo, 'displayName', myDlgResult);
+
+    // move on
     return 1;
 }
 
@@ -802,19 +1498,25 @@ function stepShortName(aInfo) {
     // status variables
     let myTryAgain, myErr, myDlgResult;
 
-    let myAppShortNamePrompt = "Enter the app name that should appear in the menu bar (16 characters or less).";
+    let myAppShortNamePrompt = 'the short app name that will appear in the menu bar (16 characters or less).';
+
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        myAppShortNamePrompt = 'Enter ' +  myAppShortNamePrompt;
+    } else {
+        // edit prompt
+        myAppShortNamePrompt = 'Edit ' +  myAppShortNamePrompt + '\n\n' + kDotWarning + " Warning: Changing this will also change the app's ID and rename its data directory.";
+    }
 
     myTryAgain = true;
-
     while (myTryAgain) {
 
         // assume success
         myTryAgain = false;
 
         try {
-            myDlgResult = kApp.displayDialog(myAppShortNamePrompt, {
+            myDlgResult = kApp.displayDialog(myAppShortNamePrompt + aInfo.appInfoStatus.shortName.stepSummary, {
                 withTitle: aInfo.stepInfo.dlgTitle,
-                withIcon: kEpiIcon,
+                withIcon: aInfo.stepInfo.dlgIcon,
                 defaultAnswer: aInfo.appInfo.shortName,
                 buttons: ['OK', aInfo.stepInfo.backButton],
                 defaultButton: 1,
@@ -831,16 +1533,44 @@ function stepShortName(aInfo) {
 
         if (myDlgResult.length > 16) {
             myTryAgain = true;
-            myAppShortNamePrompt = "That name is too long. Please limit the name to 16 characters or less.";
+            myAppShortNamePrompt = kDotWarning + " That name is too long. Please limit the name to 16 characters or less.";
             aInfo.appInfo.shortName = myDlgResult.slice(0, 16);
         } else if (myDlgResult.length == 0) {
             myTryAgain = true;
-            myAppShortNamePrompt = "No name entered. Please try again.";
+            myAppShortNamePrompt = kDotWarning + " No name entered. Please try again.";
+        }
+    }
+
+    // if short name changed, confirm
+    if ((aInfo.stepInfo.action == kActionEDIT) &&
+        (aInfo.appInfo.shortName == aInfo.oldAppInfo.shortName) &&
+        (myDlgResult != aInfo.oldAppInfo.shortName)) {
+
+        let myConfResult;
+
+        try {
+            myConfResult = kApp.displayDialog("Are you sure you want to change the app's short name? This will change the app's ID and rename its data directory.", {
+                withTitle: 'Confirm Change App ID',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1
+            }).buttonReturned;
+        } catch(myErr) {
+            if (myErr.errorNumber == -128) {
+                myConfResult = 'Cancel';
+            } else {
+                throw myErr;
+            }
+        }
+
+        if (myConfResult != 'OK') {
+            // repeat this step
+            return 0;
         }
     }
 
     // if we got here, we have a good name
-    aInfo.appInfo.shortName = myDlgResult;
+    updateAppInfo(aInfo, 'shortName', myDlgResult);
 
     // move on
     return 1;
@@ -853,14 +1583,24 @@ function stepWinStyle(aInfo) {
     // status variables
 	let myErr;
 
+    // set up dialog message
+
+    let myDlgMessage = "App Style:\n\nAPP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)\n\nBROWSER TABS - The app will display a full browser window with the given tabs.";
+
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        myDlgMessage = 'Choose ' +  myDlgMessage;
+    } else {
+        myDlgMessage = 'Edit ' +  myDlgMessage;
+    }
+
+    // set up dialog info
+    let myDlgInfo = dialogInfo(aInfo, 'windowStyle', [kWinStyleApp, kWinStyleBrowser]);
+
     try {
-        aInfo.appInfo.windowStyle = kApp.displayDialog("Choose App Style:\n\nAPP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)\n\nBROWSER TABS - The app will display a full browser window with the given tabs.", {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: kEpiIcon,
-            buttons: [kWinStyleApp, kWinStyleBrowser, "Back"],
-            defaultButton: aInfo.appInfo.windowStyle,
-            cancelButton: 3
-        }).buttonReturned;
+
+        // display dialog
+        updateAppInfo(aInfo, 'windowStyle',
+            myDlgInfo.buttonMap[kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned]);
 
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
@@ -870,6 +1610,9 @@ function stepWinStyle(aInfo) {
             throw myErr;
         }
     }
+
+    // update URLs too for next step
+    updateAppInfo(aInfo, 'urls');
 
     // move on
     return 1;
@@ -882,21 +1625,36 @@ function stepURLs(aInfo) {
     // status variables
     let myErr, myDlgResult;
 
-    // initialize URL list
-    if ((aInfo.appInfo.urls.length == 0) && (aInfo.appInfo.windowStyle == kWinStyleApp)) {
-        aInfo.appInfo.urls.push(kAppDefaultURL);
-    }
-
     if (aInfo.appInfo.windowStyle == kWinStyleApp) {
 
         // APP WINDOW STYLE
 
+        // set up dialog prompt
+
+        let myDlgMessage = 'URL:';
+
+        if (aInfo.stepInfo.action == kActionCREATE) {
+
+            // create prompt
+            myDlgMessage = 'Choose ' +  myDlgMessage;
+
+            // initialize URL list
+            if (aInfo.appInfo.urls.length == 0) {
+                aInfo.appInfo.urls.push(kAppDefaultURL);
+            }
+
+        } else {
+
+            // edit prompt
+            myDlgMessage = 'Edit ' +  myDlgMessage;
+        }
+
         try {
-            aInfo.appInfo.urls[0] = kApp.displayDialog("Choose URL:", {
+            aInfo.appInfo.urls[0] = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.urls.stepSummary, {
                 withTitle: aInfo.stepInfo.dlgTitle,
-                withIcon: kEpiIcon,
+                withIcon: aInfo.stepInfo.dlgIcon,
                 defaultAnswer: aInfo.appInfo.urls[0],
-                buttons: ["OK", "Back"],
+                buttons: ['OK', aInfo.stepInfo.backButton],
                 defaultButton: 1,
                 cancelButton: 2
             }).textReturned;
@@ -909,6 +1667,9 @@ function stepURLs(aInfo) {
             }
         }
 
+        // update summaries
+        updateAppInfo(aInfo, 'urls');
+
     } else {
 
         // BROWSER TABS
@@ -919,45 +1680,56 @@ function stepURLs(aInfo) {
             let ttext, ti;
 
             if (tabs.length == 0) {
-                return "No tabs specified.\n\nClick \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will determine which tabs to open on startup using its preferences, just as Chrome would."
+                return kIndent + kDotSelected + " [no tabs specified]\n\nClick \"Add\" to add a tab. If you click \"Done (Don't Add)\" now, the app will determine which tabs to open on startup using its preferences, just as Chrome would."
             } else {
-                ttext = tabs.length.toString();
-                if (ttext == "1") {
-                    ttext += " tab";
+                if (tabs.length == 1) {
+                    ttext = "One tab specified:";
                 } else {
-                    ttext += " tabs";
+                    ttext = tabs.length.toString() + ' tabs specified:';
                 }
-                ttext += " specified:\n"
 
                 // add tabs themselves to the text
                 ti = 1;
                 for (const t of tabs) {
                     if (ti == tabnum) {
-                        ttext += "\n  *  [the tab you are editing]";
+                        ttext += '\n' + kIndent + kDotSelected + '  [the tab you are editing]';
                     } else {
-                        ttext += "\n  -  " + t;
+                        ttext += '\n' + kIndent + kDotUnselected + '  ' + t;
                     }
                     ti++;
                 }
 
                 if (ti == tabnum) {
-                    ttext += "\n  *  [new tab will be added here]"
+                    ttext += '\n' + kIndent + kDotSelected + '  [new tab will be added here]';
                 }
+
                 return ttext;
             }
         }
 
+        // set up dialog prompt
+
         let myCurTab = 1
 
         while (true) {
+
             if (myCurTab > aInfo.appInfo.urls.length) {
+
+                // set default button
+                let myDefaultButton = 1;
+                if ((aInfo.stepInfo.action == kActionEDIT) && !aInfo.appInfoStatus.urls.changed) {
+                    // user did not edit tabs, so default to Don't Add
+                    myDefaultButton = 2;
+                }
+
                 try {
-                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab), {
+                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
+                            aInfo.appInfoStatus.urls.stepSummary, {
                         withTitle: aInfo.stepInfo.dlgTitle,
-                        withIcon: kEpiIcon,
+                        withIcon: aInfo.stepInfo.dlgIcon,
                         defaultAnswer: kAppDefaultURL,
-                        buttons: ["Add", "Done (Don't Add)", "Back"],
-                        defaultButton: 1,
+                        buttons: ["Add", "Done (Don't Add)", aInfo.stepInfo.backButton],
+                        defaultButton: myDefaultButton,
                         cancelButton: 3
                     });
                 } catch(myErr) {
@@ -980,7 +1752,9 @@ function stepURLs(aInfo) {
 
                     // add the current text to the end of the list of URLs
                     aInfo.appInfo.urls.push(myDlgResult.textReturned);
+                    updateAppInfo(aInfo, 'urls');
                     myCurTab++;
+
                 } else { // "Done (Don't Add)"
                     // we're done, don't add the current text to the list
                     break;
@@ -991,11 +1765,12 @@ function stepURLs(aInfo) {
 
                 if (myCurTab == 1) {
                     try {
-                        myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab), {
+                        myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
+                                aInfo.appInfoStatus.urls.stepSummary, {
                             withTitle: aInfo.stepInfo.dlgTitle,
-                            withIcon: kEpiIcon,
+                            withIcon: aInfo.stepInfo.dlgIcon,
                             defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
-                            buttons: ["Next", "Remove", "Back"],
+                            buttons: ['Next', 'Remove', aInfo.stepInfo.backButton],
                             defaultButton: 1,
                             cancelButton: 3
                         });
@@ -1008,9 +1783,10 @@ function stepURLs(aInfo) {
                         }
                     }
                 } else {
-                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab), {
+                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
+                            aInfo.appInfoStatus.urls.stepSummary, {
                         withTitle: aInfo.stepInfo.dlgTitle,
-                        withIcon: kEpiIcon,
+                        withIcon: aInfo.stepInfo.dlgIcon,
                         defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
                         buttons: ["Next", "Remove", "Previous"],
                         defaultButton: 1
@@ -1022,11 +1798,11 @@ function stepURLs(aInfo) {
                         myCurTab = 0;
                         break;
                     } else {
-                        aInfo.appInfo.urls[myCurTab-1] = myDlgResult.textReturned;
+                        aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
                         myCurTab--;
                     }
                 } else if (myDlgResult.buttonReturned == "Next") {
-                    aInfo.appInfo.urls[myCurTab-1] = myDlgResult.textReturned;
+                    aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
                     myCurTab++;
                 } else { // "Remove"
                     if (myCurTab == 1) {
@@ -1038,6 +1814,9 @@ function stepURLs(aInfo) {
                         aInfo.appInfo.urls.splice(myCurTab-1, 1);
                     }
                 }
+
+                // update step summary
+                updateAppInfo(aInfo, 'urls');
             }
         }
 
@@ -1058,16 +1837,18 @@ function stepBrowser(aInfo) {
     // status variables
 	let myErr;
 
-    // STEP 5: REGISTER AS BROWSER?
+    // set up dialog message
+
+    let myDlgMessage = 'Register app as a browser?';
+
+    let myDlgInfo = dialogInfo(aInfo, 'registerBrowser', ['Yes', 'No'], [true, false]);
+    let myDlgResult;
 
     try {
-        aInfo.appInfo.registerBrowser = kApp.displayDialog("Register app as a browser?", {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: kEpiIcon,
-            buttons: ["No", "Yes", "Back"],
-            defaultButton: aInfo.appInfo.registerBrowser,
-            cancelButton: 3
-        }).buttonReturned;
+        // display dialog
+        updateAppInfo(aInfo, 'registerBrowser',
+            myDlgInfo.buttonMap[kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned]);
+
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
             // Back button
@@ -1088,14 +1869,19 @@ function stepIcon(aInfo) {
     // status variables
 	let myErr;
 
+    // set up dialog message
+
+    let myDlgMessage = 'Do you want to provide a custom icon?';
+    let myDlgResult;
+
+    let myDlgInfo = dialogInfo(aInfo, 'icon', ['Yes', 'No'], [aInfo.appInfo.icon ? aInfo.appInfo.icon : true, false]);
+
     try {
-        aInfo.appInfo.customIcon = kApp.displayDialog("Do you want to provide a custom icon?", {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: kEpiIcon,
-            buttons: ["Yes", "No", "Back"],
-            defaultButton: aInfo.appInfo.customIcon,
-            cancelButton: 3
-        }).buttonReturned;
+
+        // display step dialog
+        myDlgResult = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.icon.stepSummary,
+            myDlgInfo.options).buttonReturned;
+
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
             // Back button
@@ -1105,61 +1891,115 @@ function stepIcon(aInfo) {
         }
     }
 
-    if (aInfo.appInfo.customIcon == "Yes") {
+    // if editing & icon choice changed from custom to default, confirm whether to remove icon
+    if ((aInfo.stepInfo.action == kActionEDIT) &&
+        (aInfo.appInfo.icon && aInfo.oldAppInfo.icon) &&
+        !myDlgInfo.buttonMap[myDlgResult]) {
 
-        // CHOOSE AN APP ICON
+        let myDlgResult;
 
-        let myIconSourcePath;
-
-        // show file selection dialog
         try {
-            if (gEpiLastIconDir) {
-                try {
-                    myIconSourcePath = kApp.chooseFile({
-                        withPrompt: kIconPrompt,
-                        ofType: kIconTypes,
-                        invisibles: false,
-                        defaultLocation: gEpiLastIconDir
-                    }).toString();
-                } catch(myErr) {
-                    if (myErr.errorNumber == -1700) {
-                        // bad defaultLocation, so try this again with none
-                        gEpiLastIconDir = '';
-                    } else {
-                        throw myErr;
-                    }
-                }
-            }
-            if (! gEpiLastIconDir) {
-                myIconSourcePath = kApp.chooseFile({
-                    withPrompt: kIconPrompt,
-                    ofType: kIconTypes,
-                    invisibles: false
-                }).toString();
-            }
+            myDlgResult = kApp.displayDialog("Are you sure you want to remove this app's custom icon and replace it with the default Epichrome icon?", {
+                withTitle: 'Confirm Icon Change',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1
+            }).buttonReturned;
         } catch(myErr) {
             if (myErr.errorNumber == -128) {
-                // canceled: ask about a custom icon again
-                return 0;
+                myDlgResult = 'Cancel';
             } else {
                 throw myErr;
             }
         }
 
-        // set up custom icon info
+        if (myDlgResult != 'OK') {
+            // repeat this step
+            return 0;
+        }
+    }
 
-        // break down the path & canonicalize icon name
-        aInfo.appInfo.iconSource = getPathInfo(myIconSourcePath);
+    if (myDlgInfo.buttonMap[myDlgResult]) {
 
-        // save icon directory as default
-        gEpiLastIconDir = aInfo.appInfo.iconSource.dir;
+        let myChooseIcon = true;
 
+        // if we haven't changed the check if user wants to change current custom icon
+        if ((aInfo.stepInfo.action == kActionEDIT) && aInfo.oldAppInfo.icon &&
+            (!(aInfo.appInfo.icon instanceof Object))) {
+
+            myChooseIcon = (kApp.displayDialog("Do you want to replace the app's current icon" + (aInfo.stepInfo.dlgIcon != kEpiIcon ? ' (shown in this dialog box)' : '') + '?', {
+                withTitle: aInfo.stepInfo.dlgTitle,
+                withIcon: aInfo.stepInfo.dlgIcon,
+                buttons: ['Keep', 'Replace'],
+                defaultButton: 1
+            }).buttonReturned == 'Replace');
+        }
+
+        if (myChooseIcon) {
+
+            // CHOOSE AN APP ICON
+
+            let myIconSourcePath;
+
+            const myIconPrompt = 'Select an image to use as an icon.';
+            const myIconTypes = ["public.jpeg", "public.png", "public.tiff", "com.apple.icns"];
+
+            // show file selection dialog
+            try {
+
+                if (gEpiLastIconDir) {
+                    try {
+                        myIconSourcePath = kApp.chooseFile({
+                            withPrompt: myIconPrompt,
+                            ofType: myIconTypes,
+                            invisibles: false,
+                            defaultLocation: gEpiLastIconDir
+                        }).toString();
+                    } catch(myErr) {
+                        if (myErr.errorNumber == -1700) {
+                            // bad defaultLocation, so try this again with none
+                            gEpiLastIconDir = '';
+                        } else {
+                            throw myErr;
+                        }
+                    }
+                }
+                if (! gEpiLastIconDir) {
+                    myIconSourcePath = kApp.chooseFile({
+                        withPrompt: myIconPrompt,
+                        ofType: myIconTypes,
+                        invisibles: false
+                    }).toString();
+                }
+            } catch(myErr) {
+                if (myErr.errorNumber == -128) {
+                    // canceled: ask about a custom icon again
+                    return 0;
+                } else {
+                    throw myErr;
+                }
+            }
+
+            // set up custom icon info
+
+            // break down the path & canonicalize icon name
+            aInfo.appInfo.icon = getPathInfo(myIconSourcePath);
+
+            // save icon directory as default
+            gEpiLastIconDir = aInfo.appInfo.icon.dir;
+
+        } else {
+            // don't change custom icon
+            aInfo.appInfo.icon = true;
+        }
     } else {
 
-        // no custom icon
-        aInfo.appInfo.iconSource = { path: '' };
-
+        // default icon
+        aInfo.appInfo.icon = false;
     }
+
+    // update summaries
+    updateAppInfo(aInfo, 'icon');
 
     // move on
     return 1;
@@ -1172,21 +2012,45 @@ function stepEngine(aInfo) {
     // status variables
 	let myErr;
 
+    // dialog message
+    let myDlgMessage;
+
     // initialize engine choice buttons
-    if (aInfo.appInfo.engineTypeID.startsWith("external")) {
-        aInfo.appInfo.engineTypeButton = kEngineInfo.external.buttonName;
+    let myDefaultButton = 1;
+
+    // name buttons based on which engine app is selected
+    let myDlgInfo = dialogInfo(aInfo, 'engine', kEngines.map(x => x.button), kEngines);
+
+    if (aInfo.stepInfo.action == kActionCREATE) {
+
+        myDlgMessage = "Use built-in app engine, or external browser engine?\n\n";
+
+        myDlgMessage += kDotWarning + " NOTE: If you don't know what this question means, choose Built-In.\n\n";
+
+        myDlgMessage += "In almost all cases, using the built-in engine will result in a more functional app. Using an external browser engine has several disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.\n\n";
+
+        myDlgMessage += "The main reason to choose the external browser engine is if your app must run on a signed browser (for things like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension).";
     } else {
-        aInfo.appInfo.engineTypeButton = kEngineInfo.internal.buttonName;
+
+        // edit message
+        myDlgMessage = 'Edit app engine choice.\n\n';
+
+        myDlgMessage += kDotWarning + " NOTE: If you don't know what this question means, choose Keep.\n\n";
+
+        myDlgMessage += "Switching an existing app's engine will log you out of any existing sessions in the app, you will lose any saved passwords, and you will need to reinstall all your extensions. (The first time you run the updated app, it will open the Chrome Web Store page for each extension you had installed to give you a chance to reinstall them. Once reinstalled, any extension settings should reappear.)\n\n";
+
+        myDlgMessage += "The built-in engine has many advantages, including more reliable link routing, preventing intermittent loss of custom icon/app name, ability to give the app individual access to camera and microphone, and more reliable interaction with AppleScript and Keyboard Maestro.\n\n";
+
+        myDlgMessage += "The main advantage of the external engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is not needed for the 1PasswordX extension).";
     }
 
+    let myDlgResult;
+
     try {
-        aInfo.appInfo.engineTypeButton = kApp.displayDialog("Use built-in app engine, or external browser engine?\n\nNOTE: If you don't know what this question means, choose Built-In.\n\nIn almost all cases, using the built-in engine will result in a more functional app. Using an external browser engine has several disadvantages, including unreliable link routing, possible loss of custom icon/app name, inability to give each app individual access to the camera and microphone, and difficulty reliably using AppleScript or Keyboard Maestro with the app.\n\nThe main reason to choose the external browser engine is if your app must run on a signed browser (for things like the 1Password desktop extension--it is NOT needed for the 1PasswordX extension).", {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: kEpiIcon,
-            buttons: [kEngineInfo.internal.buttonName, kEngineInfo.external.buttonName, "Back"],
-            defaultButton: aInfo.appInfo.engineTypeButton,
-            cancelButton: 3
-        }).buttonReturned;
+
+        // display dialog
+        myDlgResult = kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned;
+
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
             // Back button
@@ -1196,12 +2060,37 @@ function stepEngine(aInfo) {
         }
     }
 
-    // set app engine
-    if (aInfo.appInfo.engineTypeButton == kEngineInfo.external.buttonName) {
-        aInfo.appInfo.engineTypeID = kEngineInfo.external.id;
-    } else {
-        aInfo.appInfo.engineTypeID = kEngineInfo.internal.id;
+    // if engine change chosen during editing, confirm
+    if ((aInfo.stepInfo.action == kActionEDIT) &&
+        objEquals(aInfo.appInfo.engine, aInfo.oldAppInfo.engine) &&
+        !objEquals(myDlgInfo.buttonMap[myDlgResult], aInfo.oldAppInfo.engine)) {
+
+        let myConfResult;
+
+        try {
+            myConfResult = kApp.displayDialog("Are you sure you want to switch engines?\n\nIMPORTANT: You will be logged out of all existing sessions, lose all saved passwords, and will need to reinstall all extensions. If you want to save or export anything, you must do it BEFORE continuing with this change.", {
+                withTitle: 'Confirm Engine Change',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1
+            }).buttonReturned;
+        } catch(myErr) {
+            if (myErr.errorNumber == -128) {
+                myConfResult = 'Cancel';
+            } else {
+                throw myErr;
+            }
+        }
+
+        if (myConfResult != 'OK') {
+
+            // repeat this step
+            return 0;
+        }
     }
+
+    // set app engine
+    updateAppInfo(aInfo, 'engine', myDlgInfo.buttonMap[myDlgResult]);
 
     // move on
     return 1;
@@ -1212,151 +2101,251 @@ function stepEngine(aInfo) {
 function stepBuild(aInfo) {
 
     // status variables
-    let myErr, myDlgResult;
+    let myErr;
 
-    // create summary of the app
-    let myAppSummary = "Ready to create!\n\nApp: " + aInfo.appInfo.file.name +
-        "\n\nMenubar Name: " + aInfo.appInfo.shortName +
-        "\n\nPath: " + aInfo.appInfo.file.dir + "\n\n";
-    if (aInfo.appInfo.windowStyle == kWinStyleApp) {
-        myAppSummary += "Style: App Window\n\nURL: " + aInfo.appInfo.urls[0];
-    } else {
-        myAppSummary += "Style: Browser Tabs\n\nTabs: ";
-        if (aInfo.appInfo.urls.length == 0) {
-            myAppSummary += "<none>";
+    let myScriptAction;
+
+    if (aInfo.stepInfo.action != kActionUPDATE) {
+
+        let myDlgResult, myAppSummary, myActionButton;
+        let myDoBuild = true;
+
+        if (aInfo.stepInfo.action == kActionCREATE) {
+
+            myScriptAction = 'build';
+
+            // create summary of the app
+            myAppSummary = 'Ready to create!\n\n' +
+                Object.keys(aInfo.appInfoStatus).filter(x => x != 'version').map(x => aInfo.appInfoStatus[x].buildSummary).join('\n\n');
+            myActionButton = 'Create';
         } else {
 
-            for (let t of aInfo.appInfo.urls) {
-                myAppSummary += "\n  -  " + t;
+            myScriptAction = 'edit';
+
+            // edit summary of app & look for changes
+            let myChangedSummary = [];
+            let myUnchangedSummary = [];
+            for (let curItem of Object.values(aInfo.appInfoStatus)) {
+                if (curItem.buildSummary) {
+                    if (curItem.changed) {
+                        myChangedSummary.push(curItem.buildSummary);
+                    } else {
+                        myUnchangedSummary.push(curItem.buildSummary);
+                    }
+                }
+            }
+
+            // set up dialog message and action
+            if (myChangedSummary.length == 0) {
+                myDoBuild = false;
+                myAppSummary = 'No changes have been made to this app.';
+                myActionButton = (aInfo.stepInfo.isOnlyApp ? 'Quit' : 'Skip');
+            } else {
+                if (aInfo.appInfoStatus.version.changed && (myChangedSummary.length == 1)) {
+                    myAppSummary = 'This app will be updated to version ' + kVersion +
+                        '. No other changes have been made.';
+                    myActionButton = 'Update';
+                } else {
+                    let myHasUnchanged = (myUnchangedSummary.length > 0);
+
+                    myAppSummary = 'Ready to save changes!\n\n' +
+                        (myHasUnchanged ? 'CHANGED:\n\n' : '') +
+                        indent(myChangedSummary.join('\n\n'), myHasUnchanged ? 1 : 0);
+                    if (myHasUnchanged) {
+                        myAppSummary += '\n\nUNCHANGED:\n\n' +
+                            indent(myUnchangedSummary.join('\n\n'));
+                    }
+                    myActionButton = 'Save Changes';
+                    if (aInfo.appInfoStatus.version.changed) {
+                        myActionButton += ' & Update';
+                    }
+                }
             }
         }
-    }
-    myAppSummary += "\n\nRegister as Browser: " + aInfo.appInfo.registerBrowser + "\n\nIcon: ";
-    if (!aInfo.appInfo.iconSource) {
-        myAppSummary += "<default>";
+
+        // display summary
+        try {
+            kApp.displayDialog(myAppSummary, {
+                withTitle: aInfo.stepInfo.dlgTitle,
+                withIcon: aInfo.stepInfo.dlgIcon,
+                buttons: [myActionButton, aInfo.stepInfo.backButton],
+                defaultButton: 1,
+                cancelButton: 2
+            });
+        } catch(myErr) {
+            if (myErr.errorNumber == -128) {
+                // Back button
+                return -1;
+            } else {
+                throw myErr;
+            }
+        }
+
+        // if there are no changes, quit
+        if (!myDoBuild) {
+            // go to step -1 to trigger quit dialog
+            return -aInfo.stepInfo.number - 1;
+        }
     } else {
-        myAppSummary += aInfo.appInfo.iconSource.name;
+        myScriptAction = 'edit';
     }
-    myAppSummary += "\n\nApp Engine: " + aInfo.appInfo.engineTypeButton;
 
-    // set up app command line
-    let myAppCmdLine = [];
+
+    // BUILD/UPDATE SCRIPT ARGUMENTS
+
+    let myScriptArgs = [
+        kEpichromeScript,
+        gScriptLogVar,
+        'epiAction=' + myScriptAction,
+        'CFBundleDisplayName=' + aInfo.appInfo.displayName,
+        'CFBundleName=' + aInfo.appInfo.shortName,
+        'SSBCustomIcon=' + (aInfo.appInfo.icon ? 'Yes' : 'No'),
+        'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
+        'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
+        'SSBCommandLine=(' ];
+
+    // add app command line
     if (aInfo.appInfo.windowStyle == kWinStyleApp) {
-        myAppCmdLine.push('--app=' + aInfo.appInfo.urls[0]);
+        myScriptArgs.push('--app=' + aInfo.appInfo.urls[0]);
     } else if (aInfo.appInfo.urls.length > 0) {
-        myAppCmdLine = aInfo.appInfo.urls;
+        myScriptArgs.push.apply(myScriptArgs, aInfo.appInfo.urls);
+    }
+    myScriptArgs.push(')');
+
+    // add icon source if necessary
+    if (aInfo.appInfo.icon instanceof Object) {
+        myScriptArgs.push('epiIconSource=' + aInfo.appInfo.icon.path);
     }
 
-    // display summary
-    try {
-        kApp.displayDialog(myAppSummary, {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: kEpiIcon,
-            buttons: ["Create", "Back"],
-            defaultButton: 1,
-            cancelButton: 2
-        });
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
-            // Back button
-            return -1;
+    // action-specific arguments
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        // create-specific arguments
+        myScriptArgs.push('epiAppPath=' + aInfo.appInfo.file.path);
+    } else {
+        // edit-/update-specific arguments
+
+        // app ID
+        myScriptArgs.push('SSBIdentifier=' + aInfo.appInfo.id);
+
+        if (aInfo.stepInfo.action == kActionEDIT) {
+            // old ID
+            if (aInfo.appInfoStatus.id.changed) {
+                myScriptArgs.push('epiOldIdentifier=' + aInfo.oldAppInfo.id);
+            }
+
+            // app path
+            myScriptArgs.push('epiAppPath=' + aInfo.oldAppInfo.file.path);
+            if (aInfo.stepInfo.isOrigFilename && aInfo.appInfoStatus.displayName.changed) {
+                myScriptArgs.push('epiNewAppPath=' + aInfo.appInfo.file.path);
+            }
         } else {
-            throw myErr;
+            // app path for update
+            myScriptArgs.push('epiAppPath=' + aInfo.appInfo.file.path);
         }
     }
 
 
-    // CREATE THE APP
+    // CREATE/UPDATE THE APP
 
+    let myBuildMessage;
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        myBuildMessage = ['Building', 'Build', 'Configuring'];
+    } else if (aInfo.stepInfo.action == kActionEDIT) {
+        myBuildMessage = ['Saving changes to', 'Save', 'Editing'];
+    } else {
+        myBuildMessage = ['Updating', 'Update', 'Canceled'];
+    }
+    let myAppNameMessage = ' "' + aInfo.appInfo.displayName + '"...';
     try {
 
         Progress.totalUnitCount = 2;
         Progress.completedUnitCount = 1;
-        Progress.description = "Building app...";
-        Progress.additionalDescription = "This may take up to 30 seconds. The progress bar will not advance.";
+        Progress.description = myBuildMessage[0] + myAppNameMessage;
+        Progress.additionalDescription = 'This may take up to 30 seconds. The progress bar will not advance.';
 
         // this somehow allows the progress bar to appear
         delay(0.1);
 
-        shell.apply(null, Array.prototype.concat( [
-            kEpichromeScript,
-            gScriptLogVar,
-            'epiAction=build',
-            'epiAppPath=' + aInfo.appInfo.file.path,
-            'CFBundleDisplayName=' + aInfo.appInfo.displayName,
-            'CFBundleName=' + aInfo.appInfo.shortName,
-            'SSBCustomIcon=' + aInfo.appInfo.customIcon,
-            'epiIconSource=' + aInfo.appInfo.iconSource.path,
-            'SSBRegisterBrowser=' + aInfo.appInfo.registerBrowser,
-            'SSBEngineType=' + aInfo.appInfo.engineTypeID,
-            'SSBCommandLine=(' ],
-            myAppCmdLine,
-            [ ')' ])
-        );
+        // run the build/update script
+        shell.apply(null, myScriptArgs);
 
         Progress.completedUnitCount = 2;
-        Progress.description = "Build complete.";
-        Progress.additionalDescription = "";
+        Progress.description = myBuildMessage[1] + ' complete.';
+        Progress.additionalDescription = '';
 
     } catch(myErr) {
 
         if (myErr.errorNumber == -128) {
             Progress.completedUnitCount = 0;
-            Progress.description = "Configuring app...";
-            Progress.additionalDescription = "";
-            return 0;
+            Progress.description = myBuildMessage[2] + myAppNameMessage;
+            Progress.additionalDescription = '';
+            if (aInfo.stepInfo.action == kActionUPDATE) {
+                return -1;
+            } else {
+                return 0;
+            }
         }
 
         Progress.completedUnitCount = 0;
-        Progress.description = "Build failed.";
-        Progress.additionalDescription = "";
-
-        myErr = myErr.message;
-
-        // unable to create app due to permissions
-        if (myErr == "PERMISSION") {
-            myErr = "Unable to write to \"" + aInfo.appInfo.file.dir + "\".";
-        }
+        Progress.description = myBuildMessage[1] + ' failed.';
+        Progress.additionalDescription = '';
 
         // show error dialog & quit or go back
         return {
-            message:"Creation failed: " + myErr,
+            message: "Creation failed: " + myErr.message,
             title: "Application Not Created",
             backStep: -1,
-            resetProgress: true
+            resetProgress: true,
+            resetMsg: myBuildMessage[2] + myAppNameMessage
         };
     }
 
     // SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
-    try {
-        myDlgResult = false;
-        myDlgResult = kApp.displayDialog("Created Epichrome app \"" + aInfo.appInfo.displayName + "\".\n\nIMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it.", {
-            withTitle: "Success!",
-            withIcon: kEpiIcon,
-            buttons: ["Launch Now", "Reveal in Finder", "Quit"],
-            defaultButton: 1,
-            cancelButton: 3
-        }).buttonReturned;
-    } catch(myErr) {
-        // if (myErr.errorNumber == -128) {
-        //     // Back button
-        //     return false; // quit
-        // } else {
-        //     throw myErr;
-        // }
-    }
 
-    // launch or reveal
-    if (myDlgResult == "Launch Now") {
-        delay(1);
-        try {
-            shell("/usr/bin/open", aInfo.appInfo.file.path);
-        } catch(myErr) {
-            // do I want some error reporting? /usr/bin/open is unreliable with errors
+    if (aInfo.stepInfo.isOnlyApp) {
+
+        let myDlgMessage = 'app "' + aInfo.appInfo.displayName + '".';
+        if (aInfo.stepInfo.action == kActionCREATE) {
+            myDlgMessage = 'Created Epichrome ' + myDlgMessage + '\n\nIMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it.';
+        } else if (aInfo.stepInfo.action == kActionEDIT) {
+            myDlgMessage = 'Saved changes to ' + myDlgMessage;
+        } else {
+            myDlgMessage = 'Updated ' + myDlgMessage;
         }
-    } else if (myDlgResult == "Reveal in Finder") {
-        kFinder.select(Path(aInfo.appInfo.file.path));
-        kFinder.activate();
+
+        try {
+            // reset dialog icon as app may have moved
+            let myDlgIcon = setDlgIcon(aInfo.appInfo);
+
+            myDlgResult = false;
+            myDlgResult = kApp.displayDialog(myDlgMessage, {
+                withTitle: "Success!",
+                withIcon: myDlgIcon,
+                buttons: ["Launch Now", "Reveal in Finder", "Quit"],
+                defaultButton: 1,
+                cancelButton: 3
+            }).buttonReturned;
+        } catch(myErr) {
+            if (myErr.errorNumber == -128) {
+                // Back button
+                return false; // quit
+            } else {
+                throw myErr;
+            }
+        }
+
+        // launch or reveal
+        if (myDlgResult == "Launch Now") {
+            delay(1);
+            try {
+                shell("/usr/bin/open", aInfo.appInfo.file.path);
+            } catch(myErr) {
+                // do I want some error reporting? /usr/bin/open is unreliable with errors
+            }
+        } else if (myDlgResult == "Reveal in Finder") {
+            kFinder.select(Path(aInfo.appInfo.file.path));
+            kFinder.activate();
+        }
     }
 
     // we're finished! quit
@@ -1365,38 +2354,109 @@ function stepBuild(aInfo) {
 
 
 // DOSTEPS: run a set of build or edit steps
-function doSteps(aSteps, aInfo) {
+function doSteps(aSteps, aInfo, aNextStep=0) {
     // RUN THE STEPS TO BUILD THE APP
 
-    let myNextStep = 0;
+    let myResult = kStepResultSUCCESS;
+
+    // if we start out on step -1, make sure a nonconfirm goes to step 0
+    let myStepResult = -1;
 
     while (true) {
 
         // backed out of the first step
-        if (myNextStep < 0) {
-            return false;
+        if (aNextStep < 0) {
+
+            // normalize
+            aNextStep = -1;
+
+            let myDlgButtons = ['No', 'Yes'];
+            let myDlgMessage = 'Are you sure you want to ';
+            let myDlgTitle = 'Confirm ';
+            let myResult = kStepResultQUIT;
+
+            if (aInfo.stepInfo.action == kActionCREATE) {
+                myDlgMessage = 'The app has not been created. ' + myDlgMessage + 'quit?';
+                myDlgTitle += 'Quit';
+            } else {
+
+                if (aInfo.stepInfo.action == kActionEDIT) {
+                    myDlgMessage = 'You have not finished editing "' + aInfo.appInfo.displayName + '". Your changes have not been saved' + (aInfo.update ? ' and the app will not be updated. ' : '. ') + myDlgMessage;
+                } else {
+                    myDlgMessage = 'You canceled the update of "' + aInfo.appInfo.displayName + '". The app has not been updated.' + myDlgMessage;
+                }
+
+                if (aInfo.stepInfo.isLastApp) {
+                    myDlgMessage += 'quit?';
+                    myDlgTitle += 'Quit';
+                } else {
+                    myDlgMessage += 'skip this app?';
+                    myDlgTitle += 'Skip';
+                    myDlgButtons.push('Quit');
+                    myResult = kStepResultSKIP;
+                }
+            }
+
+            let myDlgResult;
+
+            try {
+
+                // confirm back-out
+                myDlgResult = kApp.displayDialog(myDlgMessage, {
+                    withTitle: myDlgTitle,
+                    withIcon: aInfo.stepInfo.dlgIcon,
+                    buttons: myDlgButtons,
+                    defaultButton: 2,
+                    cancelButton: 1
+                }).buttonReturned;
+            } catch(myErr) {
+                if (myErr.errorNumber == -128) {
+
+                    // quit not confirmed, so continue with steps
+                    aNextStep -= myStepResult;
+
+                } else {
+                    // some other dialog error
+                    throw myErr;
+                }
+            }
+
+            // return appropriate value
+            if (myDlgResult == 'Yes') {
+                return myResult;
+            } else if (myDlgResult == 'Quit') {
+                return kStepResultQUIT;
+            } else {
+                // should never get here
+                aNextStep -= myStepResult;
+            }
         }
 
-        if (myNextStep == 0) {
-            aInfo.stepInfo.backButton = 'Quit';
+        if (aNextStep == 0) {
+            if (aInfo.stepInfo.isOnlyApp) {
+                aInfo.stepInfo.backButton = 'Quit';
+            } else {
+                aInfo.stepInfo.backButton = 'Abort';
+            }
         } else {
             // cap max step number
-            myNextStep = Math.min(myNextStep, aSteps.length - 1);
+            aNextStep = Math.min(aNextStep, aSteps.length - 1);
 
             aInfo.stepInfo.backButton = 'Back';
         }
 
+        // set step number
+        aInfo.stepInfo.number = aNextStep;
+
         // set step dialog title
-        // change: 🔹🔸🔺
-        aInfo.stepInfo.numText = 'Step ' + (myNextStep + 1).toString() +
+        aInfo.stepInfo.numText = 'Step ' + (aNextStep + 1).toString() +
             ' of ' + aSteps.length.toString();
-        aInfo.stepInfo.dlgTitle = '(Epichrome EPIVERSION)   ' +
-            aInfo.stepInfo.titlePrefix + ' | ' + aInfo.stepInfo.numText;
+        aInfo.stepInfo.dlgTitle = aInfo.stepInfo.titlePrefix + ' | ' + aInfo.stepInfo.numText;
 
 
         // RUN THE NEXT STEP
 
-        let myStepResult = aSteps[myNextStep](aInfo);
+        myStepResult = aSteps[aNextStep](aInfo);
 
 
         // CHECK RESULT OF STEP
@@ -1406,27 +2466,40 @@ function doSteps(aSteps, aInfo) {
             // FORWARD OR BACK: MOVE ON TO ANOTHER STEP
 
             // move forward, backward, or stay on the same step
-            myNextStep += myStepResult;
+            aNextStep += myStepResult;
 
             continue;
 
         } else if (typeof(myStepResult) == 'object') {
 
-            // ERROR: SHOW DIALOG
+            // STEP RETURNED ERROR
 
-            // always show Quit button
-            let myDlgButtons = ["Quit"];
+            myResult = kStepResultERROR;
 
-            // show View Log option if there's a log
-            if (kFinder.exists(Path(gLogFile))) {
-                myDlgButtons.push("View Log & Quit");
+            // always show exit button
+            let myExitButton, myDlgButtons;
+            let myViewLogButton = false;
+
+            if (aInfo.stepInfo.isOnlyApp) {
+                myExitButton = 'Quit';
+
+                myDlgButtons = [myExitButton];
+
+                // show View Log option if there's a log
+                if (hasLogFile()) {
+                    myViewLogButton = 'View Log & ' + myExitButton;
+                    myDlgButtons.push(myViewLogButton);
+                }
+            } else {
+                myExitButton = 'Abort';
+                myDlgButtons = [myExitButton];
             }
 
             // display dialog
             let myDlgResult;
 
             // if we're allowed to backstep & this isn't the first step
-            if ((myStepResult.backStep !== false) && (myNextStep != 0)) {
+            if ((myStepResult.backStep !== false) && (aNextStep != 0)) {
 
                 // show Back button too
                 myDlgButtons.unshift('Back');
@@ -1449,17 +2522,17 @@ function doSteps(aSteps, aInfo) {
                 }
 
                 // handle dialog result
+
                 if (myDlgResult == myDlgButtons[0]) {
+
+                    // Back button
                     if (myStepResult.resetProgress) {
                         Progress.completedUnitCount = 0;
-                        Progress.description = "Configuring app...";
-                        Progress.additionalDescription = "";
+                        Progress.description = myStepResult.resetMsg;
+                        Progress.additionalDescription = '';
                     }
-                    myNextStep += myStepResult.backStep;
+                    aNextStep += myStepResult.backStep;
                     continue;
-                } else {
-                    // remove Back button again
-                    myDlgButtons.shift();
                 }
             } else {
 
@@ -1472,10 +2545,9 @@ function doSteps(aSteps, aInfo) {
                 }).buttonReturned;
             }
 
-            // if user didn't click Quit, then try to show the log
-            if (myDlgResult != myDlgResult.slice(-1)) {
-                kFinder.select(Path(gLogFile));
-                kFinder.activate();
+            // if user clicked 'View Log & Quit', then try to show the log
+            if (myDlgResult == myViewLogButton) {
+                showLogFile();
             }
         }
 
@@ -1483,7 +2555,7 @@ function doSteps(aSteps, aInfo) {
         break;
     }
 
-    return true;
+    return myResult;
 }
 
 
@@ -1520,69 +2592,57 @@ function confirmQuit(aMessage='') {
 // RUN: handler for when app is run without dropped files
 function run() {
 
-    let myResult;
-
     // say hello
     try {
 
         kApp.displayDialog('Click OK to select a name and location for the app.', {
-            withTitle: 'Create App',
+            withTitle: 'Create App | Epichrome EPIVERSION',
             withIcon: kEpiIcon,
             buttons: ['OK', 'Quit'],
             defaultButton: 1,
             cancelButton: 2
         });
 
-        myResult = true;
-
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
-            myResult = false;
+            if (confirmQuit()) { return; }
         } else {
             // some other dialog error
             throw myErr;
         }
     }
 
-    while (true) {
+    // initialize app info from defaults
+    let myInfo = {
+        stepInfo: {
+            action: kActionCREATE,
+            titlePrefix: 'Create App',
+            dlgIcon: kEpiIcon,
+            isOnlyApp: true,
+        },
+        appInfo: gAppInfoDefault
+    };
+    updateAppInfo(myInfo, Object.keys(kAppInfoKeys));
 
-        if (!myResult) {
+    // run new app build steps
+    doSteps([
+        stepCreateDisplayName,
+        stepShortName,
+        stepWinStyle,
+        stepURLs,
+        stepBrowser,
+        stepIcon,
+        stepEngine,
+        stepBuild
+    ], myInfo);
+}
 
-            // steps aborted before completion, so confirm first
-            if (confirmQuit('The app has not been created.')) {
-                break;
-            }
-        }
 
-        // run new app build steps
-        myResult = doSteps([
-            stepDisplayName,
-            stepShortName,
-            stepWinStyle,
-            stepURLs,
-            stepBrowser,
-            stepIcon,
-            stepEngine,
-            stepBuild
-        ], {
-            stepInfo: {
-                titlePrefix: 'Create App',
-                dlgIcon: kEpiIcon,
-                isOnlyApp: true
-            },
-            appInfo: gAppInfoDefault
-        });
-
-        if (myResult) {
-            // steps completed (or error), so quit
-            break;
-        }
-    }
-
+// QUIT: handler for when app quits
+function quit() {
     // write properties before quitting
     writeProperties();
 }
-
 
 // --- MAIN BODY: functions that run first whether files are dropped or not ---
 

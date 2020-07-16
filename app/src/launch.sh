@@ -59,48 +59,6 @@ function visbeta { # ( version )
 }
 
 
-# VCMP -- if V1 OP V2 is true, return 0, else return 1
-function vcmp { # ( version1 operator version2 )
-
-    # arguments
-    local v1="$1" ; shift
-    local op="$1" ; shift ; [[ "$op" ]] || op='='
-    local v2="$1" ; shift
-        
-    # munge version numbers into comparable integers
-    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?$'
-    local curv=
-    local vmaj vmin vbug vbeta vbuild
-    local vstr=()
-    for curv in "$v1" "$v2" ; do
-	if [[ "$curv" =~ $vre ]] ; then
-
-	    # extract version number parts
-	    vmaj="${BASH_REMATCH[1]}"
-	    vmin="${BASH_REMATCH[2]}"
-	    vbug="${BASH_REMATCH[3]}"
-	    vbeta="${BASH_REMATCH[5]}" ; [[ "$vbeta" ]] || vbeta=1000
-	    vbuild="${BASH_REMATCH[7]}" ; [[ "$vbuild" ]] || vbuild=10000
-	else
-
-	    # no version
-	    vmaj=0 ; vmin=0 ; vbug=0 ; vbeta=0 ; vbuild=0
-	fi
-
-	# build string
-	vstr+=( "$(printf '%03d.%03d.%03d.%04d.%05d' "$vmaj" "$vmin" "$vbug" "$vbeta" "$vbuild")" )
-    done
-
-    # compare versions using the operator & return the result
-    local opre='^[<>]=$'
-    if [[ "$op" =~ $opre ]] ; then
-	eval "[[ ( \"\${vstr[0]}\" ${op:0:1} \"\${vstr[1]}\" ) || ( \"\${vstr[0]}\" = \"\${vstr[1]}\" ) ]]"
-    else
-	eval "[[ \"\${vstr[0]}\" $op \"\${vstr[1]}\" ]]"
-    fi
-}
-
-
 # ENCODEURL -- encode a string for URL
 function encodeurl {  # ( input [safe] )
     
