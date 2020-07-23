@@ -109,94 +109,11 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
     [[ "$ok" ]] || return 1
     
     
-    # ENSURE UNIQUE APP ID
+    # SET APP BUNDLE ID
     
-    if [[ ! "$SSBIdentifier" ]] ; then
-	
-	# no ID found
-	
-	# see if we can pull it from CFBundleIdentifier
-	SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
-	
-	if [[ ( ! "$SSBIdentifier" ) || \
-		  ( "$SSBIdentifier" = "$CFBundleIdentifier" ) ]] ; then
-	    
-	    # CREATE A NEW APP ID
-	    
-	    # get max length for SSBIdentifier, given that CFBundleIdentifier
-	    # must be 30 characters or less (the extra 1 accounts for the .
-	    # we will need to add to the base
-	    
-	    local maxidlength=$((30 - \
-				    ((${#appIDBase} > ${#appEngineIDBase} ? \
-						    ${#appIDBase} : \
-						    ${#appEngineIDBase} ) + 1) ))
-	    
-	    # first attempt is to just use the bundle name with
-	    # illegal characters removed
-	    SSBIdentifier="${CFBundleName//[^-a-zA-Z0-9_]/}"
-	    
-	    # if trimmed away to nothing, use a default name
-	    [ ! "$SSBIdentifier" ] && SSBIdentifier="generic"
-	    
-	    # trim down to max length
-	    SSBIdentifier="${SSBIdentifier::$maxidlength}"
-	    
-	    # check for any apps that already have this ID
-	    
-	    # get a length that's the smaller of the length of the
-	    # full ID or the max allowed length - 3 to accommodate
-	    # adding random digits at the end
-	    local idbaselength="${SSBIdentifier::$(($maxidlength - 3))}"
-	    idbaselength="${#idbaselength}"
-	    
-	    # initialize status variables
-	    local appidfound=
-	    local engineidfound=
-	    local randext=
-	    
-	    # determine if Spotlight is enabled for the root volume
-	    local spotlight=$(mdutil -s / 2> /dev/null)
-	    if [[ "$spotlight" =~ 'Indexing enabled' ]] ; then
-		spotlight=1
-	    else
-		spotlight=
-	    fi
-	    
-	    # loop until we randomly hit a unique ID
-	    while true ; do
-		
-		if [[ "$spotlight" ]] ; then
-		    try 'appidfound=' mdfind \
-			"kMDItemCFBundleIdentifier == '$appIDBase.$SSBIdentifier'" \
-			'Unable to search system for app bundle identifier.'
-		    try 'engineidfound=' mdfind \
-			"kMDItemCFBundleIdentifier == '$appEngineIDBase.$SSBIdentifier'" \
-			'Unable to search system for engine bundle identifier.'
-		    
-		    # exit loop on error, or on not finding this ID
-		    [[ "$ok" && ( "$appidfound" || "$engineidfound" ) ]] || break
-		fi
-		
-		# try to create a new unique ID
-		randext=$(((${RANDOM} * 100 / 3279) + 1000))  # 1000-1999
-		
-		SSBIdentifier="${SSBIdentifier::$idbaselength}${randext:1:3}"
-		
-		# if we don't have spotlight we'll just use the first randomly-generated ID
-		[[ ! "$spotlight" ]] && break
-		
-	    done
-	    
-	    # if we got out of the loop, we have a unique-ish ID (or we got an error)
-	    [[ "$ok" ]] || return 1
-	fi
-    fi
-    
-    # set app bundle ID
     local myAppBundleID="$appIDBase.$SSBIdentifier"
     
-
+    
     # SET APP VERSION
     
     SSBVersion="$coreVersion"

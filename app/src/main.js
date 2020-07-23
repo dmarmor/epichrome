@@ -50,6 +50,48 @@ function shell(...aArgs) {
 }
 
 
+// FINDAPPBYID: use launch services to find an app by its bundle ID
+function findAppByID(aID) {
+
+    // Objective-C setup
+    ObjC.import('CoreServices');
+    ObjC.bindFunction('CFMakeCollectable', [ 'id', [ 'void *' ] ]);
+    Ref.prototype.toNS = function() { return $.CFMakeCollectable(this); }
+
+    // local state
+    let myResult = [];
+    let myErr = Ref();
+
+    // check launch services for ID
+    let myLSResult = $.LSCopyApplicationURLsForBundleIdentifier($(aID), myErr);
+    myErr = myErr[0].toNS();
+    
+    // check for errors
+    if (myErr.code) {
+        if (myErr.code != $.kLSApplicationNotFoundErr) {
+
+            // error
+            let myErrID, myIgnore;
+            try { myErrID = '"' + aID.toString() + '"'; } catch(myIgnore) { myErrID = '<unknown>'; }
+            throw 'Unable to search for apps with ID ' + myErrID + ': ' + myErr.localizedDescription.js;
+            return null; // not reached
+        }
+    } else {
+
+        // unwrap app list
+        myLSResult = myLSResult.toNS().js;
+
+        // create array of only app paths
+        for (let curApp of myLSResult) {
+            myResult.push(curApp.path.js);
+        }
+    }
+
+    return myResult;
+}
+// END FINDAPPBYID
+
+
 // VCMP: compare version numbers
 //         return -1 if v1 <  v2
 //         return  0 if v1 == v2
@@ -250,6 +292,53 @@ function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
     }
 
     return myResult;
+}
+
+
+// DIALOG: show a dialog & process the result
+function dialog(aMessage, aDlgOptions) {
+    let myResult, myErr;
+
+    try {
+        myResult = kApp.displayDialog(aMessage, aDlgOptions);
+    } catch(myErr) {
+        if (myErr.errorNumber == -128) {
+
+            // back button -- create faux object
+            myResult = {
+                buttonReturned: aDlgOptions.buttons[aDlgOptions.cancelButton - 1],
+                buttonIndex: aDlgOptions.cancelButton - 1,
+                canceled: true
+            }
+        } else {
+            throw myErr;
+        }
+    }
+
+    // add useful info
+    myResult.buttonIndex = aDlgOptions.buttons.indexOf(myResult.buttonReturned);
+    myResult.canceled = false;
+
+    // return object
+    return myResult;
+}
+
+
+// STEPDIALOG: show a standard step dialog
+function stepDialog(aInfo, aMessage, aDlgOptions) {
+
+    let myErr;
+
+    // fill in boilerplate
+    if (!aDlgOptions.withTitle) { aDlgOptions.withTitle = aInfo.stepInfo.dlgTitle; }
+    if (!aDlgOptions.withIcon) { aDlgOptions.withIcon = aInfo.stepInfo.dlgIcon; }
+
+    // add back button
+    aDlgOptions.buttons.push(aInfo.stepInfo.backButton);
+    if (!aDlgOptions.defaultButton) { aDlgOptions.defaultButton = 1; }
+    if (!aDlgOptions.cancelButton) { aDlgOptions.cancelButton = aDlgOptions.buttons.length; }
+
+    return dialog(aMessage, aDlgOptions);
 }
 
 
@@ -1216,6 +1305,7 @@ function openDocuments(aApps) {
             curApp.result = doSteps([
                 stepEditDisplayName,
                 stepShortName,
+                stepID,
                 stepWinStyle,
                 stepURLs,
                 stepBrowser,
@@ -1571,6 +1661,119 @@ function stepShortName(aInfo) {
 
     // if we got here, we have a good name
     updateAppInfo(aInfo, 'shortName', myDlgResult);
+
+    // move on
+    return 1;
+}
+
+
+// STEPID: step function for setting app ID
+function stepID(aInfo) {
+
+    // status variables
+    let myTryAgain, myErr, myDlgResult;
+    let myDlgMessage;
+
+    if (aInfo.stepInfo.action == kActionEDIT) {
+        if (!aInfo.appInfoStatus.id.changed) {
+
+            // set up dialog message
+            if (aInfo.appInfoStatus.shortName.changed) {
+                myDlgMessage = "The app's short name has changed, but the ID has not. Do you want to change it?";
+            } else {
+                myDlgMessage = "Do you want to change the app's ID?";
+            }
+
+            // show ID-not-changed dialog
+            myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary,
+                { buttons: ['No', 'Yes'] }).buttonIndex;
+            if (myDlgResult == 0) {
+                // No change
+                return 1;
+            } else if (myDlgResult == 1) {
+
+                // Yes change -- choose how to edit ID
+                myDlgResult = stepDialog(aInfo,
+                    "Do you want to automatically set the ID based on the app's short name (" + aInfo.appInfo.shortName + "), or choose one yourself?",
+                    { buttons: ['Use Auto ID', 'Choose Custom ID'] }).buttonIndex;
+                if (myDlgResult == 0) {
+                    // Auto ID
+                } else if (myDlgResult == 1) {
+                    // Custom ID
+                } else {
+                    // Back
+                    return -1;
+                }
+            } else {
+                // Back
+                return -1;
+            }
+        }
+    }
+
+    myDlgMessage = "The app's automatically-created ID is: " + aInfo.appInfo.id + '\n\n' +
+        "Its data directory will be: ~/Library/Application Support/Epichrome/Apps/" + aInfo.appInfo.id;
+
+    myDlgResult = stepDialog(aInfo, myDlgMessage, { buttons: ['OK', 'Choose Custom ID'] }).buttonIndex;
+    if (myDlgResult == 0) {
+        // OK
+        return 1;
+    } else if (myDlgResult == 1) {
+
+        // Choose Custom ID
+
+        // set up dialog
+        let myIDLimits = '12 characters or less with only unaccented letters, numbers, and _';
+        myDlgMessage = 'Enter an app ID (' + myIDLimits + '):';
+        let myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK', 'Use Auto ID'] };
+
+        // $$$ I AM HERE
+        // loop till we have an acceptable ID
+        while (true) {
+            myDlgResult = stepDialog(aInfo, myDlgMessage, myDlgOptions);
+            if (myDlgResult.buttonIndex == 0) {
+                // new ID entered
+                // $$$ check for legal ID
+                if (legalID) {
+                    // $$$ check if ID already exists on system
+                    if (idIsUnique) {
+                    } else {
+                        // ID is not unique
+                        if (dialog(aInfo, "An app with ID " + myDlgResult.textReturned + " already exists. It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, which can cause many problems including data corruption and inability to run. Do you want to continue with this ID?", {
+                            withTitle: 'Duplicate ID',
+                            withIcon: 'caution',
+                            buttons: ['Cancel', 'OK'],
+                            defaultButton: 1
+                        }).buttonIndex == 0) {
+                            // Cancel
+                            continue;
+                        } else {
+                            // OK
+                            break;
+                        }
+                    }
+                } else {
+                    // illegal ID
+                    myDlgMessage = "$$$ Something is wrong with that ID. Please try again using " + myIDLimits;
+                    continue;
+                }
+            } else if (myDlgResult == 1) {
+                // Use Auto ID
+                break;
+            } else {
+                // Back
+                return -1;
+            }
+        }
+
+    } else {
+        // Back
+        return -1;
+    }
+    // $$$ [^-a-zA-Z0-9_]
+
+    // if we got here, we have a good name
+    //updateAppInfo(aInfo, 'shortName', myDlgResult);
 
     // move on
     return 1;
@@ -2628,6 +2831,7 @@ function run() {
     doSteps([
         stepCreateDisplayName,
         stepShortName,
+        stepID,
         stepWinStyle,
         stepURLs,
         stepBrowser,
