@@ -2,12 +2,18 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+<<<<<<< HEAD
 ## [2.4.0] - 2020-07-XX
 ### Changed
 - Added ability to edit existing Epichrome apps
 - Updated built-in engine to Brave 1.XX.XX
 ### Fixed
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
+=======
+## [2.3.5] - 2020-07-22
+### Changed
+- Updated built-in engine to Brave 1.11.97
+>>>>>>> master
 
 
 ## [2.3.4] - 2020-06-23
