@@ -418,13 +418,15 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet \
 $(APP_CT)/Resources/droplet.rsrc \
-$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/version.sh main
+$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/liblaunch.js src/version.sh main
 
 main:
 	@mkdir -p build
 	@rm -rf build/main.app build/main
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
 		src/main.js > build/main.js
+	echo >> build/main.js
+	cat src/liblaunch.js >> build/main.js
 #	chmod 444 src/main.js
 	osacompile -l JavaScript -x -o build/main.app build/main.js
 #	chmod 644 src/main.js

@@ -50,48 +50,6 @@ function shell(...aArgs) {
 }
 
 
-// FINDAPPBYID: use launch services to find an app by its bundle ID
-function findAppByID(aID) {
-
-    // Objective-C setup
-    ObjC.import('CoreServices');
-    ObjC.bindFunction('CFMakeCollectable', [ 'id', [ 'void *' ] ]);
-    Ref.prototype.toNS = function() { return $.CFMakeCollectable(this); }
-
-    // local state
-    let myResult = [];
-    let myErr = Ref();
-
-    // check launch services for ID
-    let myLSResult = $.LSCopyApplicationURLsForBundleIdentifier($(aID), myErr);
-    myErr = myErr[0].toNS();
-    
-    // check for errors
-    if (myErr.code) {
-        if (myErr.code != $.kLSApplicationNotFoundErr) {
-
-            // error
-            let myErrID, myIgnore;
-            try { myErrID = '"' + aID.toString() + '"'; } catch(myIgnore) { myErrID = '<unknown>'; }
-            throw 'Unable to search for apps with ID ' + myErrID + ': ' + myErr.localizedDescription.js;
-            return null; // not reached
-        }
-    } else {
-
-        // unwrap app list
-        myLSResult = myLSResult.toNS().js;
-
-        // create array of only app paths
-        for (let curApp of myLSResult) {
-            myResult.push(curApp.path.js);
-        }
-    }
-
-    return myResult;
-}
-// END FINDAPPBYID
-
-
 // VCMP: compare version numbers
 //         return -1 if v1 <  v2
 //         return  0 if v1 == v2
@@ -296,7 +254,7 @@ function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
 
 
 // DIALOG: show a dialog & process the result
-function dialog(aMessage, aDlgOptions) {
+function dialog(aMessage, aDlgOptions={}) {
     let myResult, myErr;
 
     try {
@@ -305,19 +263,34 @@ function dialog(aMessage, aDlgOptions) {
         if (myErr.errorNumber == -128) {
 
             // back button -- create faux object
-            myResult = {
-                buttonReturned: aDlgOptions.buttons[aDlgOptions.cancelButton - 1],
-                buttonIndex: aDlgOptions.cancelButton - 1,
-                canceled: true
+            if (aDlgOptions.buttons && aDlgOptions.cancelButton) {
+                myResult = {
+                    buttonReturned: aDlgOptions.buttons[aDlgOptions.cancelButton - 1],
+                    buttonIndex: aDlgOptions.cancelButton - 1,
+                    canceled: true
+                };
+            } else {
+                myResult = {
+                    buttonReturned: 'Cancel',
+                    buttonIndex: 0,
+                    canceled: true
+                };
             }
+
+            return myResult;
+
         } else {
             throw myErr;
         }
     }
 
     // add useful info
-    myResult.buttonIndex = aDlgOptions.buttons.indexOf(myResult.buttonReturned);
     myResult.canceled = false;
+    if (aDlgOptions.buttons) {
+        myResult.buttonIndex = aDlgOptions.buttons.indexOf(myResult.buttonReturned);
+    } else {
+        myResult.buttonIndex = 1;
+    }
 
     // return object
     return myResult;
@@ -329,16 +302,90 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
 
     let myErr;
 
+    // copy dialog options object
+    let myDlgOptions = objCopy(aDlgOptions);
+
     // fill in boilerplate
-    if (!aDlgOptions.withTitle) { aDlgOptions.withTitle = aInfo.stepInfo.dlgTitle; }
-    if (!aDlgOptions.withIcon) { aDlgOptions.withIcon = aInfo.stepInfo.dlgIcon; }
+    if (!myDlgOptions.withTitle) { myDlgOptions.withTitle = aInfo.stepInfo.dlgTitle; }
+    if (!myDlgOptions.withIcon) { myDlgOptions.withIcon = aInfo.stepInfo.dlgIcon; }
 
     // add back button
-    aDlgOptions.buttons.push(aInfo.stepInfo.backButton);
-    if (!aDlgOptions.defaultButton) { aDlgOptions.defaultButton = 1; }
-    if (!aDlgOptions.cancelButton) { aDlgOptions.cancelButton = aDlgOptions.buttons.length; }
+    myDlgOptions.buttons.push(aInfo.stepInfo.backButton);
+    if (!myDlgOptions.defaultButton) { myDlgOptions.defaultButton = 1; }
+    if (!myDlgOptions.cancelButton) { myDlgOptions.cancelButton = myDlgOptions.buttons.length; }
 
-    return dialog(aMessage, aDlgOptions);
+    return dialog(aMessage, myDlgOptions);
+}
+
+
+// APPIDISUNIQUE: check if an app ID is unique on the system
+function appIDIsUnique(aID) {
+    let myErr;
+    try {
+        return findAppByID(kBundleIDBase + aID).length == 0;
+    } catch (myErr) {
+        return myErr;
+    }
+}
+
+
+// CREATEAPPID: create a unique app ID based on short name
+function createAppID(aInfo) {
+
+    let myResult;
+
+    // flag that this app has an auto ID
+    aInfo.stepInfo.isCustomID = false;
+
+    if (aInfo.stepInfo.autoID) {
+
+        // we already created an auto ID, so just use that
+        myResult = aInfo.stepInfo.autoID;
+
+    } else {
+
+        // first attempt: use the short name with illegal characters removed
+        myResult = aInfo.appInfo.shortName.replace(kAppIDLegalCharsRe,'');
+        let myBase, myIsUnique;
+
+        // if too many characters trimmed away, start with a generic ID
+        if ((myResult.length < (aInfo.appInfo.shortName.length / 2)) ||
+        (myResult.length < kAppIDMinLength)) {
+            myBase = 'EpiApp';
+            myIsUnique = false;
+        } else {
+
+            // trim ID down to max length
+            myResult = myResult.slice(0, kAppIDMaxLength);
+
+            // check for any apps that already have this ID
+            myIsUnique = appIDIsUnique(myResult);
+
+            // if ID checks failing, we'll tack on the first random ending we try
+            if (myIsUnique instanceof Object) { myIsUnique = false; }
+
+            // if necessary, trim ID again to accommodate 3-digit random ending
+            if (!myIsUnique) { myBase = myResult.slice(0, kAppIDMaxLength - 3); }
+        }
+
+        // if ID is not unique, try to uniquify it
+        while (!myIsUnique) {
+
+            // add a random 3-digit extension to the base
+            myResult = myBase +
+            Math.min(Math.floor(Math.random() * 1000), 999).toString().padStart(3,'0');
+
+            myIsUnique = appIDIsUnique(myResult);
+        }
+
+        // update step info about this ID
+        aInfo.stepInfo.autoID = aInfo.appInfo.id;
+        aInfo.stepInfo.autoIDError = ((myIsUnique instanceof Object) ? myIsUnique : false);
+    }
+
+    // update app info with new ID
+    updateAppInfo(aInfo, 'id', myResult);
+
 }
 
 
@@ -454,6 +501,20 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
             // set build summary
             curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + dot() + aInfo.appInfo[curKey];
+
+        } else if (curKey == 'id') {
+
+            // step summary
+            curStatus.stepSummary = '\n\n' + kIndent + dot() + aInfo.appInfo.id;
+            if ((aInfo.stepInfo.action == kActionEDIT) && (curStatus.changed)) {
+                curStatus.stepSummary += '  |  Was: ' +
+                    (aInfo.oldAppInfo.id ? aInfo.oldAppInfo.id : '[no ID]');
+            }
+
+            // build summary
+            curStatus.buildSummary = kAppInfoKeys.id + ':\n' +
+                kIndent + dot() + aInfo.appInfo.id + '\n' +
+                kIndent + dot() + '~/Library/Application Support/Epichrome/Apps/' + aInfo.appInfo.id;
 
         } else if (curKey == 'urls') {
             if (aInfo.appInfo.windowStyle == kWinStyleApp) {
@@ -573,13 +634,19 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
 // CONSTANTS
 
+// app ID info (max length for CFBundleIdentifier is 30 characters)
+const kBundleIDBase = 'org.epichrome.app.';
+const kAppIDMaxLength = 30 - kBundleIDBase.length;
+const kAppIDMinLength = 3;
+const kAppIDLegalCharsRe = /[^-a-zA-Z0-9_]/g;
+
 // app info and their summary headers
 const kAppInfoKeys = {
     path: 'Path',
     version: 'Version',
     displayName: 'App Name',
     shortName: 'Short Name',
-    id: 'App ID',
+    id: 'App ID / Data Directory',
     windowStyle: 'Style',
     urls: ['URL', 'Tabs'],
     registerBrowser: 'Register as Browser',
@@ -1139,8 +1206,11 @@ function openDocuments(aApps) {
             dlgIcon: myDlgIcon,
             isOnlyApp: false,
             isLastApp: false,
-            isOrigFilename: (curApp.appInfo.file.base == curApp.appInfo.displayName)
         };
+
+        // determine if the app's name matches the display name
+        curApp.stepInfo.isOrigFilename =
+            (curApp.appInfo.file.base.toLowerCase() == curApp.appInfo.displayName.toLowerCase());
 
         // check if this app needs to be updated
         let curAppText = curApp.appInfo.file.name;
@@ -1594,7 +1664,7 @@ function stepShortName(aInfo) {
         myAppShortNamePrompt = 'Enter ' +  myAppShortNamePrompt;
     } else {
         // edit prompt
-        myAppShortNamePrompt = 'Edit ' +  myAppShortNamePrompt + '\n\n' + kDotWarning + " Warning: Changing this will also change the app's ID and rename its data directory.";
+        myAppShortNamePrompt = 'Edit ' +  myAppShortNamePrompt;
     }
 
     myTryAgain = true;
@@ -1631,34 +1701,34 @@ function stepShortName(aInfo) {
         }
     }
 
-    // if short name changed, confirm
-    if ((aInfo.stepInfo.action == kActionEDIT) &&
-        (aInfo.appInfo.shortName == aInfo.oldAppInfo.shortName) &&
-        (myDlgResult != aInfo.oldAppInfo.shortName)) {
-
-        let myConfResult;
-
-        try {
-            myConfResult = kApp.displayDialog("Are you sure you want to change the app's short name? This will change the app's ID and rename its data directory.", {
-                withTitle: 'Confirm Change App ID',
-                withIcon: 'caution',
-                buttons: ['Cancel', 'OK'],
-                defaultButton: 1
-            }).buttonReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                myConfResult = 'Cancel';
-            } else {
-                throw myErr;
-            }
-        }
-
-        if (myConfResult != 'OK') {
-            // repeat this step
-            return 0;
-        }
-    }
-
+    // $$$ DELETE // if short name changed, confirm
+    // if ((aInfo.stepInfo.action == kActionEDIT) &&
+    //     (aInfo.appInfo.shortName == aInfo.oldAppInfo.shortName) &&
+    //     (myDlgResult != aInfo.oldAppInfo.shortName)) {
+    //
+    //     let myConfResult;
+    //
+    //     try {
+    //         myConfResult = kApp.displayDialog("Are you sure you want to change the app's short name? This will change the app's ID and rename its data directory.", {
+    //             withTitle: 'Confirm Change App ID',
+    //             withIcon: 'caution',
+    //             buttons: ['Cancel', 'OK'],
+    //             defaultButton: 1
+    //         }).buttonReturned;
+    //     } catch(myErr) {
+    //         if (myErr.errorNumber == -128) {
+    //             myConfResult = 'Cancel';
+    //         } else {
+    //             throw myErr;
+    //         }
+    //     }
+    //
+    //     if (myConfResult != 'OK') {
+    //         // repeat this step
+    //         return 0;
+    //     }
+    // }
+    
     // if we got here, we have a good name
     updateAppInfo(aInfo, 'shortName', myDlgResult);
 
@@ -1672,108 +1742,206 @@ function stepID(aInfo) {
 
     // status variables
     let myTryAgain, myErr, myDlgResult;
-    let myDlgMessage;
+    let myDlgMessage, myDlgOptions;
 
-    if (aInfo.stepInfo.action == kActionEDIT) {
-        if (!aInfo.appInfoStatus.id.changed) {
+    // ID warnings
+    const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, which can cause many problems including data corruption and inability to run.";
+    function myIDCheckErrorWarning(aErr) {
+        return 'THIS ID MAY NOT BE UNIQUE. There was an error checking for other apps on the system with the same ID. (' + aErr + ') ' + myIDWarning;
+    }
 
-            // set up dialog message
-            if (aInfo.appInfoStatus.shortName.changed) {
-                myDlgMessage = "The app's short name has changed, but the ID has not. Do you want to change it?";
-            } else {
-                myDlgMessage = "Do you want to change the app's ID?";
-            }
+    // create new automatic ID if needed
+    if (!aInfo.appInfo.id) {
+        createAppID(aInfo);
+    }
 
-            // show ID-not-changed dialog
-            myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary,
-                { buttons: ['No', 'Yes'] }).buttonIndex;
+    if ((aInfo.stepInfo.action == kActionEDIT) && (!aInfo.appInfoStatus.id.changed)) {
+
+        // set up dialog message
+        if (aInfo.appInfoStatus.shortName.changed) {
+            myDlgMessage = "The app's short name has changed, but the ID has not. The current ID is:" +
+                aInfo.appInfoStatus.id.stepSummary + '\n\nDo you want to change it?';
+        } else {
+            myDlgMessage = "Do you want to change the app's ID?" + aInfo.appInfoStatus.id.stepSummary;
+        }
+
+        // show ID-not-changed dialog
+        myDlgResult = stepDialog(aInfo, myDlgMessage,
+            { buttons: ['No', 'Yes'] }).buttonIndex;
+        if (myDlgResult == 0) {
+            // No change
+            return 1;
+        } else if (myDlgResult == 1) {
+
+            // Yes change -- choose how to edit ID
+            myDlgResult = stepDialog(aInfo,
+                "Do you want to automatically set the ID based on the app's short name (" +
+                aInfo.appInfo.shortName + "), or choose one yourself?",
+                { buttons: ['Use Auto ID', 'Choose Custom ID'] }).buttonIndex;
             if (myDlgResult == 0) {
-                // No change
-                return 1;
+                // Auto ID
+                createAppID(aInfo);
             } else if (myDlgResult == 1) {
-
-                // Yes change -- choose how to edit ID
-                myDlgResult = stepDialog(aInfo,
-                    "Do you want to automatically set the ID based on the app's short name (" + aInfo.appInfo.shortName + "), or choose one yourself?",
-                    { buttons: ['Use Auto ID', 'Choose Custom ID'] }).buttonIndex;
-                if (myDlgResult == 0) {
-                    // Auto ID
-                } else if (myDlgResult == 1) {
-                    // Custom ID
-                } else {
-                    // Back
-                    return -1;
-                }
+                // Custom ID
+                aInfo.stepInfo.isCustomID = true;
             } else {
                 // Back
                 return -1;
             }
+        } else {
+            // Back
+            return -1;
         }
     }
 
-    myDlgMessage = "The app's automatically-created ID is: " + aInfo.appInfo.id + '\n\n' +
-        "Its data directory will be: ~/Library/Application Support/Epichrome/Apps/" + aInfo.appInfo.id;
+    // show auto ID and give option to choose a custom one
+    if (!aInfo.stepInfo.isCustomID) {
 
-    myDlgResult = stepDialog(aInfo, myDlgMessage, { buttons: ['OK', 'Choose Custom ID'] }).buttonIndex;
-    if (myDlgResult == 0) {
-        // OK
-        return 1;
-    } else if (myDlgResult == 1) {
+        myDlgMessage = "The app's automatically-created ID is:" + aInfo.appInfoStatus.id.stepSummary;
 
-        // Choose Custom ID
+        myDlgOptions = { buttons: ['OK', 'Choose Custom ID'] };
 
-        // set up dialog
-        let myIDLimits = '12 characters or less with only unaccented letters, numbers, and _';
-        myDlgMessage = 'Enter an app ID (' + myIDLimits + '):';
-        let myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK', 'Use Auto ID'] };
+        if (aInfo.stepInfo.autoIDError) {
+            myDlgMessage += '\n\n' +
+                kDotWarning + ' ' + myIDCheckErrorWarning(aInfo.stepInfo.autoIDError.message) +
+                '\n\nUnless you know what you are doing, you should click "Choose Custom ID" and create an ID you know to be unique.';
+            myDlgOptions.defaultButton = 2;
+        }
 
-        // $$$ I AM HERE
-        // loop till we have an acceptable ID
-        while (true) {
-            myDlgResult = stepDialog(aInfo, myDlgMessage, myDlgOptions);
-            if (myDlgResult.buttonIndex == 0) {
-                // new ID entered
-                // $$$ check for legal ID
-                if (legalID) {
-                    // $$$ check if ID already exists on system
-                    if (idIsUnique) {
-                    } else {
-                        // ID is not unique
-                        if (dialog(aInfo, "An app with ID " + myDlgResult.textReturned + " already exists. It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, which can cause many problems including data corruption and inability to run. Do you want to continue with this ID?", {
-                            withTitle: 'Duplicate ID',
-                            withIcon: 'caution',
-                            buttons: ['Cancel', 'OK'],
-                            defaultButton: 1
-                        }).buttonIndex == 0) {
-                            // Cancel
-                            continue;
-                        } else {
-                            // OK
-                            break;
-                        }
-                    }
-                } else {
-                    // illegal ID
-                    myDlgMessage = "$$$ Something is wrong with that ID. Please try again using " + myIDLimits;
-                    continue;
+        myDlgResult = stepDialog(aInfo,
+            myDlgMessage,
+            myDlgOptions).buttonIndex;
+        if (myDlgResult == 0) {
+            // OK
+            return 1;
+        } else if (myDlgResult == 1) {
+            // Choose Custom ID
+            aInfo.stepInfo.isCustomID = true;
+        } else {
+            // Back
+            return -1;
+        }
+    }
+
+    // if we got here, we're choosing a custom ID
+
+    // set up dialog
+    let myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
+    myDlgMessage = 'Enter an app ID (' + myIDLimits + ').';
+    myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK', 'Use Auto ID'] };
+
+    // loop till we have an acceptable ID
+    while (true) {
+
+        // display dialog
+        myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary, myDlgOptions);
+
+        if (myDlgResult.buttonIndex == 0) {
+
+            // NEW CUSTOM ID CHOSEN
+
+            // error-check new ID
+            let myHasErrors = false;
+            myDlgMessage = [];
+            let myIDDefault = myDlgResult.textReturned;
+            if (myDlgResult.textReturned.length < 1) {
+                myHasErrors = true;
+                myDlgMessage.push('is empty');
+                myIDDefault = aInfo.appInfo.id;
+            } else {
+                if (kAppIDLegalCharsRe.test(myDlgResult.textReturned)) {
+                    myHasErrors = true;
+                    myDlgMessage.push('contains illegal characters');
+                    myIDDefault = myIDDefault.replace(kAppIDLegalCharsRe, '');
                 }
-            } else if (myDlgResult == 1) {
-                // Use Auto ID
+                if (myDlgResult.textReturned.length > kAppIDMaxLength) {
+                    myHasErrors = true;
+                    myDlgMessage.unshift('is too long');
+                    myIDDefault = myIDDefault.slice(0, kAppIDMaxLength);
+                }
+            }
+
+            // build error message and try again
+            if (myHasErrors) {
+                myDlgMessage = kDotWarning + ' The entered ID ' +
+                    myDlgMessage.join(' and ') +
+                    '.\n\nPlease enter a new ID using ' + myIDLimits + '.';
+                myDlgOptions.defaultAnswer = myIDDefault;
+                continue;
+            }
+
+            // if we got here, we have a legal ID
+
+            // if we already know this ID, we're done
+            if ((myDlgResult.textReturned == aInfo.appInfo.id) ||
+                ((aInfo.stepInfo.action == kActionEDIT) &&
+                    (myDlgResult.textReturned == aInfo.oldAppInfo.id))) {
                 break;
-            } else {
-                // Back
-                return -1;
             }
+
+            // this is a new ID, so check for uniqueness
+            let myIsUnique = appIDIsUnique(myDlgResult.textReturned);
+            let myConfirmMessage = null;
+
+            if (myIsUnique instanceof Object) {
+
+                // we got an error checking for uniqueness
+                myConfirmMessage = myIDCheckErrorWarning(myIsUnique.message) +
+                    '\n\nUnless you know this ID is in fact unique, you should select another one.';
+                myIsUnique = false;
+            }
+
+            if (myIsUnique) {
+
+                // unique ID -- moving on
+                break;
+
+            } else {
+
+                // ID is not unique (or we had an error while checking)
+
+                // if not unique, build message prefix
+                if (!myConfirmMessage) {
+                    myConfirmMessage = 'THAT ID IS NOT UNIQUE. There is already an app with ID "' + myDlgResult.textReturned + '" on the system.\n\n' + myIDWarning +
+                        '\n\nUnless you know what you are doing, you should select another one.';
+                }
+
+                // finish confirm message
+                myConfirmMessage += ' Do you want to use this ID anyway?';
+
+                // display confirm dialog
+                if (dialog(myConfirmMessage, {
+                    withTitle: 'Duplicate ID',
+                    withIcon: 'caution',
+                    buttons: ['Cancel', 'OK'],
+                    defaultButton: 1,
+                    cancelButton: 1
+                }).buttonIndex == 0) {
+                    // Cancel -- try again
+                    myDlgMessage = 'Enter a new app ID (' + myIDLimits + ')';
+                    myDlgOptions.defaultAnswer = myDlgResult.textReturned;
+                    continue;
+                } else {
+                    // OK
+                    break;
+                }
+            }
+
+        } else if (myDlgResult.buttonIndex == 1) {
+            // Use Auto ID
+            createAppID(aInfo);
+            return 0;
+        } else {
+            // Back
+            return -1;
         }
 
-    } else {
-        // Back
-        return -1;
+        // we should never get here
+        return 0;
     }
-    // $$$ [^-a-zA-Z0-9_]
 
-    // if we got here, we have a good name
-    //updateAppInfo(aInfo, 'shortName', myDlgResult);
+    // if we got here, we have chosen an ID
+    updateAppInfo(aInfo, 'id', myDlgResult.textReturned);
 
     // move on
     return 1;
@@ -2402,6 +2570,7 @@ function stepBuild(aInfo) {
         'epiAction=' + myScriptAction,
         'CFBundleDisplayName=' + aInfo.appInfo.displayName,
         'CFBundleName=' + aInfo.appInfo.shortName,
+        'SSBIdentifier=' + aInfo.appInfo.id,
         'SSBCustomIcon=' + (aInfo.appInfo.icon ? 'Yes' : 'No'),
         'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
         'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
@@ -2426,9 +2595,6 @@ function stepBuild(aInfo) {
         myScriptArgs.push('epiAppPath=' + aInfo.appInfo.file.path);
     } else {
         // edit-/update-specific arguments
-
-        // app ID
-        myScriptArgs.push('SSBIdentifier=' + aInfo.appInfo.id);
 
         if (aInfo.stepInfo.action == kActionEDIT) {
             // old ID
@@ -2537,15 +2703,24 @@ function stepBuild(aInfo) {
             }
         }
 
-        // launch or reveal
+        // launch
         if (myDlgResult == "Launch Now") {
             delay(1);
             try {
-                shell("/usr/bin/open", aInfo.appInfo.file.path);
+                launchApp(aInfo.appInfo.file.path);
             } catch(myErr) {
-                // do I want some error reporting? /usr/bin/open is unreliable with errors
+                kApp.displayDialog(myErr.message + ' Please try launching from the Finder.', {
+                    withTitle: 'Unable to Launch',
+                    withIcon: 'caution',
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+                myDlgResult = "Reveal in Finder";
             }
-        } else if (myDlgResult == "Reveal in Finder") {
+        }
+
+        // reveal
+        if (myDlgResult == "Reveal in Finder") {
             kFinder.select(Path(aInfo.appInfo.file.path));
             kFinder.activate();
         }
@@ -2602,36 +2777,25 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
 
             let myDlgResult;
 
-            try {
-
-                // confirm back-out
-                myDlgResult = kApp.displayDialog(myDlgMessage, {
-                    withTitle: myDlgTitle,
-                    withIcon: aInfo.stepInfo.dlgIcon,
-                    buttons: myDlgButtons,
-                    defaultButton: 2,
-                    cancelButton: 1
-                }).buttonReturned;
-            } catch(myErr) {
-                if (myErr.errorNumber == -128) {
-
-                    // quit not confirmed, so continue with steps
-                    aNextStep -= myStepResult;
-
-                } else {
-                    // some other dialog error
-                    throw myErr;
-                }
-            }
+            // confirm back-out
+            myDlgResult = dialog(myDlgMessage, {
+                withTitle: myDlgTitle,
+                withIcon: aInfo.stepInfo.dlgIcon,
+                buttons: myDlgButtons,
+                defaultButton: 2,
+                cancelButton: 1
+            }).buttonIndex;
 
             // return appropriate value
-            if (myDlgResult == 'Yes') {
-                return myResult;
-            } else if (myDlgResult == 'Quit') {
-                return kStepResultQUIT;
-            } else {
-                // should never get here
+            if (myDlgResult == 0) {
+                // No button -- continue with steps
                 aNextStep -= myStepResult;
+            } else if (myDlgResult == 1) {
+                // Yes button -- end steps
+                return myResult;
+            } else {
+                // Quit button -- send Quit result
+                return kStepResultQUIT;
             }
         }
 
