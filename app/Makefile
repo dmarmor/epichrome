@@ -427,10 +427,8 @@ main:
 		src/main.js > build/main.js
 	echo >> build/main.js
 	cat src/liblaunch.js >> build/main.js
-#	chmod 444 src/main.js
 	osacompile -l JavaScript -x -o build/main.app build/main.js
-#	chmod 644 src/main.js
-#	chmod 444 $(APP_SCPT)/main.scpt  # lock main.scpt so codesigning works
+	chmod 444 build/main.app/Contents/Resources/Scripts/main.scpt  # lock main.scpt so it doesn't get altered with each run
 	@mv build/main.app build/main
 	@rm -f build/main.js
 	@cd build/main/Contents && rm -f Info.plist Resources/droplet.icns

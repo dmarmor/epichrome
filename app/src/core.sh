@@ -53,10 +53,10 @@ while [[ "$#" -gt 0 ]] ; do
 
 	# move past this argument
 	shift
-	
+
 	foundArray=
 	if [[ "${BASH_REMATCH[2]}" = '(' ]] ; then
-	    
+
 	    # this looks like the start of an array variable
 
 	    # save rest of args in temp variable
@@ -68,7 +68,7 @@ while [[ "$#" -gt 0 ]] ; do
 		    foundArray=1
 		    break
 		fi
-	    done	    
+	    done
 	fi
 
 	# save array or scalar value
@@ -76,11 +76,11 @@ while [[ "$#" -gt 0 ]] ; do
 
 	    # save as an array
 	    eval "${BASH_REMATCH[1]}=( \"\${tempArgs[@]::\$i}\" )"
-	    
+
 	    # remove array elements from args
 	    for ((j=0 ; j <= $i ; j++)) ; do shift ; done
 	else
-	    
+
 	    # save as a scalar variable
 	    eval "${BASH_REMATCH[1]}=\"\${BASH_REMATCH[2]}\""
 	fi
@@ -198,52 +198,52 @@ export appConfigVars "${appConfigVars[@]}"
 # SET UP CORE INFO
 
 if [[ "$coreContext" = 'app' ]] ; then
-    
+
     # RUNNING IN AN APP
-    
+
     # set up this app's data path
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
 
     # pausing without spawning sleep processes
     [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/pause"
-    
+
     # path to important data directories and paths
     myConfigFile="$myDataPath/config.sh"
     myProfilePath="$myDataPath/UserData"
 
     # app log ID
     [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
-    
+
     # export all to helper
     export myDataPath myPauseFifo myConfigFile myProfilePath myLogID
-    
+
 else
-    
+
     # RUNNING IN EPICHROME.APP OR SHELL
-    
+
     # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
-    
+
     if [[ "$coreContext" = 'epichrome' ]] ; then
-	
+
 	# set logging ID
 	if [[ ! "$myLogID" ]] ; then
 	    myLogID='Epichrome'
 	    [[ "$epiAction" ]] && myLogID+="|$epiAction" || myLogID+='|epichrome.sh'
 	fi
-	
+
 	# file logging only (unless explicitly turned off)
 	[[ "$logNoFile" ]] && logNoStderr= || logNoStderr=1
-	
+
     else  # shell
 
 	# running unfiltered outside the app
-	
+
 	# stderr logging only
 	myLogID='Shell'
 	logNoFile=1
     fi
-    
+
     # export all to helper
     export myDataPath myLogID
 fi
@@ -282,7 +282,7 @@ function errlog_raw {
 
     # if we're logging to stderr, do it
     [[ "$logNoStderr" ]] || echo "$@" 1>&2
-        
+
     # logging to file
     if [[ ! "$logNoFile" ]] ; then
 
@@ -303,7 +303,7 @@ function errlog_raw {
     fi
 }
 function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
-    
+
     # prefix format: *[PID]LogID(line)/function(line)/...:
 
     # arguments
@@ -337,11 +337,11 @@ function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
 	    logName=
 	    ;;
     esac
-    
+
     # make sure we have some logID
     local logID="$myLogID"
     [[ "$logID" ]] || logID='EpichromeCore'
-    
+
     # build function trace
     local trace=() ; [[ "$logName" ]] && trace=( "{$logName}" )
     local i=1
@@ -379,63 +379,52 @@ function initlogfile {  # ( logFile )
 
     # status variables
     local doKeepFile=
-    
+
     # set up log file
     if [[ "$1" ]] ; then
 
 	# log file passed to us
 	myLogFile="$1"
 	doKeepFile=1
-	
+
     elif [[ "$coreContext" = 'epichrome' ]] ; then
-	
+
 	# Epichrome.app log file
 	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiLogFilePrefix}${myRunTimestamp}.txt"
     else
-	
+
 	# app log file
 	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${appLogFilePrefix}${myRunTimestamp}.txt"
     fi
-    
-    # trim saved logs
-    
-    # get all existing logs
-    local oldLogs=
-    try '!2' 'oldLogs=(n)' /bin/ls -tUr "${myLogDir}"/*.txt ''    
-    if [[ "$ok" ]] ; then
-	
-	# if more than the max number of logs exist, delete the oldest ones
-	if [[ "${#oldLogs[@]}" -gt "$logPreserve" ]] ; then
-	    try /bin/rm -f "${oldLogs[@]::$((${#oldLogs[@]} - $logPreserve))}" \
-		'Unable to remove old logs.'
-	fi
-    fi
+
+    # trim saved logs so we don't have too many (ignore errors)
+    trimsaves "$myLogDir" "$logPreserve" '.txt' 'logs'
     ok=1 ; errmsg=
-    
+
     # set up log file
     if  [[ ! -f "$myLogFile" ]] ; then
-	
+
 	# make sure we have a directory for the log file
 	try /bin/mkdir -p "${myLogFile%/*}" \
 	    'Unable to create log directory.'
-	
+
     elif [[ ! "$doKeepFile" ]] ; then
-	
+
 	# starting a fresh log, so clear the file
 	try "${myLogFile}<" /bin/cat /dev/null \
 	    'Unable to clear log file.'
     fi
-    
+
     if [[ "$ok" ]] ; then
-	
+
 	# check if we have a writable log file
 	if [[ "$myLogTempVar" ]] ; then
-	    
+
 	    # add collected logs to file
 	    try "${myLogFile}<<" printf "$myLogTempVar" \
 		'Unable to add collected logs to file.'
 	    myLogTempVar=
-	    
+
 	    # fail silently
 	    if [[ ! "$ok" ]] ; then
 		ok=1 ; errmsg=
@@ -452,24 +441,24 @@ function initlogfile {  # ( logFile )
 	ok=1 ; errmsg=
 	return 1
     fi
-    
+
 }
 export -f initlogfile
 
 
 # JOIN_ARRAY -- join a bash array into a string with an arbitrary delimiter
 function join_array { # (DELIMITER)
-    
+
     local delim=$1; shift
-    
+
     local result="$1"
     shift
-    
+
     local item
     for item in "$@" ; do
 	result+="$delim$item"
     done
-    
+
     printf "$result"
 }
 export -f join_array
@@ -503,10 +492,10 @@ ok=1
 errmsg=
 export ok errmsg
 function try {
-    
+
     # only run if no prior error
     [[ "$ok" ]] || return 1
-    
+
     # see what output we're storing & how
     local target="$1"
     local type=
@@ -518,7 +507,7 @@ function try {
 
     # see if we're to drop stdout and/or stderr
     if [[ "$target" =~ ^(\!|-)(1|2|12|21)$ ]] ; then
-	
+
 	# this is a drop command, so next arg might be target
 	shift
 	target="$1"
@@ -526,7 +515,7 @@ function try {
 	# don't log or suppress
 	local dropAction=suppress
 	[[ "${BASH_REMATCH[1]}" = '-' ]] && dropAction=ignore
-	
+
 	# select streams
 	case "${BASH_REMATCH[2]}" in
 	    1)
@@ -545,7 +534,7 @@ function try {
 		;;
 	esac
     fi
-    
+
     # figure out which type of storage to do
     if [[ "$target" =~ (\+?)=$ ]]; then
 	# storing in a variable as a string
@@ -574,7 +563,7 @@ function try {
 	# not storing, logging both stdout & stderr
 	target=
     fi
-    
+
     # handle special ifscode values
     if [[ "$ifscode" = t ]] ; then
 	ifscode=$'\t\n'
@@ -583,7 +572,7 @@ function try {
     elif [[ ! "$ifscode" ]] ; then
 	ifscode="$IFS"  # no IFS given, so use current value
     fi
-    
+
     # determine storing/logging of stdout and stderr
     if [[ "$type" ]] ; then
 	logStdout=
@@ -594,21 +583,21 @@ function try {
 	    logStderr=
 	fi
     fi
-    
+
     # get command-line args
     local args=("$@")
-    
+
     # last arg is error message
     local last=$((${#args[@]} - 1))
     local myerrmsg="${args[$last]}"
     unset "args[$last]"
-    
+
     # run the command
     local result=
     if [[ ( "$type" = scalar ) || ( "$type" = array ) ]] ; then
 
 	# store output as string initially
-	
+
 	local temp=
 	if [[ ! "$storeStderr" ]] ; then
 	    if [[ ! "$dropStderr" ]] ; then
@@ -625,30 +614,30 @@ function try {
 	fi
 
 	# put output into the correct type of variable
-	
+
 	if [[ "$type" = scalar ]] ; then
-	    
+
 	    # scalar
-	    
+
 	    # if we're not appending, start with an empty target
 	    [[ "$doAppend" ]] || eval "$target="
-	    
+
 	    # append the output to the target
 	    eval "$target=\"\${$target}\${temp}\""
 	else
-	    
+
 	    # array
-	    
+
 	    # if we're not appending, start with an empty target
 	    [[ "$doAppend" ]] || eval "$target=()"
-	    
+
 	    # break up the output using our chosen delimiter (and newline, no way around that)
 	    local temparray=
 	    while IFS="$ifscode" read -ra temparray ; do
 		eval "$target+=( \"\${temparray[@]}\" )"
 	    done <<< "$temp"
 	fi
-	
+
     elif [[ "$type" = file_append ]] ; then
 	# append stdout to a file
 	if [[ ! "$storeStderr" ]] ; then
@@ -657,7 +646,7 @@ function try {
 	    elif [[ "$dropStderr" = ignore ]] ; then
 		"${args[@]}" >> "$target"
 	    else
-		"${args[@]}" >> "$target" 2> /dev/null		    
+		"${args[@]}" >> "$target" 2> /dev/null
 	    fi
 	    result="$?"
 	else
@@ -672,7 +661,7 @@ function try {
 	    elif [[ "$dropStderr" = ignore ]] ; then
 		"${args[@]}" > "$target"
 	    else
-		"${args[@]}" > "$target" 2> /dev/null		    
+		"${args[@]}" > "$target" 2> /dev/null
 	    fi
 	    result="$?"
 	else
@@ -680,15 +669,15 @@ function try {
 	    result="$?"
 	fi
     else
-	
+
 	# not storing, so log both stdout & stderr unless we're dropping either or both
 	if [[ ( ! "$dropStdout" ) && ( ! "$dropStderr" ) ]] ; then
-	    
+
 	    # log both stdout & stderr
 	    "${args[@]}" 1> "$stdoutTempFile" 2> "$stderrTempFile"
-	    
+
 	elif [[ ! "$dropStdout" ]] ; then
-	    
+
 	    if [[ "$dropStderr" = ignore ]] ; then
 		# log stdout & ignore stderr
 		"${args[@]}" 1> "$stdoutTempFile"
@@ -696,9 +685,9 @@ function try {
 		# log stdout & suppress stderr
 		"${args[@]}" 1> "$stdoutTempFile" 2> /dev/null
 	    fi
-	    
+
 	elif [[ ! "$dropStderr" ]] ; then
-	    
+
 	    if [[ "$dropStdout" = ignore ]] ; then
 		# log stderr & ignore stdout
 		"${args[@]}" 2> "$stderrTempFile"
@@ -706,7 +695,7 @@ function try {
 		# log stderr & suppress stdout
 		"${args[@]}" 1> /dev/null 2> "$stderrTempFile"
 	    fi
-	    
+
 	else
 
 	    # ignoring or suppressing both (always the same)
@@ -717,11 +706,11 @@ function try {
 		# suppress both stdout & stderr
 		"${args[@]}" > /dev/null 2>&1
 	    fi
-	    
+
 	fi
 	result="$?"
     fi
-    
+
     # log unstored output
     if [[ "$logStdout" || "$logStderr" ]] ; then
 
@@ -746,13 +735,13 @@ function try {
 	    done
 	fi
     fi
-    
+
     # check result
     if [[ "$result" != 0 ]]; then
 
 	# set error flag
 	ok=
-	
+
 	# report if no error output
 	[[ ( ! ( "$dropStdout" && "$dropStderr" ) ) && ! "$hasOutput" ]] && \
 	    errlog "ERROR|${args[0]##*/}" "Returned code $result with no logged output."
@@ -762,7 +751,7 @@ function try {
 	fi
 	return "$result"
     fi
-    
+
     return 0
 }
 export -f try
@@ -770,27 +759,27 @@ export -f try
 
 # RUNALWAYS -- run a command even if there's already been an error
 function runalways {
-    
+
     # run a command whether we're OK or not
-    
+
     # save old try state
     local oldok="$ok" ; ok=1
     local olderrmsg="$errmsg" ; errmsg=
-    
+
     # run the command
     "$@"
     local result="$?"
-    
+
     # restore OK state
     [[ ! "$oldok" ]] && ok=
-    
+
     # combine error messages
     if [[ "$errmsg" && "$olderrmsg" ]] ; then
 	errmsg="$olderrmsg Also: $errmsg"
     elif [[ "$olderrmsg" ]] ; then
 	errmsg="$olderrmsg"
     fi
-    
+
     return "$result"
 }
 export -f runalways
@@ -805,17 +794,17 @@ export -f tryalways
 
 # SAFESOURCE -- safely source a script
 function safesource { # SCRIPT [FILEINFO [ARGS ...]]
-    
+
     # only run if we're OK
     [[ "$ok" ]] || return 1
-	
+
     # get command-line args
     local script="$1" ; shift
     local fileinfo="$1" ; shift
-    
+
     # get file info string & make try error string
     if [[ ! "$fileinfo" ]] ; then
-	
+
 	# autocreate file info
 	if [[ "$script" =~ /([^/]+)$ ]] ; then
 	    fileinfo="${BASH_REMATCH[1]}"
@@ -823,19 +812,19 @@ function safesource { # SCRIPT [FILEINFO [ARGS ...]]
 	    fileinfo='empty path'
 	fi
     fi
-    
+
     # check that the source file exists & is readable
     local myErrPrefix="Error loading $fileinfo: "
     local myErr=
     [[ ! -e "$script" ]] && myErr="${myErrPrefix}Nothing found at '$script'."
     [[ ( ! "$myErr" ) && ( ! -f "$script" ) ]] && myErr="${myErrPrefix}'$script' is not a file."
     [[ ( ! "$myErr" ) && ( ! -r "$script" ) ]] && myErr="${myErrPrefix}'$script' is not readable."
-    
+
     if [[ "$myErr" ]] ; then
 	ok=
 	errmsg="$myErr"
     else
-	
+
 	# try to source the file
 	try source "$script" "$@" ''
 	if [[ ! "$ok" ]] ; then
@@ -846,28 +835,28 @@ function safesource { # SCRIPT [FILEINFO [ARGS ...]]
 
     # return code
     [[ "$ok" ]] && return 0 || return 1
-    
+
 }
 export -f safesource
 
 
 # CLEANEXIT -- call any defined cleanup function and exit
 function cleanexit { # [myCode]
-    
+
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
-    
+
     # call cleanup with exit code
     if [[ "$( type -t cleanup )" = function ]] ; then
 	cleanup "$myCode"
     fi
-    
+
     # delete any pause fifo
     [[ -p "$myPauseFifo" ]] && tryalways /bin/rm -f "$myPauseFifo" \
 					 'Unable to delete pause FIFO.'
 
     # let EXIT signal handler know we're clean
     readyToExit=1
-    
+
     # exit unless we got here from an exit signal
     [[ "$myCode" = 'SIGEXIT' ]] || exit "$myCode"
 }
@@ -876,7 +865,7 @@ export -f cleanexit
 
 # ABORT -- display an error alert and abort
 function abort { # ( [myErrMsg [myCode]] )
-    
+
     # arguments
     local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
@@ -885,12 +874,12 @@ function abort { # ( [myErrMsg [myCode]] )
     if [[ ( ! "$logNoFile" ) && ( ! "$myLogFile" ) ]] ; then
 	initlogfile
     fi
-    
+
     # log error message
     local myAbortLog="Aborting"
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
     errlog FATAL "$myAbortLog"
-    
+
     if [[ "$coreContext" = 'app' ]] ; then
 
 	# show dialog & offer to open log
@@ -900,7 +889,7 @@ function abort { # ( [myErrMsg [myCode]] )
 	    local choice=
 	    dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
 	    if [[ "$choice" = 'View Log' ]] ; then
-		
+
 		# clear OK state so try works & ignore result
 		ok=1 ; errmsg=
 		try /usr/bin/osascript -e '
@@ -913,10 +902,10 @@ tell application "Finder" to activate' 'Error attempting to view log file.'
 	# log just the error message to stderr
 	[[ "$myErrMsg" ]] && echo "$myErrMsg" 1>&2
     fi
-    
+
     # quit with error code
     cleanexit "$myCode"
-    
+
 }
 
 
@@ -953,7 +942,7 @@ function vcmp { # ( version1 operator version2 )
     local v1="$1" ; shift
     local op="$1" ; shift ; [[ "$op" ]] || op='='
     local v2="$1" ; shift
-        
+
     # munge version numbers into comparable integers
     local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?$'
     local curv=
@@ -1000,9 +989,9 @@ function pause {  # ( seconds )
 	    ok=1 ; errmsg=
 	fi
     fi
-    
+
     if [[ -p "$myPauseFifo" ]] ; then
-	
+
 	# we have a fifo, so sleep using read
 	read -t "$1" <>"$myPauseFifo"
 	return 0
@@ -1018,7 +1007,7 @@ export -f pause
 
 # WAITFORCONDITION -- wait for a given condition to become true, or timeout
 function waitforcondition {  # ( msg waitTime increment command [args ...] )
-    
+
     # arguments
     local msg="$1" ; shift
     local waitTime="$1" ; shift
@@ -1036,20 +1025,20 @@ function waitforcondition {  # ( msg waitTime increment command [args ...] )
 	incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
     else
 	incrementInt="${increment%.*}$incrementInt"
-	waitTimeInt="${waitTime%.*}$waitTimeInt"	
+	waitTimeInt="${waitTime%.*}$waitTimeInt"
     fi
 
     # wait for the condition to be true
     local curTime=0
     while [[ "$curTime" -lt "$waitTimeInt" ]] ; do
-		
+
 	# try the command
 	"$@" && return 0
-	
+
 	# wait
 	[[ "$curTime" = 0 ]] && debuglog "Waiting for $msg..."
 	sleep $increment
-	
+
 	# update time
 	curTime=$(( $curTime + $incrementInt ))
     done
@@ -1102,14 +1091,14 @@ function shoptrestore { # ( saveVar )
 
 # CHECKPATH: check if a path exists, or if it starts with another path
 function checkpath { # ( path [pathRoot] )
-    
+
     # arguments
     local path="$1" ; shift
     local pathRoot="$1" ; shift
-    
+
     # make sure path is not empty
     [[ "$path" ]] || return 1
-    
+
     if [[ "$pathRoot" ]] ; then
 	# if path doesn't start with pathRoot, that's an error
 	[[ "${path#$pathRoot}" = "$path" ]] && return 1
@@ -1117,7 +1106,7 @@ function checkpath { # ( path [pathRoot] )
 	# no pathRoot, so if path doesn't exist, that's an error
 	[[ -e "$path" ]] || return 1
     fi
-    
+
     # if we got here, the path checks out
     return 0
 }
@@ -1125,13 +1114,13 @@ function checkpath { # ( path [pathRoot] )
 
 # TEMPNAME: internal version of mktemp
 function tempname {  # ( root [ext] )
-    
+
     # approximately equivalent to result=$(/usr/bin/mktemp "${appPath}.XXXXX" 2>&1)
     local result="${1}.${RANDOM}${2}"
     while [[ -e "$result" ]] ; do
 	result="${result}.${RANDOM}${2}"
     done
-    
+
     echo "$result"
 }
 export -f tempname
@@ -1148,21 +1137,21 @@ function permanent {  # ( temp perm filetype [saveTempOnError] )
     local perm="$1" ; shift
     local filetype="$1" ; shift
     local saveTempOnError="$1" ; shift  # optional argument
-    
+
     local permOld=
-    
+
     # MOVE OLD FILE OUT OF THE WAY, MOVE TEMP FILE TO PERMANENT NAME, DELETE OLD FILE
-    
+
     # move the permanent file to a holding location for later removal
     if [[ -e "$perm" ]] ; then
 	permOld="$(tempname "$perm")"
 	try /bin/mv "$perm" "$permOld" "Unable to move old $filetype."
 	[[ "$ok" ]] || permOld=
     fi
-    
+
     # move the temp file or directory to its permanent name
     try /bin/mv -f "$temp" "$perm" "Unable to move new $filetype into place."
-    
+
     # remove the old permanent file or folder if there is one
     if [[ "$ok" ]] ; then
 	temp=
@@ -1170,20 +1159,20 @@ function permanent {  # ( temp perm filetype [saveTempOnError] )
 	    try /bin/rm -rf "$permOld" "Unable to remove old $filetype."
 	fi
     fi
-    
+
     # IF WE FAILED, CLEAN UP
-    
+
     if [[ ! "$ok" ]] ; then
-	
+
 	# move old permanent file back
 	if [[ "$permOld" ]] ; then
 	    tryalways /bin/mv "$permOld" "$perm" "Unable to restore old $filetype."
 	fi
-	
+
 	# delete temp file
 	[[ ( ! "$saveTempOnError" ) && ( -e "$temp" ) ]] && rmtemp "$temp" "$filetype"
     fi
-    
+
     [[ "$ok" ]] && return 0 || return 1
 }
 export -f permanent
@@ -1192,13 +1181,13 @@ export -f permanent
 # RMTEMP: remove a temporary file or directory (whether $ok or not)
 function rmtemp {
     local temp="$1"
-    local filetype="$2"	
+    local filetype="$2"
 
     # delete the temp file
     if [ -e "$temp" ] ; then
 	tryalways /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
     fi
-    
+
     [[ "$ok" ]] && return 0
     return 1
 }
@@ -1210,30 +1199,30 @@ function safecopy {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
-	
+
     # copy in custom icon
     local src="$1"      ; shift
     local dst="$1"      ; shift
     local filetype="$1" ; shift ; [[ "$filetype" ]] || filetype="${src##*/}"
 
     if [[ ! -e "$dst" ]] ; then
-	
+
 	# get dirname for destination
 	local dstDir=
 	try 'dstDir=' dirname "$dst" "Unable to get destination directory for $filetype."
-	
+
 	# make sure destination directory exists
 	try /bin/mkdir -p "$dstDir" "Unable to create the destination directory for $filetype."
 
 	# copy file or directory directly
 	try /bin/cp -PR "$src" "$dst" "Unable to copy $filetype."
-	
+
     else
-	
+
 	# copy to temporary location
 	local dstTmp="$(tempname "$dst")"
 	try /bin/cp -PR "$src" "$dstTmp" "Unable to copy $filetype."
-	
+
 	if [[ "$ok" ]] ; then
 	    # move file to permanent home
 	    permanent "$dstTmp" "$dst" "$filetype"
@@ -1242,13 +1231,43 @@ function safecopy {
 	    rmtemp "$dstTmp" "$filetype"
 	fi
     fi
-    
+
     # return code
     [[ "$ok" ]] && return 0 || return 1
-    
+
 }
 export -f safecopy
 
+
+# TRIMSAVES -- trim a saved file directory to its maximum
+function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc ] )
+
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+
+    # arguments
+    local saveDir="$1" ; shift
+    local maxFiles="$1" ; shift
+    local fileExt="$1" ; shift
+    local fileDesc="$1" ; shift ; [[ "$fileDesc" ]] || fileDesc='files'
+
+    # get all files in directory
+    local oldFiles=
+    try '!2' 'oldFiles=(n)' /bin/ls -tUr "$saveDir"/*"$fileExt" \
+	"Unable to get listing of old $fileDesc."
+    if [[ "$ok" ]] ; then
+
+	# if more than the max number of files exist, delete the oldest ones
+	if [[ "${#oldFiles[@]}" -gt "$maxFiles" ]] ; then
+	    try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" \
+		"Unable to remove old $fileDesc."
+	fi
+    fi
+
+    # return code
+    [[ "$ok" ]] && return 0 || return 1
+}
+export -f trimsaves
 
 # ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
 function isarray {
@@ -1263,13 +1282,13 @@ export -f isarray
 
 # ESCAPE: backslash-escape \ & optional other characters
 function escape {  # ( str [chars] )
-    
+
     # arguments
     local str="$1" ; shift
     local chars="$1" ; shift
-    
+
     local result="${str//\\/\\\\}"
-    
+
     # escape any other characters
     if [[ "$chars" ]] ; then
 	local i
@@ -1277,20 +1296,20 @@ function escape {  # ( str [chars] )
 	    result="${result//${chars:i:1}/\\${chars:i:1}}"
 	done
     fi
-    
+
     echo "$result"
 }
 
 
 # UNESCAPE: remove escapes from a string
 function unescape {  # ( str [chars] )
-    
+
     # arguments
     local str="$1" ; shift
     local chars="$1" ; shift
-    
+
     local result="${str//\\\\/\\}"
-    
+
     # unescape any other characters
     if [[ "$chars" ]] ; then
 	local i
@@ -1298,7 +1317,7 @@ function unescape {  # ( str [chars] )
 	    result="${result//\\${chars:i:1}/${chars:i:1}}"
 	done
     fi
-    
+
     echo "$result"
 }
 
@@ -1319,7 +1338,7 @@ function formatscalar { # ( value [noQuotes] )
     # arguments
     local value="$1" ; shift
     local noQuotes="$1" ; shift
-    
+
     # utility escaped quote
     local eq="\'"
 
@@ -1328,7 +1347,7 @@ function formatscalar { # ( value [noQuotes] )
 
     # wrap in single quotes unless requested not to
     [[ "$noQuotes" ]] && echo "$result" || echo "'$result'"
-    
+
 }
 export -f formatscalar
 
@@ -1337,22 +1356,22 @@ export -f formatscalar
 function formatarray { # ( [elem1 ...] )
 
     local quote="\'"
-    
+
     # variable holds an array, so start the array
     local value="("
-    
+
     # go through each value and build the array
     local elem=
     for elem in "$@" ; do
-	
+
 	# add array value, escaping single quotes & wrapping in single quotes
 	value="${value} '${elem//\'/'$quote'}'"
-	
+
     done
-    
+
     # close the array
     value="${value} )"
-        
+
     echo "$value"
 }
 export -f formatarray
@@ -1361,7 +1380,7 @@ export -f formatarray
 # WRITEVARS: write out a set of arbitrary bash variables to a file
 function writevars {  # $1 = destination file
     #                   $@ = list of vars
-    
+
     # only run if we're OK
     [[ "$ok" ]] || return 1
 
@@ -1374,7 +1393,7 @@ function writevars {  # $1 = destination file
     local value=
     local arr=()
     local i
-    
+
     # temporary file
     local tmpDest="$(tempname "$dest")"
 
@@ -1387,48 +1406,48 @@ function writevars {  # $1 = destination file
     try "${tmpDest}<" echo "# ${destBase} -- autogenerated $myDate" \
 	"Unable to create ${destBase}."
     try "${tmpDest}<<" echo '' "Unable to write to ${destBase}."
-    
+
     if [[ "$ok" ]] ; then
-	
+
 	# go through each variable
 	for var in "$@" ; do
 
 	    if isarray "$var" ; then
-		
+
 		# pull out the array value
 		eval "arr=(\"\${$var[@]}\")"
 
 		# format for printing
 		value="$(formatarray "${arr[@]}")"
-		
+
 	    else
-		
+
 		# scalar value, so pull out the value
 		eval "value=\"\${$var}\""
-		
+
 		# format for printing
 		value="$(formatscalar "$value")"
 
 	    fi
 
 	    debuglog "Writing to ${destBase}: ${var}=${value}"
-	    
+
 	    try "${tmpDest}<<" echo "${var}=${value}" "Unable to write to ${destBase}."
 	    [[ "$ok" ]] || break
 	done
     fi
-    
+
     if [[ "$ok" ]] ; then
 	# move the temp file to its permanent place
 	permanent "$tmpDest" "$dest" "${destBase}"
-    
+
     else
 	# on error, remove temp vars file
 	rmtemp "$tmpDest" "${destBase}"
     fi
-    
+
     [[ "$ok" ]] && return 0 || return 1
-    
+
 }
 export -f writevars
 
@@ -1446,7 +1465,7 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
     local title="$1" ; shift
     local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$(escapejson "$title_code")\""
     local icon="$1" ; shift
-    
+
     # build icon code
     local icon_set=
     local icon_code=
@@ -1463,7 +1482,7 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
 	[[ "$icon" =~ ^stop|caution|note$ ]] && icon_set="set myIcon to $icon"
     fi
     [[ "$icon_set" ]] && icon_code='with icon myIcon'
-    
+
     # build button list
     local buttonlist=
     local button=
@@ -1472,11 +1491,11 @@ function dialog {  # VAR MESSAGE TITLE ICON (if starts with | try app icon first
     local try_start=
     local try_end=
     local numbuttons=0
-    
+
     for button in "$@" ; do
 	# increment button count
 	numbuttons=$((${numbuttons} + 1))
-	
+
 	# identify default and cancel buttons
 	if [[ "${button::1}" = "+" ]] ; then
 	    button="\"$(escapejson "${button:1}")\""
@@ -1491,11 +1510,11 @@ end try"
 	else
 	    button="\"$(escapejson "$button")\""
 	fi
-	
+
 	# add to button list
 	buttonlist="$buttonlist, $button"
     done
-    
+
     # if no buttons specified, make one default OK button
     if [[ "$numbuttons" -eq 0 ]]; then
 	numbuttons=1
@@ -1503,10 +1522,10 @@ end try"
 	button_default="default button \"$button\""
 	buttonlist=", \"$button\""
     fi
-    
+
     # close button list
     buttonlist="{ ${buttonlist:2} }"
-    
+
     # log the dialog
     if [[ "$debug" || ("$numbuttons" = 1) ]] ; then
 	local logmsg="${msg%%$'\n'*}"
@@ -1517,36 +1536,36 @@ end try"
 	    debuglog "Showing dialog '$title' $logmsg"
 	fi
     fi
-    
+
     # run the dialog
     try "${var}=" /usr/bin/osascript -e "$icon_set
 $try_start
     button returned of (display dialog \"$(escapejson "$msg")\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
 $try_end" \
 	"Unable to display dialog box with message \"$msg\""
-    
+
     if [[ "$debug" && "$ok" && ("$numbuttons" != 1) ]] ; then
 	errlog DEBUG "User clicked button '$(eval "echo "\$$var"")'"
 
     elif [[ ! "$ok" && ("$numbuttons" = 1) ]] ; then
-	
+
 	# dialog failed and this is an alert, so fallback to basic alert
 	ok=1
-	
+
 	# display simple alert with fallback icon
 	[[ "$icon" ]] && icon="with icon $icon"
 	try /usr/bin/osascript -e \
 	    "display alert \"$(escapejson "$msg")\" $icon buttons {\"OK\"} default button \"OK\" $title_code" \
 	    "Unable to display fallback alert with message \"$msg\""
     fi
-    
+
     # add new error message or restore old one
     if [[ "$olderrmsg" && "$errmsg" ]] ; then
 	errmsg="$olderrmsg Also: ${errmsg}."
     elif [[ "$olderrmsg" ]] ; then
 	errmsg="$olderrmsg"
     fi
-    
+
     # if ok was off or we turned it off, turn it off
     [[ "$oldok" ]] || ok="$oldok"
 
@@ -1559,7 +1578,7 @@ export -f dialog
 # ALERT -- display a simple alert dialog box (whether ok or not)
 function alert {  #  MESSAGE TITLE ICON (stop, caution, note)
     local result=
-    
+
     # show the alert
     dialog '' "$1" "$2" "$3"
     return "$?"
@@ -1574,7 +1593,7 @@ if [[ "$coreDoInit" ]] ; then
     # make sure data directory exists
     try '-12' /bin/mkdir -p "$myDataPath" \
 	'Unable to create data directory!'
-    
+
     # check if the try function can save stderr output, or if we need to disable it
     if [[ "$ok" ]] ; then
 
@@ -1590,7 +1609,7 @@ if [[ "$coreDoInit" ]] ; then
 	    stderrTempFile='/dev/null'
 	    ok=1 ; stderr=
 	fi
-	
+
 	# announce initialization
 	if [[ "$coreContext" = 'app' ]] ; then
 	    runningIn="app $SSBIdentifier"
