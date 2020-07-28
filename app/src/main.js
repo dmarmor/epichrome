@@ -1710,50 +1710,39 @@ function stepURLs(aInfo) {
                 }
             } else {
 
-                let myBackButton = false;
+                let myDlgOptions = {
+                    withTitle: aInfo.stepInfo.dlgTitle,
+                    withIcon: aInfo.stepInfo.dlgIcon,
+                    defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
+                    buttons: ['Next', 'Remove'],
+                    defaultButton: 1
+                };
 
+                let myHasBackButton = false;
                 if (myCurTab == 1) {
-                    try {
-                        myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
-                                aInfo.appInfoStatus.urls.stepSummary, {
-                            withTitle: aInfo.stepInfo.dlgTitle,
-                            withIcon: aInfo.stepInfo.dlgIcon,
-                            defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
-                            buttons: ['Next', 'Remove', aInfo.stepInfo.backButton],
-                            defaultButton: 1,
-                            cancelButton: 3
-                        });
-                    } catch(myErr) {
-                        if (myErr.errorNumber == -128) {
-                            // Back button
-                            myBackButton = true;
-                        } else {
-                            throw myErr;
-                        }
-                    }
+                    // we have a Back button
+                    myHasBackButton = true;
+                    myDlgOptions.buttons.push(aInfo.stepInfo.backButton);
+                    myDlgOptions.cancelButton = 3;
+
                 } else {
-                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
-                            aInfo.appInfoStatus.urls.stepSummary, {
-                        withTitle: aInfo.stepInfo.dlgTitle,
-                        withIcon: aInfo.stepInfo.dlgIcon,
-                        defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
-                        buttons: ["Next", "Remove", "Previous"],
-                        defaultButton: 1
-                    });
+                    myDlgOptions.buttons.push('Previous');
                 }
 
-                if (myBackButton || (myDlgResult.buttonReturned == "Previous")) {
-                    if (myBackButton) {
-                        myCurTab = 0;
-                        break;
-                    } else {
-                        aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
-                        myCurTab--;
-                    }
-                } else if (myDlgResult.buttonReturned == "Next") {
+                // show dialog
+                myDlgResult = dialog(
+                    tablist(aInfo.appInfo.urls, myCurTab) + aInfo.appInfoStatus.urls.stepSummary,
+                    myDlgOptions);
+
+                if (myDlgResult.buttonIndex == 0) {
+
+                    // Next button
                     aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
                     myCurTab++;
-                } else { // "Remove"
+
+                } else if (myDlgResult.buttonIndex == 1) {
+
+                    // Remove button
                     if (myCurTab == 1) {
                         aInfo.appInfo.urls.shift();
                     } else if (myCurTab == aInfo.appInfo.urls.length) {
@@ -1761,6 +1750,18 @@ function stepURLs(aInfo) {
                         myCurTab--;
                     } else {
                         aInfo.appInfo.urls.splice(myCurTab-1, 1);
+                    }
+                } else {
+
+                    if (myHasBackButton) {
+                        // Back button
+                        myCurTab = 0;
+                        break;
+                    } else {
+
+                        // Previous button
+                        aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
+                        myCurTab--;
                     }
                 }
 
@@ -2065,10 +2066,17 @@ function stepBuild(aInfo) {
                 myActionButton = (aInfo.stepInfo.isOnlyApp ? 'Quit' : 'Skip');
             } else {
                 if (aInfo.appInfoStatus.version.changed && (myChangedSummary.length == 1)) {
+
+                    // set message/button for update only
                     myAppSummary = 'This app will be updated to version ' + kVersion +
                         '. No other changes have been made.';
                     myActionButton = 'Update';
+
+                    // change script action to update
+                    myScriptAction = 'update';
+
                 } else {
+
                     let myHasUnchanged = (myUnchangedSummary.length > 0);
 
                     myAppSummary = 'Ready to save changes!\n\n' +
@@ -2110,7 +2118,8 @@ function stepBuild(aInfo) {
             return -aInfo.stepInfo.number - 1;
         }
     } else {
-        myScriptAction = 'edit';
+        // update action
+        myScriptAction = 'update';
     }
 
 
@@ -2148,6 +2157,9 @@ function stepBuild(aInfo) {
     } else {
         // edit-/update-specific arguments
 
+        // add version argument for both edit & update
+        myScriptArgs.push('SSBVersion=' + aInfo.oldAppInfo.version);
+
         if (aInfo.stepInfo.action == kActionEDIT) {
             // old ID
             if (aInfo.appInfoStatus.id.changed) {
@@ -2170,11 +2182,11 @@ function stepBuild(aInfo) {
 
     let myBuildMessage;
     if (aInfo.stepInfo.action == kActionCREATE) {
-        myBuildMessage = ['Building', 'Build', 'Configuring'];
+        myBuildMessage = ['Building', 'Build', 'Configuring', 'Created'];
     } else if (aInfo.stepInfo.action == kActionEDIT) {
-        myBuildMessage = ['Saving changes to', 'Save', 'Editing'];
+        myBuildMessage = ['Saving changes to', 'Save', 'Editing', 'Saved'];
     } else {
-        myBuildMessage = ['Updating', 'Update', 'Canceled'];
+        myBuildMessage = ['Updating', 'Update', 'Canceled', 'Updated'];
     }
     let myAppNameMessage = ' "' + aInfo.appInfo.displayName + '"...';
     try {
@@ -2191,7 +2203,7 @@ function stepBuild(aInfo) {
         shell.apply(null, myScriptArgs);
 
         Progress.completedUnitCount = 2;
-        Progress.description = myBuildMessage[1] + ' complete.';
+        Progress.description = myBuildMessage[1] + ' succeeded.';
         Progress.additionalDescription = '';
 
     } catch(myErr) {
@@ -2207,19 +2219,33 @@ function stepBuild(aInfo) {
             }
         }
 
-        Progress.completedUnitCount = 0;
-        Progress.description = myBuildMessage[1] + ' failed.';
-        Progress.additionalDescription = '';
+        if (myErr.message.startsWith('WARN:')) {
+            Progress.completedUnitCount = 2;
+            Progress.description = myBuildMessage[1] + ' succeeded with warnings.';
+            Progress.additionalDescription = '';
 
-        // show error dialog & quit or go back
-        return {
-            message: "Creation failed: " + myErr.message,
-            title: "Application Not Created",
-            backStep: -1,
-            resetProgress: true,
-            resetMsg: myBuildMessage[2] + myAppNameMessage
-        };
+            dialog(myBuildMessage[1] + ' succeeded, but with the following warning: ' + myErr.message.slice(5), {
+                withTitle: 'Warning',
+                withIcon: 'caution',
+                buttons: ['OK'],
+                defaultButton: 1
+            });
+        } else {
+            Progress.completedUnitCount = 0;
+            Progress.description = myBuildMessage[1] + ' failed.';
+            Progress.additionalDescription = '';
+
+            // show error dialog & quit or go back
+            return {
+                message: myBuildMessage[1] + ' failed: ' + myErr.message,
+                title: 'Application Not ' + myBuildMessage[3],
+                backStep: -1,
+                resetProgress: true,
+                resetMsg: myBuildMessage[2] + myAppNameMessage
+            };
+        }
     }
+
 
     // SUCCESS! GIVE OPTION TO REVEAL OR LAUNCH
 

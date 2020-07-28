@@ -34,7 +34,8 @@ coreVersion='EPIVERSION'
 
 [[ "$debug" ]]       || debug=EPIDEBUG
 [[ "$logPreserve" ]] || logPreserve=EPILOGPRESERVE
-export debug logPreserve
+[[ "$backupPreserve" ]] || backupPreserve=EPIBACKUPPRESERVE
+export debug logPreserve backupPreserve
 
 
 # INITIALIZE CORE VARIABLES
@@ -126,6 +127,7 @@ appDataPathBase="$epiDataPath/Apps"
 epiDataExtIconBase='ExtensionIcons'
 appLogFilePrefix='epichrome_app_log'
 epiLogFilePrefix='epichrome_log'
+appBackupDir='Backups'
 
 export userSupportPath epiDataPath appDataPath \
        epiDataExtIconBase appLogFilePrefix epiLogFilePrefix
@@ -204,6 +206,9 @@ if [[ "$coreContext" = 'app' ]] ; then
     # set up this app's data path
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
 
+    # app backup directory
+    [[ "$myBackupDir" ]] || myBackupDir="$myDataPath/$appBackupDir"
+
     # pausing without spawning sleep processes
     [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/pause"
 
@@ -223,6 +228,17 @@ else
 
     # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
+
+    # app backup directory
+    if [[ ( ! "$myBackupDir" ) && "$SSBIdentifier" ]] ; then
+        if [[ "$epiOldIdentifier" && -d "$appDataPathBase/$epiOldIdentifier" ]] ; then
+            myBackupDir="$appDataPathBase/$epiOldIdentifier/$appBackupDir"
+        else
+            myBackupDir="$appDataPathBase/$SSBIdentifier/$appBackupDir"
+        fi
+    else
+        myBackupDir="$myDataPath/$appBackupDir"
+    fi
 
     if [[ "$coreContext" = 'epichrome' ]] ; then
 
@@ -271,7 +287,7 @@ fi
 
 # export all to helper
 export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
-       logNoStderr logNoFile myRunTimestamp myLogDir
+       logNoStderr logNoFile myRunTimestamp myLogDir myBackupDir
 
 
 # FUNCTION DEFINITIONS
@@ -1183,13 +1199,15 @@ function rmtemp {
     local temp="$1"
     local filetype="$2"
 
+    local result=0
+
     # delete the temp file
-    if [ -e "$temp" ] ; then
+    if [[ -e "$temp" ]] ; then
 	tryalways /bin/rm -rf "$temp" "Unable to remove temporary $filetype."
+    result="$?"
     fi
 
-    [[ "$ok" ]] && return 0
-    return 1
+    return "$result"
 }
 export -f rmtemp
 
@@ -1240,7 +1258,7 @@ export -f safecopy
 
 
 # TRIMSAVES -- trim a saved file directory to its maximum
-function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc ] )
+function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc trimVar ] )
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -1250,19 +1268,30 @@ function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc ] )
     local maxFiles="$1" ; shift
     local fileExt="$1" ; shift
     local fileDesc="$1" ; shift ; [[ "$fileDesc" ]] || fileDesc='files'
+    local trimVar="$1" ; shift
 
     # get all files in directory
-    local oldFiles=
+    local oldFiles=()
     try '!2' 'oldFiles=(n)' /bin/ls -tUr "$saveDir"/*"$fileExt" \
-	"Unable to get listing of old $fileDesc."
-    if [[ "$ok" ]] ; then
+	''
+    ok=1 ; errmsg=
 
 	# if more than the max number of files exist, delete the oldest ones
 	if [[ "${#oldFiles[@]}" -gt "$maxFiles" ]] ; then
-	    try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" \
-		"Unable to remove old $fileDesc."
+
+        # get list of files to trim
+        local trimFiles=( "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" )
+
+        if [[ "$trimVar" ]] ; then
+
+            # save list into trimVar
+            eval "$trimVar=( \"\${trimFiles[@]}\" )"
+        else
+            # delete the files now
+            try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" \
+                    "Unable to remove old $fileDesc."
+        fi
 	fi
-    fi
 
     # return code
     [[ "$ok" ]] && return 0 || return 1

@@ -32,9 +32,10 @@ updateEpichromeResources="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh
 updateEpichromeRuntime="$updateEpichromeResources/Runtime"
 
 
-# TEMP CONTENTS DIRECTORY FOR CLEANUP
+# WORKING PATHS FOR CLEANUP
 
 updateContentsTmp=
+updateBackupFile=
 
 
 # BOOTSTRAP MY VERSION OF CORE.SH & LAUNCH.SH
@@ -74,10 +75,25 @@ function escapehtml {  # ( str )
 # UPDATECLEANUP: clean up from an aborted update
 
 function updatecleanup {
-    if [[ -d "$updateContentsTmp" ]] ; then
+    local cleaned=1
+
+    debuglog "Cleaning up..."
+
+    # clean up any temporary contents folder
+    if [[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] ; then
         rmtemp "$updateContentsTmp" 'Contents folder'
+        [[ "$?" != 0 ]] && cleaned=
     fi
     updateContentsTmp=
+
+    # clean up any app backup
+    if [[ "$cleaned" && "$updateBackupFile" && -f "$updateBackupFile" ]] ; then
+        tryalways /bin/rm -f "$updateBackupFile" 'Unable to remove app backup.'
+    fi
+    updateBackupFile=
+
+    # only run this once
+    unset -f updatecleanup
 }
 
 
@@ -112,6 +128,52 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
     # SET APP BUNDLE ID
 
     local myAppBundleID="$appIDBase.$SSBIdentifier"
+
+
+    # BACK UP APP
+
+    local myBackupTrimList=()
+    if [[ "$epiAction" != 'build' ]] ; then
+
+        # set up action postfix
+        local myAction="$epiAction"
+        [[ "$myAction" ]] || myAction='update'
+        local myActionText="$myAction"
+        if [[ "$myAction" = 'edit' ]] && vcmp "$SSBVersion" '<' "$updateVersion" ; then
+            myAction='edit-update'
+            myActionText='edit & update'
+        fi
+
+        # make sure backup directory exists
+        if [[ -d "$myBackupDir" ]] ; then
+
+            # trim backup directory to make room for new backup
+            trimsaves "$myBackupDir" "$backupPreserve" '.tgz' 'app backups' myBackupTrimList
+        else
+
+            # create directory
+            try /bin/mkdir -p "$myBackupDir" \
+                    'Unable to create app backup directory.'
+        fi
+
+        # set up timestamp prefix
+        local myBackupTimestamp="${myRunTimestamp#_}"
+        [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='_'
+
+        # set up path to backup file
+        updateBackupFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction.tgz"
+
+        # back up app
+        try /usr/bin/tar czf "$updateBackupFile" --cd "$updateAppPath/.." "${updateAppPath##*/}" \
+                "Unable to back up app prior to $myActionText."
+
+        # ignore any errors
+        if [[ "$ok" ]] ; then
+            debuglog "Created backup of app at \"$updateBackupFile\""
+        else
+            ok=1 ; errmsg
+        fi
+    fi
 
 
     # SET APP VERSION
@@ -468,13 +530,20 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
     # MOVE CONTENTS TO PERMANENT HOME
 
     if [[ "$ok" ]] ; then
-        permanent "$updateContentsTmp" "$updateAppPath/Contents" "app bundle Contents directory"
-        updateContentsTmp=
-    else
-        # remove temp contents on error
-        [[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] && updatecleanup
 
-        # return
+        # no matter what happens now, we'll keep the backup, so trim old backups, ignoring errors
+        backupContentsTmp=
+        if [[ "${myBackupTrimList[*]}" ]] ; then
+            try /bin/rm -f "${myBackupTrimList[@]}" 'Unable to remove old app backups.'
+            ok=1 ; errmsg=
+        fi
+
+        # make the contents permanent
+        unset -f updatecleanup
+        permanent "$updateContentsTmp" "$updateAppPath/Contents" 'app bundle Contents directory'
+        [[ "$ok" ]] || return 1
+    else
+        updatecleanup
         return 1
     fi
 

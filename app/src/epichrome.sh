@@ -236,7 +236,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
         $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
     ]
 }"
-    
+
 elif [[ "$epiAction" = 'build' ]] ; then
 
     # ACTION: BUILD NEW APP
@@ -294,7 +294,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     [[ "$ok" ]] || abort
 
 
-elif [[ "$epiAction" = 'edit' ]] ; then
+elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
 
     # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
 
@@ -330,14 +330,14 @@ elif [[ "$epiAction" = 'edit' ]] ; then
 	      (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
 
 	# common warning prefix
-	warnPrefix="WARN:Unable to migrate app data to new ID $SSBIdentifier"
+	warnPrefix="WARN:Unable to migrate data directory to new ID $SSBIdentifier"
 
 	if [[ -e "$appDataPathBase/$SSBIdentifier" ]] ; then
-	    warnings+=( "$warnPrefix: App data with that ID already exists. This app will use that data." )
+	    warnings+=( "$warnPrefix. A directory already exists for that ID. The app will use that directory." )
 	else
 	    permanent "$appDataPathBase/$epiOldIdentifier" \
 		      "$appDataPathBase/$SSBIdentifier" "app bundle"
-	    [[ "$ok" ]] || warnings+=( "$warnPrefix: $errmsg This app will create a new data directory on first run." )
+	    [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg The app will create a new data directory on first run." )
 	fi
     fi
 
@@ -352,10 +352,10 @@ elif [[ "$epiAction" = 'edit' ]] ; then
 	warnPostfix="The app is intact under the old name of ${epiAppPath##*/}."
 
 	if [[ -e "$epiNewPath" ]] ; then
-	    warnings+=( "$warnPrefix: ${epiNewPath##*/} already exists. $warnPostfix" )
+	    warnings+=( "$warnPrefix. ${epiNewPath##*/} already exists. $warnPostfix" )
 	else
 	    permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
-	    [[ "$ok" ]] || warnings+=( "$warnPrefix: $errmsg $warnPostfix" )
+	    [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg $warnPostfix" )
 	fi
     fi
 

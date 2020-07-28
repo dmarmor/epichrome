@@ -119,12 +119,14 @@ ifeq ($(BETA),_beta)
 DEBUG_SH:=1
 DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
+BACKUPPRESERVE_SH:=9
 EPICHROME_DISPNAME:=Epichrome Beta
 PACKAGE_README:=build/resources/readme.rtf
 else
 DEBUG_SH:=
 DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
+BACKUPPRESERVE_SH:=4
 EPICHROME_DISPNAME:=Epichrome
 PACKAGE_README:=build/resources/readme.rtf
 endif
@@ -573,7 +575,7 @@ $(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
 
 $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g' '$<' > '$@'
+	sed 's/EPIVERSION/$(VERSION)/g; s/EPIDEBUG/$(DEBUG_SH)/g; s/EPILOGPRESERVE/$(LOGPRESERVE_SH)/g; s/EPIBACKUPPRESERVE/$(BACKUPPRESERVE_SH)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
