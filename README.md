@@ -14,47 +14,27 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
 <h4 align="center">Rock Star Patrons</h4>
+<p align="center"><b>Alan Latteri</b><br />
+<b>Lyle Barrere</b><br />
+<b>Jonathan Berger</b><br />
+<b>Andrew Bonham</b><br />
+<b>Buck Doyle</b><br />
+<b>Lev Dubinets</b><br />
+<b>Matt Fallshaw</b><br />
+<b>Lanny Heidbreder</b><br />
+<b>Eric Henderson</b><br />
+<b>Ben Johnson</b><br />
+<b>David Mankin</b><br />
+<b>Gregory Morse</b><br />
+<b>Alex Nauda</b><br />
+<b>Alan Ogilvie</b><br />
+<b>Orbital Impact</b><br />
+<b>Rob Page</b><br />
+<b>Matthew Scott</b><br />
+<b>Samuel Talleux</b><br />
+<b>Adam Tarnoff</b><br />
+<b>Thorbergsson</b></p>
 
-<div style="width: 12.5%; float: left;">&nbsp;</div>
-<div style="width: 25%; float: left; text-align: center; font-weight: bold">
-Alan Latteri<br />
-Andrew Bonham<br />
-Matt Fallshaw<br />
-Ben Johnson<br />
-Alex Nauda<br />
-Rob Page<br />
-Adam Tarnoff
-</div>
-<div style="width: 25%; float: left; text-align: center; font-weight: bold">
-Lyle Barrere<br />
-Buck Doyle<br />
-Lanny Heidbreder<br />
-David Mankin<br />
-Alan Ogilvie<br />
-Matthew Scott<br />
-Thorbergsson
-</div>
-<div style="width: 25%; float: left; text-align: center; font-weight: bold">
-Jonathan Berger<br />
-Lev Dubinets<br />
-Eric Henderson<br />
-Gregory Morse<br />
-Orbital Impact<br />
-Samuel Talleux<br />
-</div>
-<div style="width: 12.5%; float: left; opacity: 0">
-<br />
-<br />
-<br />
-<br />
-<br />
-<br />
-<br />
-<br />
-<br />
-</div>
-
-&nbsp;
 
 ## New in version 2.3.6
 
