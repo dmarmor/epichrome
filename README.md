@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.5</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.6</h1>
 
 ## Overview
 
@@ -14,30 +14,51 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
 <h4 align="center">Rock Star Patrons</h4>
-<p align="center"><b>Alan Latteri</b><br />
-<b>Lyle Barrere</b><br />
-<b>Jonathan Berger</b><br />
-<b>Andrew Bonham</b><br />
-<b>Buck Doyle</b><br />
-<b>Lev Dubinets</b><br />
-<b>Matt Fallshaw</b><br />
-<b>Lanny Heidbreder</b><br />
-<b>Eric Henderson</b><br />
-<b>Ben Johnson</b><br />
-<b>David Mankin</b><br />
-<b>Gregory Morse</b><br />
-<b>Alex Nauda</b><br />
-<b>Alan Ogilvie</b><br />
-<b>Orbital Impact</b><br />
-<b>Rob Page</b><br />
-<b>Matthew Scott</b><br />
-<b>Samuel Talleux</b><br />
-<b>Thorbergsson</b></p>
 
+<div style="width: 12.5%; float: left;">&nbsp;</div>
+<div style="width: 25%; float: left; text-align: center; font-weight: bold">
+Alan Latteri<br />
+Andrew Bonham<br />
+Matt Fallshaw<br />
+Ben Johnson<br />
+Alex Nauda<br />
+Rob Page<br />
+Adam Tarnoff
+</div>
+<div style="width: 25%; float: left; text-align: center; font-weight: bold">
+Lyle Barrere<br />
+Buck Doyle<br />
+Lanny Heidbreder<br />
+David Mankin<br />
+Alan Ogilvie<br />
+Matthew Scott<br />
+Thorbergsson
+</div>
+<div style="width: 25%; float: left; text-align: center; font-weight: bold">
+Jonathan Berger<br />
+Lev Dubinets<br />
+Eric Henderson<br />
+Gregory Morse<br />
+Orbital Impact<br />
+Samuel Talleux<br />
+</div>
+<div style="width: 12.5%; float: left; opacity: 0">
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+</div>
 
-## New in version 2.3.5
+&nbsp;
 
-- The built-in engine has been updated to Brave 1.11.97.
+## New in version 2.3.6
+
+- The built-in engine has been updated to Brave 1.11.104.
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
@@ -70,7 +91,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS Catalina 10.15.6 and Google Chrome version 84.0.4147.89.
+- Built and tested on macOS Catalina 10.15.6 and Google Chrome version 84.0.4147.105.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
