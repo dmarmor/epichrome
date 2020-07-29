@@ -155,8 +155,7 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
     eval "json=\"\$$jsonVar\""
 
     # whitespace
-    local ws=' 	
-'
+	local ws=$' \t\n'
     local s="[$ws]*"
     
     # loop through each key
@@ -264,6 +263,10 @@ function getepichromeinfo {
     # add all remaining spotlight paths
     instances+=( "${spotlight[@]}" )
     
+	# determine if we are running a beta version
+	local myVersionIsRelease=1
+	visbeta "$SSBVersion" && myVersionIsRelease=
+
     # check instances of Epichrome to find the current and latest
     local curInstance= ; local curVersion=
     for curInstance in "${instances[@]}" ; do
@@ -275,7 +278,11 @@ function getepichromeinfo {
 		curVersion=0.0.0
 	    fi
 	    
-	    if vcmp "$curVersion" '>=' "$SSBVersion" ; then
+		# if we are a release, only look at release versions
+		if [[ "$myVersionIsRelease" ]] && visbeta "$curVersion" ; then
+			debuglog "Ignoring '$curInstance' (beta version $curVersion)."
+
+		elif vcmp "$curVersion" '>=' "$SSBVersion" ; then
 		
 		debuglog "Found Epichrome $curVersion at '$curInstance'."
 		
