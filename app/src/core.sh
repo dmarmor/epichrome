@@ -376,7 +376,9 @@ function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
     done
 
     # output prefix & message
-    errlog_raw "$logType[$$]$(join_array '/' "${trace[@]}"): $@"
+    local logPID="$epiLogPID"
+    [[ "$logPID" ]] || logPID="$$"
+    errlog_raw "$logType[$logPID]$(join_array '/' "${trace[@]}"): $@"
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
@@ -1271,11 +1273,17 @@ function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc trimVar ] )
     local trimVar="$1" ; shift
 
     # get all files in directory
-    local oldFiles=()
-    try '!2' 'oldFiles=(n)' /bin/ls -tUr "$saveDir"/*"$fileExt" \
-	''
-    ok=1 ; errmsg=
-
+    local myShoptState=
+    shoptset myShoptState nullglob
+    local oldFiles=( "$saveDir"/*"$fileExt" )
+    shoptrestore myShoptState
+    
+    # if we got any files, sort them oldest-to-newest
+    if [[ "${#oldFiles[@]}" -gt 0 ]] ; then
+        try '!2' 'oldFiles=(n)' /bin/ls -tUr "$saveDir"/*"$fileExt" ''
+        ok=1 ; errmsg=
+    fi
+    
 	# if more than the max number of files exist, delete the oldest ones
 	if [[ "${#oldFiles[@]}" -gt "$maxFiles" ]] ; then
 

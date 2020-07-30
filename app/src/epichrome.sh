@@ -29,7 +29,7 @@ myRuntimeScriptsPath="$myResourcesPath/Runtime/Contents/Resources/Scripts"
 
 # LOAD UPDATE SCRIPT (THIS ALSO LOADS CORE AND LAUNCH)
 
-source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "$@" || exit 1
+source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID" "$@" || exit 1
 [[ "$ok" ]] || abort
 
 
@@ -44,8 +44,12 @@ if [[ "$epiAction" = 'init' ]] ; then
 
     # initialize log file and report info back to Epichrome
     initlogfile
-    echo "$myDataPath"
-    echo "$myLogFile"
+    
+    # return useful info as JSON
+    echo "{
+    \"dataPath\": \"$(escapejson "$myDataPath")\",
+    \"logFile\": \"$(escapejson "$myLogFile")\"
+}"
 
 
 elif [[ "$epiAction" = 'log' ]] ; then

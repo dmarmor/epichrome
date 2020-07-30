@@ -139,11 +139,8 @@ let gEpiLastDir = {
 let gEpiUpdateCheckDate = new Date(kApp.currentDate() - (1 * kDay));
 let gEpiUpdateCheckVersion = "";
 
-// Epichrome paths
-let gScriptLogVar = "";
-let gDataPath = null;
-let gLogFile = null;
-let gSettingsFile = null;
+// Epichrome core info
+let gCoreInfo = {};
 
 // new app defaults
 let gAppInfoDefault = {
@@ -191,29 +188,27 @@ function main(aApps=[]) {
 
         // APP INIT
 
-        // run core.sh to initialize logging & get key paths
-
-        let coreOutput;
-
-        // run core.sh
-        coreOutput = shell(kEpichromeScript,
+        // run core.sh to initialize logging & get key info
+        gCoreInfo = JSON.parse(shell(
             'coreDoInit=1',
-            'epiAction=init').split("\r");
-
-        // make sure we get 2 lines of output
-        if (coreOutput.length != 2) { throw 'Unexpected output while initializing core.'; }
-
-        // parse output lines
-        gDataPath = coreOutput[0];
-        gLogFile = coreOutput[1];
-        gScriptLogVar = "myLogFile=" + gLogFile;
-        gSettingsFile = gDataPath + "/epichrome.plist";
-
+            'epiAction=init'));
+            
+        // check data integrity
+        if (!gCoreInfo.dataPath || (typeof(gCoreInfo.dataPath) != 'string')) {
+            throw Error('Unable to initialize Epichrome data path.');
+        }
+        if (!gCoreInfo.logFile || (typeof(gCoreInfo.logFile) != 'string')) {
+            throw Error('Unable to initialize Epichrome log file.');
+        }
+        
+        // set path to settings file
+        gCoreInfo.settingsFile = gCoreInfo.dataPath + "/epichrome.plist";
+        
         // check that the data path is writeable
-        coreOutput = kApp.doShellScript("if [[ ! -w " + shellQuote(gDataPath) + " ]] ; then echo FAIL ; fi");
-        if (coreOutput == 'FAIL') { throw 'Application data folder is not writeable.'; }
-
-
+        if (kApp.doShellScript("if [[ ! -w " + shellQuote(gCoreInfo.dataPath) + " ]] ; then echo FAIL ; fi") == 'FAIL') {
+            throw Error('Application data folder is not writeable.');
+        }
+        
         // other init tasks
 
         // init engine list
@@ -345,7 +340,7 @@ function runEdit(aApps) {
         try {
 
             // run core script to initialize
-            curApp.appInfo = JSON.parse(shell(kEpichromeScript,
+            curApp.appInfo = JSON.parse(shell(
                 'epiAction=read',
                 'epiAppPath=' + curAppPath
             ));
@@ -658,7 +653,7 @@ function readProperties() {
 
 	// read in the property list
     try {
-        myProperties =  kSysEvents.propertyListFiles.byName(gSettingsFile).contents.value();
+        myProperties =  kSysEvents.propertyListFiles.byName(gCoreInfo.settingsFile).contents.value();
     } catch(myErr) {
         myProperties = {};
     }
@@ -737,8 +732,7 @@ function checkForUpdate() {
         // run the update check script
         let myUpdateCheckResult;
         try {
-            myUpdateCheckResult = shell(kEpichromeScript,
-                gScriptLogVar,
+            myUpdateCheckResult = shell(
                 'epiAction=updatecheck',
                 'epiUpdateCheckVersion=' + gEpiUpdateCheckVersion,
                 'epiVersion=' + kVersion).split('\r');
@@ -805,7 +799,7 @@ function writeProperties() {
     try {
         // create empty plist file
         myProperties = kSysEvents.PropertyListFile({
-            name: gSettingsFile
+            name: gCoreInfo.settingsFile
         }).make();
 
         myProperties.propertyListItems.push(
@@ -1597,28 +1591,22 @@ function stepURLs(aInfo) {
             // edit prompt
             myDlgMessage = 'Edit ' +  myDlgMessage;
         }
-
-        try {
-            aInfo.appInfo.urls[0] = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.urls.stepSummary, {
-                withTitle: aInfo.stepInfo.dlgTitle,
-                withIcon: aInfo.stepInfo.dlgIcon,
-                defaultAnswer: aInfo.appInfo.urls[0],
-                buttons: ['OK', aInfo.stepInfo.backButton],
-                defaultButton: 1,
-                cancelButton: 2
-            }).textReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                // Back button
-                return -1;
-            } else {
-                throw myErr;
-            }
+        
+        myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.urls.stepSummary, {
+            defaultAnswer: aInfo.appInfo.urls[0],
+            buttons: ['OK']
+        });
+        if (myDlgResult.buttonIndex == 0) {
+            // OK button
+            aInfo.appInfo.urls[0] = myDlgResult.textReturned;
+        } else {
+            // BACK button
+            return -1;
         }
-
+        
         // update summaries
         updateAppInfo(aInfo, 'urls');
-
+        
     } else {
 
         // BROWSER TABS
@@ -1659,76 +1647,109 @@ function stepURLs(aInfo) {
         // set up dialog prompt
 
         let myCurTab = 1
-
+        
+        // set up dialog options
+        let myDlgOptions = {
+            withTitle: aInfo.stepInfo.dlgTitle,
+            withIcon: aInfo.stepInfo.dlgIcon
+        };
+        
+        // default button for the Add/Done dialog
+        // set default button
+        let myDefaultButton = 2;
+        // if ((aInfo.stepInfo.action == kActionEDIT) && !aInfo.stepInfo.urlsAddedOrRemoved) {
+        //     myDefaultButton = 2;
+        // }
+        
         while (true) {
 
             if (myCurTab > aInfo.appInfo.urls.length) {
 
+                // we're past the end of the entered URLs, so show the Add/Done dialog
+                myDlgOptions.defaultAnswer = kAppDefaultURL;
+                myDlgOptions.buttons = ['Add', "Done (Don't Add)"];
+                myDlgOptions.cancelButton = 3;
+                
+                if (myCurTab == 1) {
+                    
+                    // no URLs yet
+
+                    // use Back button
+                    myDlgOptions.buttons.push(aInfo.stepInfo.backButton);
+
+                    // if we're in create mode, or if we're editing and have deleted
+                    // tabs that had been in the app, default to Add
+                    if ((aInfo.stepInfo.action == kActionCREATE) ||
+                        (aInfo.oldAppInfo.urls.length > 0)) {
+                        myDefaultButton = 1;
+                    }
+                } else {
+                    
+                    // URLs selected
+                    
+                    // use Previous button
+                    myDlgOptions.buttons.push('Previous');
+                }
+                
                 // set default button
-                let myDefaultButton = 1;
-                if ((aInfo.stepInfo.action == kActionEDIT) && !aInfo.appInfoStatus.urls.changed) {
-                    // user did not edit tabs, so default to Don't Add
-                    myDefaultButton = 2;
-                }
+                myDlgOptions.defaultButton = myDefaultButton;
+                
+                // show dialog
+                myDlgResult = dialog(
+                    tablist(aInfo.appInfo.urls, myCurTab) + aInfo.appInfoStatus.urls.stepSummary,
+                    myDlgOptions);
+                if (myDlgResult.buttonIndex == 0) {
+                    
+                    // ADD button
 
-                try {
-                    myDlgResult = kApp.displayDialog(tablist(aInfo.appInfo.urls, myCurTab) +
-                            aInfo.appInfoStatus.urls.stepSummary, {
-                        withTitle: aInfo.stepInfo.dlgTitle,
-                        withIcon: aInfo.stepInfo.dlgIcon,
-                        defaultAnswer: kAppDefaultURL,
-                        buttons: ["Add", "Done (Don't Add)", aInfo.stepInfo.backButton],
-                        defaultButton: myDefaultButton,
-                        cancelButton: 3
-                    });
-                } catch(myErr) {
-                    if (myErr.errorNumber == -128) {
-                        // Back button
-                        myDlgResult = "Back";
-                    } else {
-                        throw myErr;
-                    }
-                }
-
-                if (myDlgResult == "Back") {
-                    if (myCurTab == 1) {
-                        myCurTab = 0;
-                        break;
-                    } else {
-                        myCurTab--;
-                    }
-                } else if (myDlgResult.buttonReturned == "Add") {
-
+                    // we've just added a URL, so default to the same for next URL
+                    myDefaultButton = 1;
+                    
                     // add the current text to the end of the list of URLs
                     aInfo.appInfo.urls.push(myDlgResult.textReturned);
                     updateAppInfo(aInfo, 'urls');
                     myCurTab++;
-
-                } else { // "Done (Don't Add)"
-                    // we're done, don't add the current text to the list
-                    break;
+                    
+                } else {
+                    
+                    // anything other than Add, default to Don't Add next time
+                    myDefaultButton = 2;
+                    
+                    if (myDlgResult.buttonIndex == 1) {
+                        
+                        // DONE (DON'T ADD) button
+                        
+                        // we're done, don't add the current text to the list
+                        break;
+                        
+                    } else {
+                        
+                        if (myCurTab == 1) {
+                            // BACK button
+                            myCurTab = 0;
+                            break;
+                        } else {
+                            // PREVIOUS button
+                            myCurTab--;
+                        }
+                    }
                 }
             } else {
+                
+                // we're in the middle of existing URLs, so show the Next/Remove dialog
+                myDlgOptions.defaultAnswer = aInfo.appInfo.urls[myCurTab-1];
+                myDlgOptions.buttons = ['Next', 'Remove'];
+                myDlgOptions.defaultButton = 1;
 
-                let myDlgOptions = {
-                    withTitle: aInfo.stepInfo.dlgTitle,
-                    withIcon: aInfo.stepInfo.dlgIcon,
-                    defaultAnswer: aInfo.appInfo.urls[myCurTab-1],
-                    buttons: ['Next', 'Remove'],
-                    defaultButton: 1
-                };
-
-                let myHasBackButton = false;
+                // if this is the first URL, use Back button, otherwise use Previous
                 if (myCurTab == 1) {
-                    // we have a Back button
-                    myHasBackButton = true;
                     myDlgOptions.buttons.push(aInfo.stepInfo.backButton);
                     myDlgOptions.cancelButton = 3;
-
                 } else {
                     myDlgOptions.buttons.push('Previous');
+                    delete myDlgOptions.cancelButton;
                 }
-
+                
                 // show dialog
                 myDlgResult = dialog(
                     tablist(aInfo.appInfo.urls, myCurTab) + aInfo.appInfoStatus.urls.stepSummary,
@@ -1736,13 +1757,18 @@ function stepURLs(aInfo) {
 
                 if (myDlgResult.buttonIndex == 0) {
 
-                    // Next button
+                    // NEXT button
+                    
                     aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
                     myCurTab++;
 
                 } else if (myDlgResult.buttonIndex == 1) {
 
-                    // Remove button
+                    // REMOVE button
+                    
+                    // mark that we've removed a URL
+                    aInfo.stepInfo.urlsAddedOrRemoved = true;
+                                        
                     if (myCurTab == 1) {
                         aInfo.appInfo.urls.shift();
                     } else if (myCurTab == aInfo.appInfo.urls.length) {
@@ -1753,18 +1779,17 @@ function stepURLs(aInfo) {
                     }
                 } else {
 
-                    if (myHasBackButton) {
-                        // Back button
+                    if (myCurTab == 1) {
+                        // BACK button
                         myCurTab = 0;
                         break;
                     } else {
-
-                        // Previous button
+                        // PREVIOUS button
                         aInfo.appInfo.urls[myCurTab - 1] = myDlgResult.textReturned;
                         myCurTab--;
                     }
                 }
-
+                
                 // update step summary
                 updateAppInfo(aInfo, 'urls');
             }
@@ -2126,8 +2151,6 @@ function stepBuild(aInfo) {
     // BUILD/UPDATE SCRIPT ARGUMENTS
 
     let myScriptArgs = [
-        kEpichromeScript,
-        gScriptLogVar,
         'epiAction=' + myScriptAction,
         'CFBundleDisplayName=' + aInfo.appInfo.displayName,
         'CFBundleName=' + aInfo.appInfo.shortName,
@@ -2874,7 +2897,7 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
                 }
             } else {
                 // return path info
-                myResult = getPathInfo(myResult);
+                myResult = getPathInfo(myResult.toString());
                 myFileDir = myResult;
             }
 
@@ -3040,8 +3063,7 @@ function indent(aStr, aIndent) {
 
 // ERRLOG -- log an error message
 function errlog(aMsg, aType='ERROR') {
-    shell(kEpichromeScript,
-        gScriptLogVar,
+    shell(
         'epiAction=log',
         'epiLogType=' + aType,
         'epiLogMsg=' + aMsg);
@@ -3056,21 +3078,29 @@ function debuglog(aMsg) {
 
 // HASLOGFILE: check if a log file for this run exists
 function hasLogFile() {
-    return kFinder.exists(Path(gLogFile));
+    return kFinder.exists(Path(gCoreInfo.logFile));
 }
 
 
 // SHOWLOGFILE: reveal log file in the Finder
 function showLogFile() {
-    kFinder.select(Path(gLogFile));
+    kFinder.select(Path(gCoreInfo.logFile));
     kFinder.activate();
 }
 
 
 // --- SHELL INTERACTION FUNCTIONS ---
 
-// SHELL: execute a shell script given a list of arguments
+// SHELL: execute epichrome.sh with a list of arguments
 function shell(...aArgs) {
+    
+    // if logging has been initialized, include logging variable
+    if (gCoreInfo.logFile) { aArgs.unshift('myLogFile=' + gCoreInfo.logFile); }
+    
+    // start with the path to epichrome.sh
+    aArgs.unshift(kEpichromeScript);
+    
+    // run the script
     return kApp.doShellScript(shellQuote.apply(null, aArgs));
 }
 

@@ -451,7 +451,7 @@ main:
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPISHORTNAME/$(EPICHROME_DISPNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'

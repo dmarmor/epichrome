@@ -17,6 +17,8 @@ This can happen if the app engine was not properly deactivated the last time the
 
 Once you have a successful launch of the app, quit it. The next time you launch it from the dock, it should launch properly again.
 
+*First mentioned in [issue #202](https://github.com/dmarmor/epichrome/issues/202 "issue #202").*
+
 
 ## Login data not saving
 

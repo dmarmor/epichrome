@@ -34,7 +34,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>EPIDISPNAME</string>
 	<key>CFBundleName</key>
-	<string>Epichrome</string>
+	<string>EPISHORTNAME</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.epichrome.Epichrome</string>
 	<key>CFBundlePackageType</key>
