@@ -39,191 +39,191 @@ source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID"
 [[ "$epiAction" ]] || abort "No action found."
 
 if [[ "$epiAction" = 'init' ]] ; then
-
+    
     # ACTION: INITIALIZE
-
+    
     # initialize log file and report info back to Epichrome
     initlogfile
     
     # return useful info as JSON
     echo "{
-    \"dataPath\": \"$(escapejson "$myDataPath")\",
-    \"logFile\": \"$(escapejson "$myLogFile")\"
-}"
-
+        \"dataPath\": \"$(escapejson "$myDataPath")\",
+        \"logFile\": \"$(escapejson "$myLogFile")\"
+    }"
+    
 
 elif [[ "$epiAction" = 'log' ]] ; then
-
+    
     # ACTION: LOG
-
+    
     if [[ "$epiLogMsg" ]] ; then
-	if [[ "$epiLogType" = 'debug' ]] ; then
-	    debuglog "$epiLogMsg"
-	elif [[ "$epiLogType" ]] ; then
-	    errlog "$epiLogType" "$epiLogMsg"
-	else
-	    errlog "$epiLogMsg"
-	fi
+        if [[ "$epiLogType" = 'debug' ]] ; then
+            debuglog "$epiLogMsg"
+        elif [[ "$epiLogType" ]] ; then
+            errlog "$epiLogType" "$epiLogMsg"
+        else
+            errlog "$epiLogMsg"
+        fi
     fi
-
-
+    
+    
 elif [[ "$epiAction" = 'updatecheck' ]] ; then
-
+    
     # ACTION: CHECK FOR UPDATES ON GITHUB
-
+    
     # load launch.sh
     if ! source "$myRuntimeScriptsPath/launch.sh" ; then
-	ok=
-	errmsg="Unable to load launch.sh."
-	errlog "$errmsg"
-	abort
+        ok=
+        errmsg="Unable to load launch.sh."
+        errlog "$errmsg"
+        abort
     fi
-
+    
     # compare supplied versions
     if vcmp "$epiUpdateCheckVersion" '<' "$epiVersion" ; then
-	echo 'MYVERSION'
-	epiUpdateCheckVersion="$epiVersion"
+        echo 'MYVERSION'
+        epiUpdateCheckVersion="$epiVersion"
     fi
-
+    
     # compare latest supplied version against github
     local newVersion=
     checkgithubversion "$epiUpdateCheckVersion" newVersion
     [[ "$ok" ]] || abort
-
+    
     # if we got here, check succeeded, so submit result back to main.js
     echo 'OK'
     [[ "$newVersion" ]] && echo "$newVersion"
-
+    
 
 elif [[ "$epiAction" = 'read' ]] ; then
-
+    
     # ACTION: READ EXISTING APP
-
+    
     # main app settings locations
     myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
     myConfigPath="$epiAppPath/Contents/Resources/script"
-
+    
     if [[ -e "$myOldConfigPath" ]] ; then
-	abort "Editing of pre-2.3 apps not yet implemented"
+        abort "Editing of pre-2.3 apps not yet implemented"
     elif [[ ! -e "$myConfigPath" ]] ; then
-	abort "This does not appear to be an Epichrome app"
+        abort "This does not appear to be an Epichrome app"
     else
-
-	# read in app config
-	myConfigScript=
-	try 'myConfigScript=' /bin/cat "$myConfigPath" "Unable to read app data"
-	[[ "$ok" ]] || abort
-
-	# pull config from current flavor of app
-	myConfigPart="${myConfigScript#*# CORE APP INFO}"
-	myConfig="${myConfigPart%%# CORE APP VARIABLES*}"
-
-	# if either delimiter string wasn't found, that's an error
-	if [[ ( "$myConfigPart" = "$myConfigScript" ) || \
-		  ( "$myConfig" = "$myConfigPart" ) ]] ; then
-	    abort "Unexpected app configuration"
-	fi
-
-	# remove any trailing export statement
-	# myConfig="${myConfig%%$'\n'export*}"
-
-	# read in config variables
-	try eval "$myConfig" "Unable to parse app configuration"
-	[[ "$ok" ]] || abort
+        
+        # read in app config
+        myConfigScript=
+        try 'myConfigScript=' /bin/cat "$myConfigPath" "Unable to read app data"
+        [[ "$ok" ]] || abort
+        
+        # pull config from current flavor of app
+        myConfigPart="${myConfigScript#*# CORE APP INFO}"
+        myConfig="${myConfigPart%%# CORE APP VARIABLES*}"
+        
+        # if either delimiter string wasn't found, that's an error
+        if [[ ( "$myConfigPart" = "$myConfigScript" ) || \
+                ( "$myConfig" = "$myConfigPart" ) ]] ; then
+            abort "Unexpected app configuration"
+        fi
+        
+        # remove any trailing export statement
+        # myConfig="${myConfig%%$'\n'export*}"
+        
+        # read in config variables
+        try eval "$myConfig" "Unable to parse app configuration"
+        [[ "$ok" ]] || abort
     fi
 
 
     # SANITY-CHECK CORE APP INFO
-
+    
     # $$$ FOR OLD VERSIONS TRY TO PULL OUT ID??
     # if [[ ! "$SSBIdentifier" ]] ; then
-
+    
     # 	# no ID found
-
+    
     # 	# see if we can pull it from CFBundleIdentifier
     # 	SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
     # fi
-
+    
     # basic info
     ynRe='^(Yes|No)$'
     if [[ ! ( "$SSBVersion" && "$SSBIdentifier" && \
-		  "$CFBundleDisplayName" && "$CFBundleName" && \
-		  ( "$SSBCustomIcon" =~ $ynRe ) && \
-		  ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) ) ]] ; then
-	abort "Basic app info is missing or corrupt"
+            "$CFBundleDisplayName" && "$CFBundleName" && \
+            ( "$SSBCustomIcon" =~ $ynRe ) && \
+            ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) ) ]] ; then
+        abort "Basic app info is missing or corrupt"
     fi
-
+    
     # make sure version isn't newer than ours
     vcmp "$SSBVersion" '>' "$coreVersion" && \
         abort "App version ($SSBVersion) is newer than Epichrome version."
-
+    
     # engine type
     engRe='^(in|ex)ternal\|'
     if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
-
-	# $$$$ HANDLE MISSING ENGINE & OLD ENGINE TYPES HERE
-	abort "App engine type is missing or unreadable"
+        
+        # $$$$ HANDLE MISSING ENGINE & OLD ENGINE TYPES HERE
+        abort "App engine type is missing or unreadable"
     fi
-
+    
     # command line
     if ! isarray SSBCommandLine ; then
-	abort "App URLs are missing or unreadable"
+        abort "App URLs are missing or unreadable"
     fi
-
+    
     # fill in register browser if missing
     if [[ ! "$SSBRegisterBrowser" ]] ; then
-	try '!12' /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$epiAppPath/Contents/Info.plist" ''
-	if [[ "$ok" ]] ; then
-	    SSBRegisterBrowser=Yes
-	else
-	    ok=1 ; errmsg=
-	    SSBRegisterBrowser=No
-	fi
+        try '!12' /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$epiAppPath/Contents/Info.plist" ''
+        if [[ "$ok" ]] ; then
+            SSBRegisterBrowser=Yes
+        else
+            ok=1 ; errmsg=
+            SSBRegisterBrowser=No
+        fi
     fi
-
-
+    
+    
     # GET PATH TO ICON
     myAppIcon=
     try 'myAppIcon=' /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' \
-	"$epiAppPath/Contents/Info.plist" \
-	"Unable to find icon file in Info.plist"
+            "$epiAppPath/Contents/Info.plist" \
+            "Unable to find icon file in Info.plist"
     if [[ "$ok" ]] ; then
-	myAppIcon="Contents/Resources/$myAppIcon"
-	if [[ -e "$epiAppPath/$myAppIcon" ]] ; then
-	    myAppIcon="
-    \"iconPath\": \"$(escapejson "$myAppIcon")\","
-	else
-	    myAppIcon=
-	fi
+        myAppIcon="Contents/Resources/$myAppIcon"
+        if [[ -e "$epiAppPath/$myAppIcon" ]] ; then
+            myAppIcon="
+            \"iconPath\": \"$(escapejson "$myAppIcon")\","
+        else
+            myAppIcon=
+        fi
     else
-	# fail silently, and we just won't use a custom icon in dialogs
-	ok=1 ; errmsg=
-	myAppIcon=
+        # fail silently, and we just won't use a custom icon in dialogs
+        ok=1 ; errmsg=
+        myAppIcon=
     fi
-
-
+    
+    
     # EXPORT INFO BACK TO MAIN.JS
-
+    
     # escape each command-line URL for JSON
     cmdLineJson=()
     for url in "${SSBCommandLine[@]}" ; do
-	cmdLineJson+=( "\"$(escapejson "$url")\"" )
+        cmdLineJson+=( "\"$(escapejson "$url")\"" )
     done
-
+    
     # adapt registerBrowser value
     if [[ "$SSBRegisterBrowser" = 'No' ]] ; then
-	myRegisterBrowser='false'
+        myRegisterBrowser='false'
     else
-	myRegisterBrowser='true'
+        myRegisterBrowser='true'
     fi
-
+    
     # adapt icon value
     if [[ "$SSBCustomIcon" = 'Yes' ]] ; then
-	myIcon='true'
+        myIcon='true'
     else
-	myIcon='false'
+        myIcon='false'
     fi
-
+    
     # export JSON
     echo "{$myAppIcon
     \"version\": \"$(escapejson "$SSBVersion")\",
@@ -234,140 +234,140 @@ elif [[ "$epiAction" = 'read' ]] ; then
     \"icon\": $myIcon,
     \"engine\": {
         \"type\": \"$(escapejson "${SSBEngineType%%|*}")\",
-	\"id\": \"$(escapejson "${SSBEngineType#*|}")\"
+        \"id\": \"$(escapejson "${SSBEngineType#*|}")\"
     },
     \"commandLine\": [
-        $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
+    $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
     ]
 }"
 
 elif [[ "$epiAction" = 'build' ]] ; then
-
+    
     # ACTION: BUILD NEW APP
-
+    
     # load update.sh
     if ! source "$myResourcesPath/Scripts/update.sh" ; then
-	ok=
-	errmsg="Unable to load update.sh."
-	errlog "$errmsg"
-	abort
+        ok=
+        errmsg="Unable to load update.sh."
+        errlog "$errmsg"
+        abort
     fi
-
-
+    
+    
     # CLEANUP -- clean up any half-made app
     function cleanup {
-
-	# clean up any temp app bundle we've been working on
-	if [[ -d "$appTmp" ]] ; then
-
-	    # try to remove temp app bundle
-	    if [[ "$(type -t rmtemp)" = function ]] ; then
-		rmtemp "$appTmp" 'temporary app bundle'
-	    else
-		if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
-		    echo "$myLogID: Unable to remove temporary app bundle." >> "$myLogFile"
-		    echo 'Unable to remove temporary app bundle.' 1>&2
-		fi
-	    fi
-	fi
+        
+        # clean up any temp app bundle we've been working on
+        if [[ -d "$appTmp" ]] ; then
+            
+            # try to remove temp app bundle
+            if [[ "$(type -t rmtemp)" = function ]] ; then
+                rmtemp "$appTmp" 'temporary app bundle'
+            else
+                if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
+                    echo "$myLogID: Unable to remove temporary app bundle." >> "$myLogFile"
+                    echo 'Unable to remove temporary app bundle.' 1>&2
+                fi
+            fi
+        fi
     }
-
-
+    
+    
     # CREATE THE APP BUNDLE IN A TEMPORARY LOCATION
-
+    
     debuglog "Starting build for '$epiAppPath'."
-
+    
     # create the app directory in a temporary location
     appTmp="$(tempname "$epiAppPath")"
     try 'cmdtext&=' /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
     [[ "$ok" ]] || abort
-
+    
     # set ownership of app bundle to this user (only necessary if running as admin) $$$ LEFTOVER?
     # try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
     # [[ "$ok" ]] || abort
-
-
+    
+    
     # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
-
+    
     # populate the app bundle
     updateapp "$appTmp"
     [[ "$ok" ]] || abort
-
+    
     # move new app to permanent location (overwriting any old app)
     permanent "$appTmp" "$epiAppPath" "app bundle"
     [[ "$ok" ]] || abort
-
-
+    
+    
 elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
-
+    
     # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
-
+    
     # load update.sh
     if ! source "$myResourcesPath/Scripts/update.sh" ; then
-	ok=
-	errmsg="Unable to load update.sh."
-	errlog "$errmsg"
-	abort
+        ok=
+        errmsg="Unable to load update.sh."
+        errlog "$errmsg"
+        abort
     fi
-
-
+    
+    
     # CLEANUP -- clean up any half-finished edit
     function cleanup {
-
-	# clean up from any aborted update
-	[[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
+        
+        # clean up from any aborted update
+        [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
     }
-
-
+    
+    
     # populate the app bundle
     updateapp "$epiAppPath"
     [[ "$ok" ]] || abort
-
-
+    
+    
     # capture post-update action warnings
     warnings=()
-
+    
     # MOVE DATA FOLDER IF ID CHANGED
-
+    
     if [[ "$epiOldIdentifier" && \
-	      ( "$epiOldIdentifier" != "$SSBIdentifier" ) && \
-	      (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
-
-	# common warning prefix
-	warnPrefix="WARN:Unable to migrate data directory to new ID $SSBIdentifier"
-
-	if [[ -e "$appDataPathBase/$SSBIdentifier" ]] ; then
-	    warnings+=( "$warnPrefix. A directory already exists for that ID. The app will use that directory." )
-	else
-	    permanent "$appDataPathBase/$epiOldIdentifier" \
-		      "$appDataPathBase/$SSBIdentifier" "app bundle"
-	    [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg The app will create a new data directory on first run." )
-	fi
+            ( "$epiOldIdentifier" != "$SSBIdentifier" ) && \
+            (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
+        
+        # common warning prefix
+        warnPrefix="WARN:Unable to migrate data directory to new ID $SSBIdentifier"
+        
+        if [[ -e "$appDataPathBase/$SSBIdentifier" ]] ; then
+            warnings+=( "$warnPrefix. A directory already exists for that ID. The app will use that directory." )
+        else
+            permanent "$appDataPathBase/$epiOldIdentifier" \
+                    "$appDataPathBase/$SSBIdentifier" "app bundle"
+            [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg The app will create a new data directory on first run." )
+        fi
     fi
-
-
+    
+    
     # MOVE TO NEW NAME IF DISPLAYNAME CHANGED
-
+    
     if [[ "$epiNewAppPath" && \
-	      ( "$epiNewAppPath" != "$epiAppPath" ) ]] ; then
-
-	# common warning prefix & postfix
-	warnPrefix="WARN:Unable to rename app"
-	warnPostfix="The app is intact under the old name of ${epiAppPath##*/}."
-
-	if [[ -e "$epiNewPath" ]] ; then
-	    warnings+=( "$warnPrefix. ${epiNewPath##*/} already exists. $warnPostfix" )
-	else
-	    permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
-	    [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg $warnPostfix" )
-	fi
+            ( "$epiNewAppPath" != "$epiAppPath" ) ]] ; then
+        
+        # common warning prefix & postfix
+        warnPrefix="WARN:Unable to rename app"
+        warnPostfix="The app is intact under the old name of ${epiAppPath##*/}."
+        
+        if [[ -e "$epiNewPath" ]] ; then
+            warnings+=( "$warnPrefix. ${epiNewPath##*/} already exists. $warnPostfix" )
+        else
+            permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
+            [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg $warnPostfix" )
+        fi
     fi
-
-
+    
+    
     # IF ANY WARNINGS FOUND, REPORT THEM
-
+    
     [[ "${warnings[*]}" ]] && abort "$(join_array $'\n' "${warnings[@]}")"
-
+    
 else
     abort "Unable to perform action '$epiAction'."
 fi
