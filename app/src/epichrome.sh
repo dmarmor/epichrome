@@ -130,7 +130,10 @@ elif [[ "$epiAction" = 'read' ]] ; then
         
         # update engine type for beta versions 2.3.0b1-2.3.0b6
         if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-            SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
+            ok= ; errmsg='Updating of Chromium-engine apps not yet implemented.'
+            errlog "$errmsg"
+            abort
+            #SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
             # $$$ appBrowserInfo_com_brave_Browser ??
         elif [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
             SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"

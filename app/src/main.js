@@ -473,7 +473,7 @@ function runEdit(aApps) {
             myDlgTitle = 'Error';
             myDlgIcon = 'stop';
             if (myErrApps.length == 1) {
-                myDlgMessage = 'Error reading ' + myErrApps[0].appInfo.file.name + ': ' + myErrApps[0].error + '.';
+                myDlgMessage = 'Error reading ' + myErrApps[0].appInfo.file.name + ': ' + myErrApps[0].error;
             }
         }
 
