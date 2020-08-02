@@ -38,8 +38,8 @@ SSBCommandLine=APPCOMMANDLINE
 SSBEdited=APPEDITED
 
 export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
-       SSBCustomIcon SSBRegisterBrowser SSBEngineType SSBEngineSourceInfo \
-       SSBCommandLine SSBEdited
+        SSBCustomIcon SSBRegisterBrowser SSBEngineType SSBEngineSourceInfo \
+        SSBCommandLine SSBEdited
 
 
 # CORE APP VARIABLES
@@ -57,23 +57,23 @@ while [[ "$#" -gt 0 ]] ; do
         --epichrome-debug)
             debug=1
             ;;
-
-	--epichrome-new-log)
-	    myLogFile=
-	    myLogTempVar=
-	    myRunTimestamp=
-	    ;;
-	
-	[hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
-	    # this should be sent to the open command
-	    argsURIs+=( "$1" )
-	    ;;
-
-	*)
-	    # pass any other options along to the engine
-	    argsOptions+=( "$1" )
+        
+        --epichrome-new-log)
+            myLogFile=
+            myLogTempVar=
+            myRunTimestamp=
+            ;;
+        
+        [hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
+            # this should be sent to the open command
+            argsURIs+=( "$1" )
+            ;;
+        
+        *)
+            # pass any other options along to the engine
+            argsOptions+=( "$1" )
     esac
-
+    
     # get next arg
     shift
 done
@@ -102,7 +102,7 @@ function cleanup {
     
     # release any lock
     [[ "$lockOn" ]] && lockrelease
-
+    
     # clean up from any aborted update
     [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup	
 }
@@ -124,61 +124,61 @@ lockEnginePath=
 
 # LOCKSET -- set a lock file, or fail if it's already set
 function lockset {
-
+    
     # only run if we're OK
     [[ "$ok" ]] || return 1
-
+    
     # error: lock variable is already set
     if [[ "$lockOn" ]] ; then
-	errmsg='Lock variable is already set.'
-	ok=
-	return 1
+        errmsg='Lock variable is already set.'
+        ok=
+        return 1
     fi
-
+    
     # check if there's already a lock file in place
     if [[ -f "$myLockFile" ]] ; then
-
-	# read the existing lock file
-	safesource "$myLockFile" 'lock'
-	[[ "$ok" ]] || return 1
-
-	if [[ "$lockPID" = "$$" ]] ; then
-
-	    # error: this is already our lock
-	    errmsg='Lock is already set.'
-	    ok=
-	    return 1
-
-	else
-
-	    local curCmd=
-
-	    # if lock's app (or helper) is still alive, we fail
-	    if kill -0 "$lockPID" 2> /dev/null ; then
-
-		# see if the command for the lock PID matches the lock command
-		getlockcmd "$lockPID" curCmd
-		if [[ "$curCmd" = "$lockCmd" ]] ; then
-		    debuglog "Can't set lock: this app (or its helper) is alive at $lockPID."
-		    return 1
-		fi
-	    fi
-
-	    # if the lock's engine is still alive, we fail
-	    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-
-		# see if the command for the lock engine PID matches the lock engine command
-		getlockcmd "$lockEnginePID" curCmd
-		if [[ "$curCmd" = "$lockEngineCmd" ]] ; then
-		    debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
-		    return 1
-		fi
-	    fi
-	fi
+        
+        # read the existing lock file
+        safesource "$myLockFile" 'lock'
+        [[ "$ok" ]] || return 1
+        
+        if [[ "$lockPID" = "$$" ]] ; then
+            
+            # error: this is already our lock
+            errmsg='Lock is already set.'
+            ok=
+            return 1
+            
+        else
+            
+            local curCmd=
+            
+            # if lock's app (or helper) is still alive, we fail
+            if kill -0 "$lockPID" 2> /dev/null ; then
+                
+                # see if the command for the lock PID matches the lock command
+                getlockcmd "$lockPID" curCmd
+                if [[ "$curCmd" = "$lockCmd" ]] ; then
+                    debuglog "Can't set lock: this app (or its helper) is alive at $lockPID."
+                    return 1
+                fi
+            fi
+            
+            # if the lock's engine is still alive, we fail
+            if kill -0 "$lockEnginePID" 2> /dev/null ; then
+                
+                # see if the command for the lock engine PID matches the lock engine command
+                getlockcmd "$lockEnginePID" curCmd
+                if [[ "$curCmd" = "$lockEngineCmd" ]] ; then
+                    debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
+                    return 1
+                fi
+            fi
+        fi
     fi
-
+    
     # if we got here, there's either no lock, or we can stomp on an old one
-
+    
     # initialize log file
     initlogfile
     
@@ -187,9 +187,9 @@ function lockset {
     lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
     getlockcmd "$lockPID" lockCmd
     writevars "$myLockFile" lockPID lockLogFile lockCmd \
-	      lockEnginePID lockEngineCmd lockEnginePath
+            lockEnginePID lockEngineCmd lockEnginePath
     [[ "$ok" ]] || return 1
-
+    
     # return success
     debuglog "Lock set."
     lockOn=1
@@ -199,44 +199,44 @@ function lockset {
 
 # LOCKRELEASE -- release a lock file
 function lockrelease {
-
+    
     if [[ "$lockOn" ]] ; then
-
-	# release lock variable
-	lockOn=
-
-	if [[ -f "$myLockFile" ]] ; then
-
-	    # command to delete lock file
-	    local myCommand=( /bin/rm -f "$myLockFile" )
-
-	    debuglog "Deleting lock."
-
-	    if [[ "$ok" ]] ; then
-
-		# error is non-fatal
-		try "${myCommand[@]}" 'Unable to delete old lock file.'
-		if [[ ! "$ok" ]] ; then
-		    ok=1 ; errmsg=
-		fi
-
-	    else
-		tryalways "${myCommand[@]}" 'Unable to delete old lock file.'
-	    fi
-
-	    return 0
-	else
-
-	    # no lock file found
-	    debuglog "Lock file not found."
-	    return 1
-	fi
-
+        
+        # release lock variable
+        lockOn=
+        
+        if [[ -f "$myLockFile" ]] ; then
+            
+            # command to delete lock file
+            local myCommand=( /bin/rm -f "$myLockFile" )
+            
+            debuglog "Deleting lock."
+            
+            if [[ "$ok" ]] ; then
+                
+                # error is non-fatal
+                try "${myCommand[@]}" 'Unable to delete old lock file.'
+                if [[ ! "$ok" ]] ; then
+                    ok=1 ; errmsg=
+                fi
+                
+            else
+                tryalways "${myCommand[@]}" 'Unable to delete old lock file.'
+            fi
+            
+            return 0
+        else
+            
+            # no lock file found
+            debuglog "Lock file not found."
+            return 1
+        fi
+        
     else
-
-	# no lock set
-	debuglog "No lock set."
-	return 1
+        
+        # no lock set
+        debuglog "No lock set."
+        return 1
     fi
 }
 export -f lockrelease
@@ -244,21 +244,21 @@ export -f lockrelease
 
 # GETLOCKCMD -- get the ps listing for a PID
 function getlockcmd {  # ( pid var )
-
+    
     # arguments
     local pid="$1" ; shift
     local var="$1" ; shift
-
+    
     # try to get pid
     local psOutput=()
     try 'psOutput=(n)' /bin/ps -o command -p "$pid" \
-	"Unable to get process info for PID $pid."
-
+            "Unable to get process info for PID $pid."
+    
     if [[ "$ok" ]] ; then
-	eval "${var}=\"\${psOutput[1]}\""
+        eval "${var}=\"\${psOutput[1]}\""
     else
-	eval "${var}="
-	ok=1 ; errmsg=
+        eval "${var}="
+        ok=1 ; errmsg=
     fi
 }
 export -f getlockcmd
@@ -273,25 +273,25 @@ doAbortWriteconfig=
 # OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
 
 if ! lockset ; then
-
+    
     # lock already in use -- see if it's a live engine
     if kill -0 "$lockEnginePID" 2> /dev/null ; then
-
-	# direct logging to running app's log file
-	initlogfile "$lockLogFile"
-	
-	# engine is already running, so just send any files or URLs to it &
-	# don't run the usual command-line
-	debuglog "Activating already-running engine at '$lockEnginePath'"
-	try /usr/bin/open -a "$lockEnginePath" "${argsURIs[@]}" \
-	    'Unable to connect to running app engine.'
-
-	# we're done, so exit one way or the other
-	[[ "$ok" ]] && cleanexit || abort
+        
+        # direct logging to running app's log file
+        initlogfile "$lockLogFile"
+        
+        # engine is already running, so just send any files or URLs to it &
+        # don't run the usual command-line
+        debuglog "Activating already-running engine at '$lockEnginePath'"
+        try /usr/bin/open -a "$lockEnginePath" "${argsURIs[@]}" \
+                'Unable to connect to running app engine.'
+        
+        # we're done, so exit one way or the other
+        [[ "$ok" ]] && cleanexit || abort
     else
-	
-	# locked but not with a running engine, so log error & quit
-	abortsilent 'Unable to set lock.'
+        
+        # locked but not with a running engine, so log error & quit
+        abortsilent 'Unable to set lock.'
     fi
 fi
 
@@ -316,15 +316,15 @@ if [[ -f "$myConfigFile" ]] ; then
     # if we're running an internal engine, don't let config.sh override SSBEngineSourceInfo
     tempEngInfo=
     [[ "${SSBEngineSourceInfo[*]}" ]] && tempEngInfo=( "${SSBEngineSourceInfo[@]}" )
-
+    
     # read config file
     readconfig "$myConfigFile"
     [[ "$ok" ]] || abort
-
+    
     # restore SSBEngineSourceInfo if needed
     if [[ "${tempEngInfo[*]}" ]] ; then
-	debuglog 'Overriding SSBEngineSourceInfo from config.sh with built-in value.'
-	SSBEngineSourceInfo=( "${tempEngInfo[@]}" )
+        debuglog 'Overriding SSBEngineSourceInfo from config.sh with built-in value.'
+        SSBEngineSourceInfo=( "${tempEngInfo[@]}" )
     fi
     
 else
@@ -348,23 +348,23 @@ myStatusWelcomeTitle=  # title for URL bookmark
 # DETERMINE IF THIS IS A NEW APP OR FIRST RUN ON A NEW VERSION
 
 if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
-
+    
     if [[ "$SSBLastRunVersion" ]] ; then
-
-	# updated app
-	myStatusNewVersion="$SSBLastRunVersion"
-
+        
+        # updated app
+        myStatusNewVersion="$SSBLastRunVersion"
+        
     else
-
-	# new app
-	myStatusNewApp=1
-
+        
+        # new app
+        myStatusNewApp=1
+        
     fi
-
+    
     # update last run variables
     SSBLastRunVersion="$SSBVersion"
     SSBUpdateVersion="$SSBVersion"
-
+    
     # clear error states
     SSBNMHInstallError=
     SSBUpdateCheckError=
@@ -374,8 +374,8 @@ fi
 # DETERMINE IF THIS IS FIRST RUN OF AN EDITED APP
 
 if [[ "$SSBEdited" && \
-	  ( ( ! "$SSBLastRunEdited" ) || \
-		( "$SSBEdited" -gt "$SSBLastRunEdited" ) ) ]] ; then
+        ( ( ! "$SSBLastRunEdited" ) || \
+        ( "$SSBEdited" -gt "$SSBLastRunEdited" ) ) ]] ; then
     myStatusEdited=1
 fi
 
@@ -386,16 +386,16 @@ SSBLastRunEdited="$SSBEdited"
 # DETERMINE IF WE'VE JUST CHANGED ENGINES
 
 if [[ ( ! "$myStatusNewApp" ) && \
-	  ( "$SSBLastRunEngineType" && \
-		( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ) ]] ; then
+        ( "$SSBLastRunEngineType" && \
+        ( "${SSBEngineType#*|}" != "${SSBLastRunEngineType#*|}" ) ) ]] ; then
     
     # mark engine change
     getbrowserinfo myStatusEngineChange "${SSBLastRunEngineType#*|}"
     myStatusEngineChange[0]="$SSBLastRunEngineType"
-
+    
     # clear extension install error state
     SSBNMHInstallError=
-
+    
 fi
 
 # update last-run engine
@@ -454,10 +454,10 @@ if [[ "$SSBEnginePath" != "$myEnginePath" ]] ; then
     
     # engine path is out of date, so we'll recreate it
     debuglog "Engine path '$SSBEnginePath' is out of date. Removing."
-
+    
     # delete old engine
     [[ -d "$SSBEnginePath" ]] && deleteengine
-
+    
     # set status variable
     myStatusEngineMoved="$SSBEnginePath"
     
@@ -486,21 +486,21 @@ fi
 
 # rename engine app bundle
 if [[ "$configSSBEngineAppName" && \
-	  ( "$SSBEngineAppName" != "$configSSBEngineAppName" ) ]] ; then
+        ( "$SSBEngineAppName" != "$configSSBEngineAppName" ) ]] ; then
     if [[ -d "$SSBEnginePath/$configSSBEngineAppName" ]] ; then
-	try /bin/rm -rf "$SSBEnginePath/$SSBEngineAppName" \
-	    'Unable to clear old engine app name.'
-	try /bin/mv "$SSBEnginePath/$configSSBEngineAppName" "$SSBEnginePath/$SSBEngineAppName" \
-	    'Unable to rename engine to match app name.'
-
-	# an error here is non-fatal
-	if [[ ! "$ok" ]] ; then
-	    errlog "$errmsg"
-	    ok=1 ; errmsg=
-
-	    # set engine app name back to original
-	    SSBEngineAppName="$configSSBEngineAppName"
-	fi
+        try /bin/rm -rf "$SSBEnginePath/$SSBEngineAppName" \
+                'Unable to clear old engine app name.'
+        try /bin/mv "$SSBEnginePath/$configSSBEngineAppName" "$SSBEnginePath/$SSBEngineAppName" \
+                'Unable to rename engine to match app name.'
+        
+        # an error here is non-fatal
+        if [[ ! "$ok" ]] ; then
+            errlog "$errmsg"
+            ok=1 ; errmsg=
+            
+            # set engine app name back to original
+            SSBEngineAppName="$configSSBEngineAppName"
+        fi
     fi
 fi
 
@@ -522,46 +522,46 @@ if [[ "$noCurrentEpichrome" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" ||
     checkappupdate "$noCurrentEpichrome"
     
     if [[ "$?" != 0 ]] ; then
-
-	# abort on fatal error
-	[[ "$ok" ]] || abort
-
-	# display warning on non-fatal error
-	alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
-	ok=1
-	errmsg=
+        
+        # abort on fatal error
+        [[ "$ok" ]] || abort
+        
+        # display warning on non-fatal error
+        alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+        ok=1
+        errmsg=
     fi
-
+    
     # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
-
+    
     checkgithubupdate
-
+    
     # handle error
     if [[ ! "$ok" ]] ; then
-	if [[ "$SSBUpdateCheckError" = "$errmsg" ]] ; then
-
-	    # this is the second time we've had the same error, so show an alert
-	    alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" \
-		  'Checking For Update' '|caution'
-	    
-	    # don't show an alert for this error again
-	    SSBUpdateCheckError="IGNORE|$errmsg"
-	    
-	elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
-	      "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
-	    
-	    # new error, so if it comes up a second time, show an alert
-	    SSBUpdateCheckError="$errmsg"
-	fi
-	
-	# clear error state
-	ok=1 ; errmsg=
+        if [[ "$SSBUpdateCheckError" = "$errmsg" ]] ; then
+            
+            # this is the second time we've had the same error, so show an alert
+            alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" \
+                    'Checking For Update' '|caution'
+            
+            # don't show an alert for this error again
+            SSBUpdateCheckError="IGNORE|$errmsg"
+            
+        elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
+                "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
+            
+            # new error, so if it comes up a second time, show an alert
+            SSBUpdateCheckError="$errmsg"
+        fi
+        
+        # clear error state
+        ok=1 ; errmsg=
     fi
 
 
     if [[ ! "$ok" ]] ; then
-	alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg (This error will only be reported once. All errors can be found in the app log.)" 'Checking For Update' '|caution'
-	ok=1 ; errmsg=
+        alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg (This error will only be reported once. All errors can be found in the app log.)" 'Checking For Update' '|caution'
+        ok=1 ; errmsg=
     fi
 fi
 
@@ -569,10 +569,10 @@ fi
 # IF USING EXTERNAL ENGINE, GET INFO
 
 if [[ "${SSBEngineType%%|*}" != internal ]] ; then
-
+    
     # try the path we've been using first
     [[ "${SSBEngineSourceInfo[$iPath]}" ]] && getextenginesrcinfo "${SSBEngineSourceInfo[$iPath]}"
-
+    
     # if that fails, search the system for external engine
     [[ "${SSBEngineSourceInfo[$iPath]}" ]] || getextenginesrcinfo
 fi
@@ -599,14 +599,14 @@ fi
 installnmh
 if [[ ! "$ok" ]] ; then
     if [[ "$SSBNMHInstallError" != "$errmsg" ]] ; then
-
-	# show warning alert for error installing native messaging host
-	alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't." 'Warning' '|caution'
-
-	# set new error state
-	SSBExtensionInstallError="$errmsg"
+        
+        # show warning alert for error installing native messaging host
+        alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't." 'Warning' '|caution'
+        
+        # set new error state
+        SSBExtensionInstallError="$errmsg"
     fi
-
+    
     # clear error state
     ok=1 ; errmsg=
 fi
@@ -625,33 +625,33 @@ doCreateEngine=
 doNotActivateEngine=
 
 if [[ "$myStatusNewApp" ]] ; then
-
+    
     # new app, so of course we need an engine
     doCreateEngine=1
     debuglog "Creating engine for new app."
     createEngineErrMsg="Unable to create engine for new app"
-
+    
 elif [[ "$myStatusNewVersion" ]] ; then
-
+    
     # app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
-
+    
 elif [[ "$myStatusEdited" ]] ; then
-
+    
     # this app was edited, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for edited app."
     createEngineErrMsg="Unable to update engine for edited app"
-
+    
 elif [[ "${myStatusEngineChange[0]}" ]] ; then
-
+    
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
     debuglog "Updating engine for new app engine type."
     createEngineErrMsg="Unable to update engine to new type"
-
+    
 elif [[ "$myStatusEngineMoved" ]] ; then
     
     # the app engine was changed, so we need a new engine (probably never reached)
@@ -660,43 +660,43 @@ elif [[ "$myStatusEngineMoved" ]] ; then
     createEngineErrMsg="Unable to recreate engine in new location"
     
 else
-
+    
     # check the state of the engine
     checkengine OFF ; engineState="$?"
-
+    
     # flag if engine is good but was left active
     if [[ "$engineState" = 1 ]] ; then
-	doNotActivateEngine=1
+        doNotActivateEngine=1
     elif [[ "$engineState" = 2 ]] ; then
-	doCreateEngine=1
-	debuglog "Replacing damaged engine."
-	createEngineErrMsg='Unable to replace damaged engine'
+        doCreateEngine=1
+        debuglog "Replacing damaged engine."
+        createEngineErrMsg='Unable to replace damaged engine'
     fi
     # else engine is in the expected off state
-
+    
     if [[ ( ! "$doCreateEngine" ) && ( "${SSBEngineType%%|*}" != internal ) ]] ; then
-
-	# new version of external engine app
-	if [[ "${SSBEngineSourceInfo[$iVersion]}" && \
-		  ( "${SSBEngineSourceInfo[$iVersion]}" != "${configSSBEngineSourceInfo[$iVersion]}" ) ]] ; then
-
-	    doCreateEngine=1
-	    debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
-	    createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
-	fi
+        
+        # new version of external engine app
+        if [[ "${SSBEngineSourceInfo[$iVersion]}" && \
+                ( "${SSBEngineSourceInfo[$iVersion]}" != "${configSSBEngineSourceInfo[$iVersion]}" ) ]] ; then
+            
+            doCreateEngine=1
+            debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+            createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+        fi
     fi
 fi
 [[ "$ok" ]] || abort
 
 # create engine if necessary
 if [[ "$doCreateEngine" ]] ; then
-
+    
     # if engine was left activated, deactivate it before re-creating
     if [[ "$doNotActivateEngine" ]] ; then
-	setenginestate OFF
-	doNotActivateEngine=
+        setenginestate OFF
+        doNotActivateEngine=
     fi
-
+    
     # (re)create engine
     createengine
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
@@ -725,13 +725,13 @@ fi
 # UPDATE/CREATE CENTRAL NATIVE MESSAGING HOST MANIFESTS
 
 if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
-
+    
     updatecentralnmh
-
+    
     if [[ ! "$ok" ]] ; then
-	alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work." \
-	      'Warning' '|caution'
-	ok=1 ; errmsg=
+        alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work." \
+                'Warning' '|caution'
+        ok=1 ; errmsg=
     fi
 fi
 
@@ -740,9 +740,9 @@ fi
 
 # build command line
 myEngineArgs=( "${argsOptions[@]}" \
-		   '--no-default-browser-check' \
-		   "${SSBEngineSourceInfo[@]:$iArgs}" \
-		   "${SSBCommandLine[@]}" )
+        '--no-default-browser-check' \
+        "${SSBEngineSourceInfo[@]:$iArgs}" \
+        "${SSBCommandLine[@]}" )
 
 # temporarily install master prefs if needed
 masterPrefsSet=
@@ -751,7 +751,7 @@ if [[ "$ok" ]] ; then
     masterPrefsSet=1
 else
     alert "Unable to initialize app settings. ($errmsg) Some app settings may need to be adjusted." \
-	  'Warning' '|caution'
+            'Warning' '|caution'
     ok=1 ; errmsg=
 fi
 
@@ -759,8 +759,8 @@ fi
 # LAUNCH ENGINE
 
 launchapp "$myEngineAppPath" "${SSBEngineSourceInfo[$iExecutable]}" "app engine" \
-	  "${argsURIs[@]}" \
-	  --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}"
+        "${argsURIs[@]}" \
+        --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}"
 ok=1 ; errmsg=
 
 # start collecting post-launch errors
@@ -773,10 +773,10 @@ launchFailed=
 if [[ "$masterPrefsSet" ]] ; then
     
     clearmasterprefs
-
+    
     # errors clearing master prefs are nonfatal
     if [[ ! "$ok" ]] ; then
-	ok=1 ; errmsg=
+        ok=1 ; errmsg=
     fi
 fi
 
@@ -793,26 +793,26 @@ waitforcondition 'app engine to launch' 5 .5 checkforengine
 unset -f checkforengine
 
 if [[ "$myEnginePID" ]] ; then
-
+    
     # engine PID found, so launch helper
     launchhelper Cleanup
     
     # if helper didn't launch successfully, store the error
     if [[ ! "$ok" ]] ; then
-	errPostLaunch="$errmsg The app engine will not be deactivated upon quitting."
-	ok=1 ; errmsg=
+        errPostLaunch="$errmsg The app engine will not be deactivated upon quitting."
+        ok=1 ; errmsg=
     fi
     
     # disown our lock
     debuglog 'Leaving lock in place for Epichrome Helper.'
     lockOn=
 else
-
+    
     # PID not found, so create error message
     [[ "$errmsg" ]] && errPostLaunch="$errmsg "
     errPostLaunch+="The app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting."
     launchFailed=1
-
+    
     # delete failed engine
     deleteengine
 fi
@@ -823,9 +823,9 @@ fi
 writeconfig "$myConfigFile"
 if [[ ! "$ok" ]] ; then
     if [[ "$errPostLaunch" ]] ; then
-	errPostLaunch="$errmsg Also: $errPostLaunch"
+        errPostLaunch="$errmsg Also: $errPostLaunch"
     else
-	errPostLaunch="$errmsg"
+        errPostLaunch="$errmsg"
     fi
     ok=1 ; errmsg=
 fi
@@ -834,28 +834,28 @@ fi
 # SHOW WELCOME PAGE IF NEEDED
 
 if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
-
+    
     # if we're updating from pre-2.3.0b10, show extra popup alert
     if [[ "$myStatusNewApp" ]] || \
-	   ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
-	myStatusWelcomeURL+='&m=1'
+            ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
+        myStatusWelcomeURL+='&m=1'
     fi
     
     # pause to allow the app to open
     waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
-
+    
     debuglog "Showing welcome page ($myStatusWelcomeURL)."
     
     # launch the welcome page
     try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	"--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
-	'Unable to open welcome page.'
+            "--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
+            'Unable to open welcome page.'
     
     # save any error
     if [[ ! "$ok" ]] ; then
-	[[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-	errPostLaunch+="$errmsg You may need to install Epichrome Helper and other extensions manually. If you've just updated the app or changed the engine, other settings may be lost."
-	ok=1 ; errmsg=
+        [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
+        errPostLaunch+="$errmsg You may need to install Epichrome Helper and other extensions manually. If you've just updated the app or changed the engine, other settings may be lost."
+        ok=1 ; errmsg=
     fi
 fi
 
@@ -866,27 +866,27 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
     
     # give the app 5 seconds to delete the runtime extension settings
     waitforcondition 'app to delete Epichrome Helper settings' \
-		     5 .5 test '!' -d "${myStatusFixRuntime[0]}"
+            5 .5 test '!' -d "${myStatusFixRuntime[0]}"
     
     if [[ ! -d "${myStatusFixRuntime[0]}" ]] ; then
-	
-	debuglog "Restoring Epichrome Helper settings."
-	
-	# move copied settings back into place
-	try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
-	    'Unable to restore Epichrome Helper settings.'
-	if [[ ! "$ok" ]] ; then
-	    [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-	    errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
-	    ok=1 ; errmsg=
-	fi
+        
+        debuglog "Restoring Epichrome Helper settings."
+        
+        # move copied settings back into place
+        try /bin/mv "${myStatusFixRuntime[1]}" "${myStatusFixRuntime[0]}" \
+                'Unable to restore Epichrome Helper settings.'
+        if [[ ! "$ok" ]] ; then
+            [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
+            errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
+            ok=1 ; errmsg=
+        fi
     else
-	debuglog "No need to restore Epichrome Helper settings."
-	
-	# silently remove unused backup
-	try /bin/rm -rf "${myStatusFixRuntime[1]}" \
-	    'Unable to remove backup of Epichrome Helper settings.'
-	ok=1 ; errmsg=
+        debuglog "No need to restore Epichrome Helper settings."
+        
+        # silently remove unused backup
+        try /bin/rm -rf "${myStatusFixRuntime[1]}" \
+                'Unable to remove backup of Epichrome Helper settings.'
+        ok=1 ; errmsg=
     fi
 fi
 
