@@ -272,6 +272,7 @@ function main(aApps=[]) {
             return runEdit(aApps);
         }
     } catch(myErr) {
+        errlog(myErr.message, 'FATAL');
         kApp.displayDialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
@@ -1002,9 +1003,11 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
         } else if (typeof(myStepResult) == 'object') {
 
             // STEP RETURNED ERROR
-
+            
+            errlog(myStepResult.message, myStepResult.backStep ? 'ERROR' : 'FATAL');
+            
             myResult = kStepResultERROR;
-
+            
             // always show exit button
             let myExitButton, myDlgButtons;
             let myViewLogButton = false;
@@ -2148,7 +2151,7 @@ function stepBuild(aInfo) {
     }
 
 
-    // BUILD/UPDATE SCRIPT ARGUMENTS
+    // BUILD SCRIPT ARGUMENTS
 
     let myScriptArgs = [
         'epiAction=' + myScriptAction,
@@ -2175,18 +2178,24 @@ function stepBuild(aInfo) {
 
     // action-specific arguments
     if (aInfo.stepInfo.action == kActionCREATE) {
-        // create-specific arguments
+        
+        // CREATE-specific arguments
         myScriptArgs.push('epiAppPath=' + aInfo.appInfo.file.path);
+        
     } else {
-        // edit-/update-specific arguments
+        // EDIT-/UPDATE-specific arguments
 
         // add version argument for both edit & update
-        myScriptArgs.push('SSBVersion=' + aInfo.oldAppInfo.version);
-
+        myScriptArgs.push('SSBVersion=' + aInfo.appInfo.version);
+        
         if (aInfo.stepInfo.action == kActionEDIT) {
             // old ID
             if (aInfo.appInfoStatus.id.changed) {
                 myScriptArgs.push('epiOldIdentifier=' + aInfo.oldAppInfo.id);
+            }
+            // old engine
+            if (aInfo.appInfoStatus.engine.changed) {
+                myScriptArgs.push('epiOldEngine=' + aInfo.oldAppInfo.engine.type + '|' + aInfo.oldAppInfo.engine.id);
             }
 
             // app path
@@ -2242,12 +2251,23 @@ function stepBuild(aInfo) {
             }
         }
 
-        if (myErr.message.startsWith('WARN:')) {
+        if (myErr.message.startsWith('WARN\r')) {
             Progress.completedUnitCount = 2;
             Progress.description = myBuildMessage[1] + ' succeeded with warnings.';
             Progress.additionalDescription = '';
 
-            dialog(myBuildMessage[1] + ' succeeded, but with the following warning: ' + myErr.message.slice(5), {
+            // collate all warnings
+            let myWarnings = myErr.message.split('\r');
+            myWarnings.shift();
+            
+            let myWarningMsg = myBuildMessage[1] + ' succeeded, but with the following warning';
+            if (myWarnings.length == 1) {
+                myWarningMsg += ': ' + myWarnings[0];
+            } else {
+                myWarningMsg += 's:\n\n' + kIndent + kDotSelected + ' ' +
+                    myWarnings.join('\n' + kIndent + kDotSelected + ' ');
+            }
+            dialog(myWarningMsg, {
                 withTitle: 'Warning',
                 withIcon: 'caution',
                 buttons: ['OK'],

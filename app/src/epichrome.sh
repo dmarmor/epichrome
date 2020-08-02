@@ -73,8 +73,7 @@ elif [[ "$epiAction" = 'updatecheck' ]] ; then
     
     # load launch.sh
     if ! source "$myRuntimeScriptsPath/launch.sh" ; then
-        ok=
-        errmsg="Unable to load launch.sh."
+        ok= ; errmsg="Unable to load launch.sh."
         errlog "$errmsg"
         abort
     fi
@@ -103,11 +102,9 @@ elif [[ "$epiAction" = 'read' ]] ; then
     myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
     myConfigPath="$epiAppPath/Contents/Resources/script"
     
-    if [[ -e "$myOldConfigPath" ]] ; then
-        abort "Editing of pre-2.3 apps not yet implemented"
-    elif [[ ! -e "$myConfigPath" ]] ; then
-        abort "This does not appear to be an Epichrome app"
-    else
+    if [[ -f "$myConfigPath" ]] ; then
+        
+        # 2.3.0 AND LATER
         
         # read in app config
         myConfigScript=
@@ -130,19 +127,45 @@ elif [[ "$epiAction" = 'read' ]] ; then
         # read in config variables
         try eval "$myConfig" "Unable to parse app configuration"
         [[ "$ok" ]] || abort
+        
+        # update engine type for beta versions 2.3.0b1-2.3.0b6
+        if [[ "$SSBEngineType" = 'Chromium' ]] ; then
+            SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
+            # $$$ appBrowserInfo_com_brave_Browser ??
+        elif [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
+            SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"
+        fi
+        
+    elif [[ -e "$myOldConfigPath" ]] ; then
+        
+        # 2.1.0 - 2.2.4
+        
+        # load runtime.sh
+        if ! source "$myResourcesPath/Runtime/Resources/Scripts/runtime.sh" ; then
+            ok= ; errmsg="Unable to load runtime.sh."
+            errlog "$errmsg"
+            abort
+        fi
+        
+        # read in app config
+        safesource "$myOldConfigPath" 'app configuration'
+        [[ "$ok" ]] || abort
+        
+        # make sure this is a recent enough app to be edited
+        vcmp "$SSBVersion" '<' '2.1.0' && \
+            abort 'Cannot edit apps older than version 2.1.0.'
+        
+        # update necessary variables (SSBIdentifier & SSBEngineType)
+        updateoldcoreinfo_preload
+        updateoldcoreinfo_postload
+        [[ "$ok" ]] || abort
+        
+    else
+        abort "This does not appear to be an Epichrome app"
     fi
-
-
+    
+    
     # SANITY-CHECK CORE APP INFO
-    
-    # $$$ FOR OLD VERSIONS TRY TO PULL OUT ID??
-    # if [[ ! "$SSBIdentifier" ]] ; then
-    
-    # 	# no ID found
-    
-    # 	# see if we can pull it from CFBundleIdentifier
-    # 	SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
-    # fi
     
     # basic info
     ynRe='^(Yes|No)$'
@@ -155,13 +178,11 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # make sure version isn't newer than ours
     vcmp "$SSBVersion" '>' "$coreVersion" && \
-        abort "App version ($SSBVersion) is newer than Epichrome version."
+            abort "App version ($SSBVersion) is newer than Epichrome version."
     
     # engine type
     engRe='^(in|ex)ternal\|'
     if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
-        
-        # $$$$ HANDLE MISSING ENGINE & OLD ENGINE TYPES HERE
         abort "App engine type is missing or unreadable"
     fi
     
@@ -282,10 +303,6 @@ elif [[ "$epiAction" = 'build' ]] ; then
     try 'cmdtext&=' /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
     [[ "$ok" ]] || abort
     
-    # set ownership of app bundle to this user (only necessary if running as admin) $$$ LEFTOVER?
-    # try /usr/sbin/chown -R "$USER" "$appTmp" 'Unable to set ownership of app bundle.'
-    # [[ "$ok" ]] || abort
-    
     
     # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
     
@@ -318,14 +335,18 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
         [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
     }
     
+    # save old version in case we're updating
+    myOldVersion="$SSBVersion"
     
     # populate the app bundle
     updateapp "$epiAppPath"
     [[ "$ok" ]] || abort
     
-    
     # capture post-update action warnings
     warnings=()
+    
+    # set up data directory path for post-update actions
+    currentDataPath="$appDataPathBase/$SSBIdentifier"
     
     # MOVE DATA FOLDER IF ID CHANGED
     
@@ -334,14 +355,40 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
             (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
         
         # common warning prefix
-        warnPrefix="WARN:Unable to migrate data directory to new ID $SSBIdentifier"
+        warnPrefix="Unable to migrate data directory to new ID $SSBIdentifier"
         
-        if [[ -e "$appDataPathBase/$SSBIdentifier" ]] ; then
+        if [[ -e "$currentDataPath" ]] ; then
             warnings+=( "$warnPrefix. A directory already exists for that ID. The app will use that directory." )
         else
             permanent "$appDataPathBase/$epiOldIdentifier" \
-                    "$appDataPathBase/$SSBIdentifier" "app bundle"
-            [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg The app will create a new data directory on first run." )
+                    "$currentDataPath" "app bundle"
+            if [[ ! "$ok" ]] ; then
+                warnings+=( 'WARN' \
+                        "$warnPrefix. ($errmsg) The app will create a new data directory on first run." )
+                ok=1 ; errmsg=
+            fi
+        fi
+    fi
+    
+    
+    # MIGRATE DATA FOLDER TO NEW STRUCTURE IF NECESSARY
+    
+    if vcmp "$myOldVersion" '<=' '2.2.4' ; then
+        
+        # load runtime.sh
+        if ! source "$myResourcesPath/Runtime/Resources/Scripts/runtime.sh" ; then
+            ok= ; errmsg="Unable to load runtime.sh."
+            errlog "$errmsg"
+            abort
+        fi
+        
+        # update data directory structure
+        updateolddatadir "$currentDataPath" "$currentDataPath/$appDataProfileDir"
+        
+        if [[ ! "$ok" ]] ; then
+            [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
+            warnings+=( "Unable to update old data directory structure. ($errmsg) Your data for this app may be lost." )
+            ok=1 ; errmsg=
         fi
     fi
     
@@ -352,15 +399,55 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
             ( "$epiNewAppPath" != "$epiAppPath" ) ]] ; then
         
         # common warning prefix & postfix
-        warnPrefix="WARN:Unable to rename app"
+        warnPrefix="Unable to rename app"
         warnPostfix="The app is intact under the old name of ${epiAppPath##*/}."
         
         if [[ -e "$epiNewPath" ]] ; then
             warnings+=( "$warnPrefix. ${epiNewPath##*/} already exists. $warnPostfix" )
         else
             permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
-            [[ "$ok" ]] || warnings+=( "$warnPrefix. $errmsg $warnPostfix" )
+            if [[ ! "$ok" ]] ; then
+                [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
+                warnings+=( "$warnPrefix. ($errmsg) $warnPostfix" )
+                ok=1 ; errmsg=
+            fi
         fi
+    fi
+    
+    
+    # WRITE OUT CONFIG IF NECESSARY
+    
+    # path to config file
+    currentConfigFile="$currentDataPath/$appDataConfigFile"
+    
+    # if config file exists, read it in
+    if [[ -f "$currentConfigFile" ]] ; then
+        # read in config file, ignoring errors
+        safesource "$currentConfigFile" 'configuration file'
+        ok=1 ; errmsg
+    fi
+    
+    # assume we don't need to write config
+    doWriteConfig=
+    
+    # make sure key last-run variables are set up
+    if [[ ! "$SSBLastRunVersion" ]] ; then
+        SSBLastRunVersion="$myOldVersion"
+        doWriteConfig=1
+    fi
+    if [[ ! "$SSBLastRunEngineType" ]] ; then
+        SSBLastRunEngineType="$epiOldEngine"
+        doWriteConfig=1
+    fi
+    
+    # if we need to, write out config
+    [[ -d "$currentDataPath" ]] || try /bin/mkdir -p "$currentDataPath" 'Unable to create data directory.'
+    writeconfig "$currentConfigFile" FORCE
+    
+    if [[ ! "$ok" ]] ; then
+        [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
+        warnings+=( "Unable to update app configuration. ($errmsg) The welcome page may show inaccurate information." )
+        ok=1 ; errmsg=
     fi
     
     

@@ -158,7 +158,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
 
         # set up timestamp prefix
         local myBackupTimestamp="${myRunTimestamp#_}"
-        [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='_'
+        [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='-'
 
         # set up path to backup file
         updateBackupFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction.tgz"

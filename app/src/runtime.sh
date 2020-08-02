@@ -31,15 +31,11 @@ function updatessb { # ( SSBAppPath )
     # variables we need, then see if we need to redisplay the update dialog,
     # as the old dialog code has been failing in Mojave
     
+    # update core app info needed before loading core.sh
+    updateoldcoreinfo_preload
+    
     # set app path
     SSBAppPath="$1" ; shift
-    
-    # try to pull out identifier
-    SSBIdentifier="${CFBundleIdentifier#org.epichrome.app.}"
-    if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
-        ok= ; errmsg="Unable to determine app ID. This app may be too old to update."
-        return 1
-    fi
     
     # save old profile path (for restoreoldruntime)
     saveProfilePath="$myProfilePath"
@@ -51,6 +47,9 @@ function updatessb { # ( SSBAppPath )
         restoreoldruntime
         return 1
     fi
+    
+    # update core app info that relies on core.sh being loaded
+    updateoldcoreinfo_postload
     
     # set up log file
     initlogfile
@@ -113,65 +112,19 @@ function updatessb { # ( SSBAppPath )
         
         # set up necessary current variables
         SSBLastRunVersion="$SSBVersion"
-        SSBEngineType='external|com.google.Chrome'
-        getbrowserinfo SSBEngineSourceInfo
+        # getbrowserinfo SSBEngineSourceInfo
         SSBLastRunEngineType="$SSBEngineType"
         
         # run actual update
         updateapp "$SSBAppPath" NORELAUNCH
         if [[ ! "$ok" ]] ; then restoreoldruntime ; return 1 ; fi
         
-        
-        # UPDATE DATA DIRECTORY
-        
-        if [[ ( -d "$myDataPath" ) && ! -d "$myProfilePath" ]] ; then
-            
-            # UPDATE OLD-STYLE PROFILE DIRECTORY
-            
-            # remove old NativeMessagingHosts directory
-            try /bin/rm -rf "$myDataPath/$nmhDirName" \
-                    'Unable to remove old native messaging hosts directory.'
-            
-            # create profile directory
-            try /bin/mkdir -p "$myProfilePath" 'Unable to create profile directory.'
-            
-            # move to data directory
-            try '!1' pushd "$myDataPath" 'Unable to move to data directory.'
-            
-            if [[ "$ok" ]] ; then
-                
-                # turn on extended glob
-                local shoptState=
-                shoptset shoptState extglob
-                
-                # find all except new log & profile directories
-                local allExcept="!(Logs|${myProfilePath##*/}|${stdoutTempFile##*/}|${stderrTempFile##*/})"
-                
-                # move everything into profile directory
-                try /bin/mv $allExcept "$myProfilePath" \
-                        'Unable to migrate to new profile directory.'
-                
-                # restore extended glob
-                shoptrestore shoptState
-                
-                # leave data directory no matter what
-                if [[ "$ok" ]] ; then
-                    
-                    # nonfatal if this doesn't work
-                    try '!1' popd 'Unable to restore working directory.'
-                    ok=1 ; errmsg=
-                else
-                    
-                    # try to leave even on error
-                    tryalways '!1' popd 'Unable to restore working directory.'
-                fi
-            fi
-            
-            if [[ ! "$ok" ]] ; then
-                alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
-                        'Warning' 'caution'
-                ok=1 ; errmsg=
-            fi
+        # update old data directory to new structure
+        updateolddatadir
+        if [[ ! "$ok" ]] ; then
+            alert "Update complete, but unable to migrate to new data directory structure. ($errmsg) Your user data may be lost." \
+                    'Warning' 'caution'
+            ok=1 ; errmsg=
         fi
         
         
@@ -180,7 +133,7 @@ function updatessb { # ( SSBAppPath )
         # add extra config vars for external engine
         [[ "${SSBEngineType%%|*}" != internal ]] && appConfigVars+=( SSBEngineSourceInfo )
         
-        # write out config
+        # ensure data directory exists
         [[ -d "$myDataPath" ]] || try /bin/mkdir -p "$myDataPath" 'Unable to create data directory.'
         
         # relaunch updated app
@@ -201,6 +154,86 @@ function updatessb { # ( SSBAppPath )
     fi
     
     # return value
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# UPDATECOREINFO_[PRE/POST]LOAD: update core info to conform to current variable naming
+function updateoldcoreinfo_preload {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # try to pull out SSBIdentifier from CFBundleIdentifier
+    SSBIdentifier="${CFBundleIdentifier#org.epichrome.app.}"
+    if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
+        ok= ; errmsg="Unable to determine app ID. This app may be too old to update."
+        return 1
+    fi
+}
+function updateoldcoreinfo_postload {
+    
+    # create engine type variable
+    SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"
+}
+
+
+# UPDATEOLDDATADIR: update a 2.2.4 or earlier data directory to post-2.3.0
+function updateolddatadir {  # ( [locDataPath locProfilePath] )
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # arguments
+    local locDataPath="$1" ; shift ; [[ "$locDataPath" ]] || locDataPath="$myDataPath"
+    local locProfilePath="$1" ; shift ; [[ "$locProfilePath" ]] || locProfilePath="$myProfilePath"
+    
+    if [[ ( -d "$locDataPath" ) && ! -d "$locProfilePath" ]] ; then
+        
+        # UPDATE OLD-STYLE PROFILE DIRECTORY
+        
+        debuglog 'Updating pre-2.3.0 data directory structure to current structure.'
+        
+        # remove old NativeMessagingHosts directory
+        try /bin/rm -rf "$locDataPath/$nmhDirName" \
+                'Unable to remove old native messaging hosts directory.'
+        
+        # create profile directory
+        try /bin/mkdir -p "$locProfilePath" 'Unable to create profile directory.'
+        
+        # move to data directory
+        try '!1' pushd "$locDataPath" 'Unable to move to data directory.'
+        
+        if [[ "$ok" ]] ; then
+            
+            # turn on extended glob
+            local shoptState=
+            shoptset shoptState extglob
+            
+            # find all except new log & profile directories
+            local allExcept="!($appDataProfileDir|$epiDataLogDir|$appDataStdoutFile|$appDataStderrFile|$appDataPauseFifo|$appDataLockFile|$appDataBackupDir|$appDataWelcomeDir)"
+            
+            # move everything into profile directory
+            try /bin/mv $allExcept "$locProfilePath" \
+                    'Unable to migrate to new profile directory.'
+            
+            # restore extended glob
+            shoptrestore shoptState
+            
+            # leave data directory no matter what
+            if [[ "$ok" ]] ; then
+                
+                # nonfatal if this doesn't work
+                try '!1' popd 'Unable to restore working directory.'
+                ok=1 ; errmsg=
+            else
+                
+                # try to leave even on error
+                tryalways '!1' popd 'Unable to restore working directory.'
+            fi
+        fi        
+    fi
+    
     [[ "$ok" ]] && return 0 || return 1
 }
 

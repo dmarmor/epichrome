@@ -111,7 +111,7 @@ function cleanup {
 # LOCK FUNCTIONS
 
 # lock file
-myLockFile="$myDataPath/lock" ; export myLockFile
+myLockFile="$myDataPath/$appDataLockFile" ; export myLockFile
 
 # (do NOT export these -- they should not be inherited)
 lockOn=

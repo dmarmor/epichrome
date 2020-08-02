@@ -124,13 +124,24 @@ appBookmarksPath="Resources/Profile/$appBookmarksFile"
 userSupportPath="${HOME}/Library/Application Support"
 epiDataPath="$userSupportPath/Epichrome"
 appDataPathBase="$epiDataPath/Apps"
-epiDataExtIconBase='ExtensionIcons'
-appLogFilePrefix='epichrome_app_log'
-epiLogFilePrefix='epichrome_log'
-appBackupDir='Backups'
+appDataConfigFile='config.sh'
+epiDataExtIconDir='ExtensionIcons'
+appDataProfileDir='UserData'
+epiDataLogDir='Logs'
+appDataLogFilePrefix='epichrome_app_log'
+epiDataLogFilePrefix='epichrome_log'
+appDataStderrFile='stderr.txt'
+appDataStdoutFile='stdout.txt'
+appDataPauseFifo='pause'
+appDataLockFile='lock'
+appDataBackupDir='Backups'
+appDataWelcomeDir='Welcome'
 
-export userSupportPath epiDataPath appDataPath \
-       epiDataExtIconBase appLogFilePrefix epiLogFilePrefix
+export userSupportPath epiDataPath appDataPathBase \
+        appDataConfigFile \
+        epiDataExtIconDir appDataProfileDir \
+        epiDataLogDir appDataLogFilePrefix epiDataLogFilePrefix \
+        appDataStderrFile appDataStdoutFile appDataPauseFifo appDataLockFile appDataBackupDir
 
 # indices for SSBEngineSourceInfo
 iID=0
@@ -207,14 +218,14 @@ if [[ "$coreContext" = 'app' ]] ; then
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
 
     # app backup directory
-    [[ "$myBackupDir" ]] || myBackupDir="$myDataPath/$appBackupDir"
+    [[ "$myBackupDir" ]] || myBackupDir="$myDataPath/$appDataBackupDir"
 
     # pausing without spawning sleep processes
-    [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/pause"
+    [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/$appDataPauseFifo"
 
     # path to important data directories and paths
-    myConfigFile="$myDataPath/config.sh"
-    myProfilePath="$myDataPath/UserData"
+    myConfigFile="$myDataPath/$appDataConfigFile"
+    myProfilePath="$myDataPath/$appDataProfileDir"
 
     # app log ID
     [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
@@ -232,12 +243,12 @@ else
     # app backup directory
     if [[ ( ! "$myBackupDir" ) && "$SSBIdentifier" ]] ; then
         if [[ "$epiOldIdentifier" && -d "$appDataPathBase/$epiOldIdentifier" ]] ; then
-            myBackupDir="$appDataPathBase/$epiOldIdentifier/$appBackupDir"
+            myBackupDir="$appDataPathBase/$epiOldIdentifier/$appDataBackupDir"
         else
-            myBackupDir="$appDataPathBase/$SSBIdentifier/$appBackupDir"
+            myBackupDir="$appDataPathBase/$SSBIdentifier/$appDataBackupDir"
         fi
     else
-        myBackupDir="$myDataPath/$appBackupDir"
+        myBackupDir="$myDataPath/$appDataBackupDir"
     fi
 
     if [[ "$coreContext" = 'epichrome' ]] ; then
@@ -271,8 +282,8 @@ fi
 [[ "$myLogTempVar" ]] || myLogTempVar=
 
 # path to stderr temp file
-stderrTempFile="$myDataPath/stderr.txt"
-stdoutTempFile="$myDataPath/stdout.txt"
+stderrTempFile="$myDataPath/$appDataStderrFile"
+stdoutTempFile="$myDataPath/$appDataStdoutFile"
 
 # variables to suppress logging to stderr or file
 [[ "$logNoStderr" ]] || logNoStderr=  # set this in calling script to prevent logging to stderr
@@ -283,7 +294,7 @@ if [[ ! "$myRunTimestamp" ]] ; then
     myRunTimestamp="_$(date '+%Y%m%d_%H%M%S' 2> /dev/null)"
     [[ "$?" = 0 ]] || myRunTimestamp=
 fi
-[[ "$myLogDir" ]] || myLogDir="$myDataPath/Logs"
+[[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDir"
 
 # export all to helper
 export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
@@ -408,11 +419,11 @@ function initlogfile {  # ( logFile )
     elif [[ "$coreContext" = 'epichrome' ]] ; then
 
 	# Epichrome.app log file
-	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiLogFilePrefix}${myRunTimestamp}.txt"
+	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiDataLogFilePrefix}${myRunTimestamp}.txt"
     else
 
 	# app log file
-	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${appLogFilePrefix}${myRunTimestamp}.txt"
+	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${appDataLogFilePrefix}${myRunTimestamp}.txt"
     fi
 
     # trim saved logs so we don't have too many (ignore errors)

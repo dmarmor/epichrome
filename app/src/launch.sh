@@ -49,6 +49,9 @@ nmhManifestOldFile="$nmhManifestOldID.json"
 myFirstRunFile="$myProfilePath/First Run"
 myPreferencesFile="$myProfilePath/Default/Preferences"
 
+# welcome directory
+myWelcomePath="$myDataPath/$appDataWelcomeDir"
+
 
 # EPICHROME VERSION-CHECKING FUNCTIONS
 
@@ -550,17 +553,17 @@ function updatedatadir {
 	
 	if [[ "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEdited" || \
 			"${myStatusEngineChange[0]}" || "$myStatusReset" || \
-			( ! -e "$myDataPath/Welcome/$appWelcomePage" ) ]] ; then
+			( ! -e "$myWelcomePath/$appWelcomePage" ) ]] ; then
 		
 		debuglog 'Updating welcome page assets.'
 		
 		# copy welcome page into data directory
-		safecopy "$SSBAppPath/Contents/$appWelcomePath" "$myDataPath/Welcome" \
+		safecopy "$SSBAppPath/Contents/$appWelcomePath" "$myWelcomePath" \
 				"Unable to create welcome page. You will not see important information on the app's first run."
 		if [[ "$ok" ]] ; then
 			
 			# link to master directory of extension icons
-			try /bin/ln -s "../../../../$epiDataExtIconBase" "$myDataPath/Welcome/img/ext" \
+			try /bin/ln -s "../../../../$epiDataExtIconDir" "$myWelcomePath/img/ext" \
 					'Unable to link to extension icon directory.'
 		fi
 		
@@ -581,7 +584,7 @@ function setwelcomepage {
 	[[ "$ok" ]] || return 1
 	
 	# basic welcome page URL
-	local baseURL="file://$(encodeurl "$myDataPath/Welcome/$appWelcomePage" '/')?v=$SSBVersion&e=$(encodeurl "$SSBEngineType")"
+	local baseURL="file://$(encodeurl "$myWelcomePath/$appWelcomePage" '/')?v=$SSBVersion&e=$(encodeurl "$SSBEngineType")"
 	
 	if [[ "$myStatusNewApp" ]] ; then
 		
@@ -1174,7 +1177,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	
 	# important paths
 	local welcomeExtGenericIcon="$SSBAppPath/Contents/$appWelcomePath/img/ext_generic_icon.png"
-	local epiExtIconPath="$epiDataPath/$epiDataExtIconBase"
+	local epiExtIconPath="$epiDataPath/$epiDataExtIconDir"
 	
 	# ensure extension icons directory exists
 	if [[ "${#myExtensions[@]}" != 0 ]] ; then
