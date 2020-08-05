@@ -1327,54 +1327,120 @@ function isarray {
 export -f isarray
 
 
-# ESCAPE: backslash-escape \ & optional other characters
-function escape {  # ( str [chars] )
+# EPIWHITESPACE: utility variable holding whitespace for regexes
+epiWhitespace=$' \t\n'
+export epiWhitespace
 
+# ESCAPE: backslash-escape \ & optional other characters
+#  escape(str, [chars, var])
+#    str -- string to escape
+#    chars -- characters other than \ to escape
+#    var -- if not empty, write to var instead of echo
+function escape {
+    
     # arguments
     local str="$1" ; shift
     local chars="$1" ; shift
-
-    local result="${str//\\/\\\\}"
-
+    local var="$1" ; shift
+    
+    local iEscResult="${str//\\/\\\\}"
+    
     # escape any other characters
     if [[ "$chars" ]] ; then
-	local i
-	for (( i=0 ; i < ${#chars} ; i++ )); do
-	    result="${result//${chars:i:1}/\\${chars:i:1}}"
-	done
+        local i
+        for (( i=0 ; i < ${#chars} ; i++ )); do
+            iEscResult="${iEscResult//${chars:i:1}/\\${chars:i:1}}"
+        done
     fi
-
-    echo "$result"
+    
+    if [[ "$var" ]] ; then
+        eval "$var=\"\$iEscResult\""
+    else
+        echo "$iEscResult"
+    fi
 }
 
 
 # UNESCAPE: remove escapes from a string
-function unescape {  # ( str [chars] )
-
+#  escape(str, [chars, var])
+#    str -- string to escape
+#    chars -- characters other than \ to escape
+#    var -- if not empty, write to var instead of echo
+function unescape {
+    
     # arguments
     local str="$1" ; shift
     local chars="$1" ; shift
-
-    local result="${str//\\\\/\\}"
-
+    local var="$1" ; shift
+    
+    local iUnescResult="${str//\\\\/\\}"
+    
     # unescape any other characters
     if [[ "$chars" ]] ; then
-	local i
-	for (( i=0 ; i < ${#chars} ; i++ )); do
-	    result="${result//\\${chars:i:1}/${chars:i:1}}"
-	done
+        local i
+        for (( i=0 ; i < ${#chars} ; i++ )); do
+            iUnescResult="${iUnescResult//\\${chars:i:1}/${chars:i:1}}"
+        done
     fi
-
-    echo "$result"
+    
+    if [[ "$var" ]] ; then
+        eval "$var=\"\$iUnescResult\""
+    else
+        echo "$iUnescResult"
+    fi
 }
 
-# ESCAPEJSON: escape \ & " for a JSON string
-function escapejson { escape "$1" '"' ; }
+
+# ESCAPEJSON: escape \, ", \n & \t for a JSON string
+#  escapejson(str, [var])
+#    str -- string to escape
+#    var -- if not empty, write to var instead of echo
+function escapejson {
+    
+    # arguments
+    local iEscJsonResult="$1"; shift
+    local var="$1" ; shift
+    
+    # escape double-quotes
+    escape "$iEscJsonResult" '"' iEscJsonResult
+    
+    # escape newlines and tabs
+    iEscJsonResult="${iEscJsonResult//$'\n'/\\n}"
+    iEscJsonResult="${iEscJsonResult//$'\t'/\\t}"
+    
+    if [[ "$var" ]] ; then
+        eval "$var=\"\$iEscJsonResult\""
+    else
+        echo "$iEscJsonResult"
+    fi
+}
 
 
 # UNESCAPEJSON: remove escapes from a JSON string
-function unescapejson { unescape "$1" '"' ; }
-
+#  unescapejson(str, [var])
+#    str -- string to unescape
+#    var -- if not empty, write to var instead of echo
+function unescapejson {
+    
+    # arguments
+    local iUnescJsonResult="$1" ; shift
+    local var="$1" ; shift
+    
+    # unescape newlines and tabs
+    iUnescJsonResult="${iUnescJsonResult//\\r\\n/$'\n'}"
+    iUnescJsonResult="${iUnescJsonResult//\\n/$'\n'}"
+    iUnescJsonResult="${iUnescJsonResult//\\t/$'\t'}"
+    
+    # unescape double-quotes
+    unescape "$iUnescJsonResult" '"' iUnescJsonResult
+    
+    # return result
+    if [[ "$var" ]] ; then
+        eval "$var=\"\$iUnescJsonResult\""
+    else
+        echo "$iUnescJsonResult"
+    fi
+}
 
 export -f escape unescape escapejson unescapejson
 

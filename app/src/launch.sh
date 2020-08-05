@@ -116,8 +116,7 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
 	eval "json=\"\$$jsonVar\""
 	
 	# whitespace
-	local ws=$' \t\n'
-	local s="[$ws]*"
+	local s="[$epiWhitespace]*"
 	
 	# loop through each key
 	local curKey curRe curMatch
@@ -129,7 +128,7 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
 		
 		# set regex for pulling out dict key (groups 4-8, val is group 5)
 		curRe+="|(\"$curKey\"$s:$s{$s"
-		curRe+='(([^}"]*"([^\"]|\\\\|\\")*")*([^}"]*[^}"'"$ws])?)$s})"
+		curRe+='(([^}"]*"([^\"]|\\\\|\\")*")*([^}"]*[^}"'"$epiWhitespace])?)$s})"
 		
 		# try to match
 		if [[ "$json" =~ $curRe ]] ; then
@@ -424,8 +423,8 @@ function checkgithubupdate {
 	
 	# check for new version on github
 	local iCheckDate=
-	local iCheckVersion=
-	checkgithubversion iCheckDate iCheckVersion
+	local iUpdateInfo=
+	checkgithubversion iCheckDate iUpdateInfo
 	
 	# if we weren't able to read the info file or get the current date, just give up
 	if [[ "$iCheckDate" = 'error' ]] ; then
@@ -439,11 +438,11 @@ function checkgithubupdate {
 		[[ "$iCheckDate" ]] || return 0
 		
 		# if there's an update available, display a dialog
-		if [[ "$iCheckVersion" ]] ; then
+		if [[ "$iUpdateInfo" ]] ; then
 			
 			# display dialog
 			dialog doEpichromeUpdate \
-					"A new version of Epichrome ($iCheckVersion) is available on GitHub." \
+					"${iUpdateInfo[1]}" \
 					"Update Available" \
 					"|caution" \
 					"+Download" \
@@ -455,8 +454,8 @@ function checkgithubupdate {
 				case "$doEpichromeUpdate" in
 					Download)
 						# open the update URL
-						try /usr/bin/open 'GITHUBUPDATEURL' 'Unable to open update URL.'
-						[[ "$ok" ]] && iNextCheckVersion="$iCheckVersion"
+						try /usr/bin/open "${iUpdateInfo[@]:2}" 'Unable to open update URL.'
+						[[ "$ok" ]] && iNextCheckVersion="${iUpdateInfo[0]}"
 						;;
 						
 					Later)
@@ -465,7 +464,7 @@ function checkgithubupdate {
 						
 					*)
 						# pretend we're already at the new version
-						iNextCheckVersion="$iCheckVersion"
+						iNextCheckVersion="${iUpdateInfo[0]}"
 						;;
 				esac
 			fi
@@ -488,10 +487,10 @@ function checkgithubupdate {
 
 
 # CHECKGITHUBVERSION: check for a new version of Epichrome on GitHub
-#   checkgithubversion(var)
+#   checkgithubversion(aCheckDate, aUpdateInfo)
 #     returns: 0 if github checked, 1 if not checked
 #     aCheckDate: variable to write the datestamp of this check (or nothing if no check)
-#     aVersion: variable to write any new version found, or nothing if none found
+#     aUpdateInfo: variable to write: [ version, updateMsg, downloadURL ]
 function checkgithubversion {
 
 	# only run if we're OK
@@ -499,7 +498,7 @@ function checkgithubversion {
 	
 	# initialize result variables
 	local aCheckDate="$1" ; shift ; eval "$aCheckDate="
-	local aCheckVersion="$1" ; shift ; eval "$aCheckVersion="
+	local aUpdateInfo="$1" ; shift ; eval "$aUpdateInfo="
 	
 	# if we're skipping all versions, we're done
 	[[ "$SSBUpdateCheckSkip" = 'All' ]] && return 0
@@ -524,43 +523,70 @@ function checkgithubversion {
 		eval "$aCheckDate=\"\$curDate\""
 		
 		# regex for pulling out version
-		local versionRe='"tag_name": +"v([0-9.]+\.([0-9]+)[bB0-9]*)",'
+		local versionRe='"tag_name" *: *"v([0-9.]+\.([0-9]+)[bB0-9]*)"'
 		
 		# assume version check failure
 		local checkSucceeded=
 		
 		# check github for the latest version
-		local myGithubLatestVersion=
-		try '!2' 'myGithubLatestVersion=' /usr/bin/curl --connect-timeout 5 --max-time 10 \
+		local iGithubInfo=
+		try '!2' 'iGithubInfo=' /usr/bin/curl --connect-timeout 5 --max-time 10 \
 				'https://api.github.com/repos/dmarmor/epichrome/releases/latest' \
 				'Error retrieving data from GitHub.'
 		[[ "$ok" ]] || return 1
 		
 		# parse results
-		if [[ "$myGithubLatestVersion" =~ $versionRe ]] ; then
+		if [[ "$iGithubInfo" =~ $versionRe ]] ; then
 			
 			# we got a version
 			checkSucceeded=1
 			
 			# extract version number from regex
-			myGithubLatestVersion="${BASH_REMATCH[1]}"
+			local iGithubLatestVersion="${BASH_REMATCH[1]}"
 			
 			# choose version to compare -- either the one in the info file or latest on the system
 			local iGithubCheckVersion="$epiLatestVersion"
 			[[ "$checkGithubCurVersion" ]] && iGithubCheckVersion="$checkGithubCurVersion"
 			
 			# compare versions
-			if vcmp "$iGithubCheckVersion" '<' "$myGithubLatestVersion" ; then
+			if vcmp "$iGithubCheckVersion" '<' "$iGithubLatestVersion" ; then
 				
-				# GitHub version is newer and if necessary, a major update
+				# GitHub version is newer
+				debuglog "Found new Epichrome version $iGithubLatestVersion on GitHub."
+								
+				# try to extract package download URL
+				local iUrlRe='"browser_download_url" *: *"([^"]+)"'
+				local iDownloadUrl=
+				if [[ "$iGithubInfo" =~ $iUrlRe ]] ; then
+					unescapejson "${BASH_REMATCH[1]}" iDownloadUrl
+				fi
 				
-				# write version to variable aCheckVersion
-				eval "$aCheckVersion=\"\$myGithubLatestVersion\""
+				# try to extract info on the update
+				local iUpdateDescRe='<epichrome>(.*)</epichrome>'
+				local iUpdateMsg="A new version of Epichrome ($iGithubLatestVersion) is available on GitHub."
+				if [[ "$iGithubInfo" =~ $iUpdateDescRe ]] ; then
+					
+					local iUpdateDesc=
+					unescapejson "${BASH_REMATCH[1]}" iUpdateDesc
+					
+					# remove leading & trailing whitespace
+					local iWsRe="^[$epiWhitespace]*(.*[^$epiWhitespace])?"
+					if [[ "$iUpdateDesc" =~ $iWsRe ]] ; then
+						iUpdateDesc="${BASH_REMATCH[1]}"
+					fi
+					
+					# add any info to message
+					[[ "$iUpdateDesc" ]] && iUpdateMsg+=' This update includes the following changes:'$'\n\n'"$iUpdateDesc"
+				fi
 				
-				debuglog "Found new Epichrome version $myGithubLatestVersion on GitHub."
+				# write version and message to array in aUpdateInfo
+				eval "$aUpdateInfo=( \"\$iGithubLatestVersion\" \"\$iUpdateMsg\" )"
 				
+				# add any URLs to open
+				[[ "$iDownloadUrl" ]] && eval "$aUpdateInfo+=( \"\$iDownloadUrl\" )"
+				eval "$aUpdateInfo+=( 'GITHUBUPDATEURL' )"
 			else
-				debuglog "Latest Epichrome version on GitHub ($myGithubLatestVersion) is not newer than $iGithubCheckVersion."
+				debuglog "Latest Epichrome version on GitHub ($iGithubLatestVersion) is not newer than $iGithubCheckVersion."
 			fi
 			
 		else
@@ -1066,7 +1092,7 @@ function updateprofiledir {
 				local bookmarksChanged=
 				
 				# utility regex
-				local s="[[:space:]]*"
+				local s="[$epiWhitespace]*"
 				
 				# regex to parse bookmarks JSON file for our folder
 				local bookmarkRe='^((.*)"checksum"'"$s:$s"'"[^"]+"'"$s,$s)?(.*[^[:blank:]]([[:blank:]]*)"'"children"'"$s:$s"'\['"($s{.*})?)$s(]$s,[^]}]*"'"guid"'"$s:$s"'"e91c4703-ee91-c470-3ee9-1c4703ee91c4"[^]}]*"type"'"$s:$s"'"folder".*)$'
