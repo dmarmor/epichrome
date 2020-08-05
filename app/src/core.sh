@@ -123,6 +123,7 @@ appBookmarksPath="Resources/Profile/$appBookmarksFile"
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
 epiDataPath="$userSupportPath/Epichrome"
+epiUpdateCheckFile="$epiDataPath/update.dat"
 appDataPathBase="$epiDataPath/Apps"
 appDataConfigFile='config.sh'
 epiDataExtIconDir='ExtensionIcons'
@@ -199,9 +200,7 @@ appConfigVars=( SSBAppPath \
 		    SSBLastRunEngineType \
 		    SSBLastRunEdited \
 		    SSBUpdateVersion \
-		    SSBUpdateCheckDate \
-		    SSBUpdateCheckVersion \
-		    SSBUpdateCheckError \
+            SSBUpdateCheckError \
 		    SSBEnginePath \
 		    SSBEngineAppName \
 		    SSBNMHInstallError )

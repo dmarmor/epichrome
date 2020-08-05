@@ -535,34 +535,6 @@ if [[ "$noCurrentEpichrome" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" ||
     # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
     
     checkgithubupdate
-    
-    # handle error
-    if [[ ! "$ok" ]] ; then
-        if [[ "$SSBUpdateCheckError" = "$errmsg" ]] ; then
-            
-            # this is the second time we've had the same error, so show an alert
-            alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg" \
-                    'Checking For Update' '|caution'
-            
-            # don't show an alert for this error again
-            SSBUpdateCheckError="IGNORE|$errmsg"
-            
-        elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
-                "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
-            
-            # new error, so if it comes up a second time, show an alert
-            SSBUpdateCheckError="$errmsg"
-        fi
-        
-        # clear error state
-        ok=1 ; errmsg=
-    fi
-
-
-    if [[ ! "$ok" ]] ; then
-        alert "Warning: Unable to check for new version of Epichrome on GitHub: $errmsg (This error will only be reported once. All errors can be found in the app log.)" 'Checking For Update' '|caution'
-        ok=1 ; errmsg=
-    fi
 fi
 
 
