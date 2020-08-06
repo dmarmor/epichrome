@@ -160,12 +160,13 @@ function getepichromeinfo {
 	#    epiCurrentPath -- path to version of Epichrome that corresponds to this app
 	#    epiLatestVersion -- version of the latest Epichrome found
 	#    epiLatestPath -- path to the latest Epichrome found
+	#    epiLatestDesc -- optional description of changes in this version of Epichrome
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
 	# default global return values
-	epiCurrentPath= ; epiLatestVersion= ; epiLatestPath=
+	epiCurrentPath= ; epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
 	
 	# start with preferred install locations: the engine path & default user & global paths
 	local preferred=()
@@ -228,15 +229,20 @@ function getepichromeinfo {
 	visbeta "$SSBVersion" && myVersionIsRelease=
 	
 	# check instances of Epichrome to find the current and latest
-	local curInstance= ; local curVersion=
+	local curInstance= ; local curVersion= ; local curDesc=
 	for curInstance in "${instances[@]}" ; do
 		if [[ -d "$curInstance" ]] ; then
 			
-			# get this instance's version
-			curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi )"
+			# get this instance's version & optional description
+			curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi && echo "$epiDesc" )"			
 			if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
 				curVersion=0.0.0
+				curDesc=
 			fi
+			
+			# parse out version & description
+			curDesc="${curVersion#*$'\n'}"
+			curVersion="${curVersion%%$'\n'*}"
 			
 			# if we are a release, only look at release versions
 			if [[ "$myVersionIsRelease" ]] && visbeta "$curVersion" ; then
@@ -251,6 +257,7 @@ function getepichromeinfo {
 						vcmp "$epiLatestVersion" '<' "$curVersion" ; then
 					epiLatestPath="$(canonicalize "$curInstance")"
 					epiLatestVersion="$curVersion"
+					epiLatestDesc="$curDesc"
 				fi
 				
 				# see if this is the first instance we've found of the current version
@@ -316,18 +323,15 @@ function checkappupdate {  # ( [ noCurrentEpichrome ] )
 		
 		# set dialog info
 		local updateMsg="A new version of Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
+		[[ "$epiLatestDesc" ]] && updateMsg+=$'\n\n'"$epiLatestDesc"
 		local updateBtnUpdate='Update'
 		local updateBtnLater='Later'
-		local updateButtonList=( )
+		local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 		
 		# update dialog info if the new version is beta
 		if visbeta "$epiLatestVersion" ; then
-			updateMsg="$updateMsg
-
-IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be undone! Please back up both this app and your data directory ($myDataPath) before updating."
-			updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
-		else
-			updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
+			updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
+			# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
 		fi
 		
 		# if the Epichrome version corresponding to this app's version is not found, and
@@ -352,56 +356,56 @@ IMPORTANT NOTE: This is a BETA release, and may be unstable. Updating cannot be 
 		
 		# act based on dialog
 		case "$doUpdate" in
-			Update)
+			$updateBtnUpdate)
 			
-			# read in the new runtime
-			if ! source "${epiLatestPath}/Contents/Resources/Scripts/update.sh" ; then
-				ok= ; errmsg='Unable to load update script $epiLatestVersion.'
-			fi
-			
-			# use new runtime to update the app
-			updateapp "$SSBAppPath"
-			# EXITS ON SUCCESS
-			
-			
-			# IF WE GET HERE, UPDATE FAILED -- reload my runtime
-			
-			# temporarily turn OK back on & reload old runtime
-			oldErrmsg="$errmsg" ; errmsg=
-			oldOK="$ok" ; ok=1
-			source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
-			if [[ ! "$ok" ]] ; then
+				# read in the new runtime
+				if ! source "${epiLatestPath}/Contents/Resources/Scripts/update.sh" ; then
+					ok= ; errmsg='Unable to load update script $epiLatestVersion.'
+				fi
 				
-				# fatal error
-				errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
-				return 1
-			fi
+				# use new runtime to update the app
+				updateapp "$SSBAppPath"
+				# EXITS ON SUCCESS
+				
+				
+				# IF WE GET HERE, UPDATE FAILED -- reload my runtime
+				
+				# temporarily turn OK back on & reload old runtime
+				oldErrmsg="$errmsg" ; errmsg=
+				oldOK="$ok" ; ok=1
+				source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
+				if [[ ! "$ok" ]] ; then
+					
+					# fatal error
+					errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
+					return 1
+				fi
+				
+				# restore OK state
+				ok="$oldOK"
+				
+				# update error messages
+				if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+					errmsg="$oldErrmsg $errmsg"
+				elif [[ "$oldErrmsg" ]] ; then
+					errmsg="$oldErrmsg"
+				fi
+				
+				# alert the user to any error, but don't throw an exception
+				ok=1
+				[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
+				result=1
+				;;
 			
-			# restore OK state
-			ok="$oldOK"
-			
-			# update error messages
-			if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-				errmsg="$oldErrmsg $errmsg"
-			elif [[ "$oldErrmsg" ]] ; then
-				errmsg="$oldErrmsg"
-			fi
-			
-			# alert the user to any error, but don't throw an exception
-			ok=1
-			[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
-			result=1
-			;;
-			
-			Later)
-			# don't update
-			doUpdate=
-			;;
+			updateBtnLater)
+				# don't update
+				doUpdate=
+				;;
 			
 			*)
-			# pretend we're already at the new version
-			SSBUpdateVersion="$epiLatestVersion"
-			;;
+				# pretend we're already at the new version
+				SSBUpdateVersion="$epiLatestVersion"
+				;;
 		esac
 	fi
 	
