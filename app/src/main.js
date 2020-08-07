@@ -136,8 +136,8 @@ let gEpiLastDir = {
     edit: null,
     icon: null
 }
-let gEpiUpdateCheckDate = new Date(kApp.currentDate() - (1 * kDay));
-let gEpiUpdateCheckVersion = "";
+let gEpiGithubCheckDate = new Date(kApp.currentDate() - (1 * kDay));
+let gEpiGithubCheckVersion = "";
 
 // Epichrome core info
 let gCoreInfo = {};
@@ -679,12 +679,12 @@ function readProperties() {
 
     // updateCheckDate
 	if (myProperties["updateCheckDate"] instanceof Date) {
-        gEpiUpdateCheckDate = myProperties["updateCheckDate"];
+        gEpiGithubCheckDate = myProperties["updateCheckDate"];
     }
 
 	// updateCheckVersion
 	if (typeof myProperties["updateCheckVersion"] === 'string') {
-        gEpiUpdateCheckVersion = myProperties["updateCheckVersion"];
+        gEpiGithubCheckVersion = myProperties["updateCheckVersion"];
     }
 
 
@@ -725,17 +725,17 @@ function checkForUpdate() {
     let curDate = kApp.currentDate();
     let myErr;
 
-    if (gEpiUpdateCheckDate < curDate) {
+    if (gEpiGithubCheckDate < curDate) {
 
         // set next update for 1 week from now
-        gEpiUpdateCheckDate = new Date(curDate + (7 * kDay));
+        gEpiGithubCheckDate = new Date(curDate + (7 * kDay));
 
         // run the update check script
         let myUpdateCheckResult;
         try {
             myUpdateCheckResult = shell(
                 'epiAction=updatecheck',
-                'epiUpdateCheckVersion=' + gEpiUpdateCheckVersion,
+                'epiGithubCheckVersion=' + gEpiGithubCheckVersion,
                 'epiVersion=' + kVersion).split('\r');
         } catch(myErr) {
             myUpdateCheckResult = ["ERROR", myErr.message];
@@ -745,13 +745,13 @@ function checkForUpdate() {
 
         if (myUpdateCheckResult[0] == "MYVERSION") {
             // updateCheckVersion is older than the current version, so update it
-            gEpiUpdateCheckVersion = kVersion;
+            gEpiGithubCheckVersion = kVersion;
             myUpdateCheckResult.shift();
         }
 
         if (myUpdateCheckResult[0] == "ERROR") {
             // update check error: fail silently, but check again in 3 days instead of 7
-            gEpiUpdateCheckDate = (curDate + (3 * kDay))
+            gEpiGithubCheckDate = (curDate + (3 * kDay))
         } else {
             // assume "OK" status
             myUpdateCheckResult.shift();
@@ -782,11 +782,11 @@ function checkForUpdate() {
                 if (myDlgResult == "Download") {
                     kApp.openLocation("GITHUBUPDATEURL");
                 } else if (myDlgResult == "Ignore This Version") {
-                    gEpiUpdateCheckVersion = myNewVersion;
+                    gEpiGithubCheckVersion = myNewVersion;
                 }
             } // (myUpdateCheckResult.length == 1)
         } // ! (myUpdateCheckResult[0] == "ERROR")
-    } // (gEpiUpdateCheckDate < curDate)
+    } // (gEpiGithubCheckDate < curDate)
 }
 
 
@@ -829,14 +829,14 @@ function writeProperties() {
             kSysEvents.PropertyListItem({
                 kind:"date",
                 name:"updateCheckDate",
-                value:gEpiUpdateCheckDate
+                value:gEpiGithubCheckDate
             })
         );
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"boolean",
                 name:"updateCheckVersion",
-                value:gEpiUpdateCheckVersion
+                value:gEpiGithubCheckVersion
             })
         );
 

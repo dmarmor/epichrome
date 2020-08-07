@@ -123,7 +123,7 @@ appBookmarksPath="Resources/Profile/$appBookmarksFile"
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
 epiDataPath="$userSupportPath/Epichrome"
-epiUpdateCheckFile="$epiDataPath/update.dat"
+epiGithubCheckFile="$epiDataPath/github.dat"
 appDataPathBase="$epiDataPath/Apps"
 appDataConfigFile='config.sh'
 epiDataExtIconDir='ExtensionIcons'
@@ -199,11 +199,12 @@ appConfigVars=( SSBAppPath \
 		    SSBLastRunVersion \
 		    SSBLastRunEngineType \
 		    SSBLastRunEdited \
-		    SSBUpdateVersion \
-            SSBUpdateCheckError \
+		    SSBUpdateIgnoreVersions \
+            SSBGithubCheckError \
 		    SSBEnginePath \
 		    SSBEngineAppName \
-		    SSBNMHInstallError )
+		    SSBNMHInstallError \
+            SSBCentralNMHError )
 export appConfigVars "${appConfigVars[@]}"
 
 
@@ -963,6 +964,13 @@ export -f handleexitsignal
 trap handleexitsignal EXIT
 
 
+# EPIVERSIONRE -- regex to match & parse any legal Epichrome version number
+# 7 groups as follows: 0A.0B.0Cb0D[00E]
+#  1: A, 2: B, 3: C, 4: b0D, 5: D, 6: [00E], 7: E
+epiVersionRe='0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?'
+export epiVersionRe
+
+
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
 function vcmp { # ( version1 operator version2 )
 
@@ -972,12 +980,11 @@ function vcmp { # ( version1 operator version2 )
     local v2="$1" ; shift
 
     # munge version numbers into comparable integers
-    local vre='^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?$'
     local curv=
     local vmaj vmin vbug vbeta vbuild
     local vstr=()
     for curv in "$v1" "$v2" ; do
-	if [[ "$curv" =~ $vre ]] ; then
+	if [[ "$curv" =~ ^$epiVersionRe$ ]] ; then
 
 	    # extract version number parts
 	    vmaj="${BASH_REMATCH[1]}"

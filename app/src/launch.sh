@@ -158,15 +158,27 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
 function getepichromeinfo {
 	# populates the following globals (if found):
 	#    epiCurrentPath -- path to version of Epichrome that corresponds to this app
-	#    epiLatestVersion -- version of the latest Epichrome found
-	#    epiLatestPath -- path to the latest Epichrome found
-	#    epiLatestDesc -- optional description of changes in this version of Epichrome
+	#    epiCurrentMissing -- non-empty if no current version found & we have an internal engine
+	#    epiLatestVersion/Path/Desc -- version/path/description of the latest Epichrome found
+	#    epiUpdateVersion/Path/Desc -- version/path/description of the latest Epichrome eligible for update
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
 	# default global return values
-	epiCurrentPath= ; epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
+	epiCurrentPath= ; epiCurrentMissing=
+	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
+	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc=
+	
+	# housekeeping: update list of versions to ignore for updating
+	local newIgnoreList=()
+	local curIgnoreVersion=
+	for curIgnoreVersion in "${SSBUpdateIgnoreVersions[@]}" ; do
+		if vcmp "$curIgnoreVersion" '>' "$SSBVersion" ; then
+			newIgnoreList+=( "$curIgnoreVersion" )
+		fi
+	done
+	SSBUpdateIgnoreVersions=( "${newIgnoreList[@]}" )
 	
 	# start with preferred install locations: the engine path & default user & global paths
 	local preferred=()
@@ -230,6 +242,7 @@ function getepichromeinfo {
 	
 	# check instances of Epichrome to find the current and latest
 	local curInstance= ; local curVersion= ; local curDesc=
+	local doIgnoreCurVersion=
 	for curInstance in "${instances[@]}" ; do
 		if [[ -d "$curInstance" ]] ; then
 			
@@ -244,13 +257,38 @@ function getepichromeinfo {
 			curDesc="${curVersion#*$'\n'}"
 			curVersion="${curVersion%%$'\n'*}"
 			
-			# if we are a release, only look at release versions
+			# if we are a release version, only look at release versions
 			if [[ "$myVersionIsRelease" ]] && visbeta "$curVersion" ; then
 				debuglog "Ignoring '$curInstance' (beta version $curVersion)."
 				
 			elif vcmp "$curVersion" '>=' "$SSBVersion" ; then
 				
 				debuglog "Found Epichrome $curVersion at '$curInstance'."
+				
+				# see if this is the first instance we've found of the current version
+				if vcmp "$curVersion" '==' "$SSBVersion" ; then
+					[[ "$epiCurrentPath" ]] || epiCurrentPath="$(canonicalize "$curInstance")"
+				else
+					
+					# this instance is later than our version, so check it for update
+					doIgnoreCurVersion=
+					for curIgnoreVersion in "${SSBUpdateIgnoreVersions[@]}" ; do
+						if vcmp "$curIgnoreVersion" '=' "$curVersion" ; then
+							debuglog "Ignoring version $curVersion for updating."
+							doIgnoreCurVersion=1
+							break
+						fi
+					done
+					
+					# if not ignored, see if it's newer than the current update version
+					if [[ ! "$doIgnoreCurVersion" ]] && \
+							( [[ ! "$epiUpdatePath" ]] || \
+							vcmp "$epiUpdateVersion" '<' "$curVersion" ) ; then
+						epiUpdatePath="$(canonicalize "$curInstance")"
+						epiUpdateVersion="$curVersion"
+						epiUpdateDesc="$curDesc"
+					fi
+				fi
 				
 				# see if this is newer than the current latest Epichrome
 				if [[ ! "$epiLatestPath" ]] || \
@@ -260,22 +298,31 @@ function getepichromeinfo {
 					epiLatestDesc="$curDesc"
 				fi
 				
-				# see if this is the first instance we've found of the current version
-				if [[ ! "$epiCurrentPath" ]] && vcmp "$curVersion" '==' "$SSBVersion" ; then
-					epiCurrentPath="$(canonicalize "$curInstance")"
-				fi
-				
 			elif [[ "$debug" ]] ; then
 				if vcmp "$curVersion" '>' 0.0.0 ; then
-					# failed to get version, so assume this isn't really a version of Epichrome
+					# old version
 					debuglog "Ignoring '$curInstance' (old version $curVersion)."
 				else
-					# failed to get version, so assume this isn't really a version of Epichrome
+					# failed to get version, so assume this isn't really Epichrome
 					debuglog "Ignoring '$curInstance' (unable to get version)."
 				fi
 			fi
 		fi
 	done
+	
+	# check if there's no current Epichrome installed & we have a built-in engine
+	if [[ ( ! "$epiCurrentPath" ) && ( "${SSBEngineType%%|*}" = internal ) ]] ; then
+		
+		# flag that current Epichrome is missing
+		epiCurrentMissing=1
+		
+		# make sure we have a version to update to if possible
+		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$SSBVersion" ; then
+			epiUpdatePath="$epiLatestPath"
+			epiUpdateVersion="$epiLatestVersion"
+			epiUpdateDesc="$epiLatestDesc"
+		fi
+	fi
 	
 	# log versions found
 	if [[ "$debug" ]] ; then
@@ -283,131 +330,126 @@ function getepichromeinfo {
 			debuglog "Current version of Epichrome ($SSBVersion) found at '$epiCurrentPath'"
 		[[ "$epiLatestPath" && ( "$epiLatestPath" != "$epiCurrentPath" ) ]] && \
 			debuglog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
+		[[ "$epiUpdatePath" && ( "$epiUpdatePath" != "$epiLatestPath" ) ]] && \
+			debuglog "Version of Epichrome ($epiUpdateVersion) found for update at '$epiUpdatePath'"
 	fi
 	
 	# return code based on what we found
-	if [[ "$epiCurrentPath" && "$epiLatestPath" ]] ; then
+	if [[ "$epiCurrentPath" && "$epiLatestPath" && "$epiUpdatePath" ]] ; then
 		return 0
-	elif [[ "$epiLatestPath" ]] ; then
+	elif [[ "$epiLatestPath" && "$epiUpdatePath" ]] ; then
 		return 2
+	elif [[ "$epiCurrentPath" && "$epiLatestPath" ]] ; then
+		return 3
+	elif [[ "$epiLatestPath" ]] ; then
+		return 4
 	else
+		# nothing found
 		return 1
 	fi
 }
 
 
 # CHECKAPPUPDATE -- check for a new version of Epichrome and offer to update app
-function checkappupdate {  # ( [ noCurrentEpichrome ] )
+function checkappupdate { 
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# if no Epichrome on the system, we're done
-	[[ "$epiLatestVersion" ]] || return 0
-	
-	# arguments
-	local noCurrentEpichrome="$1" ; shift
+	# if there's no version to update to, we're done
+	[[ "$epiUpdateVersion" ]] || return 0
 	
 	# assume success
 	local result=0
 	
-	# version to check against
-	local myVersion="$SSBUpdateVersion"
-	[[ "$noCurrentEpichrome" ]] && myVersion="$SSBVersion"
+	# set dialog info
+	local updateMsg="A new version of Epichrome was found ($epiUpdateVersion). This app is using version $SSBVersion. Would you like to update it? This update contains the following changes:"
+	[[ "$epiUpdateDesc" ]] && updateMsg+=$'\n\n'"$epiUpdateDesc"
+	local updateBtnUpdate='Update'
+	local updateBtnLater='Later'
+	local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 	
-	# compare versions and possibly offer update
-	if vcmp "$myVersion" '<' "$epiLatestVersion" ; then
-		
-		# by default, don't update
-		local doUpdate=Later
-		
-		# set dialog info
-		local updateMsg="A new version of Epichrome was found ($epiLatestVersion). This app is using version $SSBVersion. Would you like to update it?"
-		[[ "$epiLatestDesc" ]] && updateMsg+=$'\n\n'"$epiLatestDesc"
-		local updateBtnUpdate='Update'
-		local updateBtnLater='Later'
-		local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
-		
-		# update dialog info if the new version is beta
-		if visbeta "$epiLatestVersion" ; then
-			updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
-			# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
-		fi
-		
-		# if the Epichrome version corresponding to this app's version is not found, and
-		# the app uses an internal engine, don't allow the user to ignore this version
-		if [[ ! "$noCurrentEpichrome" ]] ; then
-			updateButtonList+=( "Don't Ask Again For This Version" )
-		fi
-		
-		# display update dialog
-		dialog doUpdate \
-				"$updateMsg" \
-				"Update" \
-				"|caution" \
-				"${updateButtonList[@]}"
-		
-		if [[ ! "$ok" ]] ; then
-			alert "Epichrome version $epiLatestVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
-			doUpdate="Update"
-			ok=1
-			errmsg=
-		fi
-		
-		# act based on dialog
-		case "$doUpdate" in
-			$updateBtnUpdate)
-			
-				# read in the new runtime
-				if ! source "${epiLatestPath}/Contents/Resources/Scripts/update.sh" ; then
-					ok= ; errmsg='Unable to load update script $epiLatestVersion.'
-				fi
-				
-				# use new runtime to update the app
-				updateapp "$SSBAppPath"
-				# EXITS ON SUCCESS
-				
-				
-				# IF WE GET HERE, UPDATE FAILED -- reload my runtime
-				
-				# temporarily turn OK back on & reload old runtime
-				oldErrmsg="$errmsg" ; errmsg=
-				oldOK="$ok" ; ok=1
-				source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
-				if [[ ! "$ok" ]] ; then
-					
-					# fatal error
-					errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
-					return 1
-				fi
-				
-				# restore OK state
-				ok="$oldOK"
-				
-				# update error messages
-				if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-					errmsg="$oldErrmsg $errmsg"
-				elif [[ "$oldErrmsg" ]] ; then
-					errmsg="$oldErrmsg"
-				fi
-				
-				# alert the user to any error, but don't throw an exception
-				ok=1
-				[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
-				result=1
-				;;
-			
-			updateBtnLater)
-				# don't update
-				doUpdate=
-				;;
-			
-			*)
-				# pretend we're already at the new version
-				SSBUpdateVersion="$epiLatestVersion"
-				;;
-		esac
+	# by default, don't update
+	local doUpdate="$updateBtnLater"
+	
+	# update dialog info if the new version is beta
+	if visbeta "$epiUpdateVersion" ; then
+		updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
+		# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
 	fi
+	
+	# if the Epichrome version corresponding to this app's version is not found, and
+	# the app uses an internal engine, don't allow the user to ignore this version
+	if [[ ! "$epiCurrentMissing" ]] ; then
+		updateButtonList+=( "Don't Ask Again For This Version" )
+	fi
+	
+	# display update dialog
+	dialog doUpdate \
+			"$updateMsg" \
+			"Update" \
+			"|caution" \
+			"${updateButtonList[@]}"
+	
+	if [[ ! "$ok" ]] ; then
+		alert "Epichrome version $epiUpdateVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
+		doUpdate="Update"
+		ok=1 ; errmsg=
+	fi
+	
+	# act based on dialog
+	case "$doUpdate" in
+		$updateBtnUpdate)
+			
+			# read in the new runtime
+			if ! source "${epiUpdatePath}/Contents/Resources/Scripts/update.sh" ; then
+				ok= ; errmsg="Unable to load update script $epiUpdateVersion."
+			fi
+			
+			# use new runtime to update the app
+			updateapp "$SSBAppPath"
+			# EXITS ON SUCCESS
+			
+			
+			# IF WE GET HERE, UPDATE FAILED -- reload my runtime
+			
+			# temporarily turn OK back on & reload old runtime
+			oldErrmsg="$errmsg" ; errmsg=
+			oldOK="$ok" ; ok=1
+			source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
+			if [[ ! "$ok" ]] ; then
+				
+				# fatal error
+				errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
+				return 1
+			fi
+			
+			# restore OK state
+			ok="$oldOK"
+			
+			# update error messages
+			if [[ "$oldErrmsg" && "$errmsg" ]] ; then
+				errmsg="$oldErrmsg $errmsg"
+			elif [[ "$oldErrmsg" ]] ; then
+				errmsg="$oldErrmsg"
+			fi
+			
+			# alert the user to any error, but don't throw an exception
+			ok=1
+			[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
+			result=1
+			;;
+			
+		$updateBtnLater)
+			# do nothing
+			;;
+			
+		*)
+			# pretend we're already at the new version
+			[[ "$SSBUpdateIgnoreVersions" ]] || SSBUpdateIgnoreVersions=()
+			SSBUpdateIgnoreVersions+=( "$epiUpdateVersion" )
+			;;
+	esac
 	
 	return "$result"
 }
@@ -444,25 +486,30 @@ function checkgithubupdate {
 		# if there's an update available, display a dialog
 		if [[ "$iUpdateInfo" ]] ; then
 			
+			# buttons
+			local iBtnDownload='Download'
+			local iBtnLater='Remind Me Later'
+			local iBtnIgnore='Ignore This Version'
+			
 			# display dialog
 			dialog doEpichromeUpdate \
 					"${iUpdateInfo[1]}" \
 					"Update Available" \
 					"|caution" \
-					"+Download" \
-					"-Later" \
-					"Ignore This Version"
+					"+$iBtnDownload" \
+					"-$iBtnLater" \
+					"$iBtnIgnore"
 			if [[ "$ok" ]] ; then
 				
 				# act based on dialog
 				case "$doEpichromeUpdate" in
-					Download)
+					$iBtnDownload)
 						# open the update URL
 						try /usr/bin/open "${iUpdateInfo[@]:2}" 'Unable to open update URL.'
 						[[ "$ok" ]] && iNextCheckVersion="${iUpdateInfo[0]}"
 						;;
 						
-					Later)
+					$iBtnLater)
 						# do nothing
 						;;
 						
@@ -621,10 +668,10 @@ function checkgithubinforead {
 	checkGithubNextDate=0
 	checkGithubCurVersion=
 	
-	if [[ -f "$epiUpdateCheckFile" ]]; then
+	if [[ -f "$epiGithubCheckFile" ]]; then
 		
 		# read update check info
-		try 'checkGithubNextDate=' /bin/cat "$epiUpdateCheckFile" \
+		try 'checkGithubNextDate=' /bin/cat "$epiGithubCheckFile" \
 				'Unable to read update check info file.'
 		[[ "$ok" ]] || return 1
 	
@@ -674,7 +721,7 @@ function checkgithubinfowrite {
 	
 	# write out update check info
 	tryalways /bin/mkdir -p "$epiDataPath" 'Unable to create Epichrome data directory.' && \
-			tryalways "${epiUpdateCheckFile}<" echo "${checkGithubNextDate}|${checkGithubCurVersion}" \
+			tryalways "${epiGithubCheckFile}<" echo "${checkGithubNextDate}|${checkGithubCurVersion}" \
 					'Unable to write update check info file.'
 	
 	[[ "$ok" ]] && return 0 || return 1
@@ -690,7 +737,7 @@ function checkgithubhandleerr {
 	local aErrMsgVar="$1" ; shift
 	
 	# handle error
-	if [[ "$SSBUpdateCheckError" = "$errmsg" ]] ; then
+	if [[ "$SSBGithubCheckError" = "$errmsg" ]] ; then
 		
 		local iErrMsg="Warning: Unable to check for new version of Epichrome on GitHub. ($errmsg) This error will only be reported once. All errors can be found in the app log."
 		
@@ -702,13 +749,13 @@ function checkgithubhandleerr {
 		fi
 		
 		# don't show an alert for this error again
-		SSBUpdateCheckError="IGNORE|$errmsg"
+		SSBGithubCheckError="IGNORE|$errmsg"
 		
-	elif [[ ( "${SSBUpdateCheckError:0:6}" != IGNORE ) || \
-            "${SSBUpdateCheckError#*|}" != "$errmsg" ]] ; then
+	elif [[ ( "${SSBGithubCheckError:0:6}" != IGNORE ) || \
+            "${SSBGithubCheckError#*|}" != "$errmsg" ]] ; then
             
         # new error, so if it comes up a second time, show an alert
-		SSBUpdateCheckError="$errmsg"
+		SSBGithubCheckError="$errmsg"
 	fi
 	
 	# clear error state
@@ -2072,7 +2119,7 @@ function checkengine {  # ( ON|OFF )
 	else
 		
 		# engine is not in either state
-		debuglog "Engine is in an unknown state."
+		errlog "Engine is in an unknown state."
 		return 2
 	fi
 	
@@ -2088,7 +2135,7 @@ function checkengine {  # ( ON|OFF )
 	else
 		
 		# either or both app states are damaged
-		debuglog 'Engine is damaged.'
+		errlog 'Engine is damaged.'
 		return 2
 	fi
 	
@@ -2477,7 +2524,7 @@ function updatecentralnmh {
 	# relevant paths
 	local centralNMHPath=
 	getbrowserinfo 'centralNMHPath' 'com.google.Chrome'
-	local centralNMHPath="$userSupportPath/${centralNMHPath[$iLibraryPath]}/$nmhDirName"
+	centralNMHPath="$userSupportPath/${centralNMHPath[$iLibraryPath]}/$nmhDirName"
 	local oldManifestPath="$centralNMHPath/$nmhManifestOldFile"
 	local newManifestPath="$centralNMHPath/$nmhManifestNewFile"
 	
@@ -2501,7 +2548,7 @@ function updatecentralnmh {
 	if [[ ! "$doUpdate" ]] ; then
 		
 		# regex for version and path
-		local info_re='Host ([0-9.a-zA-Z]+)".*"path": *"([^"]+)"'
+		local info_re='Host ('"$epiVersionRe"')".*"path": *"([^"]+)"'
 		
 		# read in one of the manifests
 		try 'curManifest=' /bin/cat "$newManifestPath" 'Unable to read central manifest.'
@@ -2511,9 +2558,9 @@ function updatecentralnmh {
 		if [[ "$curManifest" =~ $info_re ]] ; then
 			
 			# bad path
-			if [[ ! -e "${BASH_REMATCH[2]}" ]] ; then
+			if [[ ! -e "${BASH_REMATCH[9]}" ]] ; then
 				doUpdate=1
-				debuglog 'Central native messaging host has moved.'
+				debuglog 'Central native messaging host not found at manifest path.'
 			else
 				local curManifestVersion="${BASH_REMATCH[1]}"
 			fi
@@ -2521,14 +2568,14 @@ function updatecentralnmh {
 			
 			# unreadable manifest
 			doUpdate=1
-			debuglog 'Unable to parse central manifest.'
+			errlog 'Unable to parse central manifest.'
 		fi
 	fi
 	
 	# we're supposed to update but there's no Epichrome
 	if [[ "$doUpdate" && ! "$sourceVersion" ]] ; then
-		ok=
-		errmsg='Epichrome not found.'
+		ok= ; errmsg='Epichrome not found.'
+		errlog "$errmsg"
 		return 1
 	fi
 	

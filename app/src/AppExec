@@ -363,11 +363,12 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     
     # update last run variables
     SSBLastRunVersion="$SSBVersion"
-    SSBUpdateVersion="$SSBVersion"
+    #SSBUpdateVersion="$SSBVersion"
     
     # clear error states
+    SSBGithubCheckError=
     SSBNMHInstallError=
-    SSBUpdateCheckError=
+    SSBCentralNMHError=
 fi
 
 
@@ -395,7 +396,7 @@ if [[ ( ! "$myStatusNewApp" ) && \
     
     # clear extension install error state
     SSBNMHInstallError=
-    
+    SSBCentralNMHError=
 fi
 
 # update last-run engine
@@ -430,39 +431,47 @@ myEnginePath=
 # start with Epichrome.app location
 if [[ -d "$epiCurrentPath" ]] ; then
     myEnginePath="$epiCurrentPath"
-elif [[ -d "$epiLatestPath" ]] ; then
-    myEnginePath="$epiLatestPath"
+    
+    # get directory path
+    myEnginePath="${myEnginePath%/*}/$appEnginePathBase"
+    
+    # determine if path is in our user path
+    if [[ "${myEnginePath::${#HOME}}" = "$HOME" ]] ; then
+        # path is user-level, so just add our app ID
+        myEnginePath+="/$SSBIdentifier"
+    else
+        # path is root-level, so add our user ID & app ID
+        myEnginePath+="/$USER/$SSBIdentifier"
+    fi
+    
+    # check if engine path matches what it should be
+    if [[ "$SSBEnginePath" != "$myEnginePath" ]] ; then
+        
+        # engine path is out of date, so we'll recreate it
+        debuglog "Engine path '$SSBEnginePath' is out of date. Moving to new location."
+        
+        # $$$ ENSURE ON SAME VOLUME TOO
+        if [[ ( ! -d "$myEnginePath" ) && -d "$SSBEnginePath" ]] ; then
+            try /bin/mv "$SSBEnginePath" "$myEnginePath" \
+                    'Unable to move engine to new location.'
+            ok=1 ; errmsg=
+        fi
+        
+        # engine still at old location -- delete
+        if [[ -d "$SSBEnginePath" ]] ; then
+            
+            deleteengine
+            
+            # set status variable
+            myStatusEngineMoved="$SSBEnginePath"
+        fi
+        
+        # set new engine path
+        SSBEnginePath="$myEnginePath"
+    fi
 else
-    # last ditch -- use default install location
-    myEnginePath='/Applications/Epichrome/Epichrome.app'
-fi
-
-# get directory path
-myEnginePath="${myEnginePath%/*}/$appEnginePathBase"
-
-# determine if path is in our user path
-if [[ "${myEnginePath::${#HOME}}" = "$HOME" ]] ; then
-    # path is user-level, so just add our app ID
-    myEnginePath+="/$SSBIdentifier"
-else
-    # path is root-level, so add our user ID & app ID
-    myEnginePath+="/$USER/$SSBIdentifier"
-fi
-
-# check if engine path matches what it should be
-if [[ "$SSBEnginePath" != "$myEnginePath" ]] ; then
-    
-    # engine path is out of date, so we'll recreate it
-    debuglog "Engine path '$SSBEnginePath' is out of date. Removing."
-    
-    # delete old engine
-    [[ -d "$SSBEnginePath" ]] && deleteengine
-    
-    # set status variable
-    myStatusEngineMoved="$SSBEnginePath"
-    
-    # set new engine path
-    SSBEnginePath="$myEnginePath"
+    # no current Epichrome! -- leave as is & hope engine doesn't need to be recreated
+    myEnginePath="$SSBEnginePath"
 fi
 
 # subsidiary paths
@@ -511,15 +520,9 @@ export myEngineAppPath
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
 
-# if there's no current Epichrome installed & we have a built-in engine,
-# we need to force the update to be offered no matter what
-noCurrentEpichrome=
-[[ "$epiCurrentPath" || ( "${SSBEngineType%%|*}" != internal ) ]] || \
-    noCurrentEpichrome=1
-
-if [[ "$noCurrentEpichrome" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
+if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
     
-    checkappupdate "$noCurrentEpichrome"
+    checkappupdate
     
     if [[ "$?" != 0 ]] ; then
         
@@ -573,10 +576,10 @@ if [[ ! "$ok" ]] ; then
     if [[ "$SSBNMHInstallError" != "$errmsg" ]] ; then
         
         # show warning alert for error installing native messaging host
-        alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't." 'Warning' '|caution'
+        alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't. This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
-        SSBExtensionInstallError="$errmsg"
+        SSBNMHInstallError="$errmsg"
     fi
     
     # clear error state
@@ -641,7 +644,7 @@ else
         doNotActivateEngine=1
     elif [[ "$engineState" = 2 ]] ; then
         doCreateEngine=1
-        debuglog "Replacing damaged engine."
+        errlog "Replacing damaged engine."
         createEngineErrMsg='Unable to replace damaged engine'
     fi
     # else engine is in the expected off state
@@ -699,10 +702,17 @@ fi
 if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
     
     updatecentralnmh
-    
     if [[ ! "$ok" ]] ; then
-        alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work." \
-                'Warning' '|caution'
+        if [[ "$SSBCentralNMHError" != "$errmsg" ]] ; then
+            
+            # show warning alert for error installing native messaging host
+            alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work. This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
+            
+            # set new error state
+            SSBCentralNMHError="$errmsg"
+        fi
+        
+        # clear error state
         ok=1 ; errmsg=
     fi
 fi

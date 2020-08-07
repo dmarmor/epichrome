@@ -79,14 +79,14 @@ elif [[ "$epiAction" = 'updatecheck' ]] ; then
     fi
     
     # compare supplied versions
-    if vcmp "$epiUpdateCheckVersion" '<' "$epiVersion" ; then
+    if vcmp "$epiGithubCheckVersion" '<' "$epiVersion" ; then
         echo 'MYVERSION'
-        epiUpdateCheckVersion="$epiVersion"
+        epiGithubCheckVersion="$epiVersion"
     fi
     
     # compare latest supplied version against github
     local newVersion=
-    checkgithubversion "$epiUpdateCheckVersion" newVersion
+    checkgithubversion "$epiGithubCheckVersion" newVersion
     [[ "$ok" ]] || abort
     
     # if we got here, check succeeded, so submit result back to main.js
