@@ -356,45 +356,66 @@ function checkappupdate {
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
+	# this app is set to never update itself
+	if [[ "$SSBUpdateAction" = 'Never' ]] ; then
+		debuglog 'This app is set to never update itself.'
+		return 0
+	fi
+	
 	# if there's no version to update to, we're done
-	[[ "$epiUpdateVersion" ]] || return 0
+	if [[ ! "$epiUpdateVersion" ]] ; then
+		debuglog 'No newer version found.'
+		return 0
+	fi
 	
 	# assume success
 	local result=0
 	
-	# set dialog info
-	local updateMsg="A new version of Epichrome was found ($epiUpdateVersion). This app is using version $SSBVersion. Would you like to update it? This update contains the following changes:"
-	[[ "$epiUpdateDesc" ]] && updateMsg+=$'\n\n'"$epiUpdateDesc"
+	# set dialog buttons
 	local updateBtnUpdate='Update'
 	local updateBtnLater='Later'
-	local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 	
 	# by default, don't update
 	local doUpdate="$updateBtnLater"
 	
-	# update dialog info if the new version is beta
-	if visbeta "$epiUpdateVersion" ; then
-		updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
-		# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
-	fi
-	
-	# if the Epichrome version corresponding to this app's version is not found, and
-	# the app uses an internal engine, don't allow the user to ignore this version
-	if [[ ! "$epiCurrentMissing" ]] ; then
-		updateButtonList+=( "Don't Ask Again For This Version" )
-	fi
-	
-	# display update dialog
-	dialog doUpdate \
-			"$updateMsg" \
-			"Update" \
-			"|caution" \
-			"${updateButtonList[@]}"
-	
-	if [[ ! "$ok" ]] ; then
-		alert "Epichrome version $epiUpdateVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
-		doUpdate="Update"
-		ok=1 ; errmsg=
+	if [[ "$SSBUpdateAction" = 'Auto' ]] ; then
+		
+		debuglog 'Automatically updating.'
+		
+		# don't ask, just update
+		doUpdate="$updateBtnUpdate"
+	else
+		
+		# set dialog info
+		local updateMsg="A new version of Epichrome was found ($epiUpdateVersion). This app is using version $SSBVersion. Would you like to update it? This update contains the following changes:"
+		[[ "$epiUpdateDesc" ]] && updateMsg+=$'\n\n'"$epiUpdateDesc"
+		local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
+		
+		
+		# update dialog info if the new version is beta
+		if visbeta "$epiUpdateVersion" ; then
+			updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
+			# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
+		fi
+		
+		# if the Epichrome version corresponding to this app's version is not found, and
+		# the app uses an internal engine, don't allow the user to ignore this version
+		if [[ ! "$epiCurrentMissing" ]] ; then
+			updateButtonList+=( "Don't Ask Again For This Version" )
+		fi
+		
+		# display update dialog
+		dialog doUpdate \
+				"$updateMsg" \
+				"Update" \
+				"|caution" \
+				"${updateButtonList[@]}"
+		
+		if [[ ! "$ok" ]] ; then
+			alert "Epichrome version $epiUpdateVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
+			doUpdate="Update"
+			ok=1 ; errmsg=
+		fi
 	fi
 	
 	# act based on dialog

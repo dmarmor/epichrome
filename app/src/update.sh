@@ -239,6 +239,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
             APPREGISTERBROWSER "$(formatscalar "$SSBRegisterBrowser")" \
             APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
             APPENGINESOURCE "$appExecEngineSource" \
+            APPUPDATEACTION "$(formatscalar "$SSBUpdateAction")" \
             APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
             APPEDITED "$(formatscalar "$editedTimestamp")"
 
