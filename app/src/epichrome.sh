@@ -33,6 +33,20 @@ source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID"
 [[ "$ok" ]] || abort
 
 
+# LOADSCRIPT: load a given script
+function loadscript {
+    
+    local iScript="$1" ; shift
+    [[ "${iScript:0:1}" = '/' ]] || iScript="$myRuntimeScriptsPath/$iScript"
+    
+    if ! source "$iScript" ; then
+        ok= ; errmsg="Unable to load ${iScript##*/}."
+        errlog "$errmsg"
+        abort
+    fi
+}
+
+
 # DETERMINE REQUESTED ACTION
 
 # abort if no action sent
@@ -40,18 +54,41 @@ source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID"
 
 if [[ "$epiAction" = 'init' ]] ; then
     
-    # ACTION: INITIALIZE
+    # ACTION: INITIALIZE & CHECK GITHUB FOR UPDATES
     
     # initialize log file and report info back to Epichrome
     initlogfile
     
-    # return useful info as JSON
-    echo "{
-        \"dataPath\": \"$(escapejson "$myDataPath")\",
-        \"logFile\": \"$(escapejson "$myLogFile")\"
-    }"
+    # start result JSON
+    result="{
+   \"dataPath\": \"$(escapejson "$myDataPath")\",
+   \"logFile\": \"$(escapejson "$myLogFile")\""
     
-
+    
+    # CHECK FOR UPDATE ON GITHUB
+    
+    # load launch.sh
+    loadscript 'launch.sh'
+    
+    # get info on installed versions of Epichrome
+    getepichromeinfo
+    
+    # check GitHub
+    githubJson=
+    checkgithubupdate githubJson
+    
+    # if we got any result, add it to JSON
+    if [[ "$githubJson" ]] ; then
+        result+=$',\n   "github": '"$githubJson"
+    fi
+    
+    # close JSON
+    result+=$'\n}'
+    
+    # return result JSON
+    echo "$result"
+    
+    
 elif [[ "$epiAction" = 'log' ]] ; then
     
     # ACTION: LOG
@@ -67,33 +104,32 @@ elif [[ "$epiAction" = 'log' ]] ; then
     fi
     
     
-elif [[ "$epiAction" = 'updatecheck' ]] ; then
+elif [[ "$epiAction" = 'githubresult' ]] ; then
     
-    # ACTION: CHECK FOR UPDATES ON GITHUB
+    # ACTION: WRITE BACK GITHUB-CHECK RESULT
     
     # load launch.sh
-    if ! source "$myRuntimeScriptsPath/launch.sh" ; then
-        ok= ; errmsg="Unable to load launch.sh."
-        errlog "$errmsg"
-        abort
+    loadscript 'launch.sh'
+    
+    # assume success from the update dialog
+    nextCheck=
+    
+    # pass along any error from the update dialog
+    if [[ "$epiGithubDialogErr" ]] ; then
+        ok= ; errmsg="$epiGithubDialogErr"
+        nextCheck='soon'
     fi
     
-    # compare supplied versions
-    if vcmp "$epiGithubCheckVersion" '<' "$epiVersion" ; then
-        echo 'MYVERSION'
-        epiGithubCheckVersion="$epiVersion"
+    # try to write back the info file
+    checkgithubinfowrite "$epiCheckDate" "$nextCheck" "$epiNextVersion"
+    
+    # handle any passed errors (or any we got writing the info file)
+    if [[ ! "$ok" ]] ; then
+        checkgithubhandleerr result
+        echo "$result"
     fi
     
-    # compare latest supplied version against github
-    local newVersion=
-    checkgithubversion "$epiGithubCheckVersion" newVersion
-    [[ "$ok" ]] || abort
     
-    # if we got here, check succeeded, so submit result back to main.js
-    echo 'OK'
-    [[ "$newVersion" ]] && echo "$newVersion"
-    
-
 elif [[ "$epiAction" = 'read' ]] ; then
     
     # ACTION: READ EXISTING APP
@@ -215,7 +251,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
         myAppIcon="Contents/Resources/$myAppIcon"
         if [[ -e "$epiAppPath/$myAppIcon" ]] ; then
             myAppIcon="
-            \"iconPath\": \"$(escapejson "$myAppIcon")\","
+   \"iconPath\": \"$(escapejson "$myAppIcon")\","
         else
             myAppIcon=
         fi
@@ -227,12 +263,6 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     
     # EXPORT INFO BACK TO MAIN.JS
-    
-    # escape each command-line URL for JSON
-    cmdLineJson=()
-    for url in "${SSBCommandLine[@]}" ; do
-        cmdLineJson+=( "\"$(escapejson "$url")\"" )
-    done
     
     # adapt registerBrowser value
     if [[ "$SSBRegisterBrowser" = 'No' ]] ; then
@@ -250,20 +280,21 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # export JSON
     echo "{$myAppIcon
-    \"version\": \"$(escapejson "$SSBVersion")\",
-    \"id\": \"$(escapejson "$SSBIdentifier")\",
-    \"displayName\": \"$(escapejson "$CFBundleDisplayName")\",
-    \"shortName\": \"$(escapejson "$CFBundleName")\",
-    \"registerBrowser\": $myRegisterBrowser,
-    \"icon\": $myIcon,
-    \"engine\": {
-        \"type\": \"$(escapejson "${SSBEngineType%%|*}")\",
-        \"id\": \"$(escapejson "${SSBEngineType#*|}")\"
-    },
-    \"commandLine\": [
-    $(join_array ','$'\n''        ' "${cmdLineJson[@]}")
-    ]
+   \"version\": \"$(escapejson "$SSBVersion")\",
+   \"id\": \"$(escapejson "$SSBIdentifier")\",
+   \"displayName\": \"$(escapejson "$CFBundleDisplayName")\",
+   \"shortName\": \"$(escapejson "$CFBundleName")\",
+   \"registerBrowser\": $myRegisterBrowser,
+   \"icon\": $myIcon,
+   \"engine\": {
+      \"type\": \"$(escapejson "${SSBEngineType%%|*}")\",
+      \"id\": \"$(escapejson "${SSBEngineType#*|}")\"
+   },
+   \"commandLine\": [
+      "$(jsonarray $',\n      ' "${SSBCommandLine[@]}")"
+   ]
 }"
+
 
 elif [[ "$epiAction" = 'build' ]] ; then
     

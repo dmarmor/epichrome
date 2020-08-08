@@ -200,11 +200,11 @@ appConfigVars=( SSBAppPath \
 		    SSBLastRunEngineType \
 		    SSBLastRunEdited \
 		    SSBUpdateIgnoreVersions \
-            SSBGithubCheckError \
 		    SSBEnginePath \
 		    SSBEngineAppName \
-		    SSBNMHInstallError \
-            SSBCentralNMHError )
+            SSBLastErrorGithubCheck \
+		    SSBLastErrorNMHInstall \
+            SSBLastErrorNMHCentral )
 export appConfigVars "${appConfigVars[@]}"
 
 
@@ -1449,7 +1449,25 @@ function unescapejson {
     fi
 }
 
-export -f escape unescape escapejson unescapejson
+
+# JSONARRAY: convert an array to a JSON array
+#  jsonarray(aJoinStr, [elems...])
+function jsonarray {
+    
+    # arguments
+    local aJoinStr="$1" ; shift
+    
+    local iResult=()
+    local iCurElem
+    for iCurElem in "$@" ; do
+        iResult+=( "\"$(escapejson "$iCurElem")\"" )
+    done
+    
+    # output joined array
+    join_array "$aJoinStr" "${iResult[@]}"
+}
+
+export -f escape unescape escapejson unescapejson jsonarray
 
 
 # FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval

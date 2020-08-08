@@ -367,9 +367,9 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     #SSBUpdateVersion="$SSBVersion"
     
     # clear error states
-    SSBGithubCheckError=
-    SSBNMHInstallError=
-    SSBCentralNMHError=
+    SSBLastErrorGithubCheck=
+    SSBLastErrorNMHInstall=
+    SSBLastErrorNMHCentral=
 fi
 
 
@@ -396,8 +396,8 @@ if [[ ( ! "$myStatusNewApp" ) && \
     myStatusEngineChange[0]="$SSBLastRunEngineType"
     
     # clear extension install error state
-    SSBNMHInstallError=
-    SSBCentralNMHError=
+    SSBLastErrorNMHInstall=
+    SSBLastErrorNMHCentral=
 fi
 
 # update last-run engine
@@ -538,7 +538,10 @@ if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || 
     
     # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
     
-    checkgithubupdate
+    if checkgithubupdate ; then        
+        # success, so clear last error
+        SSBLastErrorGithubCheck=
+    fi
 fi
 
 
@@ -573,14 +576,17 @@ fi
 
 # install native messaging host, reporting non-fatal errors
 installnmh
-if [[ ! "$ok" ]] ; then
-    if [[ "$SSBNMHInstallError" != "$errmsg" ]] ; then
+if [[ "$ok" ]] ; then
+    # success, so clear last error
+    SSBLastErrorNMHInstall=
+else
+    if [[ "$SSBLastErrorNMHInstall" != "$errmsg" ]] ; then
         
         # show warning alert for error installing native messaging host
         alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't. This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
-        SSBNMHInstallError="$errmsg"
+        SSBLastErrorNMHInstall="$errmsg"
     fi
     
     # clear error state
@@ -703,7 +709,10 @@ fi
 if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
     
     updatecentralnmh
-    if [[ ! "$ok" ]] ; then
+    if [[ "$ok" ]] ; then
+        # success, so clear last error
+        SSBLastErrorNMHCentral=
+    else
         if [[ "$SSBCentralNMHError" != "$errmsg" ]] ; then
             
             # show warning alert for error installing native messaging host

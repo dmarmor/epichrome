@@ -136,10 +136,11 @@ let gEpiLastDir = {
     edit: null,
     icon: null
 }
-let gEpiGithubCheckDate = new Date(kApp.currentDate() - (1 * kDay));
-let gEpiGithubCheckVersion = "";
 
-// Epichrome core info
+// the last error encountered checking GitHub
+let gEpiLastErrGithub = '';
+
+// info from core.sh
 let gCoreInfo = {};
 
 // new app defaults
@@ -188,11 +189,11 @@ function main(aApps=[]) {
 
         // APP INIT
 
-        // run core.sh to initialize logging & get key info
+        // run core.sh to initialize & get key info
         gCoreInfo = JSON.parse(shell(
             'coreDoInit=1',
             'epiAction=init'));
-            
+        
         // check data integrity
         if (!gCoreInfo.dataPath || (typeof(gCoreInfo.dataPath) != 'string')) {
             throw Error('Unable to initialize Epichrome data path.');
@@ -215,14 +216,17 @@ function main(aApps=[]) {
         for (let curEng of kEngines) {
             curEng.button = engineName(curEng);
         }
-
+        
         // read in persistent properties
         readProperties();
-
-        // check GitHub for updates to Epichrome
-        checkForUpdate();
-
-
+        
+        // handle any GitHub updates found during init
+        if (handleGithubUpdate(gCoreInfo.github)) {
+            // success, so clear last error
+            gEpiLastErrGithub = '';
+        }
+        
+        
         // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
 
         if (aApps.length == 0) {
@@ -677,14 +681,9 @@ function readProperties() {
         gEpiLastDir.icon = myProperties["lastIconPath"];
     }
 
-    // updateCheckDate
-	if (myProperties["updateCheckDate"] instanceof Date) {
-        gEpiGithubCheckDate = myProperties["updateCheckDate"];
-    }
-
-	// updateCheckVersion
-	if (typeof myProperties["updateCheckVersion"] === 'string') {
-        gEpiGithubCheckVersion = myProperties["updateCheckVersion"];
+    // lastErrorGithubCheck
+	if (typeof myProperties["lastErrorGithubCheck"] === 'string') {
+        gEpiLastErrGithub = myProperties["lastErrorGithubCheck"];
     }
 
 
@@ -719,74 +718,95 @@ function readProperties() {
 }
 
 
-// CHECKFORUPDATE: check for updates to Epichrome
-function checkForUpdate() {
-
-    let curDate = kApp.currentDate();
-    let myErr;
-
-    if (gEpiGithubCheckDate < curDate) {
-
-        // set next update for 1 week from now
-        gEpiGithubCheckDate = new Date(curDate + (7 * kDay));
-
-        // run the update check script
-        let myUpdateCheckResult;
+// HANDLEGITHUBUPDATE: handle any GitHub updates returned from core init
+function handleGithubUpdate(aGithubInfo) {
+    
+    // no update reported
+    if (!aGithubInfo) { return true; }
+    
+    
+    if (aGithubInfo.hasOwnProperty('version')) {
+        
+        // NEW VERSION FOUND
+        
+        // variables to pass back for writing info file
+        let myNextVersion = '', myGithubDialogErr = '';
+        
+        let myErr;
+        
         try {
-            myUpdateCheckResult = shell(
-                'epiAction=updatecheck',
-                'epiGithubCheckVersion=' + gEpiGithubCheckVersion,
-                'epiVersion=' + kVersion).split('\r');
+            
+            let myDlgResult = dialog(aGithubInfo.message, {
+                    withTitle: 'Update Available',
+                    withIcon: kEpiIcon,
+                    buttons:['Download', 'Remind Me Later', 'Ignore This Version'],
+                    defaultButton: 1,
+                    cancelButton: 2
+                }).buttonIndex;
+                
+            if (myDlgResult == 0) {
+                
+                // DOWNLOAD button
+                
+                // open URLs
+                for (let curUrl of aGithubInfo.urls) {
+                    kApp.openLocation(curUrl);
+                }
+                
+                // mark this version as downloaded
+                myNextVersion = aGithubInfo.version;
+                
+            } else if (myDlgResult == 1) {
+                
+                // LATER button -- just clear next version
+            } else {
+                
+                // IGNORE button -- mark this version as downloaded
+                myNextVersion = aGithubInfo.version;
+            }
         } catch(myErr) {
-            myUpdateCheckResult = ["ERROR", myErr.message];
+            myGithubDialogErr = myErr.message;
+            myNextVersion = aGithubInfo.prevGithubVersion;
         }
-
-        // parse update check results
-
-        if (myUpdateCheckResult[0] == "MYVERSION") {
-            // updateCheckVersion is older than the current version, so update it
-            gEpiGithubCheckVersion = kVersion;
-            myUpdateCheckResult.shift();
+        
+        // write to GitHub info file
+        let myWriteResult = shell('epiAction=githubresult',
+            'epiGithubDialogErr=' + myGithubDialogErr,
+            'epiCheckDate=' + aGithubInfo.checkDate,
+            'epiNextVersion=' + myNextVersion);
+        
+        // if any errors are returned, handle them
+        if (myWriteResult) {
+            aGithubInfo = JSON.parse(myWriteResult);
         }
-
-        if (myUpdateCheckResult[0] == "ERROR") {
-            // update check error: fail silently, but check again in 3 days instead of 7
-            gEpiGithubCheckDate = (curDate + (3 * kDay))
-        } else {
-            // assume "OK" status
-            myUpdateCheckResult.shift();
-
-            if (myUpdateCheckResult.length == 1) {
-
-                // update check found a newer version on GitHub
-                let myNewVersion = myUpdateCheckResult[0];
-                let myDlgResult;
-                try {
-                    myDlgResult = kApp.displayDialog("A new version of Epichrome (" + myNewVersion + ") is available on GitHub.", {
-                        withTitle: "Update Available",
-                        withIcon: kEpiIcon,
-                        buttons:["Download", "Later", "Ignore This Version"],
-                        defaultButton: 1,
-                        cancelButton: 2
-                    }).buttonReturned;
-                } catch(myErr) {
-                    // Later: do nothing
-                    if (myErr.errorNumber == -128) {
-                        myDlgResult = false;
-                    } else {
-                        throw myErr;
-                    }
-                }
-
-                // Download or Ignore
-                if (myDlgResult == "Download") {
-                    kApp.openLocation("GITHUBUPDATEURL");
-                } else if (myDlgResult == "Ignore This Version") {
-                    gEpiGithubCheckVersion = myNewVersion;
-                }
-            } // (myUpdateCheckResult.length == 1)
-        } // ! (myUpdateCheckResult[0] == "ERROR")
-    } // (gEpiGithubCheckDate < curDate)
+    }
+    
+    
+    // HANDLE GITHUB UPDATE ERRORS
+    
+    if (aGithubInfo.hasOwnProperty('error')) {
+        
+        // display alert on first occurrence only
+        if (aGithubInfo.error != gEpiLastErrGithub) {
+            
+            // this is the first time we've had the same error, so report the error
+            dialog(aGithubInfo.message, {
+                withTitle: 'Checking For Update',
+                withIcon: 'caution',
+                buttons: ['OK'],
+                defaultButton: 1
+            });
+            
+            // don't show an alert for this error again
+            gEpiLastErrGithub = aGithubInfo.error;
+        }
+        
+        // flag an error
+        return false;
+    }
+    
+    // success
+    return true;
 }
 
 
@@ -827,19 +847,12 @@ function writeProperties() {
         );
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
-                kind:"date",
-                name:"updateCheckDate",
-                value:gEpiGithubCheckDate
+                kind:"string",
+                name:"lastErrorGithubCheck",
+                value:gEpiLastErrGithub
             })
         );
-        myProperties.propertyListItems.push(
-            kSysEvents.PropertyListItem({
-                kind:"boolean",
-                name:"updateCheckVersion",
-                value:gEpiGithubCheckVersion
-            })
-        );
-
+        
         // fill property list with app state
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({

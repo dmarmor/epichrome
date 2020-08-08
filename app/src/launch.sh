@@ -479,249 +479,257 @@ function checkappupdate {
 # FUNCTIONS TO CHECK FOR A NEW VERSION OF EPICHROME ON GITHUB
 
 # CHECKGITHUBUPDATE -- check if there's a new version of Epichrome on GitHub and offer to download
+#  checkgithubupdate([aJsonVar]) -- jsonVar: optional variable to write JSON to
 function checkgithubupdate {
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# post-check action
-	local iNextCheck=
-	local iNextCheckVersion=
-	
-	# check for new version on github
-	local iCheckDate=
-	local iUpdateInfo=
-	checkgithubversion iCheckDate iUpdateInfo
-	
-	# if we weren't able to read the info file or get the current date, just give up
-	if [[ "$iCheckDate" = 'error' ]] ; then
-		checkgithubhandleerr
-		return 1
-	fi
-	
-	if [[ "$ok" ]] ; then
-		
-		# not time for a check yet, so we're done
-		[[ "$iCheckDate" ]] || return 0
-		
-		# if there's an update available, display a dialog
-		if [[ "$iUpdateInfo" ]] ; then
-			
-			# buttons
-			local iBtnDownload='Download'
-			local iBtnLater='Remind Me Later'
-			local iBtnIgnore='Ignore This Version'
-			
-			# display dialog
-			dialog doEpichromeUpdate \
-					"${iUpdateInfo[1]}" \
-					"Update Available" \
-					"|caution" \
-					"+$iBtnDownload" \
-					"-$iBtnLater" \
-					"$iBtnIgnore"
-			if [[ "$ok" ]] ; then
-				
-				# act based on dialog
-				case "$doEpichromeUpdate" in
-					$iBtnDownload)
-						# open the update URL
-						try /usr/bin/open "${iUpdateInfo[@]:2}" 'Unable to open update URL.'
-						[[ "$ok" ]] && iNextCheckVersion="${iUpdateInfo[0]}"
-						;;
-						
-					$iBtnLater)
-						# do nothing
-						;;
-						
-					*)
-						# pretend we're already at the new version
-						iNextCheckVersion="${iUpdateInfo[0]}"
-						;;
-				esac
-			fi
-		fi
-	else
-		iNextCheck='soon'
-	fi
-	
-	# write out new info file
-	checkgithubinfowrite "$iCheckDate" "$iNextCheck" "$iNextCheckVersion"
-	
-	# if we ran into any errors, handle them
-	if [[ ! "$ok" ]] ; then
-		checkgithubhandleerr
-		return 1
-	else
-		return 0
-	fi
-}
-
-
-# CHECKGITHUBVERSION: check for a new version of Epichrome on GitHub
-#   checkgithubversion(aCheckDate, aUpdateInfo)
-#     returns: 0 if github checked, 1 if not checked
-#     aCheckDate: variable to write the datestamp of this check (or nothing if no check)
-#     aUpdateInfo: variable to write: [ version, updateMsg, downloadURL ]
-function checkgithubversion {
-
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# initialize result variables
-	local aCheckDate="$1" ; shift ; eval "$aCheckDate="
-	local aUpdateInfo="$1" ; shift ; eval "$aUpdateInfo="
+	# arguments
+	local aJsonVar="$1" ; shift ; [[ "$aJsonVar" ]] && eval "$aJsonVar="
 	
 	# if we're skipping all versions, we're done
 	[[ "$SSBUpdateCheckSkip" = 'All' ]] && return 0
 	
-	# read in info on when/what to check
-	checkgithubinforead
+	
+	# READ GITHUB UPDATE INFO FILE & GET CURRENT DATE
+	
+	# initialize variables to force update check
+	local iGithubNextCheck=0
+	local iGithubCurVersion=
+	
+	if [[ -f "$epiGithubCheckFile" ]]; then
+		
+		# read update check info
+		try 'iGithubNextDate=' /bin/cat "$epiGithubCheckFile" \
+				'Unable to read update check info file.'
+		
+		if [[ "$ok" ]] ; then
+			
+			# parse info
+			iGithubCurVersion="${iGithubNextDate#*|}"
+			iGithubNextDate="${iGithubNextDate%%|*}"
+			
+			# integrity-check date
+			if [[ ! "$iGithubNextDate" =~ ^[1-9][0-9]*$ ]] ; then
+				errlog "Malformed date '$iGithubNextDate' found in update check info file."
+				iGithubNextDate=0
+			fi
+			
+			# if we're set to ignore a version that's now installed, clear the state
+			# (this also integrity-checks version, as a malformed version will compare as 0.0.0)
+			if [[ "$iGithubCurVersion" ]] && \
+					vcmp "$iGithubCurVersion" '<=' "$epiLatestVersion" ; then
+				iGithubCurVersion=
+			fi
+		fi
+	else
+		debuglog 'No update check info file found.'
+	fi
 	
 	# get current date
-	local curDate=
-	try 'curDate=' /bin/date '+%s' 'Unable to get date for update check.'
+	local iCurDate=
+	try 'iCurDate=' /bin/date '+%s' 'Unable to get date for update check.'
 	
-	# if we got errors here, we shouldn't update the info file
+	# if we got errors reading the info file or getting date, we shouldn't update the info file
 	if [[ ! "$ok" ]] ; then
-		eval "$aCheckDate='error'"		
+		checkgithubhandleerr "$aJsonVar"
 		return 1
 	fi
 	
+	
+	# CHECK FOR UPDATES ON GITHUB
+	
+	# result variables
+	local iResultCheckDate=
+	local iResultVersion=
+	local iResultMsg=
+	local iResultUrls=()
+	
 	# check for updates if we've never run a check, or if the next check date is in the past
-	if [[ "$checkGithubNextDate" -lt "$curDate" ]] ; then
-		
-		# write the date of this check
-		eval "$aCheckDate=\"\$curDate\""
+	if [[ "$iGithubNextDate" -lt "$iCurDate" ]] ; then
 		
 		# regex for pulling out version
-		local versionRe='"tag_name" *: *"v([0-9.]+\.([0-9]+)[bB0-9]*)"'
-		
-		# assume version check failure
-		local checkSucceeded=
+		local s="[$epiWhitespace]*"
+		local iVersionRe='"tag_name"'"$s"':'"$s"'"v('"$epiVersionRe"')"'
 		
 		# check github for the latest version
 		local iGithubInfo=
 		try '!2' 'iGithubInfo=' /usr/bin/curl --connect-timeout 5 --max-time 10 \
 				'https://api.github.com/repos/dmarmor/epichrome/releases/latest' \
 				'Error retrieving data from GitHub.'
-		[[ "$ok" ]] || return 1
 		
-		# parse results
-		if [[ "$iGithubInfo" =~ $versionRe ]] ; then
+		if [[ "$ok" ]] ; then
 			
-			# we got a version
-			checkSucceeded=1
-			
-			# extract version number from regex
-			local iGithubLatestVersion="${BASH_REMATCH[1]}"
-			
-			# choose version to compare -- either the one in the info file or latest on the system
-			local iGithubCheckVersion="$epiLatestVersion"
-			[[ "$checkGithubCurVersion" ]] && iGithubCheckVersion="$checkGithubCurVersion"
-			
-			# compare versions
-			if vcmp "$iGithubCheckVersion" '<' "$iGithubLatestVersion" ; then
+			# parse results
+			if [[ "$iGithubInfo" =~ $iVersionRe ]] ; then
 				
-				# GitHub version is newer
-				debuglog "Found new Epichrome version $iGithubLatestVersion on GitHub."
-								
-				# try to extract package download URL
-				local iUrlRe='"browser_download_url" *: *"([^"]+)"'
-				local iDownloadUrl=
-				if [[ "$iGithubInfo" =~ $iUrlRe ]] ; then
-					unescapejson "${BASH_REMATCH[1]}" iDownloadUrl
-				fi
+				# extract version number from regex
+				local iGithubLatestVersion="${BASH_REMATCH[1]}"
 				
-				# try to extract info on the update
-				local iUpdateDescRe='<epichrome>(.*)</epichrome>'
-				local iUpdateMsg="A new version of Epichrome ($iGithubLatestVersion) is available on GitHub."
-				if [[ "$iGithubInfo" =~ $iUpdateDescRe ]] ; then
+				# choose version to compare -- either the one in the info file or latest on the system
+				local iGithubCheckVersion="$epiLatestVersion"
+				[[ "$iGithubCurVersion" ]] && iGithubCheckVersion="$iGithubCurVersion"
+				
+				# compare versions
+				if vcmp "$iGithubCheckVersion" '<' "$iGithubLatestVersion" ; then
 					
-					local iUpdateDesc=
-					unescapejson "${BASH_REMATCH[1]}" iUpdateDesc
+					# GitHub version is newer
+					debuglog "Found new Epichrome version $iGithubLatestVersion on GitHub."
 					
-					# remove leading & trailing whitespace
-					local iWsRe="^[$epiWhitespace]*(.*[^$epiWhitespace])?"
-					if [[ "$iUpdateDesc" =~ $iWsRe ]] ; then
-						iUpdateDesc="${BASH_REMATCH[1]}"
+					# save version
+					iResultVersion="$iGithubLatestVersion"
+					
+					# try to extract package download URL
+					local iUrlRe='"browser_download_url"'"$s"':'"$s"'"([^"]+)"'
+					if [[ "$iGithubInfo" =~ $iUrlRe ]] ; then
+						iResultUrls+=( "$(unescapejson "${BASH_REMATCH[1]}")" )
 					fi
 					
-					# add any info to message
-					[[ "$iUpdateDesc" ]] && iUpdateMsg+=' This update includes the following changes:'$'\n\n'"$iUpdateDesc"
+					# finish result URLs
+					iResultUrls+=( 'GITHUBUPDATEURL' )
+					
+					# start result message
+					iResultMsg="A new version of Epichrome ($iGithubLatestVersion) is available on GitHub."
+					
+					# try to extract description of the update
+					local iUpdateDescRe='<epichrome>(.*)</epichrome>'
+					if [[ "$iGithubInfo" =~ $iUpdateDescRe ]] ; then
+						
+						local iUpdateDesc=
+						unescapejson "${BASH_REMATCH[1]}" iUpdateDesc
+						
+						# remove leading & trailing whitespace
+						local iWsRe="^$s(.*[^$epiWhitespace])?"
+						if [[ "$iUpdateDesc" =~ $iWsRe ]] ; then
+							iUpdateDesc="${BASH_REMATCH[1]}"
+						fi
+						
+						# add any description to message
+						[[ "$iUpdateDesc" ]] && iResultMsg+=' This update includes the following changes:'$'\n\n'"$iUpdateDesc"
+					fi					
+				else
+					debuglog "Latest Epichrome version on GitHub ($iGithubLatestVersion) is not newer than $iGithubCheckVersion."
 				fi
 				
-				# write version and message to array in aUpdateInfo
-				eval "$aUpdateInfo=( \"\$iGithubLatestVersion\" \"\$iUpdateMsg\" )"
-				
-				# add any URLs to open
-				[[ "$iDownloadUrl" ]] && eval "$aUpdateInfo+=( \"\$iDownloadUrl\" )"
-				eval "$aUpdateInfo+=( 'GITHUBUPDATEURL' )"
 			else
-				debuglog "Latest Epichrome version on GitHub ($iGithubLatestVersion) is not newer than $iGithubCheckVersion."
+				
+				ok= ; errmsg='No Epichrome release found on GitHub.'			
+				errlog  "$errmsg"
 			fi
-			
+		fi
+	else
+		
+		# no check, so we're all done
+		debuglog 'Not yet due for GitHub update check.'
+		return 0
+	fi
+	
+	
+	# HANDLE NO UPDATE (OR ERROR)
+	
+	# time frame for next check
+	local iNextCheck=
+	
+	if [[ ! "$iResultVersion" ]] ; then
+		
+		# if we encountered an error, recheck sooner
+		[[ "$ok" ]] || iNextCheck='soon'
+		
+		# write info file
+		checkgithubinfowrite "$iCurDate" "$iNextCheck" "$iGithubCurVersion"
+		
+		# handle any errors in the update check
+		if [[ ! "$ok" ]] ; then
+			checkgithubhandleerr "$aJsonVar" "$iCurDate"
+			return 1
 		else
+			return 0
+		fi
+	fi
+	
+	
+	# HANDLE AVAILABLE UPDATE
+	
+	if [[ "$aJsonVar" ]] ; then
+		
+		# EXPORT JSON TO EPICHROME.SH
+		
+		local tab='   '
+		eval "$aJsonVar=\"{
+$tab$tab\\\"checkDate\\\": \\\"\$(escapejson \"\$iCurDate\")\\\",
+$tab$tab\\\"version\\\": \\\"\$(escapejson \"\$iResultVersion\")\\\",
+$tab$tab\\\"prevGithubVersion\\\": \\\"\$(escapejson \"\$iGithubCurVersion\")\\\",
+$tab$tab\\\"message\\\": \\\"\$(escapejson \"\$iResultMsg\")\\\",
+$tab$tab\\\"urls\\\": [
+$tab$tab$tab\"\$(jsonarray \$',\n         ' \"\${iResultUrls[@]}\")\"
+$tab$tab]
+$tab}\""
+	
+	else
+		
+		# DISPLAY DIALOG
+		
+		# buttons
+		local iBtnDownload='Download'
+		local iBtnLater='Remind Me Later'
+		local iBtnIgnore='Ignore This Version'
+		
+		# display dialog
+		local doEpichromeUpdate=
+		dialog doEpichromeUpdate \
+		"$iResultMsg" \
+		"Update Available" \
+		"|caution" \
+		"+$iBtnDownload" \
+		"-$iBtnLater" \
+		"$iBtnIgnore"
+		if [[ "$ok" ]] ; then
 			
-			ok= ; errmsg='No Epichrome release found on GitHub.'			
-			errlog  "$errmsg"
+			# act based on dialog
+			case "$doEpichromeUpdate" in
+				$iBtnDownload)
+					# open the update URL
+					try /usr/bin/open "${iResultUrls[@]}" 'Unable to open update URL.'
+					# if open didn't work, don't consider this version downloaded
+					if [[ ! "$ok" ]] ; then
+						# error downloading version
+						iResultVersion="$iGithubCurVersion"
+						iNextCheck='soon'
+					fi
+				;;
+				
+				$iBtnLater)
+					# don't consider this version downloaded
+					iResultVersion=
+				;;
+				
+				*)
+					# consider this version downloaded
+				;;
+			esac
+		else
+			# error showing dialog
+			iResultVersion="$iGithubCurVersion"
+			iNextCheck='soon'
+		fi
+		
+		# write out new info file
+		checkgithubinfowrite "$iCurDate" "$iNextCheck" "$iResultVersion"
+		
+		# if we ran into any errors, handle them
+		if [[ ! "$ok" ]] ; then
+			checkgithubhandleerr
 			return 1
 		fi
-	else
-		debuglog 'Not yet due for GitHub update check.'
 	fi
 	
-	return 0
-}
-
-
-# CHECKGITHUBINFOREAD: read in info about when to check GitHub and what version has been checked
-checkGithubNextDate=0
-checkGithubCurVersion=0
-function checkgithubinforead {
-	
-	# sets variables
-	
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# initialize variables to force update check
-	checkGithubNextDate=0
-	checkGithubCurVersion=
-	
-	if [[ -f "$epiGithubCheckFile" ]]; then
-		
-		# read update check info
-		try 'checkGithubNextDate=' /bin/cat "$epiGithubCheckFile" \
-				'Unable to read update check info file.'
-		[[ "$ok" ]] || return 1
-	
-		# parse info
-		checkGithubCurVersion="${checkGithubNextDate#*|}"
-		checkGithubNextDate="${checkGithubNextDate%%|*}"
-		
-		# integrity-check date
-		if [[ ! "$checkGithubNextDate" =~ ^[1-9][0-9]*$ ]] ; then
-			errlog "Malformed date '$checkGithubNextDate' found in update check info file."
-			checkGithubNextDate=0
-		fi
-		
-		# if we're set to ignore a version that's now installed, clear the state
-		# (this also integrity-checks version, as a malformed version will compare as 0.0.0)
-		if [[ "$checkGithubCurVersion" ]] && \
-				vcmp "$checkGithubCurVersion" '<=' "$epiLatestVersion" ; then
-			checkGithubCurVersion=
-		fi
-	else
-		debuglog 'No update check info file found.'
-	fi
-		
 	return 0
 }
 
 
 # CHECKGITHUBINFOWRITE: update and write back info for the next Github check
-#  checkgithubinfowrite(aNextCheck aVersion)
+#  checkgithubinfowrite(aCheckDate aNextCheck aNextVersion)
 #    aCheckDate: date of the current check
 #    aNextCheck: if 'soon', recheck in 3 days instead of 7
 #    aNextVersion: if empty, don't change check version, if not, use this version
@@ -733,16 +741,13 @@ function checkgithubinfowrite {
 	local aNextVersion="$1" ; shift
 	
 	# update next check date
-	local iDaysAhead=7
-	[[ "$aNextCheck" = 'soon' ]] && iDaysAhead=3
-	checkGithubNextDate=$(($aCheckDate + ($iDaysAhead * 24 * 60 * 60)))
-	
-	# update next check version
-	[[ "$aNextVersion" ]] && checkGithubCurVersion="$aNextVersion"
+	local iGithubNextDate=7
+	[[ "$aNextCheck" = 'soon' ]] && iGithubNextDate=3
+	iGithubNextDate=$(($aCheckDate + ($iGithubNextDate * 24 * 60 * 60)))
 	
 	# write out update check info
 	tryalways /bin/mkdir -p "$epiDataPath" 'Unable to create Epichrome data directory.' && \
-			tryalways "${epiGithubCheckFile}<" echo "${checkGithubNextDate}|${checkGithubCurVersion}" \
+			tryalways "${epiGithubCheckFile}<" echo "${iGithubNextDate}|${aNextVersion}" \
 					'Unable to write update check info file.'
 	
 	[[ "$ok" ]] && return 0 || return 1
@@ -750,33 +755,39 @@ function checkgithubinfowrite {
 
 
 # CHECKGITHUBHANDLEERR: update persistent error variable to report error only on second occurrence
-#  checkgithubhandleerr( [aErrMsg] )
-#    aErrMsgVar: if empty, any error on second occurrence is reported in an alert
-#             if not empty, writes the message to this variable
+#  checkgithubhandleerr( [aJsonVar aCheckDate] ) aJsonVar -- optional variable to write JSON to
 function checkgithubhandleerr {
 
-	local aErrMsgVar="$1" ; shift
+	# arguments
+	local aJsonVar="$1" ; shift ; [[ "$aJsonVar" ]] && eval "$aJsonVar="
+	local aCheckDate="$1" ; shift
 	
-	# handle error
-	if [[ "$SSBGithubCheckError" = "$errmsg" ]] ; then
+	# create error message
+	local iErrWarning="Warning: Error checking GitHub for a new version of Epichrome. ($errmsg) This error will only be reported once. All errors can be found in the app log."
+	
+	if [[ "$aJsonVar" ]] ; then
 		
-		local iErrMsg="Warning: Unable to check for new version of Epichrome on GitHub. ($errmsg) This error will only be reported once. All errors can be found in the app log."
+		# export JSON info
+		local tab='   '
+		eval "$aJsonVar=\"{
+$tab$tab\\\"error\\\": \\\"\$(escapejson \"\$errmsg\")\\\",
+$tab$tab\\\"message\\\": \\\"\$(escapejson \"\$iErrWarning\")\\\"
+$tab}\""
 		
-		# this is the second time we've had the same error, so report the error
-		if [[ "$aErrMsgVar" ]] ; then
-			eval "$aErrMsgVar=\"\$iErrMsg\""
-		else
-            alert "$iErrMsg" 'Checking For Update' '|caution'
+   		# set our variable to the JSON string
+		eval "$iJsonExpr"
+		
+	else
+		
+		# display alert on first occurrence only
+		if [[ "$SSBLastErrorGithubCheck" != "$errmsg" ]] ; then
+			
+			# this is the first time we've had the same error, so report the error
+			alert "⚠️ $iErrWarning" 'Checking For Update' '|caution'
+			
+			# don't show an alert for this error again
+			SSBLastErrorGithubCheck="$errmsg"
 		fi
-		
-		# don't show an alert for this error again
-		SSBGithubCheckError="IGNORE|$errmsg"
-		
-	elif [[ ( "${SSBGithubCheckError:0:6}" != IGNORE ) || \
-            "${SSBGithubCheckError#*|}" != "$errmsg" ]] ; then
-            
-        # new error, so if it comes up a second time, show an alert
-		SSBGithubCheckError="$errmsg"
 	fi
 	
 	# clear error state
