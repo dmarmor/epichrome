@@ -138,7 +138,7 @@ let gEpiLastDir = {
 }
 
 // the last error encountered checking GitHub
-let gEpiLastErrGithub = '';
+let gEpiGithubFatalError = '';
 
 // info from core.sh
 let gCoreInfo = {};
@@ -192,7 +192,8 @@ function main(aApps=[]) {
         // run core.sh to initialize & get key info
         gCoreInfo = JSON.parse(shell(
             'coreDoInit=1',
-            'epiAction=init'));
+            'epiAction=init'
+        ));
         
         // check data integrity
         if (!gCoreInfo.dataPath || (typeof(gCoreInfo.dataPath) != 'string')) {
@@ -220,10 +221,17 @@ function main(aApps=[]) {
         // read in persistent properties
         readProperties();
         
-        // handle any GitHub updates found during init
-        if (handleGithubUpdate(gCoreInfo.github)) {
-            // success, so clear last error
-            gEpiLastErrGithub = '';
+        // check GitHub for updates
+        let myGithubInfo = null;
+        if (! gEpiGithubFatalError) {
+            myGithubInfo = shell('epiAction=githubupdate');
+            if (myGithubInfo) {
+                // handle any GitHub updates found during init
+                handleGithubUpdate(JSON.parse(myGithubInfo));
+            }
+        } else {
+            // GitHub check disabled
+            errlog('GitHub update check disabled due to fatal error on a previous attempt.');
         }
         
         
@@ -681,9 +689,9 @@ function readProperties() {
         gEpiLastDir.icon = myProperties["lastIconPath"];
     }
 
-    // lastErrorGithubCheck
-	if (typeof myProperties["lastErrorGithubCheck"] === 'string') {
-        gEpiLastErrGithub = myProperties["lastErrorGithubCheck"];
+    // githubFatalError
+	if (typeof myProperties["githubFatalError"] === 'string') {
+        gEpiGithubFatalError = myProperties["githubFatalError"];
     }
 
 
@@ -721,10 +729,6 @@ function readProperties() {
 // HANDLEGITHUBUPDATE: handle any GitHub updates returned from core init
 function handleGithubUpdate(aGithubInfo) {
     
-    // no update reported
-    if (!aGithubInfo) { return true; }
-    
-    
     if (aGithubInfo.hasOwnProperty('version')) {
         
         // NEW VERSION FOUND
@@ -736,21 +740,42 @@ function handleGithubUpdate(aGithubInfo) {
         
         try {
             
-            let myDlgResult = dialog(aGithubInfo.message, {
+            let myDlgResult;
+            
+            try {
+                myDlgResult = dialog(aGithubInfo.message, {
                     withTitle: 'Update Available',
                     withIcon: kEpiIcon,
                     buttons:['Download', 'Remind Me Later', 'Ignore This Version'],
                     defaultButton: 1,
                     cancelButton: 2
                 }).buttonIndex;
+            } catch(myErr) {
+                throw Error('Unable to display update dialog.');
+            }
                 
             if (myDlgResult == 0) {
                 
                 // DOWNLOAD button
                 
                 // open URLs
-                for (let curUrl of aGithubInfo.urls) {
-                    kApp.openLocation(curUrl);
+                try {
+                    for (let curUrl of aGithubInfo.urls) {
+                        kApp.openLocation(curUrl);
+                    }
+                } catch(myErr) {
+                    // URL open didn't work -- still consider this version downloaded
+                    errlog('Unable to open update URL. (' + myErr.message + ')');
+                    try {
+                        dialog('Unable to open update page on GitHub. Please try downloading this update yourself at the following URL:\n\n' + aGithubInfo.urls[1], {
+                            withTitle: 'Unable To Download',
+                            withIcon: 'caution',
+                            buttons: ['OK'],
+                            defaultButton: 1
+                        });
+                    } catch(myErr) {
+                        // ignore errors with this dialog
+                    }
                 }
                 
                 // mark this version as downloaded
@@ -767,12 +792,14 @@ function handleGithubUpdate(aGithubInfo) {
         } catch(myErr) {
             myGithubDialogErr = myErr.message;
             myNextVersion = aGithubInfo.prevGithubVersion;
+            errlog(myErr.message);
         }
         
         // write to GitHub info file
         let myWriteResult = shell('epiAction=githubresult',
             'epiGithubDialogErr=' + myGithubDialogErr,
             'epiCheckDate=' + aGithubInfo.checkDate,
+            'epiGithubLastError=' + aGithubInfo.lastError,
             'epiNextVersion=' + myNextVersion);
         
         // if any errors are returned, handle them
@@ -786,20 +813,18 @@ function handleGithubUpdate(aGithubInfo) {
     
     if (aGithubInfo.hasOwnProperty('error')) {
         
-        // display alert on first occurrence only
-        if (aGithubInfo.error != gEpiLastErrGithub) {
-            
-            // this is the first time we've had the same error, so report the error
-            dialog(aGithubInfo.message, {
+        // if there's a warning message, display alert
+        if (aGithubInfo.error) {
+            dialog(aGithubInfo.error, {
                 withTitle: 'Checking For Update',
                 withIcon: 'caution',
                 buttons: ['OK'],
                 defaultButton: 1
             });
-            
-            // don't show an alert for this error again
-            gEpiLastErrGithub = aGithubInfo.error;
         }
+        
+        // if this is a fatal error, save that info
+        gEpiGithubFatalError = aGithubInfo.isFatal;
         
         // flag an error
         return false;
@@ -848,8 +873,8 @@ function writeProperties() {
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
-                name:"lastErrorGithubCheck",
-                value:gEpiLastErrGithub
+                name:"githubFatalError",
+                value:gEpiGithubFatalError
             })
         );
         

@@ -202,7 +202,7 @@ appConfigVars=( SSBAppPath \
 		    SSBUpdateIgnoreVersions \
 		    SSBEnginePath \
 		    SSBEngineAppName \
-            SSBLastErrorGithubCheck \
+            SSBLastErrorGithubFatal \
 		    SSBLastErrorNMHInstall \
             SSBLastErrorNMHCentral )
 export appConfigVars "${appConfigVars[@]}"

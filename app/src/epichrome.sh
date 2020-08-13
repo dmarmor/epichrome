@@ -59,36 +59,13 @@ if [[ "$epiAction" = 'init' ]] ; then
     # initialize log file and report info back to Epichrome
     initlogfile
     
-    # start result JSON
-    result="{
+    # return JSON
+    echo "{
    \"dataPath\": \"$(escapejson "$myDataPath")\",
-   \"logFile\": \"$(escapejson "$myLogFile")\""
-    
-    
-    # CHECK FOR UPDATE ON GITHUB
-    
-    # load launch.sh
-    loadscript 'launch.sh'
-    
-    # get info on installed versions of Epichrome
-    getepichromeinfo
-    
-    # check GitHub
-    githubJson=
-    checkgithubupdate githubJson
-    
-    # if we got any result, add it to JSON
-    if [[ "$githubJson" ]] ; then
-        result+=$',\n   "github": '"$githubJson"
-    fi
-    
-    # close JSON
-    result+=$'\n}'
-    
-    # return result JSON
-    echo "$result"
-    
-    
+   \"logFile\": \"$(escapejson "$myLogFile")\"
+}"
+
+
 elif [[ "$epiAction" = 'log' ]] ; then
     
     # ACTION: LOG
@@ -104,6 +81,26 @@ elif [[ "$epiAction" = 'log' ]] ; then
     fi
     
     
+elif [[ "$epiAction" = 'githubupdate' ]] ; then
+    
+    # CHECK FOR UPDATE ON GITHUB
+    
+    # load launch.sh
+    loadscript 'launch.sh'
+    
+    # get info on installed versions of Epichrome
+    getepichromeinfo
+    
+    # check GitHub
+    githubJson=
+    checkgithubupdate githubJson
+    
+    # if we got any result, return JSON
+    if [[ "$githubJson" ]] ; then
+        echo $githubJson
+    fi
+    
+    
 elif [[ "$epiAction" = 'githubresult' ]] ; then
     
     # ACTION: WRITE BACK GITHUB-CHECK RESULT
@@ -114,18 +111,17 @@ elif [[ "$epiAction" = 'githubresult' ]] ; then
     # assume success from the update dialog
     nextCheck=
     
-    # pass along any error from the update dialog
-    if [[ "$epiGithubDialogErr" ]] ; then
-        ok= ; errmsg="$epiGithubDialogErr"
-        nextCheck='soon'
+    # write back to the info file
+    fatalErr=
+    if ! checkgithubinfowrite "$epiCheckDate" "$epiNextVersion" "$epiGithubDialogErr" ; then
+        fatalErr="$errmsg"
+        errmsg=
     fi
     
-    # try to write back the info file
-    checkgithubinfowrite "$epiCheckDate" "$nextCheck" "$epiNextVersion"
-    
     # handle any passed errors (or any we got writing the info file)
-    if [[ ! "$ok" ]] ; then
-        checkgithubhandleerr result
+    if [[ "$epiGithubDialogErr" || "$fatalErr" ]] ; then
+        ok= ; errmsg="$epiGithubDialogErr"
+        checkgithubhandleerr "$epiGithubLastError" "$fatalErr" result
         echo "$result"
     fi
     

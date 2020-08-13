@@ -367,7 +367,6 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     #SSBUpdateVersion="$SSBVersion"
     
     # clear error states
-    SSBLastErrorGithubCheck=
     SSBLastErrorNMHInstall=
     SSBLastErrorNMHCentral=
 fi
@@ -538,9 +537,10 @@ if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || 
     
     # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
     
-    if checkgithubupdate ; then        
-        # success, so clear last error
-        SSBLastErrorGithubCheck=
+    if [[ ! "$SSBLastErrorGithubFatal" ]] ; then
+        checkgithubupdate
+    else
+        errlog 'GitHub update check disabled due to fatal error on a previous attempt.'
     fi
 fi
 
