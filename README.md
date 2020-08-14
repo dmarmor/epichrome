@@ -38,9 +38,9 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## New in version 2.3.7
 
-- Release apps will no longer prompt to update to beta versions. Release apps can now updated to beta versions only by opening them in a beta version of Epichrome.app.
+- Release apps will no longer prompt to update to beta versions. Future beta versions will be able to update release apps by opening them in Epichrome.app.
 
-- The built-in engine has been updated to Brave 1.XX.XXX.
+- The built-in engine has been updated to Brave 1.12.112.
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
