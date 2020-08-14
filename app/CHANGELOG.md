@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.3.8] - 2020-XX-XX
+### Changed
+- Updated built-in engine to Brave 1.X.XX
+
+
 ## [2.3.7] - 2020-08-14
 ### Changed
 - Change update code so release apps will not prompt to update to beta versions
