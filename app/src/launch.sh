@@ -2723,7 +2723,8 @@ function setmasterprefs {
 		debuglog "Setting master prefs for new profile."
 		
 		# get path to master prefs file for this engine
-		local myEngineMasterPrefsFile="$userSupportPath/${SSBEngineSourceInfo[$iLibraryPath]}/${SSBEngineSourceInfo[$iMasterPrefsFile]}"
+		local myEngineMasterPrefsDir="$userSupportPath/${SSBEngineSourceInfo[$iLibraryPath]}"
+		local myEngineMasterPrefsFile="$myEngineMasterPrefsDir/${SSBEngineSourceInfo[$iMasterPrefsFile]}"
 		local mySavedMasterPrefsFile="$myDataPath/${SSBEngineSourceInfo[$iMasterPrefsFile]}"
 		
 		# backup browser's master prefs
@@ -2733,6 +2734,10 @@ function setmasterprefs {
 			
 			try /bin/mv -f "$myEngineMasterPrefsFile" "$mySavedMasterPrefsFile" \
 					'Unable to back up browser master prefs.'
+		else
+			
+			# make sure master prefs directory exists
+			try /bin/mkdir -p "$myEngineMasterPrefsDir" 'Unable to create browser master prefs directory.'
 		fi
 		
 		# install master prefs

@@ -696,15 +696,20 @@ function readProperties() {
 
     // EPICHROME SETTINGS
 
-    // lastAppPath
+    // lastAppCreatePath (fall back to old lastAppPath)
 	if (typeof myProperties["lastAppCreatePath"] === 'string') {
         gEpiLastDir.create = myProperties["lastAppCreatePath"];
+    } else if (typeof myProperties["lastAppPath"] === 'string') {
+        gEpiLastDir.create = myProperties["lastAppPath"];
     }
 
-    // lastEditAppPath
+    // lastEditAppPath (fall back to create path)
 	if (typeof myProperties["lastAppEditPath"] === 'string') {
         gEpiLastDir.edit = myProperties["lastAppEditPath"];
+    } else if (gEpiLastDir.create) {
+        gEpiLastDir.edit = gEpiLastDir.create;
     }
+    
     // lastIconPath
     if (typeof myProperties["lastIconPath"] === 'string') {
         gEpiLastDir.icon = myProperties["lastIconPath"];

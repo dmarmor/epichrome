@@ -157,7 +157,7 @@ function buildPage() {
         }
         appChanges.push('ch_edited');
     }
-    
+        
     // engine change
     var activePassword = null;
     const oldEngine = setEngine(urlParams.get('oe'), 'old');

@@ -266,7 +266,7 @@ build/resources/background.png: ../images/package/background$(BETA).png
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-build/resources/welcome.rtf: src/package/welcome.rtf src/version.sh
+build/resources/welcome.rtf: src/package/welcome$(BETA).rtf src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
 
