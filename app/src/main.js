@@ -50,7 +50,8 @@ const kAppInfoKeys = {
     urls: ['URL', 'Tabs'],
     registerBrowser: 'Register as Browser',
     icon: 'Icon',
-    engine: 'App Engine'
+    engine: 'App Engine',
+    updateAction: 'Update Action'
 };
 
 // app defaults & settings
@@ -93,6 +94,23 @@ const kEngines = [
         id: 'com.google.Chrome'
     }
 ];
+const kUpdateActions = {
+    prompt: {
+        button: 'Display Prompt',
+        message: 'display the default update prompt dialog',
+        value: ''
+    },
+    auto: {
+        button: 'Update Automatically',
+        message: 'be automatically updated with no prompt',
+        value: 'Auto'
+    },
+    never: {
+        button: 'Never Update',
+        message: 'never attempt to update itself',
+        value: 'Never'
+    }
+};
 
 // script paths
 const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
@@ -151,7 +169,8 @@ let gAppInfoDefault = {
     urls: [],
     registerBrowser: false,
     icon: true,
-    engine: kEngines[0]
+    engine: kEngines[0],
+    updateAction: 'prompt'
 };
 
 
@@ -322,6 +341,7 @@ function runCreate() {
         stepBrowser,
         stepIcon,
         stepEngine,
+        stepUpdate,
         stepBuild
     ], myInfo);
 }
@@ -574,6 +594,7 @@ function runEdit(aApps) {
                 stepBrowser,
                 stepIcon,
                 stepEngine,
+                stepUpdate,
                 stepBuild
             ], curApp);
         } else {
@@ -722,6 +743,11 @@ function readProperties() {
     //     } else {
     //         gAppInfoDefault.engineTypeID = kEngineInfo.internal.id;
 	// 	}
+    // }
+
+    // updateAction
+	// if (new RegExp('^(' + Object.keys(kUpdateActions).join('|') + ')$').test(myProperties['updateAction'])) {
+    //     gAppInfoDefault.updateAction = myProperties['updateAction'];
     // }
 }
 
@@ -916,6 +942,13 @@ function writeProperties() {
                 value:gAppInfoDefault.engine.id
             })
         );
+        // myProperties.propertyListItems.push(
+        //     kSysEvents.PropertyListItem({
+        //         kind: "string",
+        //         name: "updateAction",
+        //         value: gAppInfoDefault.updateAction
+        //     })
+        // );
     } catch(myErr) {
         // ignore errors, we just won't have persistent properties
     }
@@ -1015,10 +1048,13 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
                 ' of ' + aSteps.length.toString();
             aInfo.stepInfo.dlgTitle = aInfo.stepInfo.titlePrefix + ' | ' + aInfo.stepInfo.numText;
 
+            // in edit mode, add status dot
             if (aInfo.stepInfo.action == kActionEDIT) {
-                aInfo.stepInfo.dlgTitle =
-                    ((Object.values(aInfo.appInfoStatus).map(x => x.changed).filter(x => x).length > 0) ?
-                        kDotChanged : kDotCurrent) + ' ' + aInfo.stepInfo.dlgTitle;
+                let myStatusDot = (aInfo.appInfoStatus.version.changed ? kDotNeedsUpdate : kDotCurrent);
+                if (Object.keys(aInfo.appInfoStatus).filter(x => x != 'version').reduce((a,v) => a || aInfo.appInfoStatus[v].changed, false)) {
+                    myStatusDot = kDotChanged;
+                }
+                aInfo.stepInfo.dlgTitle = myStatusDot + ' ' + aInfo.stepInfo.dlgTitle;
             }
         }
 
@@ -2087,6 +2123,76 @@ function stepEngine(aInfo) {
 }
 
 
+// STEPUPDATE: step function to set updating options
+function stepUpdate(aInfo) {
+    
+    //    function stepDialog(aInfo, aMessage, aDlgOptions) {
+    
+    // status variables
+	let myErr;
+
+    // set up dialog message
+    let myCurAction = kUpdateActions[aInfo.appInfo.updateAction];
+    let myDlgMessage = 'How should this app handle updates when a new version of Epichrome is installed?';
+    let myDlgButtons = {};
+    myDlgButtons[myCurAction.button] = aInfo.appInfo.updateAction;
+    let myDlgOtherOptions = Object.keys(kUpdateActions).filter(x => x != aInfo.appInfo.updateAction)
+    myDlgButtons['Other Options'] = myDlgOtherOptions;
+    
+    // display default choice dialog
+    let myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.updateAction.stepSummary[0], {
+        key: 'updateAction',
+        buttons: myDlgButtons
+    });
+    
+    // process dialog result
+    if (myDlgResult.canceled) {
+        // BACK button
+        return -1;
+    } else if (myDlgResult.buttonIndex == 0) {
+        // <CURRENT CHOICE> button
+        updateAppInfo(aInfo, 'updateAction', myDlgResult.buttonValue);
+
+    } else {
+
+        // OTHER OPTIONS button
+        
+        // build dialog message and button map
+        myDlgMessage = 'Should this app ' + kUpdateActions[myDlgOtherOptions[0]].message +
+            ' or ' + kUpdateActions[myDlgOtherOptions[1]].message + '?';
+        myDlgButtons = myDlgOtherOptions.reduce(function(obj, val) {
+            obj[kUpdateActions[val].button] = val; return obj;
+        }, {});
+        let myButtonMap = dialogButtonMap(aInfo, 'updateAction', myDlgButtons);
+        
+        // build final button list
+        myDlgButtons = Object.keys(myButtonMap.map);
+        myDlgButtons.push('Cancel');
+        
+        // display dialog
+        myDlgResult = dialog(myDlgMessage + aInfo.appInfoStatus.updateAction.stepSummary[1], {
+            withTitle: 'Advanced Update Options',
+            withIcon: kEpiIcon,
+            buttons: myDlgButtons,
+            defaultButton: myButtonMap.defaultButton,
+            cancelButton: 3
+        }, myButtonMap.map);
+        
+        // process dialog result
+        if (myDlgResult.canceled) {
+            // CANCEL button
+            return 0;
+        } else {
+            // other choice selected
+            updateAppInfo(aInfo, 'updateAction', myDlgResult.buttonValue);
+        }
+    }
+    
+    // move on
+    return 1;
+}
+
+
 // STEPBUILD: step function to build app
 function stepBuild(aInfo) {
 
@@ -2199,9 +2305,11 @@ function stepBuild(aInfo) {
         'SSBCustomIcon=' + (aInfo.appInfo.icon ? 'Yes' : 'No'),
         'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
         'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
-        'SSBCommandLine=(' ];
-
+        'SSBUpdateAction=' + kUpdateActions[aInfo.appInfo.updateAction].value
+    ];
+    
     // add app command line
+    myScriptArgs.push('SSBCommandLine=(');
     if (aInfo.appInfo.windowStyle == kWinStyleApp) {
         myScriptArgs.push('--app=' + aInfo.appInfo.urls[0]);
     } else if (aInfo.appInfo.urls.length > 0) {
@@ -2472,8 +2580,10 @@ function updateAppInfo(aInfo, aKey, aValue) {
                 return kDotSelected + ' ';
             }
         }
-
+        
         if (curKey == 'path') {
+            
+            // PATH
 
             if (aInfo.stepInfo.action == kActionCREATE) {
 
@@ -2484,6 +2594,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
         } else if (curKey == 'version') {
 
+            // VERSION
+
             if ((aInfo.stepInfo.action == kActionEDIT) && curStatus.changed) {
 
                 // set build summary only if in edit mode & we need an update
@@ -2492,6 +2604,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
             }
 
         } else if ((curKey == 'displayName') || (curKey == 'shortName')) {
+
+            // DISPLAYNAME & SHORTNAME
 
             // step summary -- show old value only
             if (aInfo.stepInfo.action == kActionEDIT) {
@@ -2507,6 +2621,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
         } else if (curKey == 'id') {
 
+            // ID
+
             // step summary
             curStatus.stepSummary = '\n\n' + kIndent + dot() + aInfo.appInfo.id;
             if ((aInfo.stepInfo.action == kActionEDIT) && (curStatus.changed)) {
@@ -2520,11 +2636,12 @@ function updateAppInfo(aInfo, aKey, aValue) {
                 kIndent + dot() + '~/Library/Application Support/Epichrome/Apps/' + aInfo.appInfo.id;
 
         } else if (curKey == 'urls') {
+            
+            // URLS
+            
             if (aInfo.appInfo.windowStyle == kWinStyleApp) {
-
-                // APP STYLE
-
-                // set step summary
+                
+                // set step summary for app-style URL only
                 if (aInfo.stepInfo.action == kActionEDIT) {
 
                     // display old value in step summary
@@ -2565,6 +2682,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
             }
         } else if (curKey == 'registerBrowser') {
 
+            // REGISTERBROWSER
+
             // set common summary
             let curSummary = dot() +
                 (aInfo.appInfo.registerBrowser ? 'Yes' : 'No');
@@ -2578,6 +2697,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
             curStatus.buildSummary = kAppInfoKeys.registerBrowser + ':\n' + kIndent + curSummary;
 
         } else if (curKey == 'icon') {
+
+            // ICON
 
             // set common summary
             let curSummary;
@@ -2605,6 +2726,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
         } else if (curKey == 'engine') {
 
+            // ENGINE
+            
             // set common summary
             let curSummary = dot() + aInfo.appInfo.engine.button;
 
@@ -2616,6 +2739,32 @@ function updateAppInfo(aInfo, aKey, aValue) {
             // set build summary
             curStatus.buildSummary = kAppInfoKeys.engine + ':\n' + kIndent + curSummary;
 
+        } else if (curKey == 'updateAction') {
+            
+            // UPDATEACTION
+            
+            // need two step summaries for the two levels of dialogs
+            curStatus.stepSummary = ['', ''];
+            
+            // step summary -- show old value only
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                
+                // create basic summary for second-level dialog
+                curStatus.stepSummary[1] = '\n\n' + kIndent + dot() +
+                    kUpdateActions[aInfo.appInfo.updateAction].button;
+                
+                if (curStatus.changed) {
+                    let curWasSummary = 'Was: ' +
+                        kUpdateActions[aInfo.oldAppInfo.updateAction].button;
+                    curStatus.stepSummary[0] = '\n\n' + kIndent + kDotChanged + curWasSummary;
+                    curStatus.stepSummary[1] += '  |  ' + curWasSummary;
+                }
+            }
+            
+            // set build summary
+            curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + dot() +
+                kUpdateActions[aInfo.appInfo.updateAction].button;
+            
         } else {
 
             // ALL OTHER KEYS
@@ -2877,12 +3026,24 @@ function createAppID(aInfo) {
 // --- DIALOG FUNCTIONS ---
 
 // DIALOG: show a dialog & process the result
-function dialog(aMessage, aDlgOptions={}) {
+function dialog(aMessage, aDlgOptions={}, aButtonMap=null) {
 
     let myResult, myErr;
-
+    
+    if (typeof(aMessage) != 'string') { aMessage = JSON.stringify(aMessage, 3); }
+    
     try {
+        // display dialog
         myResult = kApp.displayDialog(aMessage, aDlgOptions);
+
+        // add useful info if dialog not canceled
+        myResult.canceled = false;
+        if (aDlgOptions.buttons) {
+            myResult.buttonIndex = aDlgOptions.buttons.indexOf(myResult.buttonReturned);
+        } else {
+            myResult.buttonIndex = 1;
+        }
+        
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
 
@@ -2900,22 +3061,25 @@ function dialog(aMessage, aDlgOptions={}) {
                     canceled: true
                 };
             }
-
-            return myResult;
-
         } else {
             throw myErr;
         }
     }
-
-    // add useful info
-    myResult.canceled = false;
-    if (aDlgOptions.buttons) {
-        myResult.buttonIndex = aDlgOptions.buttons.indexOf(myResult.buttonReturned);
-    } else {
-        myResult.buttonIndex = 1;
+    
+    // handle any button map
+    if (aButtonMap) {
+        
+        // get the map for the chosen button
+        let curButton = aButtonMap[myResult.buttonReturned];
+        if (curButton === undefined) {
+            curButton = { name: myResult.buttonReturned, value: myResult.buttonReturned };
+        }
+        
+        // add button name & value to result
+        myResult.buttonName = curButton.name;
+        myResult.buttonValue = curButton.value;
     }
-
+    
     // return object
     return myResult;
 }
@@ -3024,25 +3188,91 @@ function confirmQuit(aMessage='') {
 // STEPDIALOG: show a standard step dialog
 function stepDialog(aInfo, aMessage, aDlgOptions) {
 
+    let myButtonMap = null;
     let myErr;
-
+    
     // copy dialog options object
     let myDlgOptions = objCopy(aDlgOptions);
-
+    
+    // if aDlgOptions is a button map, build options from that
+    if (myDlgOptions.hasOwnProperty('key')) {
+        
+        // ensure we have a button-to-value map
+        myButtonMap = dialogButtonMap(aInfo, myDlgOptions.key, myDlgOptions.buttons);
+                
+        // update dialog options with button map info
+        myDlgOptions.buttons = Object.keys(myButtonMap.map);
+        if (!myDlgOptions.hasOwnProperty('defaultButton')) {
+            myDlgOptions.defaultButton = myButtonMap.defaultButton;
+        }
+        delete myDlgOptions.key;
+        
+        // we're done with everything except the map
+        myButtonMap = myButtonMap.map;
+    }
+    
     // fill in boilerplate
     if (!myDlgOptions.withTitle) { myDlgOptions.withTitle = aInfo.stepInfo.dlgTitle; }
     if (!myDlgOptions.withIcon) { myDlgOptions.withIcon = aInfo.stepInfo.dlgIcon; }
-
+    
     // add back button
     myDlgOptions.buttons.push(aInfo.stepInfo.backButton);
     if (!myDlgOptions.defaultButton) { myDlgOptions.defaultButton = 1; }
     if (!myDlgOptions.cancelButton) { myDlgOptions.cancelButton = myDlgOptions.buttons.length; }
-
-    return dialog(aMessage, myDlgOptions);
+    
+    return dialog(aMessage, myDlgOptions, myButtonMap);
 }
 
 
-// DIALOGINFO: set up button map and other info for a step dialog
+// DIALOGBUTTONMAP: set up a button map for a step dialog
+function dialogButtonMap(aInfo, aKey, aButtonInfo) {
+    
+    // ensure we have a button-to-value map
+    if (aButtonInfo instanceof Array) {
+        // turn button array into a one-to-one dict
+        aButtonInfo = aButtonInfo.reduce(function (obj,val) { obj[val] = val; return obj; }, {});
+    }
+    
+    // build button map
+    let myAppValue = aInfo.appInfo[aKey];
+    let curButtonNum = 1;
+    let myButtonMap = {};
+    let myDefaultButton = 1;
+    for (let curButtonName in aButtonInfo) {
+        
+        // default button title
+        let curButtonTitle = curButtonName;
+        let curButtonValueList = aButtonInfo[curButtonName];
+        
+        // convert single match value to an array
+        if ((! (curButtonValueList instanceof Array)) || myAppValue instanceof Array) {
+            curButtonValueList = [curButtonValueList];
+        }
+        
+        // put a dot on the selected button
+        if (curButtonValueList.reduce((acc, val) => (acc || objEquals(val, myAppValue)), false)) {
+            let curDot = ((aInfo.stepInfo.action == kActionCREATE) ? kDotSelected :
+                            ((objEquals(myAppValue, aInfo.oldAppInfo[aKey])) ?
+                            kDotCurrent : kDotChanged));
+            curButtonTitle = curDot + ' ' + curButtonName;
+            myDefaultButton = curButtonNum;
+        }
+        
+        // add this button to button map
+        myButtonMap[curButtonTitle] = { name: curButtonName, value: aButtonInfo[curButtonName] };
+        
+        // increment button number
+        curButtonNum++;
+    }
+    
+    return {
+        map: myButtonMap,
+        defaultButton: myDefaultButton
+    };
+}
+
+
+// DIALOGINFO: set up button map and other info for a step dialog  $$$ DEPRECATED -- GET RID OF THIS
 function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
 
     let myResult = {

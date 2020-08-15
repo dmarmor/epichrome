@@ -204,27 +204,18 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # basic info
     ynRe='^(Yes|No)$'
+    updateRe='^(Auto|Never)$'
     if [[ ! ( "$SSBVersion" && "$SSBIdentifier" && \
             "$CFBundleDisplayName" && "$CFBundleName" && \
+            ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) && \
             ( "$SSBCustomIcon" =~ $ynRe ) && \
-            ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) ) ]] ; then
+            ( ( ! "$SSBUpdateAction" ) || ( "$SSBUpdateAction" =~ $updateRe ) ) ) ]] ; then
         abort "Basic app info is missing or corrupt"
     fi
     
     # make sure version isn't newer than ours
     vcmp "$SSBVersion" '>' "$coreVersion" && \
             abort "App version ($SSBVersion) is newer than Epichrome version."
-    
-    # engine type
-    engRe='^(in|ex)ternal\|'
-    if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
-        abort "App engine type is missing or unreadable"
-    fi
-    
-    # command line
-    if ! isarray SSBCommandLine ; then
-        abort "App URLs are missing or unreadable"
-    fi
     
     # fill in register browser if missing
     if [[ ! "$SSBRegisterBrowser" ]] ; then
@@ -237,6 +228,17 @@ elif [[ "$epiAction" = 'read' ]] ; then
         fi
     fi
     
+    # engine type
+    engRe='^(in|ex)ternal\|'
+    if [[ ! ( "$SSBEngineType" =~ $engRe ) ]] ; then
+        abort "App engine type is missing or unreadable"
+    fi
+    
+    # command line
+    if ! isarray SSBCommandLine ; then
+        abort "App URLs are missing or unreadable"
+    fi
+            
     
     # GET PATH TO ICON
     myAppIcon=
@@ -274,6 +276,15 @@ elif [[ "$epiAction" = 'read' ]] ; then
         myIcon='false'
     fi
     
+    # adapt update action value
+    if [[ "$SSBUpdateAction" = 'Auto' ]] ; then
+        SSBUpdateAction='auto'
+    elif [[ "$SSBUpdateAction" = 'Never' ]] ; then        
+        SSBUpdateAction='never'
+    else
+        SSBUpdateAction='prompt'
+    fi
+    
     # export JSON
     echo "{$myAppIcon
    \"version\": \"$(escapejson "$SSBVersion")\",
@@ -286,6 +297,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
       \"type\": \"$(escapejson "${SSBEngineType%%|*}")\",
       \"id\": \"$(escapejson "${SSBEngineType#*|}")\"
    },
+   \"updateAction\": \"$(escapejson "$SSBUpdateAction")\",
    \"commandLine\": [
       "$(jsonarray $',\n      ' "${SSBCommandLine[@]}")"
    ]
