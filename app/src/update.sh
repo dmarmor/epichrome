@@ -215,7 +215,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
             "${filterCommands[@]}"
 
 
-    # FILTER APP MAIN SCRIPT INTO PLACE
+    # FILTER APP MAIN SCRIPT INTO PLACE  $$$ CHANGE THIS TO MAIN.SH & ALSO FILTER APPEXEC W JUST APPID
 
     # create SSBEngineSourceInfo line
     local appExecEngineSource=

@@ -28,7 +28,7 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 # CONSTANTS
 
-appEnginePathBase='EpichromeEngines.noindex'
+epiEnginePathBase='Payload.noindex'
 
 # IDs of allowed external engine browsers
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
@@ -182,7 +182,7 @@ function getepichromeinfo {
 	
 	# start with preferred install locations: the engine path & default user & global paths
 	local preferred=()
-	[[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$appEnginePathBase/*}/Epichrome.app" )
+	[[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$epiEnginePathBase/*}/Epichrome.app" )
 	local globalDefaultEpichrome='/Applications/Epichrome/Epichrome.app'
 	local userDefaultEpichrome="${HOME}$globalDefaultEpichrome"
 	[[ "${preferred[0]}" != "$userDefaultEpichrome" ]] && preferred+=( "$userDefaultEpichrome" )
@@ -2293,7 +2293,7 @@ function setenginestate {  # ( ON|OFF )
 export -f setenginestate
 
 
-# DELETEENGINE -- delete Epichrome engine
+# DELETEENGINE -- delete Epichrome engine  $$$$ FIX TO RECURSIVELY DELETE USER SUBDIR IF EXISTS
 function deleteengine {  # ( [mustSucceed] )
 	
 	# argument
@@ -2812,63 +2812,6 @@ function clearmasterprefs {
 }
 
 
-# GETENGINEINFO: get the PID and canonical path of the running engine
-myEnginePID= ; myEngineCanonicalPath=
-export myEnginePID myEngineCanonicalPath
-function getengineinfo { # path
-	
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# assume no PID
-	myEnginePID=
-	
-	# args (canonicalize path)
-	local path="$(canonicalize "$1")" ; shift
-	if [[ ! -d "$path" ]] ; then
-		errmsg="Unable to get canonical engine path for '$1'."
-		return 1
-	fi
-	
-	# get ASN associated with the engine's bundle path
-	local asn=
-	try 'asn=' /usr/bin/lsappinfo find "bundlepath=$path" \
-			'Error while attempting to find running engine.'
-	
-	# search for PID
-	if [[ "$ok" ]] ; then
-		
-		local info=
-		
-		# get PID for the ASN (we use try for the debugging output)
-		try 'info=' /usr/bin/lsappinfo info -only pid "$asn" ''
-		ok=1 ; errmsg=
-		
-		# if this ASN matches our bundle, grab the PID
-		re='^"pid" *= *([0-9]+)$'
-		if [[ "$info" =~ $re ]] ; then
-			myEnginePID="${BASH_REMATCH[1]}"
-			myEngineCanonicalPath="$path"
-		fi
-	fi
-	
-	# return result
-	if [[ "$myEnginePID" ]] ; then
-		ok=1 ; errmsg=
-		debuglog "Found running engine '$myEngineCanonicalPath' with PID $myEnginePID."
-		return 0
-	elif [[ "$ok" ]] ; then
-		debuglog "No running engine found."
-		return 0
-	else
-		# errors in this function are nonfatal; just return the error message
-		errlog "$errmsg"
-		ok=1
-		return 1
-	fi
-}
-
-
 # READCONFIG: read in config.sh file & save config versions to track changes
 function readconfig { # ( myConfigFile )
 	
@@ -3070,7 +3013,44 @@ function launchapp {  # ( appPath execName appDesc openArgs ... )
 export -f launchapp
 
 
-# LAUNCHHELPER -- launch Epichrome Helper app
+# LAUNCHAPP_NEW: $$$ FIX UP & PROBABLY USE ONLY FOR ENGINE??
+# aResultVar aAppDesc aPath [args...]  $$$ MOVE ME
+function launchapp_new {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+        
+    # arguments
+    local aResultVar="$1" ; shift
+    local aAppDesc="$1" ; shift
+    local aPath="$1" ; shift
+    [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
+    
+    # fallback result
+    local iResult=
+    local iResultArg=
+    if [[ "$aResultVar" ]] ; then
+        iResultArg="$aResultVar"
+    else
+        iResultArg='iResult'
+    fi
+    
+    try "$iResultArg=(n)" /usr/bin/osascript "$SSBAppPath/Contents/Resources/Scripts/launch.scpt" \
+            "{
+    \"action\": \"launch\",
+    \"path\": \"$(escapejson "$aPath")\"
+}" \
+            "Unable to launch $aAppDesc."
+    
+    if [[ "$ok" && ( ! "$aResultVar" ) ]] ; then
+        join_array $'\n' "${iResult[@]}"
+    fi
+    
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# LAUNCHHELPER -- launch Epichrome Helper app   $$$$ DELETE OBSOLETE
 epiHelperMode= ; epiHelperParentPID=
 export epiHelperMode epiHelperParentPID
 function launchhelper { # ( mode )

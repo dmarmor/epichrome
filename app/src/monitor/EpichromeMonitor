@@ -21,7 +21,7 @@
 # 
 
 
-# IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN
+# IMMEDIATELY FORK SO THAT /usr/bin/open WILL RETURN  $$$$ STILL NECESSARY?
 
 # update log name
 myLogID="${myLogID%|*}|$epiHelperMode"
@@ -41,7 +41,7 @@ fi
 coreEarlyExitMsg='Engine will not be deactivated.'
 
 
-# LOCKREPLACE -- replace a lock set by the parent app
+# LOCKREPLACE -- replace a lock set by the parent app  $$$ OBSOLETE
 lockOn=
 function lockreplace { # ( replacePID )
 
@@ -124,56 +124,4 @@ if [[ "$epiHelperMode" = Relaunch ]] ; then
     
     # exit
     cleanexit
-    
-else
-    # CLEANUP MODE
-
-    # array variables from parent app
-    importarray SSBEngineSourceInfo
-    
-    # replace parent app's lock
-    lockreplace "$epiHelperParentPID" || \
-	abort "Unable to acquire lock. ($errmsg) The app engine will not be deactivated upon quitting."
-    
-    # wait for app to exit
-    debuglog "Waiting for engine to quit..."
-    while kill -0 "$myEnginePID" 2> /dev/null ; do
-	pause 1
-    done
-
-    # deactivate engine and quit
-    debuglog 'Engine has quit. Cleaning up...'
-
-    # assume success
-    myResult=0
-	
-    # check engine state
-    checkengine ON ; engineState="$?"
-    
-    if [[ "$engineState" = 0 ]] ; then
-
-	# deactivate engine
-	setenginestate OFF
-	
-	if [[ "$ok" ]] ; then
-	    debuglog "Deactivation complete."
-	else
-	    # error deactivating engine
-	    myResult=1
-	fi
-    elif [[ "$engineState" = 2 ]] ; then
-	
-	# bad engine state
-	errlog "Engine is in an unknown state or damaged. Unable to deactivate."
-	myResult=1
-	
-    else
-	
-	# engine is already off, so do nothing
-	errlog "Engine is unexpectedly already deactivated."
-    fi
-
-    # release lock & exit
-    lockrelease
-    cleanexit "$myResult"
 fi

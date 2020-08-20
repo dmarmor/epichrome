@@ -108,17 +108,27 @@ appIDBase="$appIDRoot.app"
 appEngineIDBase="$appIDRoot.eng"
 export appIDRoot appIDBase appEngineIDBase
 
+# monitor app info
+epiMonitorAppName='EpichromeMonitor.app'
+epiMonitorAppVersionFile="Resources/v${coreVersion}.dat"
+export epiMonitorAppName epiMonitorAppVersionFile
+
 # app internal paths
-appHelperPath='Resources/EpichromeHelper.app'
+appMonitorPath="Resources/$epiMonitorAppName"
 appEnginePath='Resources/Engine'
 appEnginePayloadPath="$appEnginePath/Payload"
-appEnginePlaceholderPath="$appEnginePath/Placeholder"
+#appEnginePlaceholderPath="$appEnginePath/Placeholder"  $$$ DELETE
 appNMHFile='epichromeruntimehost.py'
 appWelcomePath='Resources/Welcome'
 appWelcomePage='welcome.html'
 appMasterPrefsPath='Resources/Profile/prefs.json'
 appBookmarksFile='Bookmarks'
 appBookmarksPath="Resources/Profile/$appBookmarksFile"
+export appMonitorPath appEnginePath appEnginePayloadPath \
+        appNMHFile \
+        appWelcomePath appWelcomePage \
+        appMasterPrefsPath \
+        appBookmarksFile appBookmarksPath
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
@@ -137,12 +147,14 @@ appDataPauseFifo='pause'
 appDataLockFile='lock'
 appDataBackupDir='Backups'
 appDataWelcomeDir='Welcome'
-
-export userSupportPath epiDataPath appDataPathBase \
+export userSupportPath epiDataPath \
+        epiGithubCheckFile \
+        appDataPathBase \
         appDataConfigFile \
         epiDataExtIconDir appDataProfileDir \
         epiDataLogDir appDataLogFilePrefix epiDataLogFilePrefix \
-        appDataStderrFile appDataStdoutFile appDataPauseFifo appDataLockFile appDataBackupDir
+        appDataStderrFile appDataStdoutFile appDataPauseFifo appDataLockFile appDataBackupDir \
+        appDataWelcomeDir
 
 # indices for SSBEngineSourceInfo
 iID=0
@@ -187,6 +199,12 @@ appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
 					   'Google/Chrome' \
 					   'Google Chrome Master Preferences' \
 					   '--enable-features=PasswordImport' )
+export appBrowserInfo_com_microsoft_edgemac \
+        appBrowserInfo_com_vivaldi_Vivaldi \
+        appBrowserInfo_com_operasoftware_Opera \
+        appBrowserInfo_com_brave_Browser \
+        appBrowserInfo_org_chromium_Chromium \
+        appBrowserInfo_com_google_Chrome
 
 # internal Epichrome engine
 epiEngineSource=( "${appBrowserInfo_com_brave_Browser[@]}" )
@@ -201,7 +219,6 @@ appConfigVars=( SSBAppPath \
 		    SSBLastRunEdited \
 		    SSBUpdateIgnoreVersions \
 		    SSBEnginePath \
-		    SSBEngineAppName \
             SSBLastErrorGithubFatal \
 		    SSBLastErrorNMHInstall \
             SSBLastErrorNMHCentral )

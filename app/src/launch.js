@@ -57,7 +57,8 @@ function run(aArgv) {
 
         // action = register / launch / find
         if (myArgs.action == 'launch') {
-            launchApp(myArgs.path, myArgs.args, myArgs.options);
+            let myResult = launchApp(myArgs.path, myArgs.args, myArgs.options);
+            return myResult.processIdentifier.toString();  // $$$ MORE INFO?
         } else if (myArgs.action == 'register') {
             registerApp(myArgs.path);
         } else if (myArgs.action == 'find') {

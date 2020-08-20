@@ -139,13 +139,15 @@ NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chr
 
 APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
-APP_RNTM_HLPR:=$(APP_RNTM)/Contents/Resources/EpichromeHelper.app
+APP_RNTM_HLPR:=$(APP_RNTM)/Contents/Resources/EpichromeMonitor.app
 APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 
 
 # META-TARGETS
 
 INTERMEDIATES:=\
+	build/main.js \
+	build/launch.js \
 	build/engine/Brave \
 	build/engine/Chromium \
 	build/engine_tmp/brave \
@@ -377,6 +379,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
+	$(APP_RNTM)/Filter/main.sh \
 	$(APP_RNTM)/Filter/epichromeruntimehost.py \
 	$(APP_RNTM)/Filter/welcome.html \
 	$(APP_RNTM)/Filter/Bookmarks \
@@ -395,6 +398,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
 	\
@@ -539,6 +543,9 @@ $(APP_RNTM)/Filter/Info.plist: src/Info.plist.runtime src/version.sh
 
 $(APP_RNTM)/Filter/AppExec: src/AppExec src/version.sh
 	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+	
+$(APP_RNTM)/Filter/main.sh: src/main.sh src/version.sh
 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
 
 $(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
@@ -557,16 +564,16 @@ build/icons/%.icns: ../images/icons/%.png
 	src/makeicon.sh -f $< $@
 
 
-# EPICHROME HELPER
+# EPICHROME MONITOR
 
 $(APP_RNTM_HLPR): $(APP_RNTM_HLPR_CT)/Info.plist \
-	$(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper
+	$(APP_RNTM_HLPR_CT)/MacOS/EpichromeMonitor
 
-$(APP_RNTM_HLPR_CT)/Info.plist: src/helper/Info.plist
+$(APP_RNTM_HLPR_CT)/Info.plist: src/monitor/Info.plist
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(APP_RNTM_HLPR_CT)/MacOS/EpichromeHelper: src/helper/EpichromeHelper
+$(APP_RNTM_HLPR_CT)/MacOS/EpichromeMonitor: src/monitor/EpichromeMonitor
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
@@ -580,6 +587,13 @@ $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
+
+$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt: build/launch.js
+	osacompile -l JavaScript -x -o '$@' '$<'
+	
+build/launch.js: src/launch.js src/liblaunch.js
+	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
+	cat 'src/liblaunch.js' >> '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'

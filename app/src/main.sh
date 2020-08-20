@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  AppExec: Run an Epichrome app
+#  main.sh: Run an Epichrome app
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -46,6 +46,7 @@ export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
 # CORE APP VARIABLES
 
 myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
+myEnginePID=
 
 
 # PARSE COMMAND-LINE ARGUMENTS
@@ -98,206 +99,41 @@ trap '' INT
 # FUNCTION DEFINITIONS
 
 
-# CLEANUP -- release any lock we've set
+# CLEANUP -- clean up from any failed update & deactivate any active engine
 function cleanup {
     
-    # release any lock
-    [[ "$lockOn" ]] && lockrelease
-    
-    # clean up from any aborted update
-    [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup	
-}
+    # clean up from any aborted update  $$$ MOVE THIS INTO PROGRESS APP?
+    [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
 
-
-# LOCK FUNCTIONS
-
-# lock file
-myLockFile="$myDataPath/$appDataLockFile" ; export myLockFile
-
-# (do NOT export these -- they should not be inherited)
-lockOn=
-lockPID=
-lockLogFile=
-lockCmd=
-lockEnginePID=
-lockEngineCmd=
-lockEnginePath=
-
-# LOCKSET -- set a lock file, or fail if it's already set
-function lockset {
-    
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-    
-    # error: lock variable is already set
-    if [[ "$lockOn" ]] ; then
-        errmsg='Lock variable is already set.'
-        ok=
-        return 1
-    fi
-    
-    # check if there's already a lock file in place
-    if [[ -f "$myLockFile" ]] ; then
+    if [[ "$myEnginePID" ]] ; then
         
-        # read the existing lock file
-        safesource "$myLockFile" 'lock'
-        [[ "$ok" ]] || return 1
-        
-        if [[ "$lockPID" = "$$" ]] ; then
-            
-            # error: this is already our lock
-            errmsg='Lock is already set.'
-            ok=
-            return 1
-            
-        else
-            
-            local curCmd=
-            
-            # if lock's app (or helper) is still alive, we fail
-            if kill -0 "$lockPID" 2> /dev/null ; then
-                
-                # see if the command for the lock PID matches the lock command
-                getlockcmd "$lockPID" curCmd
-                if [[ "$curCmd" = "$lockCmd" ]] ; then
-                    debuglog "Can't set lock: this app (or its helper) is alive at $lockPID."
-                    return 1
-                fi
-            fi
-            
-            # if the lock's engine is still alive, we fail
-            if kill -0 "$lockEnginePID" 2> /dev/null ; then
-                
-                # see if the command for the lock engine PID matches the lock engine command
-                getlockcmd "$lockEnginePID" curCmd
-                if [[ "$curCmd" = "$lockEngineCmd" ]] ; then
-                    debuglog "Can't set lock: This app's engine is alive at $lockEnginePID."
-                    return 1
-                fi
-            fi
-        fi
-    fi
-    
-    # if we got here, there's either no lock, or we can stomp on an old one
-    
-    # initialize log file
-    initlogfile
-    
-    # set lock variables and write out lock
-    lockPID="$$" ; lockLogFile="$myLogFile"
-    lockEnginePID= ; lockEngineCmd= ; lockEnginePath=
-    getlockcmd "$lockPID" lockCmd
-    writevars "$myLockFile" lockPID lockLogFile lockCmd \
-            lockEnginePID lockEngineCmd lockEnginePath
-    [[ "$ok" ]] || return 1
-    
-    # return success
-    debuglog "Lock set."
-    lockOn=1
-    return 0
-}
-
-
-# LOCKRELEASE -- release a lock file
-function lockrelease {
-    
-    if [[ "$lockOn" ]] ; then
-        
-        # release lock variable
-        lockOn=
-        
-        if [[ -f "$myLockFile" ]] ; then
-            
-            # command to delete lock file
-            local myCommand=( /bin/rm -f "$myLockFile" )
-            
-            debuglog "Deleting lock."
-            
-            if [[ "$ok" ]] ; then
-                
-                # error is non-fatal
-                try "${myCommand[@]}" 'Unable to delete old lock file.'
-                if [[ ! "$ok" ]] ; then
-                    ok=1 ; errmsg=
-                fi
-                
-            else
-                tryalways "${myCommand[@]}" 'Unable to delete old lock file.'
-            fi
-            
-            return 0
-        else
-            
-            # no lock file found
-            debuglog "Lock file not found."
-            return 1
+        # if engine is still running, kill it now        
+        if kill -0 "$myEnginePID" 2> /dev/null ; then
+            errlog FATAL 'Terminated while engine still running!'
+            kill "$myEnginePID"
         fi
         
-    else
-        
-        # no lock set
-        debuglog "No lock set."
-        return 1
-    fi
-}
-export -f lockrelease
-
-
-# GETLOCKCMD -- get the ps listing for a PID
-function getlockcmd {  # ( pid var )
-    
-    # arguments
-    local pid="$1" ; shift
-    local var="$1" ; shift
-    
-    # try to get pid
-    local psOutput=()
-    try 'psOutput=(n)' /bin/ps -o command -p "$pid" \
-            "Unable to get process info for PID $pid."
-    
-    if [[ "$ok" ]] ; then
-        eval "${var}=\"\${psOutput[1]}\""
-    else
-        eval "${var}="
+        # deactivate engine  $$$ REWRITE THIS FUNCTION
         ok=1 ; errmsg=
-    fi
+        setenginestate OFF
+        [[ "$ok" ]] && debuglog "Engine deactivation complete."
+        
+        # the launch failed, so delete the failed engine
+        if [[ "$myEnginePID" = 'LAUNCHFAILED' ]] ; then
+            deleteengine
+        fi
+        
+        # attempt to alert the user if the app was not left in a runnable state
+        # $$$$ PROBABLY FALL BACK TO TRYING TO REPLACE APP WITH BACKUP?
+        [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $errmsg"$'\n\nThis app has most likely been damaged and will not run again. Please restore from backup.' 'Error' '|stop'
+    fi    
 }
-export -f getlockcmd
 
 
 # MAIN BODY
 
-# if we abort early, don't try to write config
-doAbortWriteconfig=
-
-
-# OBTAIN LOCK OR HAND OFF TO RUNNING ENGINE
-
-if ! lockset ; then
-    
-    # lock already in use -- see if it's a live engine
-    if kill -0 "$lockEnginePID" 2> /dev/null ; then
-        
-        # direct logging to running app's log file
-        initlogfile "$lockLogFile"
-        
-        # engine is already running, so just send any files or URLs to it &
-        # don't run the usual command-line
-        debuglog "Activating already-running engine at '$lockEnginePath'"
-        try /usr/bin/open -a "$lockEnginePath" "${argsURIs[@]}" \
-                'Unable to connect to running app engine.'
-        
-        # we're done, so exit one way or the other
-        [[ "$ok" ]] && cleanexit || abort
-    else
-        
-        # locked but not with a running engine, so log error & quit
-        abortsilent 'Unable to set lock.'
-    fi
-fi
-
-
-# ENGINE IS NOT RUNNING -- PREPARE TO LAUNCH ENGINE
+# initialize log file
+initlogfile
 
 
 # LOAD LAUNCH FUNCTIONS
@@ -414,10 +250,6 @@ SSBLastRunEngineType="$SSBEngineType"
 SSBAppPath="$myAppPath"
 
 
-# if we got this far, we should write out any new config even on abort
-doAbortWriteconfig=1
-
-
 # GET EPICHROME INFO
 
 getepichromeinfo
@@ -433,7 +265,7 @@ if [[ -d "$epiCurrentPath" ]] ; then
     myEnginePath="$epiCurrentPath"
     
     # get directory path
-    myEnginePath="${myEnginePath%/*}/$appEnginePathBase"
+    myEnginePath="${myEnginePath%/*}/$epiEnginePathBase"
     
     # determine if path is in our user path
     if [[ "${myEnginePath::${#HOME}}" = "$HOME" ]] ; then
@@ -450,8 +282,8 @@ if [[ -d "$epiCurrentPath" ]] ; then
         # engine path is out of date, so we'll recreate it
         debuglog "Engine path '$SSBEnginePath' is out of date. Moving to new location."
         
-        # $$$ ENSURE ON SAME VOLUME TOO
-        if [[ ( ! -d "$myEnginePath" ) && -d "$SSBEnginePath" ]] ; then
+        if [[ ( ! -d "$myEnginePath" ) && -d "$SSBEnginePath" ]] && \
+                issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
             try /bin/mv "$SSBEnginePath" "$myEnginePath" \
                     'Unable to move engine to new location.'
             ok=1 ; errmsg=
@@ -474,48 +306,16 @@ else
     myEnginePath="$SSBEnginePath"
 fi
 
+# apps must now be on the same volume as their engine
+if ! issamedevice "$SSBAppPath" "$SSBEnginePath" ; then
+    abort 'Starting with Epichrome 2.4.0, apps must reside on the same physical volume as the version of Epichrome they are based on.'
+fi
+
+
 # subsidiary paths
 myEnginePayloadPath="$SSBEnginePath/Payload"
-myEnginePlaceholderPath="$SSBEnginePath/Placeholder"
-export myEnginePayloadPath myEnginePlaceholderPath
-
-
-# UPDATE ENGINE APP NAME
-
-# regex for pulling out current app name
-appNameRe='/([^/]+)\.[aA][pP][pP]$'
-
-# try to use current name of this Epichrome app as engine name
-if [[ "$SSBAppPath" =~ $appNameRe ]] ; then
-    SSBEngineAppName="${BASH_REMATCH[1]}.app"
-else
-    # if app name is unparsable, just use Info.plist display name
-    SSBEngineAppName="${CFBundleDisplayName}.app"
-fi
-
-# rename engine app bundle
-if [[ "$configSSBEngineAppName" && \
-        ( "$SSBEngineAppName" != "$configSSBEngineAppName" ) ]] ; then
-    if [[ -d "$SSBEnginePath/$configSSBEngineAppName" ]] ; then
-        try /bin/rm -rf "$SSBEnginePath/$SSBEngineAppName" \
-                'Unable to clear old engine app name.'
-        try /bin/mv "$SSBEnginePath/$configSSBEngineAppName" "$SSBEnginePath/$SSBEngineAppName" \
-                'Unable to rename engine to match app name.'
-        
-        # an error here is non-fatal
-        if [[ ! "$ok" ]] ; then
-            errlog "$errmsg"
-            ok=1 ; errmsg=
-            
-            # set engine app name back to original
-            SSBEngineAppName="$configSSBEngineAppName"
-        fi
-    fi
-fi
-
-# get path to engine app bundle
-myEngineAppPath="$SSBEnginePath/$SSBEngineAppName"
-export myEngineAppPath
+# myEnginePlaceholderPath="$SSBEnginePath/Placeholder"  $$$$ obsolete
+# export myEnginePayloadPath myEnginePlaceholderPath  $$$$ ???
 
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
@@ -604,7 +404,6 @@ fi
 
 # flag whether we need to (re)create the engine and/or activate it
 doCreateEngine=
-doNotActivateEngine=
 
 if [[ "$myStatusNewApp" ]] ; then
     
@@ -641,56 +440,31 @@ elif [[ "$myStatusEngineMoved" ]] ; then
     debuglog "Recreating engine in new location '$SSBEnginePath'."
     createEngineErrMsg="Unable to recreate engine in new location"
     
-else
+elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
+        "${SSBEngineSourceInfo[$iVersion]}" && \
+        ( "${SSBEngineSourceInfo[$iVersion]}" != "${configSSBEngineSourceInfo[$iVersion]}" ) ]] ; then
     
-    # check the state of the engine
-    checkengine OFF ; engineState="$?"
+    # new version of external engine
+    doCreateEngine=1
+    debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+
+elif ! checkengine ; then
     
-    # flag if engine is good but was left active
-    if [[ "$engineState" = 1 ]] ; then
-        doNotActivateEngine=1
-    elif [[ "$engineState" = 2 ]] ; then
-        doCreateEngine=1
-        errlog "Replacing damaged engine."
-        createEngineErrMsg='Unable to replace damaged engine'
-    fi
-    # else engine is in the expected off state
-    
-    if [[ ( ! "$doCreateEngine" ) && ( "${SSBEngineType%%|*}" != internal ) ]] ; then
-        
-        # new version of external engine app
-        if [[ "${SSBEngineSourceInfo[$iVersion]}" && \
-                ( "${SSBEngineSourceInfo[$iVersion]}" != "${configSSBEngineSourceInfo[$iVersion]}" ) ]] ; then
-            
-            doCreateEngine=1
-            debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
-            createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
-        fi
-    fi
+    # engine damaged or missing
+    doCreateEngine=1
+    errlog "Replacing damaged engine."
+    createEngineErrMsg='Unable to replace damaged engine'    
 fi
 [[ "$ok" ]] || abort
 
 # create engine if necessary
 if [[ "$doCreateEngine" ]] ; then
     
-    # if engine was left activated, deactivate it before re-creating
-    if [[ "$doNotActivateEngine" ]] ; then
-        setenginestate OFF
-        doNotActivateEngine=
-    fi
-    
     # (re)create engine
     createengine
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
 fi
-
-
-# ACTIVATE ENGINE (IF NECESSARY)
-
-if [[ ! "$doNotActivateEngine" ]] ; then
-    setenginestate ON
-fi
-[[ "$ok" ]] || abort
 
 
 # UPDATE/CREATE ENGINE MANIFEST IF NECESSARY
@@ -750,14 +524,45 @@ fi
 
 # LAUNCH ENGINE
 
-launchapp "$myEngineAppPath" "${SSBEngineSourceInfo[$iExecutable]}" "app engine" \
-        "${argsURIs[@]}" \
-        --args "--user-data-dir=$myProfilePath" "${myEngineArgs[@]}"
-ok=1 ; errmsg=
+# activate engine
+setenginestate ON
+[[ "$ok" ]] || abort
+
+# set illegal PID to trigger engine deactivation on exit
+myEnginePID='LAUNCHFAILED'
+
+# launch engine
+try "myEnginePID=" /usr/bin/osascript "$SSBEnginePath/Launcher/Resources/Scripts/launch.scpt" \
+        "{
+   \"action\": \"launch\",
+   \"path\": \"$(escapejson "$aPath")\",
+   \"args\": [
+      \"$(escapejson "--user-data-dir=$myProfilePath")\",
+      $(jsonarray $',\n      ' "${myEngineArgs[@]}")
+   ],
+   \"options\": {
+      \"urls\": [
+         $(jsonarray $',\n         ' "${argsURIs[@]}")
+      ]
+   }
+}" 'Unable to launch engine.'
+
+# check that engine PID is active
+try kill -0 "$myEnginePID" 'Engine launched but process cannot be found.'
+
+
+# CHECK FOR A SUCCESSFUL LAUNCH
 
 # start collecting post-launch errors
 errPostLaunch=
-launchFailed=
+
+if [[ ! "$ok" ]] ; then
+    
+    # launch failed
+    [[ "$errmsg" ]] && errPostLaunch="$errmsg "
+    errPostLaunch+="The app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting."
+    myEnginePID='LAUNCHFAILED'
+fi
 
 
 # UNINSTALL MASTER PREFS (IF INSTALLED)
@@ -770,43 +575,6 @@ if [[ "$masterPrefsSet" ]] ; then
     if [[ ! "$ok" ]] ; then
         ok=1 ; errmsg=
     fi
-fi
-
-
-# LAUNCH CLEANUP PROCESS
-
-# get PID of running engine
-function checkforengine {
-    getengineinfo "$myEngineAppPath" || return 0
-    [[ "$myEnginePID" ]] && return 0
-    return 1
-}
-waitforcondition 'app engine to launch' 5 .5 checkforengine
-unset -f checkforengine
-
-if [[ "$myEnginePID" ]] ; then
-    
-    # engine PID found, so launch helper
-    launchhelper Cleanup
-    
-    # if helper didn't launch successfully, store the error
-    if [[ ! "$ok" ]] ; then
-        errPostLaunch="$errmsg The app engine will not be deactivated upon quitting."
-        ok=1 ; errmsg=
-    fi
-    
-    # disown our lock
-    debuglog 'Leaving lock in place for Epichrome Helper.'
-    lockOn=
-else
-    
-    # PID not found, so create error message
-    [[ "$errmsg" ]] && errPostLaunch="$errmsg "
-    errPostLaunch+="The app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting."
-    launchFailed=1
-    
-    # delete failed engine
-    deleteengine
 fi
 
 
@@ -839,7 +607,7 @@ if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
     debuglog "Showing welcome page ($myStatusWelcomeURL)."
     
     # launch the welcome page
-    try '-1' "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+    try '-1' "$SSBAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
             "--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
             'Unable to open welcome page.'
     
@@ -882,13 +650,26 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
     fi
 fi
 
+
 # REPORT ANY POST-LAUNCH ERRORS
 
-if [[ "$launchFailed" ]] ; then
+if [[ "$myEnginePID" = 'LAUNCHFAILED' ]] ; then
     abort "$errPostLaunch"
 elif [[ "$errPostLaunch" ]] ; then
     alert "$errPostLaunch" 'Warning' '|caution'
 fi
+
+
+# MONITOR ENGINE FOR CLEANUP
+
+# wait for app to exit
+debuglog "Waiting for engine to quit..."
+while kill -0 "$myEnginePID" 2> /dev/null ; do
+    pause 1
+done
+
+# deactivate engine and quit
+debuglog 'Engine has quit. Cleaning up...'
 
 # exit cleanly
 cleanexit
