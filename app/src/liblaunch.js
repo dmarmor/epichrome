@@ -80,18 +80,18 @@ function registerApp(aPath) {
 
 
 // LAUNCHAPP: launch an app with arguments & URLs
-function launchApp(aSpec, aArgs=[], aOptions={}) {
+function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
 
     // prepare args for Obj-C
     aArgs = aArgs.map(x => $(x));
-
-    let myUrls = (aOptions.hasOwnProperty('urls') ? aOptions.urls : []);
-    if (myUrls.length > 0) {
-        myUrls = $(myUrls.map(x => $.NSURL.URLWithString($(x))));
+    
+    // prepare URLs for Obj-C
+    if (aUrls.length > 0) {
+        aUrls = $(aUrls.map(x => $.NSURL.URLWithString($(x))));
     } else {
-        myUrls = false;
+        aUrls = false;
     }
-
+    
     // if we got an ID, launch the first app with that ID
     if (aOptions.specIsID) {
         let myAppList = findAppByID(aSpec);
@@ -100,7 +100,12 @@ function launchApp(aSpec, aArgs=[], aOptions={}) {
         }
         aSpec = myAppList[0];
     }
-
+    
+    // if we're supposed to register the app first, do that now
+    if (aOptions.registerFirst) {
+        registerApp(aSpec);
+    }
+    
     // prepare app spec for Obj-C
     aSpec = $.NSURL.fileURLWithPath($(aSpec));
 
@@ -129,9 +134,9 @@ function launchApp(aSpec, aArgs=[], aOptions={}) {
             myApp = aApp;
             myErr = aErr;
         }
-        if (myUrls) {
+        if (aUrls) {
             $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLConfigurationCompletionHandler(
-                myUrls, aSpec, myConfig, myCompletionHandler);
+                aUrls, aSpec, myConfig, myCompletionHandler);
         } else {
             $.NSWorkspace.sharedWorkspace.openApplicationAtURLConfigurationCompletionHandler(
                 aSpec, myConfig, myCompletionHandler);
@@ -161,9 +166,9 @@ function launchApp(aSpec, aArgs=[], aOptions={}) {
             $(myConfigValues), $(myConfigKeys));
 
         // launch (error arg causes a crash, so ignore it)
-        if (myUrls) {
+        if (aUrls) {
             myApp = $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLOptionsConfigurationError(
-                myUrls, aSpec, $.NSWorkspaceLaunchDefault, myConfig, null);
+                aUrls, aSpec, $.NSWorkspaceLaunchDefault, myConfig, null);
         } else {
             myApp = $.NSWorkspace.sharedWorkspace.launchApplicationAtURLOptionsConfigurationError(
                 aSpec, $.NSWorkspaceLaunchDefault, myConfig, null);

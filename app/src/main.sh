@@ -39,13 +39,13 @@ SSBCommandLine=APPCOMMANDLINE
 SSBEdited=APPEDITED
 
 export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
-        SSBCustomIcon SSBRegisterBrowser SSBEngineType SSBEngineSourceInfo \
-        SSBCommandLine SSBEdited
+        SSBRegisterBrowser SSBCustomIcon SSBEngineType \
+        SSBUpdateAction SSBCommandLine SSBEdited
 
 
 # CORE APP VARIABLES
 
-myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
+myAppPath="${BASH_SOURCE[0]%/Contents/Resources/Scripts/main.sh}"
 myEnginePID=
 
 
@@ -56,6 +56,10 @@ argsOptions=()
 export argsURIs argsOptions
 while [[ "$#" -gt 0 ]] ; do
     case "$1" in
+        --epichrome-id=*)
+            # ignore
+            ;;
+        
         --epichrome-debug)
             debug=1
             ;;
@@ -96,8 +100,13 @@ source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 trap '' INT
 
 
-# FUNCTION DEFINITIONS
+# EXPORT CORE ARRAY VARIABLES
 
+exportarray SSBCommandLine
+[[ "${SSBEngineSourceInfo[*]}" ]] && exportarray SSBEngineSourceInfo 
+
+
+# --- FUNCTION DEFINITIONS ---
 
 # CLEANUP -- clean up from any failed update & deactivate any active engine
 function cleanup {
@@ -109,18 +118,18 @@ function cleanup {
         
         # if engine is still running, kill it now        
         if kill -0 "$myEnginePID" 2> /dev/null ; then
-            errlog FATAL 'Terminated while engine still running!'
+            errlog FATAL 'Terminated while engine still running! Killing engine.'
             kill "$myEnginePID"
         fi
         
-        # deactivate engine  $$$ REWRITE THIS FUNCTION
+        # deactivate engine
         ok=1 ; errmsg=
         setenginestate OFF
         [[ "$ok" ]] && debuglog "Engine deactivation complete."
         
         # the launch failed, so delete the failed engine
         if [[ "$myEnginePID" = 'LAUNCHFAILED' ]] ; then
-            deleteengine
+            deletepayload
         fi
         
         # attempt to alert the user if the app was not left in a runnable state
@@ -130,7 +139,7 @@ function cleanup {
 }
 
 
-# MAIN BODY
+# --- MAIN BODY ---
 
 # initialize log file
 initlogfile
@@ -255,67 +264,78 @@ SSBAppPath="$myAppPath"
 getepichromeinfo
 
 
-# UPDATE ENGINE PATH
+# UPDATE PAYLOAD PATH
 
-# determine where our engine should be
-myEnginePath=
+# determine where our payloads should be
+myPayloadPath=
 
 # start with Epichrome.app location
 if [[ -d "$epiCurrentPath" ]] ; then
-    myEnginePath="$epiCurrentPath"
+    
+    # apps must be on the same volume as their engine
+    if ! issamedevice "$SSBAppPath" "$epiCurrentPath" ; then
+        abort 'Apps must reside on the same physical volume as the version of Epichrome they are based on.'
+    fi
+    
+    myPayloadPath="$epiCurrentPath"
     
     # get directory path
-    myEnginePath="${myEnginePath%/*}/$epiEnginePathBase"
+    myPayloadPath="${myPayloadPath%/*}/$epiPayloadPathBase"
     
     # determine if path is in our user path
-    if [[ "${myEnginePath::${#HOME}}" = "$HOME" ]] ; then
+    if [[ "${myPayloadPath::${#HOME}}" = "$HOME" ]] ; then
         # path is user-level, so just add our app ID
-        myEnginePath+="/$SSBIdentifier"
+        myPayloadPath+="/$SSBIdentifier"
     else
         # path is root-level, so add our user ID & app ID
-        myEnginePath+="/$USER/$SSBIdentifier"
+        myPayloadPath+="/$USER/$SSBIdentifier"
     fi
     
-    # check if engine path matches what it should be
-    if [[ "$SSBEnginePath" != "$myEnginePath" ]] ; then
-        
-        # engine path is out of date, so we'll recreate it
-        debuglog "Engine path '$SSBEnginePath' is out of date. Moving to new location."
-        
-        if [[ ( ! -d "$myEnginePath" ) && -d "$SSBEnginePath" ]] && \
-                issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
-            try /bin/mv "$SSBEnginePath" "$myEnginePath" \
-                    'Unable to move engine to new location.'
-            ok=1 ; errmsg=
+    # if updating from old version, switch out config variable
+    [[ "$SSBEnginePath" && ( ! "$SSBPayloadPath" ) ]] && SSBPayloadPath="$SSBEnginePath"
+    
+    # check if payload path matches what it should be
+    if [[ "$SSBPayloadPath" != "$myPayloadPath" ]] ; then
+                
+        if [[ "$SSBPayloadPath" ]] ; then
+
+            # payload path is out of date, so we'll recreate it
+            debuglog "Payload path '$SSBPayloadPath' is out of date. Moving to new location."
+            
+            if [[ ( ! -d "$myPayloadPath" ) && -d "$SSBPayloadPath" ]] && \
+                    issamedevice "$epiCurrentPath" "$SSBPayloadPath" ; then
+                try /bin/mv "$SSBPayloadPath" "$myPayloadPath" \
+                        'Unable to move payload path to new location.'
+                ok=1 ; errmsg=
+            fi
+            
+            # engine still at old location -- delete
+            if [[ -d "$SSBPayloadPath" ]] ; then
+                
+                deletepayload
+                
+                # set status variable
+                myStatusEngineMoved="$SSBPayloadPath"
+            fi
+        else
+            # no payload path yet
+            debuglog "No payload path found. Creating new payload path."
         fi
         
-        # engine still at old location -- delete
-        if [[ -d "$SSBEnginePath" ]] ; then
-            
-            deleteengine
-            
-            # set status variable
-            myStatusEngineMoved="$SSBEnginePath"
-        fi
-        
-        # set new engine path
-        SSBEnginePath="$myEnginePath"
+        # set new payload path
+        SSBPayloadPath="$myPayloadPath"
     fi
 else
-    # no current Epichrome! -- leave as is & hope engine doesn't need to be recreated
-    myEnginePath="$SSBEnginePath"
+    # no current Epichrome! -- leave as is but make sure on same device as app
+    if ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
+        abort 'App is not on the same physical volume as its engine payload.'
+    fi
 fi
 
-# apps must now be on the same volume as their engine
-if ! issamedevice "$SSBAppPath" "$SSBEnginePath" ; then
-    abort 'Starting with Epichrome 2.4.0, apps must reside on the same physical volume as the version of Epichrome they are based on.'
-fi
-
-
-# subsidiary paths
-myEnginePayloadPath="$SSBEnginePath/Payload"
-# myEnginePlaceholderPath="$SSBEnginePath/Placeholder"  $$$$ obsolete
-# export myEnginePayloadPath myEnginePlaceholderPath  $$$$ ???
+# set up payload subsidiary paths
+myPayloadEnginePath="$SSBPayloadPath/Engine"
+myPayloadLauncherPath="$SSBPayloadPath/Launcher"
+export myPayloadEnginePath myPayloadLauncherPath
 
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
@@ -354,6 +374,9 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     
     # if that fails, search the system for external engine
     [[ "${SSBEngineSourceInfo[$iPath]}" ]] || getextenginesrcinfo
+    
+    # export engine source
+    exportarray SSBEngineSourceInfo
 fi
 
 
@@ -437,7 +460,7 @@ elif [[ "$myStatusEngineMoved" ]] ; then
     
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
-    debuglog "Recreating engine in new location '$SSBEnginePath'."
+    debuglog "Recreating engine in new location '$SSBPayloadPath'."
     createEngineErrMsg="Unable to recreate engine in new location"
     
 elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
@@ -449,32 +472,21 @@ elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
     debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
     createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
 
-elif ! checkengine ; then
+elif ! checkenginepayload ; then
     
     # engine damaged or missing
     doCreateEngine=1
-    errlog "Replacing damaged engine."
-    createEngineErrMsg='Unable to replace damaged engine'    
+    errlog "Replacing damaged or missing engine."
+    createEngineErrMsg='Unable to replace damaged or missing engine'    
 fi
 [[ "$ok" ]] || abort
 
-# create engine if necessary
+# create engine payload if necessary
 if [[ "$doCreateEngine" ]] ; then
     
-    # (re)create engine
-    createengine
+    # (re)create engine payload
+    createenginepayload
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
-fi
-
-
-# UPDATE/CREATE ENGINE MANIFEST IF NECESSARY
-
-updateenginemanifest
-
-# report non-fatal error
-if [[ ! "$ok" ]] ; then
-    alert "Unable to create engine info manifest. ($errmsg) The Epichrome extension may not work." 'Warning' '|caution'
-    ok=1 ; errmsg=
 fi
 
 
@@ -505,8 +517,9 @@ fi
 # PREPARE APP FOR LAUNCH
 
 # build command line
-myEngineArgs=( "${argsOptions[@]}" \
+myEngineArgs=( "--user-data-dir=$myProfilePath" \
         '--no-default-browser-check' \
+        "${argsOptions[@]}" \
         "${SSBEngineSourceInfo[@]:$iArgs}" \
         "${SSBCommandLine[@]}" )
 
@@ -532,23 +545,7 @@ setenginestate ON
 myEnginePID='LAUNCHFAILED'
 
 # launch engine
-try "myEnginePID=" /usr/bin/osascript "$SSBEnginePath/Launcher/Resources/Scripts/launch.scpt" \
-        "{
-   \"action\": \"launch\",
-   \"path\": \"$(escapejson "$aPath")\",
-   \"args\": [
-      \"$(escapejson "--user-data-dir=$myProfilePath")\",
-      $(jsonarray $',\n      ' "${myEngineArgs[@]}")
-   ],
-   \"options\": {
-      \"urls\": [
-         $(jsonarray $',\n         ' "${argsURIs[@]}")
-      ]
-   }
-}" 'Unable to launch engine.'
-
-# check that engine PID is active
-try kill -0 "$myEnginePID" 'Engine launched but process cannot be found.'
+launchapp "$SSBAppPath" 'engine' myEnginePID myEngineArgs argsURIs
 
 
 # CHECK FOR A SUCCESSFUL LAUNCH

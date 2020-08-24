@@ -38,54 +38,24 @@ debug = True                   # filled in by Makefile
 
 # CORE APP INFO
 
-epiVersion     = "EPIVERSION"      # filled in by Makefile
-appID          = "APPID"           # filled in by updateapp
-appName        = "APPBUNDLENAME"   # filled in by updateapp
-appDisplayName = "APPDISPLAYNAME"  # filled in by updateapp
+# filled in by Makefile
+nmhVersion     = "EPIVERSION" 
+
+appVersion     = os.environ['SSBVersion']
+appID          = os.environ['SSBIdentifier']
+appName        = os.environ['CFBundleName']
+appDisplayName = os.environ['CFBundleDisplayName']
 
 
 # IMPORTANT APP INFO
 
-appLogFile = None
+appLogID   = os.environ['myLogID']
+appLogFile = os.environ['myLogFile']
+
+appPath    = os.environ['SSBAppPath']
 
 
 # FUNCTION DEFINITIONS
-
-# SETLOGPATH: set path to this app's log file
-def setlogpath():
-
-    global appLogFile
-    global appLogID
-
-    # set log ID
-    appLogID = appID
-    
-    # get data path
-    dataPath = os.path.join(os.environ['HOME'],
-                                'Library/Application Support/Epichrome/Apps',
-                                appID)
-    
-    # set temporary log path
-    if appLogFile == None:
-        appLogFile = os.path.join(dataPath, 'Logs', 'epichrome_app_log.txt')
-    
-    # read lock
-    lockInfo = None
-    try:
-        with open(os.path.join(dataPath, 'lock'), 'r') as f:
-            lockInfo = f.read()
-    except Exception as e:
-        errlog("Unable to read app lock ({})".format(e))
-
-    # try to find log path in lock file
-    if lockInfo:
-        m = re.search("lockLogFile='([^\n]*)'[ \t]*\n", lockInfo)
-        if m:
-            appLogFile = m.group(1)
-        else:
-            # assume an older app version with old-style logging
-            appLogFile = os.path.join(dataPath, 'epichrome_app_log.txt')
-
 
 # ERRLOG: log to stderr and log file
 def errlog(msg, msgType='*'):
@@ -192,71 +162,6 @@ def receive_message():
 
 
 # === MAIN BODY ===
-
-
-# MAKE SURE WE HAVE APP INFO
-
-if appID:
-
-    # we're running from this app's bundle
-    
-    # set path to this app's log file
-    setlogpath()
-
-    # in this case, app version is the same is Epichrome version
-    appVersion = epiVersion
-
-    # determine parent app path from this script's path
-    appPath = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../..'))
-
-else:
-
-    # we're running from Epichrome.app
-    
-    # temporarily log to the main Epichrome log
-    appLogID = '<UnknownEpichromeApp>'
-    appLogFile = os.path.join(os.environ['HOME'],
-                                  'Library/Application Support/Epichrome/Logs',
-                                  'epichrome_log_nativemessaginghost.txt')
-    
-    # get parent process ID & use that to get engine path
-    try:
-        enginepath = subprocess.check_output(['/bin/ps', '-o', 'comm',
-                                                  '-p', str(os.getppid())]).split('\n')[1]
-    except Exception as e:
-
-        errlog("Unable to get path of parent engine ({})".format(e), '!')
-        exit(1)
-        
-    # read engine manifest
-    try:
-        with open(os.path.join(os.path.dirname(enginepath), '../../../info.json')) as fp:
-            json_info = json.load(fp)
-
-    except Exception as e:      
-        errlog("Error reading info.json ({})".format(e), '!')
-        exit(1)
-    
-    try:
-        # set app info from manifest
-        appVersion     = json_info['version'].encode('utf-8')
-        appID          = json_info['appID'].encode('utf-8')
-        appName        = json_info['appName'].encode('utf-8')
-        appDisplayName = json_info['appDisplayName'].encode('utf-8')
-        appPath        = json_info['appPath'].encode('utf-8')
-    except Exception as e:
-        
-        errlog("Engine info.json missing expected key: {}".format(e), '!')
-        exit(1)
-    
-    # set permanent log path
-    setlogpath()
-
-    debuglog("App info set: ID={} version={} name='{}' displayName='{}' path='{}'".format(appID,
-                                                                                              appVersion,
-                                                                                              appName,
-                                                                                              appDisplayName,
-                                                                                              appPath))
 
 
 # SPECIAL MODE FOR COMMUNICATING VERSION TO PARENT APP

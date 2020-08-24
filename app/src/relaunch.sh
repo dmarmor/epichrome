@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  AppExec: Bootstrap an Epichrome app
+#  relaunch.sh: Relaunch an Epichrome app
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -21,14 +21,32 @@
 #
 
 
-# ENSURE APP ISN'T ALREADY RUNNING, THEN FORK & TERMINATE
+# WAIT UNTIL PARENT APP HAS QUIT, THEN RELAUNCH
 
-# unique ID tag for this app in the process table
-idTag='--epichrome-id=APPID'
+# set log ID
+myLogID="${myLogID%|*}|Relaunch"
 
-# if tag isn't in process table, we're clear to launch
-if ! /usr/bin/pgrep -fiq -- "$idTag" ; then
-    
-    # fork main script with ID tag & kill parent app
-    "${BASH_SOURCE[0]%/script}/Scripts/main.sh" "$idTag" "$@" < /dev/null &> /dev/null &
+# array variables from parent app
+importarray argsURIs argsOptions
+
+# wait for parent to quit
+debuglog "Waiting for parent app (PID $PPID) to quit..."
+while kill -0 "$PPID" 2> /dev/null ; do
+    pause 1
+done
+
+debuglog "Parent app has quit. Relaunching..."
+
+# relaunch
+argsOptions+=( '--epichrome-new-log' )
+launchapp "$SSBAppPath" 'updated app' myRelaunchPID argsOptions argsURIs
+
+# report result
+if [[ "$ok" ]] ; then
+    debuglog "Parent app relaunched successfully. Quitting."
+else
+    alert "$errmsg You may have to launch it manually." 'Warning' '|caution'
 fi
+
+# exit
+cleanexit

@@ -1,7 +1,7 @@
 # Epichrome version (#.#.# = release version, #.#.#b# = beta)
 
-epiVersion=2.4.0b1
-epiBuildNum=120
+epiVersion=2.4.0b2
+epiBuildNum=1
 epiDesc="🚀 MAJOR UPDATE!
 
    ▪️ Added ability to edit existing Epichrome apps

@@ -139,8 +139,6 @@ NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chr
 
 APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
-APP_RNTM_HLPR:=$(APP_RNTM)/Contents/Resources/EpichromeMonitor.app
-APP_RNTM_HLPR_CT:=$(APP_RNTM_HLPR)/Contents
 
 
 # META-TARGETS
@@ -375,12 +373,10 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Scripts/makeicon.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
-	$(APP_CT)/Resources/Scripts/epichromeruntimehost.py \
 	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
 	$(APP_RNTM)/Filter/main.sh \
-	$(APP_RNTM)/Filter/epichromeruntimehost.py \
 	$(APP_RNTM)/Filter/welcome.html \
 	$(APP_RNTM)/Filter/Bookmarks \
 	$(APP_RNTM)/Filter/Prefs/prefs_com_brave_Browser.json \
@@ -401,6 +397,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
+	$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost.py \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -410,9 +407,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/ext_generic_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/passwords_button.png \
 	\
-	$(APP_RNTM_HLPR) \
-	\
-	$(APP_RNTM)/Engine/Filter/PlaceholderExec \
 	$(APP_RNTM)/Engine/Filter/Info.plist \
 	$(APP_RNTM)/Engine/Payload \
 	$(APP_RNTM)/Engine/Link/Frameworks \
@@ -475,15 +469,12 @@ $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
 
 $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'
+	cp '$<' '$@'	
 
-$(APP_CT)/Resources/Scripts/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		-e 's/debug = True/$(DEBUG_PY)/g' \
-		-e 's/APPID//g' \
-		-e 's/APPBUNDLENAME//g' \
-		-e 's/APPDISPLAYNAME//g' \
 		'$<' > '$@'
 	chmod 755 '$@'
 
@@ -541,16 +532,13 @@ $(APP_RNTM)/Filter/Info.plist: src/Info.plist.runtime src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(APP_RNTM)/Filter/AppExec: src/AppExec src/version.sh
+$(APP_RNTM)/Filter/AppExec: src/AppExec
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
-	
-$(APP_RNTM)/Filter/main.sh: src/main.sh src/version.sh
-	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
 
-$(APP_RNTM)/Filter/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+$(APP_RNTM)/Filter/main.sh: src/main.sh src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g; s/debug = True/$(DEBUG_PY)/g' $< > $@
+	sed -e 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 
 
 # RUNTIME ICONS
@@ -562,20 +550,6 @@ $(APP_RNTM)/Contents/Resources/%.icns: build/icons/%$(BETA).icns src/version.sh
 build/icons/%.icns: ../images/icons/%.png
 	@mkdir -p '$(dir $@)'
 	src/makeicon.sh -f $< $@
-
-
-# EPICHROME MONITOR
-
-$(APP_RNTM_HLPR): $(APP_RNTM_HLPR_CT)/Info.plist \
-	$(APP_RNTM_HLPR_CT)/MacOS/EpichromeMonitor
-
-$(APP_RNTM_HLPR_CT)/Info.plist: src/monitor/Info.plist
-	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
-
-$(APP_RNTM_HLPR_CT)/MacOS/EpichromeMonitor: src/monitor/EpichromeMonitor
-	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'
 
 
 # RUNTIME SCRIPTS
@@ -792,10 +766,6 @@ engine: build/engine/Brave
 #	rmdir build/engine/Brave/MacOS
 	mv build/engine/Brave $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
-
-$(APP_RNTM)/Engine/Filter/PlaceholderExec: src/PlaceholderExec src/version.sh
-	@mkdir -p '$(dir $@)'
-	sed 's/EPIVERSION/$(VERSION)/g' $< > $@
 
 
 # *** LEGACY UPDATE CODE ***

@@ -105,8 +105,7 @@ export CFBundleIconFile CFBundleTypeIconFile
 # bundle IDs
 appIDRoot='org.epichrome'
 appIDBase="$appIDRoot.app"
-appEngineIDBase="$appIDRoot.eng"
-export appIDRoot appIDBase appEngineIDBase
+export appIDRoot appIDBase
 
 # monitor app info
 epiMonitorAppName='EpichromeMonitor.app'
@@ -116,7 +115,7 @@ export epiMonitorAppName epiMonitorAppVersionFile
 # app internal paths
 appMonitorPath="Resources/$epiMonitorAppName"
 appEnginePath='Resources/Engine'
-appEnginePayloadPath="$appEnginePath/Payload"
+#appEnginePayloadPath="$appEnginePath/Payload"  $$$$ DELETE
 #appEnginePlaceholderPath="$appEnginePath/Placeholder"  $$$ DELETE
 appNMHFile='epichromeruntimehost.py'
 appWelcomePath='Resources/Welcome'
@@ -124,7 +123,7 @@ appWelcomePage='welcome.html'
 appMasterPrefsPath='Resources/Profile/prefs.json'
 appBookmarksFile='Bookmarks'
 appBookmarksPath="Resources/Profile/$appBookmarksFile"
-export appMonitorPath appEnginePath appEnginePayloadPath \
+export appMonitorPath appEnginePath \
         appNMHFile \
         appWelcomePath appWelcomePage \
         appMasterPrefsPath \
@@ -218,7 +217,7 @@ appConfigVars=( SSBAppPath \
 		    SSBLastRunEngineType \
 		    SSBLastRunEdited \
 		    SSBUpdateIgnoreVersions \
-		    SSBEnginePath \
+		    SSBPayloadPath \
             SSBLastErrorGithubFatal \
 		    SSBLastErrorNMHInstall \
             SSBLastErrorNMHCentral )
@@ -1340,6 +1339,7 @@ function trimsaves {  # ( saveDir maxFiles [ fileExt fileDesc trimVar ] )
 }
 export -f trimsaves
 
+
 # ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
 function isarray {
     if [[ "$(declare -p "$1" 2> /dev/null)" =~ ^declare\ -a ]] ; then
@@ -1349,6 +1349,29 @@ function isarray {
     fi
 }
 export -f isarray
+
+
+# EXPORTARRAY -- export array variables to a subshell
+#   exportarray(var1 [var2 ...])
+function exportarray {
+	
+	local curVar=
+	for curVar in "$@" ; do
+		eval "${curVar}_array=\"$curVar=\$(formatarray \"\${$curVar[@]}\")\" ; export ${curVar}_array"
+	done
+}
+export -f exportarray
+
+
+# IMPORTARRAY -- import array variables from a parent environment
+#  importarray(var1 [var2 ...])
+function importarray {
+	local curVar=
+	for curVar in "$@" ; do
+		eval "eval \"\$${curVar}_array\""
+	done    
+}
+export -f importarray
 
 
 # EPIWHITESPACE: utility variable holding whitespace for regexes

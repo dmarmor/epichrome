@@ -145,7 +145,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
         
         # pull config from current flavor of app
         myConfigPart="${myConfigScript#*# CORE APP INFO}"
-        myConfig="${myConfigPart%%# CORE APP VARIABLES*}"
+        myConfig="${myConfigPart%%export*}"
         
         # if either delimiter string wasn't found, that's an error
         if [[ ( "$myConfigPart" = "$myConfigScript" ) || \

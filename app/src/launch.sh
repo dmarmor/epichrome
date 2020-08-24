@@ -28,7 +28,7 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 # CONSTANTS
 
-epiEnginePathBase='Payload.noindex'
+epiPayloadPathBase='Payload.noindex'
 
 # IDs of allowed external engine browsers
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
@@ -182,7 +182,7 @@ function getepichromeinfo {
 	
 	# start with preferred install locations: the engine path & default user & global paths
 	local preferred=()
-	[[ -d "$SSBEnginePath" ]] && preferred+=( "${SSBEnginePath%/$epiEnginePathBase/*}/Epichrome.app" )
+	[[ -d "$SSBPayloadPath" ]] && preferred+=( "${SSBPayloadPath%/$epiPayloadPathBase/*}/Epichrome.app" )
 	local globalDefaultEpichrome='/Applications/Epichrome/Epichrome.app'
 	local userDefaultEpichrome="${HOME}$globalDefaultEpichrome"
 	[[ "${preferred[0]}" != "$userDefaultEpichrome" ]] && preferred+=( "$userDefaultEpichrome" )
@@ -2179,61 +2179,48 @@ function linkexternalnmhs {
 }
 
 
-# CHECKENGINE -- check if the app engine is in a good state, active or not
-function checkengine {  # ( ON|OFF )
-	# return codes:
-	#   0 = engine is in expected state and in good condition
-	#   1 = engine is in opposite state but in good condition
-	#   2 = engine is not in good condition
+# CHECKENGINEPAYLOAD -- check if the app engine payload is in a good state
+#   returns 0 if engine payload looks good; 1 if anything unexpected found
+function checkenginepayload {
 	
-	# arguments
-	local expectedState="$1" ; shift
-	
-	# figure out current engine state
-	local curState= ; local inactivePath=
-	if [[ -d "$myEnginePayloadPath" && ! -d "$myEnginePlaceholderPath" ]] ; then
-		
-		# engine is inactive
-		debuglog "Engine is inactive."
-		curState=OFF
-		inactivePath="$myEnginePayloadPath"
-		
-	elif [[ -d "$myEnginePlaceholderPath" && ! -d "$myEnginePayloadPath" ]] ; then
-		
-		# engine is active
-		debuglog "Engine is active."
-		curState=ON
-		inactivePath="$myEnginePlaceholderPath"
-		
+	# engine payload directory exists
+	if [[ -d "$myPayloadEnginePath" ]] ; then
+
+		# get a list of all items in the payload folder
+		local iPayloadItems=( "$SSBPayloadPath"/* )
+
+		# engine payload directory is only item 
+		if [[ ( "${iPayloadItems[0]}" = "$myPayloadEnginePath" ) && \
+				( "${#iPayloadItems[@]}" = 1 )]] ; then
+			
+			# engine is in a known state, so make sure both app bundles are complete
+			if [[ -x "$myPayloadEnginePath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" && \
+					-f "$myPayloadEnginePath/Info.plist" ]] ; then
+				
+				# all checks passed
+				debuglog 'Engine payload appears valid.'
+				return 0
+			else
+				errlog 'Engine payload is appears corrupt.'
+				return 1
+			fi
+		else
+			errlog 'Extra items found in engine payload directory.'
+			return 1
+		fi
 	else
-		
-		# engine is not in either state
-		errlog "Engine is in an unknown state."
-		return 2
+		errlog 'Engine payload not found.'
+		return 1
 	fi
 	
-	# engine is in a known state, so make sure both app bundles are complete
-	if [[ -x "$inactivePath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" && \
-			-f "$inactivePath/Info.plist" && \
-			-x "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" && \
-			-f "$myEngineAppPath/Contents/Info.plist" ]] ; then
-		
-		# return code depending if we match our expected state
-		[[ "$curState" = "$expectedState" ]] && return 0 || return 1
-		
-	else
-		
-		# either or both app states are damaged
-		errlog 'Engine is damaged.'
-		return 2
-	fi
-	
+	return 0
 }
-export -f checkengine
+#export -f checkenginepayload  $$$$ DELETE?
 
 
-# SETENGINESTATE -- set the engine to the active or inactive state
-function setenginestate {  # ( ON|OFF )
+# SETENGINESTATE -- set the engine to the active or inactive state   $$$$ I AM HERE
+# setenginestate( ON|OFF )
+function setenginestate {
 	
 	# only operate if we're OK
 	[[ "$ok" ]] || return 1
@@ -2243,58 +2230,67 @@ function setenginestate {  # ( ON|OFF )
 	
 	# assume we're in the opposite state we're setting to
 	local oldInactivePath= ; local newInactivePath=
-	local oldInactiveError= ; local newInactiveError=
+	local newStateName=
 	if [[ "$newState" = ON ]] ; then
-		oldInactivePath="$myEnginePayloadPath"
-		oldInactiveError="payload"
-		newInactivePath="$myEnginePlaceholderPath"
-		newInactiveError="placeholder"
+		oldInactivePath="$myPayloadEnginePath"
+		newStateName="activate"
+		newInactivePath="$myPayloadLauncherPath"
 	else
-		oldInactivePath="$myEnginePlaceholderPath"
-		oldInactiveError="placeholder"
-		newInactivePath="$myEnginePayloadPath"
-		newInactiveError="payload"
+		oldInactivePath="$myPayloadLauncherPath"
+		newStateName="deactivate"
+		newInactivePath="$myPayloadEnginePath"
 	fi
 	
 	# engine app contents
-	local myEngineAppContents="$myEngineAppPath/Contents"
+	local myContents="$SSBAppPath/Contents"
 	
-	# move the old contents out
+	# move the old payload out
 	if [[ -d "$newInactivePath" ]] ; then
-		ok= ; errmsg="${newInactivePath##*/} already deactivated."
+		ok= ; errmsg="Engine already ${newStateName}d."
 	fi
-	try /bin/mv "$myEngineAppContents" "$newInactivePath" \
-			"Unable to deactivate $newInactiveError."
-	
-	# move the new contents in
-	if [[ -d "$myEngineAppContents" ]] ; then
-		ok= ; errmsg="Unable to empty engine app."
-	fi
-	try /bin/mv "$oldInactivePath" "$myEngineAppContents" \
-			"Unable to activate $oldInactiveError."
-	
-	# abort here on failure
+	try /bin/mv "$myContents" "$newInactivePath" \
+			"Unable to $newStateName engine."
 	[[ "$ok" ]] || return 1
 	
-	# sometimes it takes a moment for the move to register
-	if ! waitforcondition \
-			"engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' to appear" \
-			5 .5 \
-			test -x "$myEngineAppContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ; then
-		ok=
-		errmsg="Engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' not found."
+	# make double sure old payload is gone
+	if [[ -d "$myContents" ]] ; then
+		ok= ; errmsg="Unknown error moving old payload out of app."
 		errlog "$errmsg"
 		return 1
 	fi
 	
-	[[ "$debug" ]] && ( local de= ; [[ "$newState" != ON ]] && de=de ; errlog DEBUG "Engine ${de}activated." )
+	# move the new payload in
+	try /bin/mv "$oldInactivePath" "$myContents" \
+			"Unable to $newStateName engine."
 	
+	# on error, try to restore the old payload
+	if [[ ! "$ok" ]] ; then
+		tryalways /bin/mv "$newInactivePath" "$myContents" \
+				"Unable to restore old app state. This app may be damaged and unable to run."
+		return 1
+	fi
+	
+	# sometimes it takes a moment for the move to register  $$$$$ HANDLE THIS IN LAUNCHAPP NOW WITH LSREGISTER?
+	# if ! waitforcondition \
+	# 		"engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' to appear" \
+	# 		5 .5 \
+	# 		test -x "$myContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ; then
+	# 	ok=
+	# 	errmsg="Engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' not found."
+	# 	errlog "$errmsg"
+	# 	return 1
+	# fi
+	
+	debuglog "Engine ${newStateName}d."
+	
+	return 0
 }
-export -f setenginestate
+#export -f setenginestate  $$$$ NO NEED TO EXPORT?
 
 
-# DELETEENGINE -- delete Epichrome engine  $$$$ FIX TO RECURSIVELY DELETE USER SUBDIR IF EXISTS
-function deleteengine {  # ( [mustSucceed] )
+# DELETEPAYLOAD -- delete payload directory
+#  deletepayload( [mustSucceed] ) -- mustSucceed: if set, failure is considered a fatal error
+function deletepayload {
 	
 	# argument
 	local mustSucceed="$1" ; shift
@@ -2317,29 +2313,48 @@ function deleteengine {  # ( [mustSucceed] )
 		local oldOK="$ok"
 	fi
 	
-	if [[ -d "$SSBEnginePath" ]] ; then
-		
-		debuglog "Deleting engine at '$SSBEnginePath'"
-		
-		# delete engine
-		$myTry /bin/rm -rf "$SSBEnginePath" \
-				"${warning}Unable to remove old engine."
-		
-		# make sure engine deleted
-		if [[ "$?" = 0 ]] ; then
-			if ! waitforcondition 'old engine to delete' 5 .5 \
-					test '!' -d "$SSBEnginePath" ; then
-				errmsg="${warning}Removal of old engine failed."
-				errlog "$errmsg"
-				ok=
+	if [[ -d "$SSBPayloadPath" ]] ; then
+
+		if [[ ( -e "$myPayloadLauncherPath" ) && (! -e "$myPayloadEnginePath" ) ]] ; then
+			errmsg="Cannot delete payload while engine is active."
+			errlog "$errmsg"
+			ok=
+		else
+			debuglog "Deleting payload at '$SSBPayloadPath'"
+			
+			# delete payload
+			$myTry /bin/rm -rf "$SSBPayloadPath" \
+			"Unable to delete payload."
+			
+			# make sure payload deleted
+			if [[ "$?" = 0 ]] ; then
+				if ! waitforcondition 'payload to delete' 5 .5 \
+				test '!' -d "$SSBPayloadPath" ; then
+					errmsg="Removal of payload failed."
+					errlog "$errmsg"
+					ok=
+				fi
 			fi
 		fi
 	fi
 	
-	# delete link to engine
-	if [[ ! -d "$SSBEnginePath" ]] ; then
-		$myTry /bin/rm -f "$myDataPath/Engine" \
-				"${warning}Unable to remove link to old engine in data directory."
+	# clean up parent directory & link to engine  $$$ MAYBE GET RID OF THIS LINK EVENTUALLY
+	if [[ ! -d "$SSBPayloadPath" ]] ; then
+		
+		# save state
+		local cleanOK="$ok"
+		local cleanErrmgs="$errmsg"
+		
+		# # if parent directory is empty, try to delete it too  $$$ I THINK LEAVE THIS FOR EPICHROME SCAN
+		# tryalways /bin/rmdir "${SSBPayloadPath%/*}" ''
+		
+		# delete link to the engine directory
+		tryalways /bin/rm -f "$myDataPath/Engine" \
+				"Unable to remove link to old engine in data directory."
+		
+		# restore state
+		ok="$cleanOK"
+		errmsg="$cleanErrmgs"
 	fi
 	
 	# handle errors
@@ -2355,30 +2370,30 @@ function deleteengine {  # ( [mustSucceed] )
 }
 
 
-# CREATEENGINE -- create Epichrome engine (payload & placeholder)
-function createengine {
+# CREATEENGINEPAYLOAD -- create Epichrome engine payload
+function createenginepayload {
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
 	
-	# CLEAR OUT ANY OLD ENGINE
+	# CLEAR OUT ANY OLD PAYLOAD
 	
-	deleteengine MUSTSUCCEED
+	deletepayload MUSTSUCCEED
 	
 	
-	# CREATE NEW ENGINE
+	# CREATE NEW ENGINE PAYLOAD
 	
-	try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
+	try /bin/mkdir -p "$SSBPayloadPath" 'Unable to create payload path.'
 	[[ "$ok" ]] || return 1
 	
-	debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine at '$SSBEnginePath'."
+	debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine payload in '$SSBPayloadPath'."
 	
 	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 		
-		# EXTERNAL ENGINE PAYLOAD
+		# EXTERNAL ENGINE
 		
-		# make sure we have a source for the payload
+		# make sure we have a source for the engine payload
 		if [[ ! -d "${SSBEngineSourceInfo[$iPath]}" ]] ; then
 			
 			# we should already have this, so as a last ditch, ask the user to locate it
@@ -2410,14 +2425,14 @@ function createengine {
 			fi	    
 		fi
 		
-		# make sure external browser is on the same volume as the engine
-		if ! issamedevice "${SSBEngineSourceInfo[$iPath]}" "$SSBEnginePath" ; then
-			ok= ; errmsg="${SSBEngineSourceInfo[$iDisplayName]} is not on the same volume as this app's data directory."
+		# make sure external browser is on the same volume as the payload
+		if ! issamedevice "${SSBEngineSourceInfo[$iPath]}" "$SSBPayloadPath" ; then
+			ok= ; errmsg="${SSBEngineSourceInfo[$iDisplayName]} is not on the same volume as this app."
 			return 1
 		fi
 		
-		# create Payload directory
-		try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
+		# create Engine/Resources directory
+		try /bin/mkdir -p "$myPayloadEnginePath/Resources" \
 				"Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
 		
 		# turn on extended glob for copying
@@ -2427,76 +2442,36 @@ function createengine {
 		# copy all of the external browser except Framework and Resources
 		local allExcept='!(Frameworks|Resources)'
 		try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/"$allExcept \
-				"$myEnginePayloadPath" \
+				"$myPayloadEnginePath" \
 				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
 		
 		# copy Resources, except icons
 		allExcept='!(*.icns)'
 		try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/Resources/"$allExcept \
-				"$myEnginePayloadPath/Resources" \
+				"$myPayloadEnginePath/Resources" \
 				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine resources to payload."
 		
 		# restore extended glob
 		shoptrestore shoptState
 		
 		# hard link to external engine browser Frameworks
-		linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myEnginePayloadPath" \
+		linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myPayloadEnginePath" \
 				"${SSBEngineSourceInfo[$iDisplayName]} app engine" 'payload' 'Frameworks'
 		
 		# filter localization files
-		filterlproj "$myEnginePayloadPath/Resources" \
+		filterlproj "$myPayloadEnginePath/Resources" \
 				"${SSBEngineSourceInfo[$iDisplayName]} app engine"
 		
 		# link to this app's icons
 		try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-				"$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \
+				"$myPayloadEnginePath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \
 				"Unable to copy app icon to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
 		try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-				"$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
+				"$myPayloadEnginePath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
 				"Unable to copy document icon file to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
-		
-		
-		# EXTERNAL ENGINE PLACEHOLDER
-		
-		# clear out any old active app
-		if [[ -d "$myEngineAppPath" ]] ; then
-			try /bin/rm -rf "$myEngineAppPath" \
-					"Unable to clear old ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-			[[ "$ok" ]] || return 1
-		fi
-		
-		# create active placeholder app bundle
-		try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
-				"Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-		
-		# filter Info.plist from payload
-		filterplist "$myEnginePayloadPath/Info.plist" \
-				"$myEngineAppPath/Contents/Info.plist" \
-				"${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder Info.plist" \
-				'Add :LSUIElement bool true' \
-				'Delete :CFBundleDocumentTypes' \
-				'Delete :CFBundleURLTypes'
-		
-		# path to placeholder resources in the app
-		local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
-		
-		# copy in placeholder executable
-		try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
-				"$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
-		
-		# copy Resources directory from payload
-		try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-				"Unable to copy resources from ${SSBEngineSourceInfo[$iDisplayName]} app engine payload to placeholder."
-		
-		# copy in scripts
-		try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
-				"$myEngineAppPath/Contents/Resources" \
-				"Unable to copy scripts to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-		
 	else
 		
-		# INTERNAL ENGINE PAYLOAD
+		# INTERNAL ENGINE
 		
 		# make sure we have the current version of Epichrome
 		if [[ ! -d "$epiCurrentPath" ]] ; then
@@ -2511,95 +2486,36 @@ function createengine {
 		fi
 		
 		# make sure Epichrome is on the same volume as the engine
-		if ! issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
+		if ! issamedevice "$epiCurrentPath" "$SSBPayloadPath" ; then
 			ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
 			return 1
 		fi
 		
 		# copy main payload from app
-		try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePayloadPath" \
-				"$myEnginePayloadPath" \
+		try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePath" \
+				"$SSBPayloadPath" \
 				'Unable to copy app engine payload.'
 		
 		# copy icons to payload
 		safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-				"$myEnginePayloadPath/Resources/$CFBundleIconFile" \
+				"$myPayloadEnginePath/Resources/$CFBundleIconFile" \
 				"engine app icon"
 		safecopy "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-				"$myEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
+				"$myPayloadEnginePath/Resources/$CFBundleTypeIconFile" \
 				"engine document icon"
 		
 		# hard link large payload items from Epichrome
 		linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
-				"$myEnginePayloadPath" 'app engine' 'payload'
-		
-		
-		# INTERNAL ENGINE PLACEHOLDER
-		
-		# clear out any old active app
-		if [[ -d "$myEngineAppPath" ]] ; then
-			try /bin/rm -rf "$myEngineAppPath" \
-					'Unable to clear old app engine placeholder.'
-			[[ "$ok" ]] || return 1
-		fi
-		
-		# create active placeholder app bundle
-		try /bin/mkdir -p "$myEngineAppPath" \
-				'Unable to create app engine placeholder.'
-		
-		# copy in app placeholder
-		try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
-				"$myEngineAppPath/Contents" \
-				'Unable to populate app engine placeholder.'
-		
-		# copy Resources directory from payload
-		try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-				'Unable to copy resources from app engine payload to placeholder.'
-		
-		# copy in core script
-		try /bin/mkdir -p "$myEngineAppPath/Contents/Resources/Scripts" \
-				'Unable to create app engine placeholder scripts.'
-		try /bin/cp "$SSBAppPath/Contents/Resources/Scripts/core.sh" \
-				"$myEngineAppPath/Contents/Resources/Scripts" \
-				'Unable to copy core to placeholder.'
+				"$myPayloadEnginePath" 'app engine' 'payload'
 	fi
-
-	# link to engine
+	
+	# link to engine  $$$$ GET RID OF THIS?
 	if [[ "$ok" ]] ; then
-		try /bin/ln -s "$SSBEnginePath" "$myDataPath/Engine" \
+		try /bin/ln -s "$SSBPayloadPath" "$myDataPath/Engine" \
 				'Unable create to link to engine in data directory.'
 	fi
 	
 	# return code
-	[[ "$ok" ]] && return 0 || return 1
-}
-
-
-# UPDATEENGINEMANIFEST: check the status of the engine info manifest and create/update as necessary
-function updateenginemanifest {
-	
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# path to manifest
-	local myEngineManifest="$SSBEnginePath/info.json"
-	
-	# if no manifest, or if main app has moved, create a new one
-	if [[ ( ! -f "$myEngineManifest" ) || \
-			( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
-		
-		debuglog "Writing new engine manifest."
-		
-		try "$myEngineManifest<" echo \
-				'{
-	"version": "'"$(escapejson "$SSBVersion")"'",
-	"appID": "'"$(escapejson "$SSBIdentifier")"'",
-	"appName": "'"$(escapejson "$CFBundleName")"'",
-	"appDisplayName": "'"$(escapejson "$CFBundleDisplayName")"'",
-	"appPath": "'"$(escapejson "$SSBAppPath")"'"
-}' 'Unable to write engine manifest.'
-	fi
-	
 	[[ "$ok" ]] && return 0 || return 1
 }
 
@@ -2682,7 +2598,7 @@ function updatecentralnmh {
 		debuglog 'Installing central native messaging host manifests.'
 		
 		# path to Epichrome NMH items
-		local nmhScript="$sourcePath/Contents/Resources/Scripts/$appNMHFile"
+		local nmhScript="$sourcePath/Contents/Resources/Runtime/Contents/Resources/NMH/$appNMHFile"
 		local sourceManifest="$sourcePath/Contents/Resources/Runtime/Contents/Resources/NMH/$nmhManifestNewFile"
 		
 		# make sure directory exists
@@ -2937,174 +2853,163 @@ function writeconfig {  # ( myConfigFile force )
 }
 
 
-# EXPORTARRAY -- export array variables to a subshell
-function exportarray { # ( var1 [var2 ...] )
-	
-	local curVar=
-	for curVar in "$@" ; do
-		eval "${curVar}_array=\"$curVar=\$(formatarray \"\${$curVar[@]}\")\" ; export ${curVar}_array"
-	done
-}
-export -f exportarray
+# LAUNCHAPP_OLD -- launch an app  $$$ OBSOLETE
+# function launchapp_old {  # ( appPath execName appDesc openArgs ... )
+# 
+# 	# only run if OK
+# 	[[ "$ok" ]] || return 1
+# 
+# 	# arguments
+# 	local appPath="$1" ; shift
+# 	local execName="$1" ; shift
+# 	local appDesc="$1" ; shift
+# 
+# 	debuglog "Launching $appDesc."
+# 
+# 	if ! waitforcondition \
+# 			"$appDesc executable to appear" \
+# 			5 .5 \
+# 			test -x "$appPath/Contents/MacOS/$execName" ; then
+# 		ok=
+# 		errmsg="Executable for $appDesc not found."
+# 		errlog "$errmsg"
+# 		return 1
+# 	fi
+# 
+# 	# launch attempt function
+# 	function launchapp_attempt {  # ( openArgs )
+# 
+# 		# try launching
+# 		local openErr=	
+# 		try 'openErr&=' /usr/bin/open -a "$appPath" "$@" ''
+# 		[[ "$ok" ]] && return 0
+# 
+# 		# launch failed due to missing executable, so try again
+# 		if [[ "$openErr" = *'executable is missing'* ]] ; then
+# 			ok=1
+# 			errmsg=
+# 			return 1
+# 		fi
+# 
+# 		# launch failed for some other reason, so give up
+# 		errlog 'ERROR|open' "$openErr"
+# 		errmsg="Error launching $appDesc."
+# 		errlog "$errmsg"
+# 		return 0
+# 	}
+# 
+# 	# try to launch app
+# 	waitforcondition "$appDesc to launch" 5 .5 launchapp_attempt "$@"
+# 	unset -f launchapp_attempt
+# 
+# 	# return code
+# 	[[ "$ok" ]] && return 0 || return 1
+# }
+# export -f launchapp_old
 
 
-# IMPORTARRAY -- import array variables from a parent environment
-function importarray { # ( var1 [var2 ...] )
-	local curVar=
-	for curVar in "$@" ; do
-		eval "eval \"\$${curVar}_array\""
-	done    
-}
-export -f importarray
-
-
-# LAUNCHAPP -- launch an app
-function launchapp {  # ( appPath execName appDesc openArgs ... )
-	
-	# only run if OK
-	[[ "$ok" ]] || return 1
-	
-	# arguments
-	local appPath="$1" ; shift
-	local execName="$1" ; shift
-	local appDesc="$1" ; shift
-	
-	debuglog "Launching $appDesc."
-	
-	if ! waitforcondition \
-			"$appDesc executable to appear" \
-			5 .5 \
-			test -x "$appPath/Contents/MacOS/$execName" ; then
-		ok=
-		errmsg="Executable for $appDesc not found."
-		errlog "$errmsg"
-		return 1
-	fi
-	
-	# launch attempt function
-	function launchapp_attempt {  # ( openArgs )
-		
-		# try launching
-		local openErr=	
-		try 'openErr&=' /usr/bin/open -a "$appPath" "$@" ''
-		[[ "$ok" ]] && return 0
-		
-		# launch failed due to missing executable, so try again
-		if [[ "$openErr" = *'executable is missing'* ]] ; then
-			ok=1
-			errmsg=
-			return 1
-		fi
-		
-		# launch failed for some other reason, so give up
-		errlog 'ERROR|open' "$openErr"
-		errmsg="Error launching $appDesc."
-		errlog "$errmsg"
-		return 0
-	}
-	
-	# try to launch app
-	waitforcondition "$appDesc to launch" 5 .5 launchapp_attempt "$@"
-	unset -f launchapp_attempt
-	
-	# return code
-	[[ "$ok" ]] && return 0 || return 1
-}
-export -f launchapp
-
-
-# LAUNCHAPP_NEW: $$$ FIX UP & PROBABLY USE ONLY FOR ENGINE??
-# aResultVar aAppDesc aPath [args...]  $$$ MOVE ME
-function launchapp_new {
+# LAUNCHAPP: launch an app using JXA $$$ FIX UP & PROBABLY USE ONLY FOR ENGINE??
+#   launchapp(aPath [aAppDesc aResultPIDVar aArgsVar aUrlsVar])
+function launchapp {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
         
     # arguments
-    local aResultVar="$1" ; shift
-    local aAppDesc="$1" ; shift
     local aPath="$1" ; shift
-    [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
+    local aAppDesc="$1" ; shift ; [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
+	local aResultPIDVar="$1" ; shift
+	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
+	local aUrls="$1" ; shift ; [[ "$aUrls" ]] && eval "aUrls=( \"\${$aUrls[@]}\" )"
     
-    # fallback result
-    local iResult=
-    local iResultArg=
-    if [[ "$aResultVar" ]] ; then
-        iResultArg="$aResultVar"
-    else
-        iResultArg='iResult'
+    
+	# launch the app   $$$ CHANGE REGISTERFIRST TO TRUE IF SOMETIMES NOT WORKING
+	local iResultPID=
+	try 'iResultPID=' /usr/bin/osascript "$myPayloadLauncherPath/Resources/Scripts/launch.scpt" \
+	        "{
+	   \"action\": \"launch\",
+	   \"path\": \"$(escapejson "$aPath")\",
+	   \"args\": [
+	      $(jsonarray $',\n      ' "${aArgs[@]}")
+	   ],
+	   \"urls\": [
+	      $(jsonarray $',\n      ' "${aUrls[@]}")
+	   ],
+	   \"options\": {
+	      \"registerFirst\": false
+	   }
+	}" "Unable to launch $aAppDesc."
+	
+	# check that PID is active
+	try kill -0 "$iResultPID" "Launched $aAppDesc but process cannot be found."
+	
+	# either assign PID result to variable, or echo it
+    if [[ "$aResultPIDVar" ]] ; then
+		eval "$aResultPIDVar=\"\$iResultPID\""
+	else
+		echo "$iResultPID"
     fi
-    
-    try "$iResultArg=(n)" /usr/bin/osascript "$SSBAppPath/Contents/Resources/Scripts/launch.scpt" \
-            "{
-    \"action\": \"launch\",
-    \"path\": \"$(escapejson "$aPath")\"
-}" \
-            "Unable to launch $aAppDesc."
-    
-    if [[ "$ok" && ( ! "$aResultVar" ) ]] ; then
-        join_array $'\n' "${iResult[@]}"
-    fi
-    
+	
     [[ "$ok" ]] && return 0 || return 1
 }
-
+export -f launchapp
+ 
 
 # LAUNCHHELPER -- launch Epichrome Helper app   $$$$ DELETE OBSOLETE
-epiHelperMode= ; epiHelperParentPID=
-export epiHelperMode epiHelperParentPID
-function launchhelper { # ( mode )
-	
-	# only run if OK
-	[[ "$ok" ]] || return 1
-	
-	# argument
-	local mode="$1" ; shift
-	
-	# set state for helper
-	epiHelperMode="Start$mode"
-	epiHelperParentPID="$$"
-	
-	if [[ "$mode" = 'Cleanup' ]] ; then
-		
-		# cleanup mode array variables
-		exportarray SSBEngineSourceInfo
-	elif [[ "$mode" = 'Relaunch' ]] ; then
-		
-		# relaunch mode array variables
-		exportarray argsURIs argsOptions
-	fi
-	
-	# launch helper (args are just for identification in jobs listings)
-	try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
-			'Got error launching Epichrome helper app.'
-	
-	# open error state is unreliable, so ignore it
-	ok=1 ; errmsg=
-	
-	# check the process table for helper
-	function checkforhelper {
-		local pstable=
-		try 'pstable=' /bin/ps -x 'Unable to list active processes.'
-		if [[ ! "$ok" ]] ; then
-			ok=1 ; errmsg=
-			return 1
-		fi
-		if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
-			return 0
-		else
-			return 1
-		fi
-	}
-	
-	# give helper five seconds to launch
-	if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
-		ok=
-		errmsg="Epichrome helper app failed to launch."
-		errlog "$errmsg"
-	fi
-	unset -f checkforhelper
-	
-	# return code
-	[[ "$ok" ]] && return 0 || return 1
-}
+# epiHelperMode= ; epiHelperParentPID=
+# export epiHelperMode epiHelperParentPID
+# function launchhelper { # ( mode )
+# 
+# 	# only run if OK
+# 	[[ "$ok" ]] || return 1
+# 
+# 	# argument
+# 	local mode="$1" ; shift
+# 
+# 	# set state for helper
+# 	epiHelperMode="Start$mode"
+# 	epiHelperParentPID="$$"
+# 
+# 	if [[ "$mode" = 'Cleanup' ]] ; then
+# 
+# 		# cleanup mode array variables
+# 		exportarray SSBEngineSourceInfo
+# 	elif [[ "$mode" = 'Relaunch' ]] ; then
+# 
+# 		# relaunch mode array variables
+# 		exportarray argsURIs argsOptions
+# 	fi
+# 
+# 	# launch helper (args are just for identification in jobs listings)
+# 	try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
+# 			'Got error launching Epichrome helper app.'
+# 
+# 	# open error state is unreliable, so ignore it
+# 	ok=1 ; errmsg=
+# 
+# 	# check the process table for helper
+# 	function checkforhelper {
+# 		local pstable=
+# 		try 'pstable=' /bin/ps -x 'Unable to list active processes.'
+# 		if [[ ! "$ok" ]] ; then
+# 			ok=1 ; errmsg=
+# 			return 1
+# 		fi
+# 		if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
+# 			return 0
+# 		else
+# 			return 1
+# 		fi
+# 	}
+# 
+# 	# give helper five seconds to launch
+# 	if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
+# 		ok=
+# 		errmsg="Epichrome helper app failed to launch."
+# 		errlog "$errmsg"
+# 	fi
+# 	unset -f checkforhelper
+# 
+# 	# return code
+# 	[[ "$ok" ]] && return 0 || return 1
+# }

@@ -131,7 +131,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
 
 
     # BACK UP APP
-
+    
     local myBackupTrimList=()
     if [[ "$epiAction" != 'build' ]] ; then
 
@@ -150,12 +150,12 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
             # trim backup directory to make room for new backup
             trimsaves "$myBackupDir" "$backupPreserve" '.tgz' 'app backups' myBackupTrimList
         else
-
+            
             # create directory
             try /bin/mkdir -p "$myBackupDir" \
                     'Unable to create app backup directory.'
         fi
-
+        
         # set up timestamp prefix
         local myBackupTimestamp="${myRunTimestamp#_}"
         [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='-'
@@ -215,36 +215,45 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
             "${filterCommands[@]}"
 
 
-    # FILTER APP MAIN SCRIPT INTO PLACE  $$$ CHANGE THIS TO MAIN.SH & ALSO FILTER APPEXEC W JUST APPID
+    # FILTER APPEXEC & MAIN.SH INTO PLACE
 
     # create SSBEngineSourceInfo line
-    local appExecEngineSource=
+    local iEngineSource=
     if [[ "${SSBEngineType%%|*}" = internal ]] ; then
-        appExecEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")"
+        iEngineSource="SSBEngineSourceInfo=$(formatarray "${SSBEngineSourceInfo[@]}")"
     else
-        appExecEngineSource="# SSBEngineSourceInfo set in config.sh"
+        iEngineSource="# SSBEngineSourceInfo set in config.sh"
     fi
 
     # create edited timestamp
     local editedTimestamp=
     [[ "$epiAction" = 'edit' ]] && editedTimestamp="${myRunTimestamp//_/}"
-
+    
+    # filter AppExec
     filterfile "$updateEpichromeRuntime/Filter/AppExec" \
             "$resourcesTmp/script" \
-            'app executable' \
+            'app bootstrap script' \
+            APPID "$(formatscalar "$SSBIdentifier")"
+    
+    # filter main.sh & make executable
+    local iMainScript="$resourcesTmp/Scripts/main.sh"
+    filterfile "$updateEpichromeRuntime/Filter/main.sh" \
+            "$iMainScript" \
+            'main app script' \
             APPID "$(formatscalar "$SSBIdentifier")" \
             APPDISPLAYNAME "$(formatscalar "$CFBundleDisplayName")" \
             APPBUNDLENAME "$(formatscalar "$CFBundleName")" \
             APPCUSTOMICON "$(formatscalar "$SSBCustomIcon")" \
             APPREGISTERBROWSER "$(formatscalar "$SSBRegisterBrowser")" \
             APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
-            APPENGINESOURCE "$appExecEngineSource" \
+            APPENGINESOURCE "$iEngineSource" \
             APPUPDATEACTION "$(formatscalar "$SSBUpdateAction")" \
             APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
             APPEDITED "$(formatscalar "$editedTimestamp")"
-
+    try /bin/chmod 755 "$iMainScript" 'Unable to set permissions for main app script.'
+    
     if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
-
+    
 
     # COPY OR CREATE CUSTOM APP ICONS
 
@@ -394,21 +403,6 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
     fi
 
 
-    # FILTER NATIVE MESSAGING HOST INTO PLACE
-
-    local updateNMHFile="$resourcesTmp/NMH/$appNMHFile"
-    filterfile "$updateEpichromeRuntime/Filter/$appNMHFile" \
-            "$updateNMHFile" \
-            'native messaging host' \
-            APPID "$(escapejson "$SSBIdentifier")" \
-            APPDISPLAYNAME "$(escapejson "$CFBundleDisplayName")" \
-            APPBUNDLENAME "$(escapejson "$CFBundleName")"
-    try /bin/chmod 755 "$updateNMHFile" \
-            'Unable to set permissions for native messaging host.'
-
-    if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
-
-
     # FILTER WELCOME PAGE INTO PLACE
 
     filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
@@ -441,93 +435,37 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
     if [[ ! "$ok" ]] ; then updatecleanup ; return 1 ; fi
 
 
-    # POPULATE ENGINE
-
-    # path to engine
-    local updateEnginePath="$resourcesTmp/Engine"
-
-    # create engine directory
-    try mkdir -p "$updateEnginePath" 'Unable to create app engine.'
-
-    if [[ "${SSBEngineType%%|*}" != internal ]] ; then
-
-        # EXTERNAL ENGINE
-
-        # filter placeholder executable into place
-        filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
-                "$updateEnginePath/PlaceholderExec" \
-                "${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable" \
-                APPID "$(formatscalar "$SSBIdentifier")" \
-                APPBUNDLEID "$(formatscalar "$myAppBundleID")"
-        try /bin/chmod 755 "$updateEnginePath/PlaceholderExec" \
-                "Unable to set permissions for ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
-
-        # copy in core script
-        try /bin/mkdir -p "$updateEnginePath/Scripts" \
-                "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder scripts."
-        try /bin/cp "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
-                "$updateEnginePath/Scripts" \
-                "Unable to copy core to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-
-    else
-
-        # INTERNAL ENGINE
-
-        # CREATE PAYLOAD
-
+    # POPULATE INTERNAL ENGINE DIRECTORY
+    
+    if [[ "${SSBEngineType%%|*}" = internal ]] ; then
+        
+        # path to engine
+        local updateEnginePath="$resourcesTmp/Engine"
+        
         # copy in main payload
         try /bin/cp -PR "$updateEpichromeRuntime/Engine/Payload" \
                 "$updateEnginePath" \
                 'Unable to populate app engine payload.'
 
-        # path to payload
-        local updatePayloadPath="$updateEnginePath/Payload"
-
-        # copy executable into place
+        # copy payload executable into place
         safecopy "$updateEpichromeRuntime/Engine/Exec/${SSBEngineSourceInfo[$iExecutable]}" \
-                "$updatePayloadPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+                "$updateEnginePath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
                 'app engine payload executable'
 
         # filter payload Info.plist into place
         filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
-                "$updatePayloadPath/Info.plist" \
+                "$updateEnginePath/Info.plist" \
                 "app engine payload Info.plist" \
                 "Set :CFBundleDisplayName $(escape "$CFBundleDisplayName" "\"'")" \
                 "Set :CFBundleName $(escape "$CFBundleName" "\"'")" \
-                "Set :CFBundleIdentifier ${appEngineIDBase}.$SSBIdentifier"
-
+                "Set :CFBundleIdentifier $myAppBundleID"
+        
         # filter localization strings in place
-        filterlproj "$updatePayloadPath/Resources" 'app engine' \
+        filterlproj "$updateEnginePath/Resources" 'app engine' \
                 "${SSBEngineSourceInfo[$iName]}"
-
-
-        # CREATE PLACEHOLDER
-
-        # path to placeholder
-        local updatePlaceholderPath="$updateEnginePath/Placeholder"
-
-        # make sure placeholder exists
-        try /bin/mkdir -p "$updatePlaceholderPath/MacOS" \
-                'Unable to create app engine placeholder.'
-
-        # filter placeholder Info.plist from payload
-        filterplist "$updatePayloadPath/Info.plist" \
-                "$updatePlaceholderPath/Info.plist" \
-                "app engine placeholder Info.plist" \
-                'Add :LSUIElement bool true'
-
-        # filter placeholder executable into place
-        local updatePlaceholderExec="$updatePlaceholderPath/MacOS/${SSBEngineSourceInfo[$iExecutable]}"
-        filterfile "$updateEpichromeRuntime/Engine/Filter/PlaceholderExec" \
-                "$updatePlaceholderExec" \
-                'app engine placeholder executable' \
-                APPID "$(formatscalar "$SSBIdentifier")" \
-                APPBUNDLEID "$(formatscalar "$myAppBundleID")"
-                try /bin/chmod 755 "$updatePlaceholderExec" \
-                'Unable to set permissions for app engine placeholder executable.'
     fi
-
-
+    
+    
     # MOVE CONTENTS TO PERMANENT HOME
 
     if [[ "$ok" ]] ; then
@@ -561,7 +499,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
 }
 
 
-# UPDATERELAUNCH -- relaunch an updated app
+# UPDATERELAUNCH -- relaunch an updated app  $$$$ THIS MAY BE OBSOLETE ONCE WE ARE IN PROGRESS BAR LAND
 function updaterelaunch {
 
     # only run if we're OK
@@ -576,19 +514,13 @@ function updaterelaunch {
         myCleanupErr="Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update."
         ok=1 ; errmsg=
     fi
-
-    # launch helper
-    launchhelper Relaunch
-
-    # if relaunch failed, report it
-    if [[ ! "$ok" ]] ; then
-        [[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
-        myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
-    fi
-
-    # show alert with any errors
-    [[ "$myCleanupErr" ]] && alert "$myCleanupErr" 'Update' '|caution'
-
-    # no matter what, we quit now
+    
+    # export args & URLs  $$$ THESE MIGHT'VE ALREADY BEEN EXPORTED IN PROGRESS BAR LAND
+    exportarray argsURIs argsOptions
+    
+    # start relaunch script
+    "$updateEpichromeResources/Scripts/relaunch.sh" &
+    
+    # quit
     cleanexit
 }
