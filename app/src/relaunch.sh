@@ -39,7 +39,7 @@ debuglog "Parent app has quit. Relaunching..."
 
 # relaunch
 argsOptions+=( '--epichrome-new-log' )
-launchapp "$SSBAppPath" 'updated app' myRelaunchPID argsOptions argsURIs
+launchapp "$SSBAppPath" REGISTER 'updated app' myRelaunchPID argsOptions argsURIs
 
 # report result
 if [[ "$ok" ]] ; then

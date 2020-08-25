@@ -567,6 +567,7 @@ $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt: build/launch.js
 	
 build/launch.js: src/launch.js src/liblaunch.js
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
+	echo >> '$@'
 	cat 'src/liblaunch.js' >> '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh

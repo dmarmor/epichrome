@@ -2909,7 +2909,7 @@ function writeconfig {  # ( myConfigFile force )
 
 
 # LAUNCHAPP: launch an app using JXA $$$ FIX UP & PROBABLY USE ONLY FOR ENGINE??
-#   launchapp(aPath [aAppDesc aResultPIDVar aArgsVar aUrlsVar])
+#   launchapp(aPath aDoRegister [aAppDesc aResultPIDVar aArgsVar aUrlsVar])
 function launchapp {
     
     # only run if we're OK
@@ -2917,13 +2917,13 @@ function launchapp {
         
     # arguments
     local aPath="$1" ; shift
+	local aDoRegister="$1" ; shift ; [[ "$aDoRegister" ]] && aDoRegister='true' || aDoRegister='false'
     local aAppDesc="$1" ; shift ; [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
 	local aResultPIDVar="$1" ; shift
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
 	local aUrls="$1" ; shift ; [[ "$aUrls" ]] && eval "aUrls=( \"\${$aUrls[@]}\" )"
     
-    
-	# launch the app   $$$ CHANGE REGISTERFIRST TO TRUE IF SOMETIMES NOT WORKING
+	# launch the app
 	local iResultPID=
 	try 'iResultPID=' /usr/bin/osascript "$myPayloadLauncherPath/Resources/Scripts/launch.scpt" \
 	        "{
@@ -2936,7 +2936,7 @@ function launchapp {
 	      $(jsonarray $',\n      ' "${aUrls[@]}")
 	   ],
 	   \"options\": {
-	      \"registerFirst\": false
+	      \"registerFirst\": $aDoRegister
 	   }
 	}" "Unable to launch $aAppDesc."
 	

@@ -40,7 +40,7 @@ function print(aStr, aToStderr=false) {
     let myStream = (aToStderr ?
         $.NSFileHandle.fileHandleWithStandardError :
         $.NSFileHandle.fileHandleWithStandardOutput);
-    myStream.writeData($(aStr + '\n').dataUsingEncoding($.NSNEXTSTEPStringEncoding));
+    myStream.writeDataError($(aStr + '\n').dataUsingEncoding($.NSUTF8StringEncoding), null);
 }
 
 function run(aArgv) {

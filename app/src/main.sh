@@ -545,7 +545,7 @@ setenginestate ON
 myEnginePID='LAUNCHFAILED'
 
 # launch engine
-launchapp "$SSBAppPath" 'engine' myEnginePID myEngineArgs argsURIs
+launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs argsURIs
 
 
 # CHECK FOR A SUCCESSFUL LAUNCH
