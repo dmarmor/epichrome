@@ -2923,6 +2923,8 @@ function launchapp {
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
 	local aUrls="$1" ; shift ; [[ "$aUrls" ]] && eval "aUrls=( \"\${$aUrls[@]}\" )"
     
+	debuglog "Launching $aAppDesc."
+	
 	# launch the app
 	local iResultPID=
 	try 'iResultPID=' /usr/bin/osascript "$myPayloadLauncherPath/Resources/Scripts/launch.scpt" \
