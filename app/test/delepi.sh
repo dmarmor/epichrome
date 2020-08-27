@@ -5,12 +5,18 @@ app="$1" ; shift
 
 # get ID
 
-if [[ ! -e "$app/Contents/Resources/script" ]] ; then
-    echo "Main executable not found." 1>&2
-    exit 1
+main="$app/Contents/Resources/Scripts/main.sh"
+
+if [[ ! -e "$main" ]] ; then
+    main="$app/Contents/Resources/script"
+    
+    if [[ ! -e "$main" ]] ; then
+        echo "Main executable not found." 1>&2
+        exit 1
+    fi
 fi
 
-id="$(sed -En 's/SSBIdentifier='\''(.+)'\''/\1/p' "$app/Contents/Resources/script")"
+id="$(sed -En 's/SSBIdentifier='\''(.+)'\''/\1/p' "$main")"
 
 if [[ ! "$id" ]] ; then
     echo "No ID found." 1>&2

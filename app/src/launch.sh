@@ -2550,6 +2550,8 @@ function updatecentralnmh {
 		debuglog 'One or more manifests missing.'
 	fi
 	
+	local curManifest=
+	local curManifestVersion=
 	if [[ ! "$doUpdate" ]] ; then
 		
 		# regex for version and path
@@ -2567,7 +2569,7 @@ function updatecentralnmh {
 				doUpdate=1
 				debuglog 'Central native messaging host not found at manifest path.'
 			else
-				local curManifestVersion="${BASH_REMATCH[1]}"
+				curManifestVersion="${BASH_REMATCH[1]}"
 			fi
 		else
 			
@@ -2692,7 +2694,7 @@ function clearmasterprefs {
 	# only run if we have actually set the master prefs
 	if [[ "$myMasterPrefsState" ]] ; then
 		
-		if ! waitforcondition 'app prefs to appear' 5 .5 \
+		if ! waitforcondition 'app prefs to appear' 7 .5 \
 				test -e "$myPreferencesFile" ; then
 			ok=
 			errmsg="Timed out waiting for app prefs to appear."
@@ -2853,63 +2855,8 @@ function writeconfig {  # ( myConfigFile force )
 }
 
 
-# LAUNCHAPP_OLD -- launch an app  $$$ OBSOLETE
-# function launchapp_old {  # ( appPath execName appDesc openArgs ... )
-# 
-# 	# only run if OK
-# 	[[ "$ok" ]] || return 1
-# 
-# 	# arguments
-# 	local appPath="$1" ; shift
-# 	local execName="$1" ; shift
-# 	local appDesc="$1" ; shift
-# 
-# 	debuglog "Launching $appDesc."
-# 
-# 	if ! waitforcondition \
-# 			"$appDesc executable to appear" \
-# 			5 .5 \
-# 			test -x "$appPath/Contents/MacOS/$execName" ; then
-# 		ok=
-# 		errmsg="Executable for $appDesc not found."
-# 		errlog "$errmsg"
-# 		return 1
-# 	fi
-# 
-# 	# launch attempt function
-# 	function launchapp_attempt {  # ( openArgs )
-# 
-# 		# try launching
-# 		local openErr=	
-# 		try 'openErr&=' /usr/bin/open -a "$appPath" "$@" ''
-# 		[[ "$ok" ]] && return 0
-# 
-# 		# launch failed due to missing executable, so try again
-# 		if [[ "$openErr" = *'executable is missing'* ]] ; then
-# 			ok=1
-# 			errmsg=
-# 			return 1
-# 		fi
-# 
-# 		# launch failed for some other reason, so give up
-# 		errlog 'ERROR|open' "$openErr"
-# 		errmsg="Error launching $appDesc."
-# 		errlog "$errmsg"
-# 		return 0
-# 	}
-# 
-# 	# try to launch app
-# 	waitforcondition "$appDesc to launch" 5 .5 launchapp_attempt "$@"
-# 	unset -f launchapp_attempt
-# 
-# 	# return code
-# 	[[ "$ok" ]] && return 0 || return 1
-# }
-# export -f launchapp_old
-
-
-# LAUNCHAPP: launch an app using JXA $$$ FIX UP & PROBABLY USE ONLY FOR ENGINE??
-#   launchapp(aPath aDoRegister [aAppDesc aResultPIDVar aArgsVar aUrlsVar])
+# LAUNCHAPP: launch an app by directly running its executable
+#   launchapp(aPath aDoRegister [aAppDesc aResultPIDVar aArgsVar])
 function launchapp {
     
     # only run if we're OK
@@ -2921,26 +2868,12 @@ function launchapp {
     local aAppDesc="$1" ; shift ; [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
 	local aResultPIDVar="$1" ; shift
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
-	local aUrls="$1" ; shift ; [[ "$aUrls" ]] && eval "aUrls=( \"\${$aUrls[@]}\" )"
-    
-	debuglog "Launching $aAppDesc."
+	
+	# $$$ register app first if aDoRegister is set?
 	
 	# launch the app
-	local iResultPID=
-	try 'iResultPID=' /usr/bin/osascript "$myPayloadLauncherPath/Resources/Scripts/launch.scpt" \
-	        "{
-	   \"action\": \"launch\",
-	   \"path\": \"$(escapejson "$aPath")\",
-	   \"args\": [
-	      $(jsonarray $',\n      ' "${aArgs[@]}")
-	   ],
-	   \"urls\": [
-	      $(jsonarray $',\n      ' "${aUrls[@]}")
-	   ],
-	   \"options\": {
-	      \"registerFirst\": $aDoRegister
-	   }
-	}" "Unable to launch $aAppDesc."
+	"$aPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" "${aArgs[@]}" &
+	local iResultPID="$!"
 	
 	# check that PID is active
 	try kill -0 "$iResultPID" "Launched $aAppDesc but process cannot be found."
@@ -2952,66 +2885,40 @@ function launchapp {
 		echo "$iResultPID"
     fi
 	
-    [[ "$ok" ]] && return 0 || return 1
+    if [[ "$ok" ]] ; then
+		debuglog "Launched $aAppDesc with PID $iResultPID."
+		return 0
+	else
+		return 1
+	fi
 }
 export -f launchapp
- 
 
-# LAUNCHHELPER -- launch Epichrome Helper app   $$$$ DELETE OBSOLETE
-# epiHelperMode= ; epiHelperParentPID=
-# export epiHelperMode epiHelperParentPID
-# function launchhelper { # ( mode )
-# 
-# 	# only run if OK
-# 	[[ "$ok" ]] || return 1
-# 
-# 	# argument
-# 	local mode="$1" ; shift
-# 
-# 	# set state for helper
-# 	epiHelperMode="Start$mode"
-# 	epiHelperParentPID="$$"
-# 
-# 	if [[ "$mode" = 'Cleanup' ]] ; then
-# 
-# 		# cleanup mode array variables
-# 		exportarray SSBEngineSourceInfo
-# 	elif [[ "$mode" = 'Relaunch' ]] ; then
-# 
-# 		# relaunch mode array variables
-# 		exportarray argsURIs argsOptions
-# 	fi
-# 
-# 	# launch helper (args are just for identification in jobs listings)
-# 	try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
-# 			'Got error launching Epichrome helper app.'
-# 
-# 	# open error state is unreliable, so ignore it
-# 	ok=1 ; errmsg=
-# 
-# 	# check the process table for helper
-# 	function checkforhelper {
-# 		local pstable=
-# 		try 'pstable=' /bin/ps -x 'Unable to list active processes.'
-# 		if [[ ! "$ok" ]] ; then
-# 			ok=1 ; errmsg=
-# 			return 1
-# 		fi
-# 		if [[ "$pstable" == *"$SSBAppPath/Contents/$appHelperPath/Contents/MacOS"* ]] ; then
-# 			return 0
-# 		else
-# 			return 1
-# 		fi
-# 	}
-# 
-# 	# give helper five seconds to launch
-# 	if ! waitforcondition 'Epichrome helper to launch' 5 .5 checkforhelper ; then
-# 		ok=
-# 		errmsg="Epichrome helper app failed to launch."
-# 		errlog "$errmsg"
-# 	fi
-# 	unset -f checkforhelper
-# 
-# 	# return code
-# 	[[ "$ok" ]] && return 0 || return 1
-# }
+
+# LAUNCHURLS: launch URLs in a running app engine
+#  launchurls(aUrlDesc url ...)
+function launchurls {
+	
+	# only run if we're OK
+	[[ "$ok" ]] || return 1
+	
+	# arguments
+	local aUrlDesc="$1" ; shift ; [[ "$aUrlDesc" ]] || aUrlDesc='URLs'
+	
+	debuglog "Opening Urls" # $$$$ I AM HERE
+	
+	# make sure the app is open
+    if waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion" ; then
+		
+		# launch the URLs
+		try '-1' "$SSBAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+				"--user-data-dir=$myProfilePath" "${argsURIs[@]}" \
+            	"Error sending $aUrlDesc to app engine."
+    else
+		ok= ; errmsg='App engine does not appear to be running.'
+		errlog "$errmsg"
+	fi
+	
+	[[ "$ok" ]] && return 0 || return 1
+}
+export -f launchurls

@@ -545,7 +545,7 @@ setenginestate ON
 myEnginePID='LAUNCHFAILED'
 
 # launch engine
-launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs argsURIs
+launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs  # $$$ REGISTER?
 
 
 # CHECK FOR A SUCCESSFUL LAUNCH
@@ -588,30 +588,42 @@ if [[ ! "$ok" ]] ; then
 fi
 
 
-# SHOW WELCOME PAGE IF NEEDED
+# OPEN ANY URLS & SHOW WELCOME PAGE IF NEEDED
 
-if [[ "$myEnginePID" && "$myStatusWelcomeURL" ]] ; then
+if [[ "$myEnginePID" && ( "$myStatusWelcomeURL" || "${argsURIs[*]}" ) ]] ; then
     
-    # if we're updating from pre-2.3.0b10, show extra popup alert
-    if [[ "$myStatusNewApp" ]] || \
-            ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
-        myStatusWelcomeURL+='&m=1'
+    # description & error message for URLs and/or welcome page
+    urlDesc=
+    
+    # add description for URLs
+    [[ "${argsURIs[*]}" ]] && urlDesc='URLs'
+    
+    # add welcome page to URL list and add to description
+    if [[ "$myStatusWelcomeURL" ]] ; then
+        
+        [[ "$urlDesc" ]] && urlDesc+=' and '
+        urlDesc+='welcome page'
+        
+        # if we're updating from pre-2.3.0b10, show extra popup alert
+        if [[ "$myStatusNewApp" ]] || \
+                ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
+            myStatusWelcomeURL+='&m=1'
+        fi
+        
+        # add welcome page to URIs
+        argsURIs+=( "$myStatusWelcomeURL" )
+        
+        debuglog "Showing welcome page ($myStatusWelcomeURL)."
     fi
     
-    # pause to allow the app to open
-    waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion"
-    
-    debuglog "Showing welcome page ($myStatusWelcomeURL)."
-    
-    # launch the welcome page
-    try '-1' "$SSBAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-            "--user-data-dir=$myProfilePath" "$myStatusWelcomeURL" \
-            'Unable to open welcome page.'
+    # open the URLs and/or welcome page
+    launchurls "$urlDesc" "${argsURIs[@]}"
     
     # save any error
     if [[ ! "$ok" ]] ; then
         [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-        errPostLaunch+="$errmsg You may need to install Epichrome Helper and other extensions manually. If you've just updated the app or changed the engine, other settings may be lost."
+        errPostLaunch+="Unable to open ${urlDesc} ($errmsg)"
+        [[ "$myStatusWelcomeURL" ]] && errPostLaunch +=" You should be able to access the welcome page in the app's bookmarks. Please open it for important information about setting up the app."
         ok=1 ; errmsg=
     fi
 fi

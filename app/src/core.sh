@@ -1057,7 +1057,9 @@ export -f pause
 
 
 # WAITFORCONDITION -- wait for a given condition to become true, or timeout
-function waitforcondition {  # ( msg waitTime increment command [args ...] )
+#   waitforcondition(msg waitTime increment command [args ...])
+#     returns 0 if condition is met in the timeout, or 1 if not
+function waitforcondition {
 
     # arguments
     local msg="$1" ; shift
