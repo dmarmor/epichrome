@@ -117,14 +117,14 @@ appMonitorPath="Resources/$epiMonitorAppName"
 appEnginePath='Resources/Engine'
 #appEnginePayloadPath="$appEnginePath/Payload"  $$$$ DELETE
 #appEnginePlaceholderPath="$appEnginePath/Placeholder"  $$$ DELETE
-appNMHFile='epichromeruntimehost.py'
+appNMHFileBase='epichromeruntimehost_'
 appWelcomePath='Resources/Welcome'
 appWelcomePage='welcome.html'
 appMasterPrefsPath='Resources/Profile/prefs.json'
 appBookmarksFile='Bookmarks'
 appBookmarksPath="Resources/Profile/$appBookmarksFile"
 export appMonitorPath appEnginePath \
-        appNMHFile \
+        appNMHFileBase \
         appWelcomePath appWelcomePage \
         appMasterPrefsPath \
         appBookmarksFile appBookmarksPath
@@ -166,37 +166,44 @@ iDocIconFile=6
 iPath=7
 iLibraryPath=8
 iMasterPrefsFile=9
-iArgs=10
+iNoNMHLink=10
+iArgs=11
 export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath \
-       iLibraryPath iMasterPrefsFile iArgs
+       iLibraryPath iMasterPrefsFile iNoNMHLink iArgs
 
 # info on allowed Epichrome engine browsers
 appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
 					   '' 'Edge' 'Microsoft Edge' \
 					   '' '' '' '' \
-					   'Microsoft Edge' )
+					   'Microsoft Edge' \
+                       '' )
 appBrowserInfo_com_vivaldi_Vivaldi=( 'com.vivaldi.Vivaldi' \
 					   '' 'Vivaldi' 'Vivaldi' \
 					   '' '' '' '' \
-					   'Vivaldi' )
+					   'Vivaldi' \
+                       '' )
 appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
 					   '' 'Opera' 'Opera' \
 					   '' '' '' '' \
-					   'com.operasoftware.Opera' )
+					   'com.operasoftware.Opera' \
+                       '' )
 appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
 					   'Brave Browser' 'Brave' 'Brave Browser' \
 					   '' '' '' '' \
 					   'BraveSoftware/Brave-Browser' \
-					   'Chromium Master Preferences' )
+					   'Chromium Master Preferences' \
+                       noNMHLink )
 appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
 					   '' 'Chromium' 'Chromium' \
 					   '' '' '' '' \
-					   'Chromium' )
+					   'Chromium' \
+                       '' )
 appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
 					   '' 'Chrome' 'Google Chrome' \
 					   '' '' '' '' \
 					   'Google/Chrome' \
 					   'Google Chrome Master Preferences' \
+                       '' \
 					   '--enable-features=PasswordImport' )
 export appBrowserInfo_com_microsoft_edgemac \
         appBrowserInfo_com_vivaldi_Vivaldi \
@@ -219,8 +226,7 @@ appConfigVars=( SSBAppPath \
 		    SSBUpdateIgnoreVersions \
 		    SSBPayloadPath \
             SSBLastErrorGithubFatal \
-		    SSBLastErrorNMHInstall \
-            SSBLastErrorNMHCentral )
+		    SSBLastErrorNMHInstall)
 export appConfigVars "${appConfigVars[@]}"
 
 

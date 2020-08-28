@@ -984,7 +984,7 @@ function setwelcomepage {
 				browserInfo="$userSupportPath/${browserInfo[$iLibraryPath]}"
 				[[ -d "$browserInfo" ]] && extDirs+=( "$browserInfo" )
 			else
-				debuglog "Unable to get info on browser ID $browser."
+				errlog "Unable to get info on browser ID $browser."
 			fi
 		done
 		
@@ -1815,7 +1815,8 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 
 
 # GETBROWSERINFO: try to return info on known browsers
-function getbrowserinfo { # ( var [id] )
+#   getbrowserinfo(var [id])
+function getbrowserinfo {
 	
 	# arguments
 	local var="$1" ; shift
@@ -1966,217 +1967,292 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 }
 
 
-# INSTALLNMH -- install native messaging host
-function installnmh {
+# INSTALLNMHS: install any native message host on system for this app
+#   returns: 0 on success; 1 on error linking to central NMH dir; 2 on error installing Epichrome NMH
+function installnmhs {
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# paths to host manifests with new and old IDs
-	local nmhManifestDestPath="$myProfilePath/$nmhDirName"    
-	local nmhManifestNewDest="$nmhManifestDestPath/$nmhManifestNewFile"
-	local nmhManifestOldDest="$nmhManifestDestPath/$nmhManifestOldFile"
+	# get path to Google Chrome native messaging host manifests
+	local iCentralNMHPath=
+	getbrowserinfo 'centralNMHPath' 'com.google.Chrome'
+	iCentralNMHPath="$userSupportPath/${centralNMHPath[$iLibraryPath]}/$nmhDirName"
 	
-	# determine which manifests to update
-	local updateOldManifest=
-	local updateNewManifest=
-	if [[ "$myStatusNewApp" || "$myStatusNewVersion" || \
-			( "$SSBAppPath" != "$configSSBAppPath" ) ]] ; then
-		
-		# this is the first run on a new version, or app has moved, so update both
-		updateOldManifest=1
-		updateNewManifest=1
-	else
-		
-		# update any that are missing
-		[[ ! -e "$nmhManifestOldDest" ]] && updateOldManifest=1
-		[[ ! -e "$nmhManifestNewDest" ]] && updateNewManifest=1
+	# install/update Epichrome Runtime NMH
+	installepichromenmh "$iCentralNMHPath"
+	local iEpichromeNMHError=
+	if [[ ! "$ok" ]] ; then
+		[[ "$errmsg" ]] && iEpichromeNMHError="$errmsg" || iEpichromeNMHError='Unknown error.'
+		ok=1 ; errmsg=
 	fi
-	
-	if [[ "$updateOldManifest" || "$updateNewManifest" ]] ; then
+
+	# link to all installed native messaging hosts
+	if [[ ! "${SSBEngineSourceInfo[$iNoNMHLink]}" ]] ; then
+		# $$$$ TRY SIMPLEST FIRST
+		# link central NMH directory into our UserData directory
+		try /bin/ln -sf "$iCentralNMHPath" "$myProfilePath" 'Unable to link to native messaging hosts.'
 		
-		# get source NMH script path
-		local hostSourcePath="$SSBAppPath/Contents/Resources/NMH"
-		local hostScriptPath="$hostSourcePath/$appNMHFile"
-		
-		# create the install directory if necessary
-		if [[ ! -d "$nmhManifestDestPath" ]] ; then
-			try /bin/mkdir -p "$nmhManifestDestPath" \
-					'Unable to create native messaging host folder.'
-		fi
-		
-		# stream-edit the new manifest into place
-		if [[ "$updateNewManifest" ]] ; then
-			debuglog "Installing host manifest for $nmhManifestNewID."
-			filterfile "$hostSourcePath/$nmhManifestNewFile" "$nmhManifestNewDest" \
-					'native messaging host manifest' \
-					APPHOSTPATH "$(escapejson "$hostScriptPath")"
-		fi
-		
-		# duplicate the new manifest with the old ID
-		if [[ "$updateOldManifest" ]] ; then
-			debuglog "Installing host manifest for $nmhManifestOldID."
-			filterfile "$nmhManifestNewDest" "$nmhManifestOldDest" \
-					'old native messaging host manifest' \
-					"$nmhManifestNewID" "$nmhManifestOldID"
+		if [[ ! "ok" ]] ; then
+			if [[ "$iEpichromeNMHError" ]] ; then
+				errmsg+=" Also unable to install Epichrome extension native messaging host: $iEpichromeNMHError"
+			fi
+			return 1
 		fi
 	fi
 	
-	# return code
+	# if we got here our only error was installing the Epichrome extension NMH
+	[[ "$ok" ]] && return 0 || return 2
+}
+
+
+# INSTALLEPICHROMENMH: install/update our native message host manifests centrally
+function installepichromenmh {
+	
+	# only run if we're OK
+	[[ "$ok" ]] || return 1
+	
+	# arguments
+	local iNMHPath="$1" ; shift
+	
+	# paths to manifest files
+	local oldManifestPath="$iNMHPath/$nmhManifestOldFile"
+	local newManifestPath="$iNMHPath/$nmhManifestNewFile"
+	
+	# assume no update
+	local doUpdate=
+	
+	# if either is missing, update both
+	if [[ ! ( ( -f "$oldManifestPath" ) && ( -f "$newManifestPath" ) ) ]] ; then
+		doUpdate=1
+		debuglog 'One or more manifests missing.'
+	fi
+	
+	local curManifest=
+	if [[ ! "$doUpdate" ]] ; then
+		
+		# regex for version and path
+		local s="[$epiWhitespace]*"
+		local infoRe="\"path\"$s:$s\"(.*${appNMHFileBase}($epiVersionRe))\""
+		
+		# read in one of the manifests
+		try 'curManifest=' /bin/cat "$newManifestPath" 'Unable to read installed native messaging host manifest.'
+		if [[ ! "$ok" ]] ; then
+			ok=1 ; errmsg=
+			doUpdate=1
+			
+		# check current manifest version & path
+		elif [[ "$curManifest" =~ $infoRe ]] ; then
+			
+			# bad path
+			if [[ ! -f "${BASH_REMATCH[1]}" ]] ; then
+				doUpdate=1
+				debuglog 'Native messaging host path in manifest is out of date.'
+			else
+				
+				# check if version is out of date
+				if vcmp "${BASH_REMATCH[2]}" '<' "$SSBVersion" ; then
+					doUpdate=1
+					debuglog "Native messaging host version in manifest (${BASH_REMATCH[2]}) is older than this app ($SSBVersion)."
+				fi
+			fi
+		else
+			
+			# unreadable manifest
+			doUpdate=1
+			errlog 'Unable to parse native messaging host manifest.'
+		fi
+	fi
+	
+	# abort if we're supposed to update but there's no current version of Epichrome
+	if [[ "$doUpdate" && ( ! "$epiCurrentPath" ) ]] ; then
+		ok= ; errmsg='Current Epichrome not found.'
+		errlog "$errmsg"
+		return 1
+	fi
+	
+	# if any of the above triggered an update, do it now
+	if [[ "$doUpdate" ]] ; then
+		
+		debuglog 'Installing native messaging host manifests.'
+		
+		# path to Epichrome NMH items
+		local iSourceNMHDir="$epiCurrentPath/Contents/Resources/Runtime/Contents/Resources/NMH"
+		local nmhScript="$iSourceNMHDir/${appNMHFileBase}$epiCurrentVersion"
+		local sourceManifest="$iSourceNMHDir/$nmhManifestNewFile"
+		
+		# make sure directory exists
+		try /bin/mkdir -p "$iNMHPath" \
+				'Unable to create central native messaging host directory.'
+		
+		# new ID
+		filterfile "$sourceManifest" \
+				"$newManifestPath" \
+				"$nmhManifestNewFile" \
+				APPHOSTPATH "$(escapejson "$nmhScript")"
+		
+		# old ID
+		filterfile "$sourceManifest" \
+				"$oldManifestPath" \
+				"$nmhManifestOldFile" \
+				APPHOSTPATH "$(escapejson "$nmhScript")" \
+				"$nmhManifestNewID" "$nmhManifestOldID"
+	fi
+	
 	[[ "$ok" ]] && return 0 || return 1
 }
 
 
-# LINKEXTERNALNMHS -- link to native message hosts from compatible browsers
-function linkexternalnmhs {
-	
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# paths to NMH directories for compatible browsers
-	
-	# get path to destination NMH manifest directory
-	local myHostDir="$myProfilePath/$nmhDirName"
-	
-	# list of NMH directories to search
-	local myNMHBrowsers=()
-	
-	# favor hosts from whichever browser our engine is using
-	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
-		
-		# see if the current engine is in the list
-		local curBrowser= ; local i=0
-		for curBrowser in "${appExtEngineBrowsers[@]}" ; do
-			if [[ "${SSBEngineType#*|}" = "$curBrowser" ]] ; then
-				
-				debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
-				
-				# engine found, so bump it to the end of the list (giving it top priority)
-				myNMHBrowsers=( "${appExtEngineBrowsers[@]::$i}" \
-						"${appExtEngineBrowsers[@]:$(($i + 1))}" \
-						"$curBrowser" )
-				break
-			fi
-			i=$(($i + 1))
-		done
-	fi
-	
-	# for internal engine, or if external engine not found, use vanilla list
-	[[ "${myNMHBrowsers[*]}" ]] || myNMHBrowsers=( "${appExtEngineBrowsers[@]}" )
-	
-	# navigate to our host directory (report error)
-	try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
-	if [[ ! "$ok" ]] ; then
-		ok=1 ; return 1
-	fi
-	
-	# turn on nullglob
-	local shoptState=
-	shoptset shoptState nullglob
-	
-	# get list of host files currently installed
-	hostFiles=( * )
-	
-	# collect errors
-	local myError=
-	
-	# remove dead host links
-	local curFile=
-	for curFile in "${hostFiles[@]}" ; do
-		if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
-			try rm -f "$curFile" "Unable to remove dead link to $curFile."
-			if [[ ! "$ok" ]] ; then
-				[[ "$myError" ]] && myError+=' '
-				myError+="$errmsg"
-				ok=1 ; errmsg=
-				continue
-			fi
-		fi
-	done
-	
-	# link to hosts from both directories
-	local curHost=
-	local curHostDir=
-	local curError=
-	for curHost in "${myNMHBrowsers[@]}" ; do
-		
-		# get only the data directory
-		getbrowserinfo 'curHostDir' "$curHost"
-		if [[ ! "${curHostDir[$iLibraryPath]}" ]] ; then
-			curError="Unable to get data directory for browser $curHost."
-			errlog "$curError"
-			[[ "$myError" ]] && myError+=' '
-			myError+="$curError"
-			continue
-		fi
-		curHostDir="$userSupportPath/${curHostDir[$iLibraryPath]}/$nmhDirName"
-		
-		if [[ -d "$curHostDir" ]] ; then
-			
-			# get a list of all hosts in this directory
-			try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
-			if [[ ! "$ok" ]] ; then
-				[[ "$myError" ]] && myError+=' '
-				myError+="$errmsg"
-				ok=1 ; errmsg=
-				continue
-			fi
-			
-			hostFiles=( * )
-			
-			try '!1' popd "Unable to navigate away from ${curHostDir}"
-			if [[ ! "$ok" ]] ; then
-				[[ "$myError" ]] && myError+=' '
-				myError+="$errmsg"
-				ok=1 ; errmsg=
-				continue
-			fi
-			
-			# link to any hosts that are not already in our directory or are
-			# links to a different file -- this way if a given host is in
-			# multiple NMH directories, whichever we hit last wins
-			for curFile in "${hostFiles[@]}" ; do
-				if [[ ( ! -e "$curFile" ) || \
-						( -L "$curFile" && \
-						! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
-					
-					debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
-					
-					# symbolic link to current native messaging host
-					try ln -sf "${curHostDir}/$curFile" "$curFile" \
-							"Unable to link to native messaging host ${curFile}."
-					if [[ ! "$ok" ]] ; then
-						[[ "$myError" ]] && myError+=' '
-						myError+="$errmsg"
-						ok=1 ; errmsg=
-						continue
-					fi
-				fi
-			done
-		fi
-	done
-	
-	# silently return to original directory
-	try '!1' popd "Unable to navigate away from '$myHostDir'."
-	if [[ ! "$ok" ]] ; then
-		[[ "$myError" ]] && myError+=' '
-		myError+="$errmsg"
-		ok=1 ; errmsg=
-		continue
-	fi
-	
-	# restore nullglob
-	shoptrestore shoptState
-	
-	# return success or failure
-	if [[ "$myError" ]] ; then
-		errmsg="$myError"
-		return 1
-	else
-		errmsg=
-		return 0
-	fi
-}
+# # LINKEXTERNALNMHS -- link to native message hosts in central Google Chrome directory
+# function linkexternalnmhs {
+# 
+# 	# only run if we're OK
+# 	[[ "$ok" ]] || return 1
+# 
+# 	# paths to NMH directories for compatible browsers
+# 
+# 	# get path to destination NMH manifest directory
+# 	local myHostDir="$myProfilePath/$nmhDirName"
+# 
+# 	# list of NMH directories to search
+# 	local myNMHBrowsers=()
+# 
+# 	# favor hosts from whichever browser our engine is using
+# 	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
+# 
+# 		# see if the current engine is in the list
+# 		local curBrowser= ; local i=0
+# 		for curBrowser in "${appExtEngineBrowsers[@]}" ; do
+# 			if [[ "${SSBEngineType#*|}" = "$curBrowser" ]] ; then
+# 
+# 				debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
+# 
+# 				# engine found, so bump it to the end of the list (giving it top priority)
+# 				myNMHBrowsers=( "${appExtEngineBrowsers[@]::$i}" \
+# 						"${appExtEngineBrowsers[@]:$(($i + 1))}" \
+# 						"$curBrowser" )
+# 				break
+# 			fi
+# 			i=$(($i + 1))
+# 		done
+# 	fi
+# 
+# 	# for internal engine, or if external engine not found, use vanilla list
+# 	[[ "${myNMHBrowsers[*]}" ]] || myNMHBrowsers=( "${appExtEngineBrowsers[@]}" )
+# 
+# 	# navigate to our host directory (report error)
+# 	try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
+# 	if [[ ! "$ok" ]] ; then
+# 		ok=1 ; return 1
+# 	fi
+# 
+# 	# turn on nullglob
+# 	local shoptState=
+# 	shoptset shoptState nullglob
+# 
+# 	# get list of host files currently installed
+# 	hostFiles=( * )
+# 
+# 	# collect errors
+# 	local myError=
+# 
+# 	# remove dead host links
+# 	local curFile=
+# 	for curFile in "${hostFiles[@]}" ; do
+# 		if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
+# 			try rm -f "$curFile" "Unable to remove dead link to $curFile."
+# 			if [[ ! "$ok" ]] ; then
+# 				[[ "$myError" ]] && myError+=' '
+# 				myError+="$errmsg"
+# 				ok=1 ; errmsg=
+# 				continue
+# 			fi
+# 		fi
+# 	done
+# 
+# 	# link to hosts from both directories
+# 	local curHost=
+# 	local curHostDir=
+# 	local curError=
+# 	for curHost in "${myNMHBrowsers[@]}" ; do
+# 
+# 		# get only the data directory
+# 		getbrowserinfo 'curHostDir' "$curHost"
+# 		if [[ ! "${curHostDir[$iLibraryPath]}" ]] ; then
+# 			curError="Unable to get data directory for browser $curHost."
+# 			errlog "$curError"
+# 			[[ "$myError" ]] && myError+=' '
+# 			myError+="$curError"
+# 			continue
+# 		fi
+# 		curHostDir="$userSupportPath/${curHostDir[$iLibraryPath]}/$nmhDirName"
+# 
+# 		if [[ -d "$curHostDir" ]] ; then
+# 
+# 			# get a list of all hosts in this directory
+# 			try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
+# 			if [[ ! "$ok" ]] ; then
+# 				[[ "$myError" ]] && myError+=' '
+# 				myError+="$errmsg"
+# 				ok=1 ; errmsg=
+# 				continue
+# 			fi
+# 
+# 			hostFiles=( * )
+# 
+# 			try '!1' popd "Unable to navigate away from ${curHostDir}"
+# 			if [[ ! "$ok" ]] ; then
+# 				[[ "$myError" ]] && myError+=' '
+# 				myError+="$errmsg"
+# 				ok=1 ; errmsg=
+# 				continue
+# 			fi
+# 
+# 			# link to any hosts that are not already in our directory or are
+# 			# links to a different file -- this way if a given host is in
+# 			# multiple NMH directories, whichever we hit last wins
+# 			for curFile in "${hostFiles[@]}" ; do
+# 				if [[ ( ! -e "$curFile" ) || \
+# 						( -L "$curFile" && \
+# 						! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
+# 
+# 					debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
+# 
+# 					# symbolic link to current native messaging host
+# 					try ln -sf "${curHostDir}/$curFile" "$curFile" \
+# 							"Unable to link to native messaging host ${curFile}."
+# 					if [[ ! "$ok" ]] ; then
+# 						[[ "$myError" ]] && myError+=' '
+# 						myError+="$errmsg"
+# 						ok=1 ; errmsg=
+# 						continue
+# 					fi
+# 				fi
+# 			done
+# 		fi
+# 	done
+# 
+# 	# silently return to original directory
+# 	try '!1' popd "Unable to navigate away from '$myHostDir'."
+# 	if [[ ! "$ok" ]] ; then
+# 		[[ "$myError" ]] && myError+=' '
+# 		myError+="$errmsg"
+# 		ok=1 ; errmsg=
+# 		continue
+# 	fi
+# 
+# 	# restore nullglob
+# 	shoptrestore shoptState
+# 
+# 	# return success or failure
+# 	if [[ "$myError" ]] ; then
+# 		errmsg="$myError"
+# 		return 1
+# 	else
+# 		errmsg=
+# 		return 0
+# 	fi
+# }
 
 
 # CHECKENGINEPAYLOAD -- check if the app engine payload is in a good state
@@ -2516,111 +2592,6 @@ function createenginepayload {
 	fi
 	
 	# return code
-	[[ "$ok" ]] && return 0 || return 1
-}
-
-
-# UPDATECENTRALNMH
-function updatecentralnmh {
-	
-	# only run if we're OK
-	[[ "$ok" ]] || return 1
-	
-	# relevant paths
-	local centralNMHPath=
-	getbrowserinfo 'centralNMHPath' 'com.google.Chrome'
-	centralNMHPath="$userSupportPath/${centralNMHPath[$iLibraryPath]}/$nmhDirName"
-	local oldManifestPath="$centralNMHPath/$nmhManifestOldFile"
-	local newManifestPath="$centralNMHPath/$nmhManifestNewFile"
-	
-	# Epichrome version and path to pull new manifest from
-	local sourceVersion="$epiCurrentVersion"
-	local sourcePath="$epiCurrentPath"
-	if [[ ! "$sourceVersion" ]] ; then
-		sourceVersion="$epiLatestVersion"
-		sourcePath="$epiLatestPath"
-	fi
-	
-	# assume no update
-	local doUpdate=
-	
-	# if either is missing, update both
-	if [[ ! ( ( -f "$oldManifestPath" ) && ( -f "$newManifestPath" ) ) ]] ; then
-		doUpdate=1
-		debuglog 'One or more manifests missing.'
-	fi
-	
-	local curManifest=
-	local curManifestVersion=
-	if [[ ! "$doUpdate" ]] ; then
-		
-		# regex for version and path
-		local info_re='Host ('"$epiVersionRe"')".*"path": *"([^"]+)"'
-		
-		# read in one of the manifests
-		try 'curManifest=' /bin/cat "$newManifestPath" 'Unable to read central manifest.'
-		[[ "$ok" ]] || return 1
-		
-		# check current manifest version & path
-		if [[ "$curManifest" =~ $info_re ]] ; then
-			
-			# bad path
-			if [[ ! -e "${BASH_REMATCH[9]}" ]] ; then
-				doUpdate=1
-				debuglog 'Central native messaging host not found at manifest path.'
-			else
-				curManifestVersion="${BASH_REMATCH[1]}"
-			fi
-		else
-			
-			# unreadable manifest
-			doUpdate=1
-			errlog 'Unable to parse central manifest.'
-		fi
-	fi
-	
-	# we're supposed to update but there's no Epichrome
-	if [[ "$doUpdate" && ! "$sourceVersion" ]] ; then
-		ok= ; errmsg='Epichrome not found.'
-		errlog "$errmsg"
-		return 1
-	fi
-	
-	# manifests still look OK, so check if version is out of date
-	if [[ ! "$doUpdate" ]] ; then
-		if vcmp "$curManifestVersion" '<' "$SSBVersion" ; then
-			doUpdate=1
-			debuglog 'Central manifest version is out of date.'
-		fi
-	fi
-	
-	# if any of the above triggered an update, do it now
-	if [[ "$doUpdate" ]] ; then
-		
-		debuglog 'Installing central native messaging host manifests.'
-		
-		# path to Epichrome NMH items
-		local nmhScript="$sourcePath/Contents/Resources/Runtime/Contents/Resources/NMH/$appNMHFile"
-		local sourceManifest="$sourcePath/Contents/Resources/Runtime/Contents/Resources/NMH/$nmhManifestNewFile"
-		
-		# make sure directory exists
-		try /bin/mkdir -p "$centralNMHPath" \
-				'Unable to create central native messaging host directory.'
-		
-		# new ID
-		filterfile "$sourceManifest" \
-				"$newManifestPath" \
-				"$nmhManifestNewFile" \
-				APPHOSTPATH "$(escapejson "$nmhScript")"
-		
-		# old ID
-		filterfile "$sourceManifest" \
-				"$oldManifestPath" \
-				"$nmhManifestOldFile" \
-				APPHOSTPATH "$(escapejson "$nmhScript")" \
-				"$nmhManifestNewID" "$nmhManifestOldID"
-	fi
-	
 	[[ "$ok" ]] && return 0 || return 1
 }
 

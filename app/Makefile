@@ -397,7 +397,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt \
 	\
 	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
-	$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost.py \
+	$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost_$(VERSION) \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -471,7 +471,7 @@ $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'	
 
-$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost.py: src/epichromeruntimehost.py src/version.sh
+$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		-e 's/debug = True/$(DEBUG_PY)/g' \

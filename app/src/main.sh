@@ -213,7 +213,6 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     
     # clear error states
     SSBLastErrorNMHInstall=
-    SSBLastErrorNMHCentral=
 fi
 
 
@@ -241,7 +240,6 @@ if [[ ( ! "$myStatusNewApp" ) && \
     
     # clear extension install error state
     SSBLastErrorNMHInstall=
-    SSBLastErrorNMHCentral=
 fi
 
 # update last-run engine
@@ -397,16 +395,24 @@ if ! updateprofiledir ; then
 fi
 [[ "$ok" ]] || abort
 
-# install native messaging host, reporting non-fatal errors
-installnmh
+# install/update native messaging host manifests (including ours), reporting non-fatal errors
+installnmhs ; installNMHError="$?"
 if [[ "$ok" ]] ; then
     # success, so clear last error
     SSBLastErrorNMHInstall=
 else
     if [[ "$SSBLastErrorNMHInstall" != "$errmsg" ]] ; then
         
+        if [[ "$installNMHError" = 2 ]] ; then
+            # unable to install NMH manifests for Epichrome extension
+            installNMHError="Unable to install Epichrome extension native messaging host. ($errmsg) The Epichrome extension will not work, but other extensions (such as 1Password) should work properly."
+        else
+            # unable to link to NMH directory -- no NMHs will work
+            installNMHError="Unable to install native messaging hosts for this app. ($errmsg) The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
+        fi
+            
         # show warning alert for error installing native messaging host
-        alert "Unable to install \"Epichrome Runtime\" extension. ($errmsg) Your app will work, but the extension won't. This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
+        alert "$installNMHError This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
         SSBLastErrorNMHInstall="$errmsg"
@@ -414,12 +420,6 @@ else
     
     # clear error state
     ok=1 ; errmsg=
-fi
-
-# update links to compatible native messaging hosts, reporting non-fatal errors
-if ! linkexternalnmhs ; then
-    alert "Unable to link to native messaging hosts. Extensions that use native messaging may not work. ($errmsg)" 'Warning' '|caution'
-    errmsg=
 fi
 
 
@@ -487,30 +487,6 @@ if [[ "$doCreateEngine" ]] ; then
     # (re)create engine payload
     createenginepayload
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
-fi
-
-
-# UPDATE/CREATE CENTRAL NATIVE MESSAGING HOST MANIFESTS
-
-if [[ "${SSBEngineSourceInfo[$iName]}" = Brave ]] ; then
-    
-    updatecentralnmh
-    if [[ "$ok" ]] ; then
-        # success, so clear last error
-        SSBLastErrorNMHCentral=
-    else
-        if [[ "$SSBCentralNMHError" != "$errmsg" ]] ; then
-            
-            # show warning alert for error installing native messaging host
-            alert "Unable to install central native messaging host manifests. ($errmsg) The Epichrome extension may not work. This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
-            
-            # set new error state
-            SSBCentralNMHError="$errmsg"
-        fi
-        
-        # clear error state
-        ok=1 ; errmsg=
-    fi
 fi
 
 
