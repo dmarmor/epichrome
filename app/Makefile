@@ -53,6 +53,8 @@ BUILDNUM:=$(shell source src/version.sh ; \
 			fi ; \
 			echo "$$epiBuildNum")
 
+VERSION_INTERNAL:=$(VERSION)[$(shell printf '%03d' '$(BUILDNUM)')]
+
 VERSIONMAJOR:=$(shell version='$(VERSION)' && echo "$${version%.*}")
 
 VERSIONCODE:=$(shell src/versioncode.sh '$(VERSION)[$(BUILDNUM)]')
@@ -199,7 +201,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 
-internal: VERSION:=$(VERSION)[$(shell printf '%03d' '$(BUILDNUM)')]
+internal: VERSION:=$(VERSION_INTERNAL)
 
 internal: $(APP)
 
@@ -374,6 +376,9 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
 	\
+	$(APP_CT)/Resources/NMH/$(NMH_ID).json \
+	$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION_INTERNAL) \
+	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
 	$(APP_RNTM)/Filter/main.sh \
@@ -395,9 +400,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt \
-	\
-	$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json \
-	$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost_$(VERSION) \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -471,7 +473,7 @@ $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'	
 
-$(APP_RNTM)/Contents/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehost.py src/version.sh
+$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION_INTERNAL): src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		-e 's/debug = True/$(DEBUG_PY)/g' \
@@ -592,7 +594,7 @@ $(APP_RNTM)/Filter/Prefs/%.json: src/profile/%.json
 
 # CHROME EXTENSION
 
-$(APP_RNTM)/Contents/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/version.sh
+$(APP_CT)/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -E -e 's/EPIVERSION/$(VERSION)/g; s/EPIRUNTIMEIDS/$(NMH_EXTN_IDS)/' $< > $@
 

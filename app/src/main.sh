@@ -405,14 +405,14 @@ else
         
         if [[ "$installNMHError" = 2 ]] ; then
             # unable to install NMH manifests for Epichrome extension
-            installNMHError="Unable to install Epichrome extension native messaging host. ($errmsg) The Epichrome extension will not work, but other extensions (such as 1Password) should work properly."
+            installNMHError="Unable to install Epichrome extension native messaging host. ($errmsg)"$'\n\n'"The Epichrome extension will not work, but other extensions (such as 1Password) should work properly."
         else
             # unable to link to NMH directory -- no NMHs will work
-            installNMHError="Unable to install native messaging hosts for this app. ($errmsg) The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
+            installNMHError="Unable to install native messaging hosts for this app. ($errmsg)"$'\n\n'"The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
         fi
             
         # show warning alert for error installing native messaging host
-        alert "$installNMHError This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
+        alert "$installNMHError"$'\n\n'"This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
         SSBLastErrorNMHInstall="$errmsg"

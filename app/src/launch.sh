@@ -1987,10 +1987,13 @@ function installnmhs {
 		ok=1 ; errmsg=
 	fi
 
-	# link to all installed native messaging hosts
-	if [[ ! "${SSBEngineSourceInfo[$iNoNMHLink]}" ]] ; then
-		# $$$$ TRY SIMPLEST FIRST
-		# link central NMH directory into our UserData directory
+	if [[ "${SSBEngineSourceInfo[$iNoNMHLink]}" ]] ; then
+
+		# for engines that don't use a local link to NMH: remove any found in our UserData
+		try /bin/rm -f "$myProfilePath/$nmhDirName" 'Unable to remove app profile native messaging hosts directory.'
+		ok=1 ; errmsg=
+	else
+		# for engines that use a local link to NMH: link central NMH directory to our UserData
 		try /bin/ln -sf "$iCentralNMHPath" "$myProfilePath" 'Unable to link to native messaging hosts.'
 		
 		if [[ ! "ok" ]] ; then
@@ -2001,8 +2004,13 @@ function installnmhs {
 		fi
 	fi
 	
-	# if we got here our only error was installing the Epichrome extension NMH
-	[[ "$ok" ]] && return 0 || return 2
+	if [[ "$iEpichromeNMHError" ]] ; then
+		# if we got here our only error was installing the Epichrome extension NMH
+		ok= ; errmsg="$iEpichromeNMHError"
+		return 2
+	fi
+	
+	return 0
 }
 
 
@@ -2077,9 +2085,18 @@ function installepichromenmh {
 		debuglog 'Installing native messaging host manifests.'
 		
 		# path to Epichrome NMH items
-		local iSourceNMHDir="$epiCurrentPath/Contents/Resources/Runtime/Contents/Resources/NMH"
-		local nmhScript="$iSourceNMHDir/${appNMHFileBase}$epiCurrentVersion"
+		local iSourceNMHDir="$epiCurrentPath/Contents/Resources/NMH"
+		local nmhScript="$iSourceNMHDir/${appNMHFileBase}$SSBVersion"
 		local sourceManifest="$iSourceNMHDir/$nmhManifestNewFile"
+		
+		# make sure source NMH exists and is executable
+		if [[ ! -f "$nmhScript" ]] ; then
+			ok= ; errmsg="Native messaging host $SSBVersion not found where expected."
+			errlog "$errmsg"
+		elif [[ ! -x "$nmhScript" ]] ; then
+			ok= ; errmsg="Native messaging host $SSBVersion is not executable."
+			errlog "$errmsg"
+		fi
 		
 		# make sure directory exists
 		try /bin/mkdir -p "$iNMHPath" \
