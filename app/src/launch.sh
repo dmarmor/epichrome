@@ -2859,26 +2859,67 @@ function launchapp {
 	
 	# $$$ register app first if aDoRegister is set?
 	
-	# launch the app
-	"$aPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" "${aArgs[@]}" &
-	local iResultPID="$!"
-	
-	# check that PID is active
-	try kill -0 "$iResultPID" "Launched $aAppDesc but process cannot be found."
-	
-	# either assign PID result to variable, or echo it
-    if [[ "$aResultPIDVar" ]] ; then
-		eval "$aResultPIDVar=\"\$iResultPID\""
+	# find app executable
+	local iExec="$(echo "$aPath/Contents/MacOS/"*)"
+	if [[ -f "$iExec" ]] ; then
+		if [[ -x "$iExec" ]] ; then
+			
+			# launch the app
+			"$iExec" "${aArgs[@]}" &
+			local iResultPID="$!"
+			local iExitCode=
+			
+			# check that PID is active
+			sleep 1
+			try '!12' kill -0 "$iResultPID" ''
+			
+			if [[ "$ok" ]] ; then
+				debuglog "Launched $aAppDesc with PID $iResultPID."
+			else
+				# PID has already exited, so get result code
+				wait "$iResultPID" ; iExitCode="$?"
+				
+				# interpret result code
+				if [[ "$iExitCode" = 127 ]] ; then
+					# process not found
+					errmsg="Error launching $aAppDesc: process not found."
+					errlog "$errmsg"
+				elif [[ "$iExitCode" = 126 ]] ; then
+					# executable not found
+					errmsg="Error launching $aAppDesc: could not run executable."
+					errlog "$errmsg"			
+				elif [[ "$iExitCode" != 0 ]] ; then
+					# launched but immediately quit with an error
+					errmsg="Launched $aAppDesc but it quit with code $iExitCode."
+					errlog "$errmsg"
+				else
+					# launched and immediately quit successfully
+					debuglog "Launched $aAppDesc and it finished with exit code 0."
+					ok=1 ; errmsg=
+				fi
+			fi
+			
+			# either assign PID result to variable, or echo it
+			if [[ "$ok" ]] ; then
+				if [[ "$aResultPIDVar" ]] ; then
+					eval "$aResultPIDVar=\"\$iResultPID\""
+				else
+					echo "$iResultPID"
+				fi
+			fi							
+		else
+			# app executable is not executable
+			ok= ; errmsg="Not allowed to run executable for $aAppDesc."
+			errlog "$errmsg"
+		fi
 	else
-		echo "$iResultPID"
-    fi
-	
-    if [[ "$ok" ]] ; then
-		debuglog "Launched $aAppDesc with PID $iResultPID."
-		return 0
-	else
-		return 1
+		# app executable not found
+		ok= ; errmsg="Unable to find executable for $aAppDesc."
+		errlog "$errmsg"
 	fi
+	
+	# return result code
+	[[ "$ok" ]] && return 0 || return 1
 }
 export -f launchapp
 
