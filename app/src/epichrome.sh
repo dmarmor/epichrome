@@ -130,11 +130,19 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # ACTION: READ EXISTING APP
     
-    # main app settings locations
-    myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
-    myConfigPath="$epiAppPath/Contents/Resources/script"
+    # figure out where to find the app's settings
+    myConfigPath="$epiAppPath/Contents/Resources/Scripts/main.sh"
+    myOldConfigPath=
+    if [[ ! -f "$myConfigPath" ]] ; then    
+        # not 2.4.x, so try the 2.3.x location
+        myConfigPath="$epiAppPath/Contents/Resources/script"
+        if [[ ! -f "$myConfigPath" ]] ; then
+            # not 2.3.x either, so try the old config file as a last-ditch
+            myOldConfigPath="$epiAppPath/Contents/Resources/Scripts/config.sh"
+        fi
+    fi
     
-    if [[ -f "$myConfigPath" ]] ; then
+    if [[ ! "$myOldConfigPath" ]] ; then
         
         # 2.3.0 AND LATER
         
@@ -171,7 +179,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
             SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"
         fi
         
-    elif [[ -e "$myOldConfigPath" ]] ; then
+    elif [[ -f "$myOldConfigPath" ]] ; then
         
         # 2.1.0 - 2.2.4
         
