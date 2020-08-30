@@ -145,6 +145,7 @@ appDataStdoutFile='stdout.txt'
 appDataPauseFifo='pause'
 appDataLockFile='lock'
 appDataBackupDir='Backups'
+appDataFailsafeFile='backup.dat'
 appDataWelcomeDir='Welcome'
 export userSupportPath epiDataPath \
         epiGithubCheckFile \

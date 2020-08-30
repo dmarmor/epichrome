@@ -171,7 +171,7 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
         if [[ "$ok" ]] ; then
             debuglog "Created backup of app at \"$updateBackupFile\""
         else
-            ok=1 ; errmsg
+            ok=1 ; errmsg=
         fi
     fi
 
@@ -485,8 +485,31 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
         updatecleanup
         return 1
     fi
-
-
+    
+    
+    # CREATE FAILSAFE BACKUP OF APP
+    
+    # ensure backup directory exists
+    [[ -d "$myBackupDir" ]] || \
+        try /bin/mkdir -p "$myBackupDir" \
+                'Unable to create app backup directory.'
+    
+    # create failsafe backup
+    local iFailsafeFile="$myBackupDir/$appDataFailsafeFile"
+    if [[ -f "$iFailsafeFile" ]] ; then
+        try /bin/rm -f "$iFailsafeFile" 'Unable to remove old failsafe file.'
+    fi
+    try /usr/bin/tar czf "$iFailsafeFile" --cd "$updateAppPath" 'Contents' \
+            "Unable to create failsafe backup file."
+    
+    # ignore any errors
+    if [[ "$ok" ]] ; then
+        debuglog "Created failsafe backup file at \"$iFailsafeFile\"."
+    else
+        ok=1 ; errmsg=
+    fi
+    
+    
     # RUNNING IN APP -- UPDATE CONFIG & RELAUNCH
 
     if [[ ( "$coreContext" = 'app' ) && ( ! "$noRelaunch" ) ]] ; then
