@@ -39,19 +39,31 @@ const kAppIDMaxLength = 30 - kBundleIDBase.length;
 const kAppIDMinLength = 3;
 const kAppIDLegalCharsRe = /[^-a-zA-Z0-9_]/g;
 
+// status dots
+const kDotSelected = '▪️'; //❇️
+const kDotUnselected = '▫️';
+const kDotCurrent = '🔹';
+const kDotChanged = '🔸';
+const kDotNeedsUpdate = '🔺';
+const kDotSuccess = '✅'; // ✔️
+const kDotError = '🚫';
+const kDotSkip = '✖️'; // ◼️
+const kDotWarning = '⚠️';
+const kDotAdvanced = '⚙️';
+
 // app info and their summary headers
 const kAppInfoKeys = {
     path: 'Path',
     version: 'Version',
     displayName: 'App Name',
     shortName: 'Short Name',
-    id: 'App ID / Data Directory',
     windowStyle: 'Style',
     urls: ['URL', 'Tabs'],
-    registerBrowser: 'Register as Browser',
     icon: 'Icon',
     engine: 'App Engine',
-    updateAction: 'Update Action'
+    id: kDotAdvanced + ' App ID / Data Directory',
+    registerBrowser: kDotAdvanced + ' Register as Browser',
+    updateAction: kDotAdvanced + ' Update Action'
 };
 
 // app defaults & settings
@@ -133,17 +145,6 @@ const kStepResultSUCCESS = 0;
 const kStepResultERROR = 1;
 const kStepResultQUIT = 2;
 const kStepResultSKIP = 3;
-
-// status dots
-const kDotSelected = '▪️'; //❇️
-const kDotUnselected = '▫️';
-const kDotCurrent = '🔹';
-const kDotChanged = '🔸';
-const kDotNeedsUpdate = '🔺';
-const kDotSuccess = '✅'; // ✔️
-const kDotError = '🚫';
-const kDotSkip = '✖️'; // ◼️
-const kDotWarning = '⚠️';
 
 
 // --- GLOBAL VARIABLES ---
@@ -335,13 +336,10 @@ function runCreate() {
     doSteps([
         stepCreateDisplayName,
         stepShortName,
-        stepID,
         stepWinStyle,
         stepURLs,
-        stepBrowser,
         stepIcon,
         stepEngine,
-        stepUpdate,
         stepBuild
     ], myInfo);
 }
@@ -588,13 +586,10 @@ function runEdit(aApps) {
             curApp.result = doSteps([
                 stepEditDisplayName,
                 stepShortName,
-                stepID,
                 stepWinStyle,
                 stepURLs,
-                stepBrowser,
                 stepIcon,
                 stepEngine,
-                stepUpdate,
                 stepBuild
             ], curApp);
         } else {
@@ -963,21 +958,30 @@ function writeProperties() {
 // --- BUILD STEPS ---
 
 // DOSTEPS: run a set of build or edit steps
-function doSteps(aSteps, aInfo, aNextStep=0) {
+function doSteps(aSteps, aInfo, aOptions={}) {
     // RUN THE STEPS TO BUILD THE APP
-
+    
+    // start on step 0
+    let myNextStep = 0;
+    
+    // assume success
     let myResult = kStepResultSUCCESS;
-
-    // if we start out on step -1, make sure a nonconfirm goes to step 0
-    let myStepResult = -1;
-
+    
+    // if we start out on step -1, make sure a nonconfirm goes to step 0  $$$ ???
+    let myStepResult;  // = -1;
+    
     while (true) {
 
         // backed out of the first step
-        if (aNextStep < 0) {
-
+        if (myNextStep < 0) {
+            
+            // if no confirm
+            if (aOptions.abortSilent) {
+                return kStepResultSKIP;
+            }
+            
             // normalize
-            aNextStep = -1;
+            myNextStep = -1;
 
             let myDlgButtons = ['No', 'Yes'];
             let myDlgMessage = 'Are you sure you want to ';
@@ -1020,7 +1024,7 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
             // return appropriate value
             if (myDlgResult == 0) {
                 // No button -- continue with steps
-                aNextStep -= myStepResult;
+                myNextStep -= myStepResult;
             } else if (myDlgResult == 1) {
                 // Yes button -- end steps
                 return myResult;
@@ -1028,31 +1032,39 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
                 // Quit button -- send Quit result
                 return kStepResultQUIT;
             }
+        } else if (myNextStep >= aSteps.length) {
+            
+            // past the end of our steps, so we're done
+            break;
         }
-
-        if (aNextStep == 0) {
-            if (aInfo.stepInfo.isOnlyApp) {
-                aInfo.stepInfo.backButton = 'Quit';
+        
+        if (myNextStep == 0) {
+            if (aOptions.abortBackButton) {
+                aInfo.stepInfo.backButton = aOptions.abortBackButton;
             } else {
-                aInfo.stepInfo.backButton = 'Abort';
+                if (aInfo.stepInfo.isOnlyApp) {
+                    aInfo.stepInfo.backButton = 'Quit';
+                } else {
+                    aInfo.stepInfo.backButton = 'Abort';
+                }
             }
         } else {
-            // cap max step number
-            aNextStep = Math.min(aNextStep, aSteps.length - 1);
-
+            // // cap max step number  $$$ DELETE
+            // myNextStep = Math.min(myNextStep, aSteps.length - 1);
+            
             aInfo.stepInfo.backButton = 'Back';
         }
-
+        
         // set step number
-        aInfo.stepInfo.number = aNextStep;
+        aInfo.stepInfo.number = myNextStep;
 
         if (aInfo.stepInfo.action != kActionUPDATE) {
 
             // set step dialog title
-            aInfo.stepInfo.numText = 'Step ' + (aNextStep + 1).toString() +
+            aInfo.stepInfo.numText = (aOptions.stepTitle ? aOptions.stepTitle : 'Step') + ' ' + (myNextStep + 1).toString() +
                 ' of ' + aSteps.length.toString();
             aInfo.stepInfo.dlgTitle = aInfo.stepInfo.titlePrefix + ' | ' + aInfo.stepInfo.numText;
-
+            
             // in edit mode, add status dot
             if (aInfo.stepInfo.action == kActionEDIT) {
                 let myStatusDot = (aInfo.appInfoStatus.version.changed ? kDotNeedsUpdate : kDotCurrent);
@@ -1062,12 +1074,12 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
                 aInfo.stepInfo.dlgTitle = myStatusDot + ' ' + aInfo.stepInfo.dlgTitle;
             }
         }
-
+        
         // RUN THE NEXT STEP
 
-        myStepResult = aSteps[aNextStep](aInfo);
-
-
+        myStepResult = aSteps[myNextStep](aInfo);
+        
+        
         // CHECK RESULT OF STEP
 
         if (typeof(myStepResult) == 'number') {
@@ -1075,7 +1087,7 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
             // FORWARD OR BACK: MOVE ON TO ANOTHER STEP
 
             // move forward, backward, or stay on the same step
-            aNextStep += myStepResult;
+            myNextStep += myStepResult;
 
             continue;
 
@@ -1110,7 +1122,7 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
             let myDlgResult;
 
             // if we're allowed to backstep & this isn't the first step
-            if ((myStepResult.backStep !== false) && (aNextStep != 0)) {
+            if ((myStepResult.backStep !== false) && (myNextStep != 0)) {
 
                 // show Back button too
                 myDlgButtons.unshift('Back');
@@ -1142,7 +1154,7 @@ function doSteps(aSteps, aInfo, aNextStep=0) {
                         Progress.description = myStepResult.resetMsg;
                         Progress.additionalDescription = '';
                     }
-                    aNextStep += myStepResult.backStep;
+                    myNextStep += myStepResult.backStep;
                     continue;
                 }
             } else {
@@ -1354,25 +1366,20 @@ function stepShortName(aInfo) {
 
         // assume success
         myTryAgain = false;
-
-        try {
-            myDlgResult = kApp.displayDialog(myAppShortNamePrompt + aInfo.appInfoStatus.shortName.stepSummary, {
-                withTitle: aInfo.stepInfo.dlgTitle,
-                withIcon: aInfo.stepInfo.dlgIcon,
+        
+        myDlgResult = stepDialog(aInfo,
+            myAppShortNamePrompt + aInfo.appInfoStatus.shortName.stepSummary, {
                 defaultAnswer: aInfo.appInfo.shortName,
-                buttons: ['OK', aInfo.stepInfo.backButton],
-                defaultButton: 1,
-                cancelButton: 2
-            }).textReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                // Back button
-                return -1;
-            } else {
-                throw myErr;
+                buttons: ['OK'],
             }
+        );
+        
+        if (myDlgResult.buttonIndex == 1) {
+            // Back button
+            return -1;
         }
-
+        
+        myDlgResult = myDlgResult.textReturned;
         if (myDlgResult.length > 16) {
             myTryAgain = true;
             myAppShortNamePrompt = kDotWarning + " That name is too long. Please limit the name to 16 characters or less.";
@@ -1382,10 +1389,15 @@ function stepShortName(aInfo) {
             myAppShortNamePrompt = kDotWarning + " No name entered. Please try again.";
         }
     }
-
+    
     // if we got here, we have a good name
     updateAppInfo(aInfo, 'shortName', myDlgResult);
-
+    
+    // create automatic ID if needed
+    if (!aInfo.appInfo.id) {
+        createAppID(aInfo);
+    }
+    
     // move on
     return 1;
 }
@@ -1398,98 +1410,63 @@ function stepID(aInfo) {
     let myTryAgain, myErr, myDlgResult;
     let myDlgMessage, myDlgOptions;
 
-    // ID warnings
+
+    // SET UP DIALOG
+
+    // ID warnings & limits
     const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, which can cause many problems including data corruption and inability to run.";
     function myIDCheckErrorWarning(aErr) {
         return 'THIS ID MAY NOT BE UNIQUE. There was an error checking for other apps on the system with the same ID. (' + aErr + ') ' + myIDWarning;
     }
-
-    // create new automatic ID if needed
-    if (!aInfo.appInfo.id) {
-        createAppID(aInfo);
-    }
-
-    if ((aInfo.stepInfo.action == kActionEDIT) && (!aInfo.appInfoStatus.id.changed)) {
-
-        // set up dialog message
-        if (aInfo.appInfoStatus.shortName.changed) {
-            myDlgMessage = "The app's short name has changed, but the ID has not. The current ID is:" +
-                aInfo.appInfoStatus.id.stepSummary + '\n\nDo you want to change it?';
+    const myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
+    
+    // start building dialog message & buttons
+    myDlgMessage = ' a custom app ID (' + myIDLimits + ')';
+    myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK'] };
+    
+    // customize dialog message & buttons
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        if (aInfo.stepInfo.isCustomID) {
+            myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
         } else {
-            myDlgMessage = "Do you want to change the app's ID?" + aInfo.appInfoStatus.id.stepSummary;
-        }
-
-        // show ID-not-changed dialog
-        myDlgResult = stepDialog(aInfo, myDlgMessage,
-            { buttons: ['No', 'Yes'] }).buttonIndex;
-        if (myDlgResult == 0) {
-            // No change
-            return 1;
-        } else if (myDlgResult == 1) {
-
-            // Yes change -- choose how to edit ID
-            myDlgResult = stepDialog(aInfo,
-                "Do you want to automatically set the ID based on the app's short name (" +
-                aInfo.appInfo.shortName + "), or choose one yourself?",
-                { buttons: ['Use Auto ID', 'Choose Custom ID'] }).buttonIndex;
-            if (myDlgResult == 0) {
-                // Auto ID
-                createAppID(aInfo);
-            } else if (myDlgResult == 1) {
-                // Custom ID
-                aInfo.stepInfo.isCustomID = true;
-            } else {
-                // Back
-                return -1;
-            }
-        } else {
-            // Back
-            return -1;
-        }
-    }
-
-    // show auto ID and give option to choose a custom one
-    if (!aInfo.stepInfo.isCustomID) {
-
-        myDlgMessage = "The app's automatically-created ID is:" + aInfo.appInfoStatus.id.stepSummary;
-
-        myDlgOptions = { buttons: ['OK', 'Choose Custom ID'] };
-
-        if (aInfo.stepInfo.autoIDError) {
-            myDlgMessage += '\n\n' +
-                kDotWarning + ' ' + myIDCheckErrorWarning(aInfo.stepInfo.autoIDError.message) +
-                '\n\nUnless you know what you are doing, you should click "Choose Custom ID" and create an ID you know to be unique.';
+            myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
             myDlgOptions.defaultButton = 2;
         }
-
-        myDlgResult = stepDialog(aInfo,
-            myDlgMessage,
-            myDlgOptions).buttonIndex;
-        if (myDlgResult == 0) {
-            // OK
-            return 1;
-        } else if (myDlgResult == 1) {
-            // Choose Custom ID
-            aInfo.stepInfo.isCustomID = true;
+        myDlgMessage = 'Enter' + myDlgMessage + '.';
+    } else if (aInfo.stepInfo.action == kActionEDIT) {
+        if (aInfo.stepInfo.autoID) {
+            if (aInfo.stepInfo.isCustomID) {
+                myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
+            } else {
+                myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
+                myDlgOptions.defaultButton = 2;
+            }
         } else {
-            // Back
-            return -1;
+            myDlgOptions.buttons.push('Create Default');
         }
+        if (aInfo.appInfoStatus.shortName.changed && (!aInfo.appInfoStatus.id.changed)) {
+            myDlgMessage = kDotWarning + " The app's short name has changed, but its ID has not.\n\nYou may enter" + myDlgMessage;
+        } else {
+            myDlgMessage = 'Enter' + myDlgMessage;
+        }
+        myDlgMessage += ', or click "' + myDlgOptions.buttons[1] + '" to let Epichrome create one.';
     }
 
-    // if we got here, we're choosing a custom ID
-
-    // set up dialog
-    let myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
-    myDlgMessage = 'Enter an app ID (' + myIDLimits + ').';
-    myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK', 'Use Auto ID'] };
-
-    // loop till we have an acceptable ID
+    // if (aInfo.stepInfo.autoIDError) {
+    //     myDlgMessage += '\n\n' +
+    //         kDotWarning + ' ' + myIDCheckErrorWarning(aInfo.stepInfo.autoIDError.message) +
+    //         '\n\nUnless you know what you are doing, you should click "Choose Custom ID" and create an ID you know to be unique.';
+    //     myDlgOptions.defaultButton = 2;
+    // }
+    
+    
+    // LOOP TILL WE HAVE AN ACCEPTABLE ID
+    
     while (true) {
-
+        
         // display dialog
         myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary, myDlgOptions);
-
+        
         if (myDlgResult.buttonIndex == 0) {
 
             // NEW CUSTOM ID CHOSEN
@@ -1582,9 +1559,9 @@ function stepID(aInfo) {
             }
 
         } else if (myDlgResult.buttonIndex == 1) {
-            // Use Auto ID
+            // DEFAULT ID button
             createAppID(aInfo);
-            return 0;
+            return 1;
         } else {
             // Back
             return -1;
@@ -1593,7 +1570,7 @@ function stepID(aInfo) {
         // we should never get here
         return 0;
     }
-
+    
     // if we got here, we have chosen an ID
     updateAppInfo(aInfo, 'id', myDlgResult.textReturned);
 
@@ -2217,7 +2194,7 @@ function stepBuild(aInfo) {
 
             // create summary of the app
             myAppSummary = 'Ready to create!\n\n' +
-                Object.keys(aInfo.appInfoStatus).filter(x => x != 'version').map(x => aInfo.appInfoStatus[x].buildSummary).join('\n\n');
+                Object.entries(aInfo.appInfoStatus).filter(x => x[1].buildSummary && (aInfo.stepInfo.showAdvanced || (typeof(kAppInfoKeys[x[0]]) != 'string') || !kAppInfoKeys[x[0]].startsWith(kDotAdvanced))).map(x => x[1].buildSummary).join('\n\n');
             myActionButton = 'Create';
         } else {
 
@@ -2226,8 +2203,11 @@ function stepBuild(aInfo) {
             // edit summary of app & look for changes
             let myChangedSummary = [];
             let myUnchangedSummary = [];
-            for (let curItem of Object.values(aInfo.appInfoStatus)) {
-                if (curItem.buildSummary) {
+            for (let [curKey, curItem] of Object.entries(aInfo.appInfoStatus).filter(x => Boolean(x[1].buildSummary))) {
+                if (curItem.buildSummary &&
+                    (aInfo.stepInfo.showAdvanced ||
+                        typeof(kAppInfoKeys[curKey]) != 'string') ||
+                        !kAppInfoKeys[curKey].startsWith(kDotAdvanced)) {
                     if (curItem.changed) {
                         myChangedSummary.push(curItem.buildSummary);
                     } else {
@@ -2272,23 +2252,27 @@ function stepBuild(aInfo) {
         }
 
         // display summary
-        try {
-            kApp.displayDialog(myAppSummary, {
-                withTitle: aInfo.stepInfo.dlgTitle,
-                withIcon: aInfo.stepInfo.dlgIcon,
-                buttons: [myActionButton, aInfo.stepInfo.backButton],
-                defaultButton: 1,
-                cancelButton: 2
+        myDlgResult = stepDialog(aInfo, myAppSummary, {buttons: [myActionButton, kDotAdvanced + ' Advanced Settings']}).buttonIndex;
+        if (myDlgResult == 1) {
+            // ADVANCED button
+            aInfo.stepInfo.showAdvanced = true;
+            doSteps([
+                stepID,
+                stepBrowser,
+                stepUpdate
+            ], aInfo, {
+                abortSilent: true,
+                abortBackButton: 'Back',
+                stepTitle: 'Advanced Setting'
             });
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                // Back button
-                return -1;
-            } else {
-                throw myErr;
-            }
+            return 0;
+        } else if (myDlgResult == 2) {
+            // BACK button
+            return -1;
         }
-
+        
+        // if we got here, user clicked the BUILD button
+        
         // if there are no changes, quit
         if (!myDoBuild) {
             // go to step -1 to trigger quit dialog
@@ -2627,14 +2611,18 @@ function updateAppInfo(aInfo, aKey, aValue) {
         } else if (curKey == 'id') {
 
             // ID
-
+            
+            // set isCustomID
+            aInfo.stepInfo.isCustomID = (aInfo.appInfo.id != aInfo.stepInfo.autoID);
+            
             // step summary
-            curStatus.stepSummary = '\n\n' + kIndent + dot() + aInfo.appInfo.id;
-            if ((aInfo.stepInfo.action == kActionEDIT) && (curStatus.changed)) {
-                curStatus.stepSummary += '  |  Was: ' +
-                    (aInfo.oldAppInfo.id ? aInfo.oldAppInfo.id : '[no ID]');
+            if (aInfo.stepInfo.action == kActionEDIT) {
+                curStatus.stepSummary = '\n\n' + kIndent + dot() + aInfo.appInfo.id;
+                if (curStatus.changed) {
+                    curStatus.stepSummary += '  |  Was: ' + (aInfo.oldAppInfo.id ? aInfo.oldAppInfo.id : '[no ID]');
+                }
             }
-
+            
             // build summary
             curStatus.buildSummary = kAppInfoKeys.id + ':\n' +
                 kIndent + dot() + aInfo.appInfo.id + '\n' +
@@ -2973,8 +2961,8 @@ function createAppID(aInfo) {
 
     let myResult;
 
-    // flag that this app has an auto ID
-    aInfo.stepInfo.isCustomID = false;
+    // flag that this app has an auto ID  $$$$ DELETE?
+    // aInfo.stepInfo.isCustomID = false;
 
     if (aInfo.stepInfo.autoID) {
 
@@ -3018,7 +3006,7 @@ function createAppID(aInfo) {
         }
 
         // update step info about this ID
-        aInfo.stepInfo.autoID = aInfo.appInfo.id;
+        aInfo.stepInfo.autoID = myResult;
         aInfo.stepInfo.autoIDError = ((myIsUnique instanceof Object) ? myIsUnique : false);
     }
 
@@ -3035,7 +3023,7 @@ function dialog(aMessage, aDlgOptions={}, aButtonMap=null) {
 
     let myResult, myErr;
     
-    if (typeof(aMessage) != 'string') { aMessage = JSON.stringify(aMessage, 3); }
+    if (typeof(aMessage) != 'string') { aMessage = JSON.stringify(aMessage, null, 3); }
     
     try {
         // display dialog
