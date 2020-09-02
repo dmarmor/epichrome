@@ -136,15 +136,15 @@ const kDay = 24 * 60 * 60 * 1000;
 const kIndent = ' '.repeat(3);
 
 // actions
-const kActionCREATE = 0;
-const kActionEDIT = 1;
-const kActionUPDATE = 2;
+const kActionCREATE = 1;
+const kActionEDIT = 2;
+const kActionUPDATE = 3;
 
 // step results
-const kStepResultSUCCESS = 0;
-const kStepResultERROR = 1;
-const kStepResultQUIT = 2;
-const kStepResultSKIP = 3;
+const kStepResultSUCCESS = 1;
+const kStepResultERROR = 2;
+const kStepResultQUIT = 3;
+const kStepResultSKIP = 4;
 
 
 // --- GLOBAL VARIABLES ---
@@ -156,11 +156,14 @@ let gEpiLastDir = {
     icon: null
 }
 
+// flag whether a default app directory has already been created
+let gEpiDefaultAppDirCreated = false;
+
 // the last error encountered checking GitHub
 let gEpiGithubFatalError = '';
 
 // info from core.sh
-let gCoreInfo = {};
+let gCoreInfo = null;
 
 // new app defaults
 let gAppInfoDefault = {
@@ -207,58 +210,13 @@ function main(aApps=[]) {
     // wrap everything in a try to catch all errors
     try {
 
-        // APP INIT
-
-        // run core.sh to initialize & get key info
-        gCoreInfo = JSON.parse(shell(
-            'coreDoInit=1',
-            'epiAction=init'
-        ));
+        // DETERMINE IF WE'RE CREATING OR EDITING
         
-        // check data integrity
-        if (!gCoreInfo.dataPath || (typeof(gCoreInfo.dataPath) != 'string')) {
-            throw Error('Unable to initialize Epichrome data path.');
-        }
-        if (!gCoreInfo.logFile || (typeof(gCoreInfo.logFile) != 'string')) {
-            throw Error('Unable to initialize Epichrome log file.');
-        }
+        // default to Quit
+        let myAction;
         
-        // set path to settings file
-        gCoreInfo.settingsFile = gCoreInfo.dataPath + "/epichrome.plist";
-        
-        // check that the data path is writeable
-        if (kApp.doShellScript("if [[ ! -w " + shellQuote(gCoreInfo.dataPath) + " ]] ; then echo FAIL ; fi") == 'FAIL') {
-            throw Error('Application data folder is not writeable.');
-        }
-        
-        // other init tasks
-
-        // init engine list
-        for (let curEng of kEngines) {
-            curEng.button = engineName(curEng);
-        }
-        
-        // read in persistent properties
-        readProperties();
-        
-        // check GitHub for updates
-        let myGithubInfo = null;
-        if (! gEpiGithubFatalError) {
-            myGithubInfo = shell('epiAction=githubupdate');
-            if (myGithubInfo) {
-                // handle any GitHub updates found during init
-                handleGithubUpdate(JSON.parse(myGithubInfo));
-            }
-        } else {
-            // GitHub check disabled
-            errlog('GitHub update check disabled due to fatal error on a previous attempt.');
-        }
-        
-        
-        // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
-
         if (aApps.length == 0) {
-
+            
             while (true) {
                 // no dropped files, so ask user for run mode
                 let myDlgResult = dialog('Would you like to create a new app, or edit existing apps?', {
@@ -268,41 +226,171 @@ function main(aApps=[]) {
                     defaultButton: 1,
                     cancelButton: 3
                 }).buttonIndex;
-
+                
                 if (myDlgResult == 0) {
-
-                    // Create button
-
-                    return runCreate();
+                    
+                    // CREATE button
+                    myAction = kActionCREATE;
+                    break;
 
                 } else if (myDlgResult == 1) {
+                    
+                    // EDIT/UPDATE button
+                    myAction = kActionEDIT;
+                    break;
 
-                    // Edit/Update button
+                } else {
+                    
+                    // QUIT button
+                    if (confirmQuit()) { return; }
+                }
+            }
+        } else {
+            
+            // we have dropped apps, so go straight to edit
+            myAction = kActionEDIT;
+        }
+        
+        
+        // APP INIT
+        
+        // set up data path & settings file
+        gCoreInfo = {};
+        try {
+            ObjC.import('stdlib');
+            gCoreInfo.dataPath = $.getenv('HOME') + '/Library/Application Support/Epichrome';
+            gCoreInfo.settingsFile = gCoreInfo.dataPath + "/epichrome.plist";
+        } catch (myErr) {
+            gCoreInfo.dataPath = '';
+            gCoreInfo.settingsFile = '';
+        }
+        
+        // read in persistent properties
+        readProperties();
+        
+        // initialize core, optionally create default app dir & check github for updates
+        let myInitInfo = JSON.parse(shell(
+            'coreDoInit=1',
+            'epiAction=init',
+            'epiDefaultAppDirCreated=' + ((gEpiDefaultAppDirCreated || (myAction != kActionCREATE)) ? '1' : ''),
+            'epiGithubFatalError=' + (gEpiGithubFatalError ? '1' : '')
+        ));
+        
+        // check for core errors
+        if (myInitInfo.core.error) {
+            throw Error(myInitInfo.core.error);
+        }
+        
+        // make sure data path matches
+        if (myInitInfo.core.dataPath != gCoreInfo.dataPath) {
+            throw Error('Got unexpected Epichrome data path.');
+        }
+        
+        // replace old core info with init info
+        myInitInfo.core.settingsFile = gCoreInfo.settingsFile;
+        gCoreInfo = myInitInfo.core;
+        
+        // init engine list
+        for (let curEng of kEngines) {
+            curEng.button = engineName(curEng);
+        }
+        
+        // handle any GitHub updates found during init
+        if (myInitInfo.github) {
+            handleGithubUpdate(myInitInfo.github);
+        }
 
+        // handle default app dir
+        if (myInitInfo.defaultAppDir) {
+            
+            // we won't try it again, even if there was an error
+            gEpiDefaultAppDirCreated = true;
+            
+            // set up messages
+            let myDeviceNote = ['Because Epichrome is installed on a different drive from the /Applications folder, your apps will not be able to use extensions like 1Password that require a validated browser. If you want to create apps for use with 1Password, you should first move Epichrome to /Applications.'];
+            
+            if (myInitInfo.defaultAppDir.startsWith('ERROR|')) {
+                // warn the user
+                let myDlgMessage = 'Unable to create Apps folder. (' + myInitInfo.defaultAppDir.slice(6) + ')';
+                
+                // add messages based on location of Epichrome
+                if (!myInitInfo.hasOwnProperty('locationWarning')) {
+                    // Epichrome.app is in /Applications/Epichrome
+                    myDlgMessage += '\n\nIt is strongly recommended you create a subfolder under /Applications/Epichrome for your apps.';
+                } else if (!gCoreInfo.wrongDevice) {
+                    // Epichrome.app is in /Applications or on same volume
+                    myDlgMessage += '\n\nIt is strongly recommended you create a subfolder under /Applications for your apps.';
+                } else {
+                    // Epichrome.app is on a different volume from /Applications
+                    myDlgMessage += '\n\nAny apps you create MUST be on the same drive as Epichrome. ' + myDeviceNote;
+                }
+                
+                // show warning
+                dialog(myDlgMessage, {
+                    withTitle: 'Warning',
+                    withIcon: 'caution',
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+            } else {
+                
+                // set default directories
+                gEpiLastDir.create = myInitInfo.defaultAppDir;
+                if (!gEpiLastDir.edit) {
+                    gEpiLastDir.edit = myInitInfo.defaultAppDir;
+                }
+                
+                // notify user of apps folder
+                let myDlgMessage = 'A folder called "' + myInitInfo.defaultAppDir.match('[^/]*$')[0] + '" has been created in the location where Epichrome is installed.';
+                
+                // add warnings based on location of Epichrome
+                if ((!myInitInfo.hasOwnProperty('locationWarning')) || (myInitInfo.locationWarning == 1)) {
+                    // Epichrome.app is somewhere under /Applications
+                    myDlgMessage += ' While you do not have to keep your apps there, it is strongly recommended you do.';
+                } else if (!gCoreInfo.wrongDevice) {
+                    // Epichrome.app is not in /Applications but on same volume
+                    myDlgMessage += '\n\n' + kDotWarning + ' Because it is not a subfolder of /Applications, apps you put there will not be able to use extensions like 1Password that require a validated browser. If you want to create apps for use with 1Password, they must use the external engine and be put in a subfolder of /Applications.';
+                } else {
+                    // Epichrome.app is on a different volume from /Applications
+                    myDlgMessage += '\n\n' + kDotWarning + ' ' + myDeviceNote;
+                }
+                
+                // show warning
+                dialog(myDlgMessage, {
+                    withTitle: 'App Folder Created',
+                    withIcon: kEpiIcon,
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+            }
+        }
+        
+        
+        // HANDLE CREATE OR EDIT/UPDATE RUN
+        
+        if (myAction == kActionCREATE) {
+            return runCreate();
+        } else { // myAction == kActionEDIT
+            if (aApps.length == 0) {
+                while (true) {
                     // show file selection dialog
-                    let aApps = fileDialog('open', gEpiLastDir, 'edit', {
+                    aApps = fileDialog('open', gEpiLastDir, 'edit', {
                         withPrompt: 'Select any apps you want to edit or update.',
                         ofType: ["com.apple.application"],
                         multipleSelectionsAllowed: true,
                         invisibles: false
                     });
                     if (!aApps) {
-                        // canceled: ask user to select action again
-                        continue;
+                        // canceled: ask if user wants to quit
+                        if (confirmQuit()) { return; }
                     }
-
-                    // if we got here, the user chose files
-                    return runEdit(aApps);
-
-                } else {
-                    if (confirmQuit()) { return; }
                 }
             }
-        } else {
-
-            // we have dropped apps, so go straight to edit
+            
+            // if we got here, we have files to edit
             return runEdit(aApps);
         }
+
     } catch(myErr) {
         errlog(myErr.message, 'FATAL');
         kApp.displayDialog("Fatal error: " + myErr.message, {
@@ -404,7 +492,7 @@ function runEdit(aApps) {
         curApp.appInfo.engine.button = engineName(curApp.appInfo.engine);
 
         // $$$ CHECK FOR LEGAL ENGINE?
-
+        
         // start stepInfo
         let myDlgIcon = setDlgIcon(curApp.appInfo);
         curApp.stepInfo = {
@@ -676,18 +764,22 @@ function runEdit(aApps) {
 // READPROPERTIES: read properties user data, or initialize any not found
 function readProperties() {
 
-    let myProperties, myErr;
-
-    debuglog("Reading preferences.");
-
+    let myProperties = null, myErr;
+    
 	// read in the property list
-    try {
-        myProperties =  kSysEvents.propertyListFiles.byName(gCoreInfo.settingsFile).contents.value();
-    } catch(myErr) {
-        myProperties = {};
+    if (gCoreInfo.settingsFile) {
+        try {
+            myProperties = kSysEvents.propertyListFiles.byName(gCoreInfo.settingsFile).contents.value();
+        } catch(myErr) {
+            // ignore
+        }
     }
-
-	// set properties from the file, and initialize any properties not found
+    
+    // if no properties read in, we're done
+    if (!myProperties) { return; }
+    
+    
+    // SET PROPERTIES FROM THE FILE AND INITIALIZE ANY PROPERTIES NOT FOUND
 
     // EPICHROME SETTINGS
 
@@ -710,11 +802,15 @@ function readProperties() {
         gEpiLastDir.icon = myProperties["lastIconPath"];
     }
 
+    // defaultAppDirCreated
+	if (typeof myProperties["defaultAppDirCreated"] === 'boolean') {
+        gEpiDefaultAppDirCreated = myProperties["defaultAppDirCreated"];
+    }
+
     // githubFatalError
 	if (typeof myProperties["githubFatalError"] === 'string') {
         gEpiGithubFatalError = myProperties["githubFatalError"];
     }
-
 
     // APP SETTINGS
 
@@ -863,11 +959,14 @@ function handleGithubUpdate(aGithubInfo) {
 
 // WRITEPROPERTIES: write properties back to plist file
 function writeProperties() {
-
+    
+    // if we don't have a settings file, we're done
+    if (!gCoreInfo.settingsFile) { return; }
+    
     let myProperties, myErr;
-
+    
     debuglog("Writing preferences.");
-
+    
     try {
         // create empty plist file
         myProperties = kSysEvents.PropertyListFile({
@@ -894,6 +993,13 @@ function writeProperties() {
                 kind: "string",
                 name: "lastIconPath",
                 value: gEpiLastDir.icon
+            })
+        );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"boolean",
+                name:"defaultAppDirCreated",
+                value:gEpiDefaultAppDirCreated
             })
         );
         myProperties.propertyListItems.push(
@@ -967,8 +1073,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
     // assume success
     let myResult = kStepResultSUCCESS;
     
-    // if we start out on step -1, make sure a nonconfirm goes to step 0  $$$ ???
-    let myStepResult;  // = -1;
+    let myStepResult;
     
     while (true) {
 
@@ -1049,9 +1154,6 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 }
             }
         } else {
-            // // cap max step number  $$$ DELETE
-            // myNextStep = Math.min(myNextStep, aSteps.length - 1);
-            
             aInfo.stepInfo.backButton = 'Back';
         }
         
@@ -1201,6 +1303,9 @@ function stepCreateDisplayName(aInfo) {
         myTryAgain = false; // assume we'll succeed
 
         let myAppPath;
+        
+        // save current last dir in case of certain warnings/errors
+        let myLastDir = gEpiLastDir.create;
 
         // show file selection dialog
         myAppPath = fileDialog('save', gEpiLastDir, 'create', myDlgOptions);
@@ -1219,53 +1324,106 @@ function stepCreateDisplayName(aInfo) {
                 backStep: false
             };
         }
-
+        
         // if path hasn't changed & we already have a short name, use that
         if (myOldShortName && myOldFile &&
             (myOldFile.path == aInfo.appInfo.file.path)) {
             aInfo.appInfo.shortName = myOldShortName;
         }
-
-        // check if we have permission to write to this directory
-        if (kApp.doShellScript("if [[ -w " + shellQuote(aInfo.appInfo.file.dir) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") != "Yes") {
-            kApp.displayDialog("You don't have permission to write to that folder. Please choose another location for your app.", {
-                withTitle: "Error",
-                withIcon: 'stop',
-                buttons: ["OK"],
-                defaultButton: 1
-            });
-            myTryAgain = true;
-            continue;
-        } else {
-
-            // if no ".app" extension was given, check if they accidentally
-            // chose an existing app without confirming
-            if (aInfo.appInfo.file.extAdded) {
-
-                // see if an app with the given base name exists
-                if (kApp.doShellScript("if [[ -e " + shellQuote(aInfo.appInfo.file.path) + " ]] ; then echo \"Yes\" ; else echo \"No\" ; fi") == "Yes") {
-                    try {
-                        kApp.displayDialog("A file or folder named \"" + aInfo.appInfo.file.name + "\" already exists. Do you want to replace it?", {
-                            withTitle: "File Exists",
-                            withIcon: 'caution',
-                            buttons: ["Cancel", "Replace"],
-                            defaultButton: 1,
-                            cancelButton: 1
-                        });
-                    } catch(myErr) {
-                        if (myErr.errorNumber == -128) {
-                            myTryAgain = true;
-                            continue;
-                        } else {
-                            throw myErr;
-                        }
-                    }
-                    // if we got here, user clicked "Replace"
+        
+        // check for problems/warnings with this location
+        let myPathCheck = JSON.parse(shell(
+            'epiAction=checkpath',
+            'appDir=' + aInfo.appInfo.file.dir,
+            'appPath=' + aInfo.appInfo.file.path
+        ));
+        
+        // warning dialog info
+        let myWarnMessageList = [];
+        let myWarnMessage = '';
+        let myWarnOverride = true;
+        let myWarnReplace = false;
+        let myWarnOptions = {
+            buttons: ['OK'],
+            defaultButton: 1
+        };
+        
+        // start building warning message
+        if (!myPathCheck.canWriteDir) {
+            myWarnMessageList.push("You don't have permission to write to that folder. Please choose another location for your app.");
+            myWarnOverride = false;
+            
+            // bad location, so reset lastDir
+            gEpiLastDir.create = myLastDir;
+            
+        } else if (myPathCheck.appExists) {
+            myWarnMessageList.push('A file or folder named "' + aInfo.appInfo.file.name + '" already exists in that location.');
+            if (!myPathCheck.canWriteApp) {
+                myWarnMessageList[0] += 'Please choose another location or name for your app.';
+                myWarnOverride = false;
+            } else {
+                myWarnReplace = true;
+                if (!(myPathCheck.rightDevice && myPathCheck.inApplicationsFolder)) {
+                    myWarnMessageList[0] += ' If you continue, it will be overwritten.';
                 }
             }
         }
+        
+        // if we don't have an unrecoverable problem, add any other problems
+        if (myWarnOverride) {
+            
+            // location is on the wrong device
+            if (!myPathCheck.rightDevice) {
+                myWarnMessageList.push('That location is on a different drive than Epichrome. If you create the app there, it will NOT work until you move it onto the same drive as Epichrome.');
+            }
+            
+            // location isn't in the Applications folder
+            if (!myPathCheck.inApplicationsFolder) {
+                myWarnMessageList.push('That location is not a subfolder of /Applications, so the app will not be able to use extensions like 1Password that require a validated browser.');
+            }
+            
+            // add on the final prompt & format the final message
+            if (myWarnMessageList.length > 0) {
+                if ((myWarnMessageList.length == 1) && myWarnReplace) {
+                    myWarnMessage = myWarnMessageList[0] + ' Do you want to replace it?';
+                } else {
+                    if (myWarnMessageList.length > 1) {
+                        myWarnMessageList.unshift('Your selected location has ' + myWarnMessageList.length.toString() + ' warnings:');
+                        myWarnMessage = myWarnMessageList.join('\n\n   ' + kDotSelected + ' ');
+                    } else {
+                        myWarnMessage = myWarnMessageList[0];
+                    }
+                    myWarnMessage += '\n\nDo you want to continue anyway?';
+                }
+                
+                // set up dialog options
+                myWarnOptions.withTitle = 'Warning';
+                myWarnOptions.withIcon = 'caution';
+                myWarnOptions.buttons.unshift('Cancel');
+            }
+        } else {
+            // set up dialog options for uncancelable dialog
+            myWarnOptions.withTitle = 'Error';
+            myWarnOptions.withIcon = 'stop';
+        }
+        
+        // if there are any warnings, display dialog
+        if (myWarnMessageList.length > 0) {
+            if (dialog(myWarnMessage, myWarnOptions).buttonIndex == 0) {
+                myTryAgain = true;
+                
+                // if we're cancelling anything other than a replace, reset lastdir
+                if ((myWarnMessageList.length > 1) || !myWarnReplace) {
+                    // bad location, so reset lastDir
+                    gEpiLastDir.create = myLastDir;
+                }
+                
+                // try again
+                continue;
+            }
+        }
     }
-
+    
     // if we got here, we have a good path and display name
     updateAppInfo(aInfo, ['path', 'displayName']);
 
@@ -3344,10 +3502,12 @@ function indent(aStr, aIndent) {
 
 // ERRLOG -- log an error message
 function errlog(aMsg, aType='ERROR') {
-    shell(
-        'epiAction=log',
-        'epiLogType=' + aType,
-        'epiLogMsg=' + aMsg);
+    if (gCoreInfo.logFile) {
+        shell(
+            'epiAction=log',
+            'epiLogType=' + aType,
+            'epiLogMsg=' + aMsg);
+    }
 }
 
 

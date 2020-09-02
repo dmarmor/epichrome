@@ -860,7 +860,7 @@ function updatedatadir {
 	errmsg=
 	
 	# if we don't have a data path, abort (safety check before rm -rf)
-	if ! checkpath "$myDataPath" "$appDataPathBase" ; then
+	if [[ "$myDataPath" != "$appDataPathBase"* ]] ; then
 		ok= ; errmsg='Data path is not properly set!'
 		return 1
 	fi
@@ -1756,30 +1756,6 @@ function canonicalize { # ( path )
 }
 
 
-# ISSAMEDEVICE -- check that two paths are on the same device
-function issamedevice { # ( path1 path2 )
-	
-	# arguments
-	local path1="$1" ; shift
-	local path2="$1" ; shift
-	
-	# get path devices
-	local device1=
-	local device2=
-	try 'device1=' /usr/bin/stat -f '%d' "$path1" ''
-	try 'device2=' /usr/bin/stat -f '%d' "$path2" ''
-	
-	# unable to get one or both devices
-	if [[ ! "$ok" ]] ; then
-		ok=1 ; errmsg=
-		return 1
-	fi
-	
-	# compare devices
-	[[ "$device1" = "$device2" ]] && return 0 || return 1
-}
-
-
 # LINKTREE: hard link to a directory or file
 function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 	
@@ -2477,9 +2453,24 @@ function createenginepayload {
 	
 	# CREATE NEW ENGINE PAYLOAD
 	
-	try /bin/mkdir -p "$SSBPayloadPath" 'Unable to create payload path.'
-	[[ "$ok" ]] || return 1
-	
+	if [[ ! -d "$SSBPayloadPath" ]] ; then
+		
+		# if payload is in a per-user directory that doesn't exist, mark it for chmod
+		if [[ ! "$myStatusPayloadUserDir" || -d "$myStatusPayloadUserDir" ]] ; then
+			myStatusPayloadUserDir=
+		fi
+
+		# create the payload path
+		try /bin/mkdir -p "$SSBPayloadPath" 'Unable to create payload path.'
+		[[ "$ok" ]] || return 1
+		
+		# make user dir accessible only by the user (fail silently)
+		if [[ "$myStatusPayloadUserDir" ]] ; then
+			try /bin/chmod 700 "$myStatusPayloadUserDir" \
+					'Unable to change permissions for payload user directory.'
+			ok=1 ; errmsg=
+		fi
+	fi
 	debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine payload in '$SSBPayloadPath'."
 	
 	if [[ "${SSBEngineType%%|*}" != internal ]] ; then

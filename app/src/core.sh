@@ -1149,26 +1149,27 @@ function shoptrestore { # ( saveVar )
 }
 
 
-# CHECKPATH: check if a path exists, or if it starts with another path
-function checkpath { # ( path [pathRoot] )
-
-    # arguments
-    local path="$1" ; shift
-    local pathRoot="$1" ; shift
-
-    # make sure path is not empty
-    [[ "$path" ]] || return 1
-
-    if [[ "$pathRoot" ]] ; then
-	# if path doesn't start with pathRoot, that's an error
-	[[ "${path#$pathRoot}" = "$path" ]] && return 1
-    else
-	# no pathRoot, so if path doesn't exist, that's an error
-	[[ -e "$path" ]] || return 1
-    fi
-
-    # if we got here, the path checks out
-    return 0
+# ISSAMEDEVICE -- check that two paths are on the same device
+function issamedevice { # ( path1 path2 )
+	
+	# arguments
+	local path1="$1" ; shift
+	local path2="$1" ; shift
+	
+	# get path devices
+	local device1=
+	local device2=
+	try 'device1=' /usr/bin/stat -f '%d' "$path1" ''
+	try 'device2=' /usr/bin/stat -f '%d' "$path2" ''
+	
+	# unable to get one or both devices
+	if [[ ! "$ok" ]] ; then
+		ok=1 ; errmsg=
+		return 1
+	fi
+	
+	# compare devices
+	[[ "$device1" = "$device2" ]] && return 0 || return 1
 }
 
 

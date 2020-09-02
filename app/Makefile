@@ -248,12 +248,13 @@ build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
 	@rm -f '$@'
 	xattr -cr $(APP)
 	rm -rf build/package/Applications
-	mkdir -p build/package/Applications/Epichrome/EpichromeEngines.noindex
-	chmod 1777 build/package/Applications/Epichrome/EpichromeEngines.noindex
+	mkdir -p build/package/Applications/Epichrome/Payload.noindex
+	chmod 1777 build/package/Applications/Epichrome \
+		build/package/Applications/Epichrome/Payload.noindex
 	../modules/fileicon/bin/fileicon set \
 		build/package/Applications/Epichrome \
 		build/icons/folder.icns
-	touch build/package/Applications/Epichrome/EpichromeEngines.noindex/.preserve
+	touch build/package/Applications/Epichrome/Payload.noindex/.preserve
 	mv $(APP) 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app'
 	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
 	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist && \

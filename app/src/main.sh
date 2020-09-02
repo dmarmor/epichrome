@@ -180,15 +180,16 @@ fi
 
 # APP STATUS VARIABLES
 
-myStatusNewApp=        # on new app, this is set
-myStatusNewVersion=    # on update, this contains old version
-myStatusEdited=        # on first run of an edited app, this is set
-myStatusFixRuntime=    # set by updateprofiledir to a copy of Epichrome Helper settings if we need to preserve them
-myStatusEngineMoved=   # set if app engine needs to move
-myStatusEngineChange=  # on engine change, this contains old engine info
-myStatusReset=         # set if app settings appear to have been reset
-myStatusWelcomeURL=    # set by setwelcomepage if welcome page should be shown
-myStatusWelcomeTitle=  # title for URL bookmark
+myStatusNewApp=         # on new app, this is set
+myStatusNewVersion=     # on update, this contains old version
+myStatusEdited=         # on first run of an edited app, this is set
+myStatusFixRuntime=     # set by updateprofiledir to a copy of Epichrome Helper settings if we need to preserve them
+myStatusPayloadUserDir= # if payload directory is inside a per-user directory, this is set to that directory
+myStatusEngineMoved=    # set if app engine needs to move
+myStatusEngineChange=   # on engine change, this contains old engine info
+myStatusReset=          # set if app settings appear to have been reset
+myStatusWelcomeURL=     # set by setwelcomepage if welcome page should be shown
+myStatusWelcomeTitle=   # title for URL bookmark
 
 
 # DETERMINE IF THIS IS A NEW APP OR FIRST RUN ON A NEW VERSION
@@ -281,12 +282,13 @@ if [[ -d "$epiCurrentPath" ]] ; then
     myPayloadPath="${myPayloadPath%/*}/$epiPayloadPathBase"
     
     # determine if path is in our user path
-    if [[ "${myPayloadPath::${#HOME}}" = "$HOME" ]] ; then
+    if [[ "$myPayloadPath" = "$HOME"* ]] ; then
         # path is user-level, so just add our app ID
         myPayloadPath+="/$SSBIdentifier"
     else
         # path is root-level, so add our user ID & app ID
-        myPayloadPath+="/$USER/$SSBIdentifier"
+        myStatusPayloadUserDir="$myPayloadPath/$USER"
+        myPayloadPath="$myStatusPayloadUserDir/$SSBIdentifier"
     fi
     
     # if updating from old version, switch out config variable

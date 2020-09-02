@@ -54,18 +54,123 @@ function loadscript {
 
 if [[ "$epiAction" = 'init' ]] ; then
     
-    # ACTION: INITIALIZE & CHECK GITHUB FOR UPDATES
+    # ACTION: INITIALIZE
     
-    # initialize log file and report info back to Epichrome
+    # initialize log file
     initlogfile
     
-    # return JSON
-    echo "{
-   \"dataPath\": \"$(escapejson "$myDataPath")\",
-   \"logFile\": \"$(escapejson "$myLogFile")\"
-}"
-
-
+    # check for fatal errors
+    if [[ ! "$myLogFile" ]] ; then
+        ok= ; errmsg='Unable to initialize Epichrome log file.'
+        errlog "$errmsg"
+    elif [[ ! -w "$myDataPath" ]] ; then
+        ok= ; errmsg='Epichrome data folder is not writeable.'
+    fi
+    
+    # if we got fatal errors, return them now
+    if [[ ! "$ok" ]] ; then
+        echo $'{\n   "error": "'"$(escapejson "$errmsg")"$'"\n}'
+    fi
+    
+    # start JSON result & add core info
+    result="{
+   \"core\": {
+      \"dataPath\": \"$(escapejson "$myDataPath")\",
+      \"logFile\": \"$(escapejson "$myLogFile")\""
+    
+    if ! issamedevice "$myResourcesPath" '/Applications' ; then
+        result+=$',\n   \"wrongDevice\": true'
+    fi
+    
+    result+=$'\n   }'
+    
+    # CHECK GITHUB FOR UPDATES
+    
+    if [[ ! "$epiGithubFatalError" ]] ; then
+        
+        # load launch.sh
+        loadscript 'launch.sh'
+        
+        # get info on installed versions of Epichrome
+        getepichromeinfo
+        
+        # check GitHub
+        githubJson=
+        checkgithubupdate githubJson
+        
+        # if we got any result, add to result
+        if [[ "$githubJson" ]] ; then
+            result+=$',\n   "github": '"$githubJson"
+        fi
+    else
+        errlog 'GitHub update check disabled due to fatal error on a previous attempt.'
+    fi
+    
+    
+    # CREATE DEFAULT APP DIR IF NOT ALREADY DONE
+    
+    if [[ ! "$epiDefaultAppDirCreated" ]] ; then
+        
+        if [[ "$myResourcesPath" =~ ^(.+)/[^/]+\.[aA][pP][pP]/ ]] ; then
+                        
+            # path to this Epichrome's folder
+            appDir="${BASH_REMATCH[1]}/Apps"
+            
+            if [[ "$appDir" = "$HOME"* ]] ; then
+                
+                # we don't need to set permissions
+                appDirIsPerUser=
+            else
+                
+                # flag to set permissions
+                appDirIsPerUser=1
+                
+                if [[ -d "$appDir" ]] ; then
+                    # determine if this folder belongs to us
+                    try 'appDirOwner=' /usr/bin/stat -f '%u' "$appDir" \
+                            "Unable to get owner ID of '$appDir'"
+                    ok=1 ; errmsg=
+                    
+                    # folder doesn't belong to us (or we failed to get its UID), so add our username to the path
+                    if [[ "$appDirOwner" != "$UID" ]] ; then
+                        appDir+=" ($USER)"
+                    fi
+                fi
+            fi
+            
+            # if the directory doesn't exist, create it
+            if [[ ! -d "$appDir" ]] ; then
+                try /bin/mkdir -p "$appDir" "Error creating directory."
+                if [[ "$ok" && "$appDirIsPerUser" ]] ; then
+                    try /bin/chmod 700 "$appDir" 'Unable to set permissions for Apps folder.'
+                    ok=1 ; errmsg=
+                fi
+            fi
+        else
+            ok= ; errmsg='Unable to parse Epichrome path.'
+            errlog "$errmsg"
+        fi
+        
+        # determine if we need to warn about Epichrome's location
+        if [[ "$myResourcesPath" = '/Applications/Epichrome/'* ]] ; then
+            epiLocationWarning=
+        elif [[ "$myResourcesPath" = '/Applications/'* ]] ; then
+            epiLocationWarning=1
+        else  # Epichrome not under /Applications
+            epiLocationWarning=2
+        fi
+        
+        # add to result JSON
+        [[ "$ok" ]] || appDir="ERROR|$errmsg"
+        result+=$',\n   "defaultAppDir": '"\"$(escapejson "$appDir")\""
+        [[ "$epiLocationWarning" ]] && result+=$',\n   "locationWarning": '"$epiLocationWarning"
+    fi
+    
+    # finish JSON result & return
+    result+=$'\n}'
+    echo "$result"
+    
+    
 elif [[ "$epiAction" = 'log' ]] ; then
     
     # ACTION: LOG
@@ -78,26 +183,6 @@ elif [[ "$epiAction" = 'log' ]] ; then
         else
             errlog "$epiLogMsg"
         fi
-    fi
-    
-    
-elif [[ "$epiAction" = 'githubupdate' ]] ; then
-    
-    # CHECK FOR UPDATE ON GITHUB
-    
-    # load launch.sh
-    loadscript 'launch.sh'
-    
-    # get info on installed versions of Epichrome
-    getepichromeinfo
-    
-    # check GitHub
-    githubJson=
-    checkgithubupdate githubJson
-    
-    # if we got any result, return JSON
-    if [[ "$githubJson" ]] ; then
-        echo $githubJson
     fi
     
     
@@ -125,6 +210,40 @@ elif [[ "$epiAction" = 'githubresult' ]] ; then
         echo "$result"
     fi
     
+    
+elif [[ "$epiAction" = 'checkpath' ]] ; then
+    
+    # ACTION: CHECK AN APP DIR & PATH FOR PROBLEMS
+    
+    # appDir, appPath:
+    
+    # check if directory is writeable
+    [[ -w "$appDir" ]] && appDirWrite='true' || appDirWrite='false'
+    
+    # check if app already exists
+    if [[ -e "$appPath" ]] ; then
+        appPathExists='true'
+        [[ -w "$appPath" ]] && appPathWrite='true' || appPathWrite='false'
+    else
+        appPathExists='false'
+        appPathWrite="$appDirWrite"
+    fi
+    
+    # check if app dir is on the same device as Epichrome
+    issamedevice "$appDir" "$myResourcesPath" && sameDevice='true' || sameDevice='false'
+    
+    # check if app dir is under /Applications
+    [[ "$appDir" = '/Applications'* ]] && underApplications='true' || underApplications='false'
+    
+    # return result
+    echo "{
+   \"canWriteDir\": $appDirWrite,
+   \"appExists\": $appPathExists,
+   \"canWriteApp\": $appPathWrite,
+   \"rightDevice\": $sameDevice,
+   \"inApplicationsFolder\": $underApplications
+}"
+
     
 elif [[ "$epiAction" = 'read' ]] ; then
     
