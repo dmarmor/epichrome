@@ -258,7 +258,7 @@ if [[ "$coreContext" = 'app' ]] ; then
 
 else
 
-    # RUNNING IN EPICHROME.APP OR SHELL
+    # RUNNING IN EPICHROME.APP, EPICHROME SCAN/LOGIN.APP OR SHELL
 
     # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
@@ -401,7 +401,7 @@ function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
 	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
 	    trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
 	    break
-	elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) || ( "$curfunc" = try ) ]] ; then
+	elif [[ "$curfunc" =~ ^(errlog|debuglog|try|tryalways|runalways) ]] ; then
 	    : # skip these functions
 	else
 	    trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )

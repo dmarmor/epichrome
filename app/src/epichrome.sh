@@ -25,6 +25,7 @@
 
 myResourcesPath="${BASH_SOURCE[0]%/Scripts/epichrome.sh}"
 myRuntimeScriptsPath="$myResourcesPath/Runtime/Contents/Resources/Scripts"
+myEpiPath="${myResourcesPath%/Contents/Resources}"
 
 
 # LOAD UPDATE SCRIPT (THIS ALSO LOADS CORE AND LAUNCH)
@@ -76,7 +77,8 @@ if [[ "$epiAction" = 'init' ]] ; then
     result="{
    \"core\": {
       \"dataPath\": \"$(escapejson "$myDataPath")\",
-      \"logFile\": \"$(escapejson "$myLogFile")\""
+      \"logFile\": \"$(escapejson "$myLogFile")\",
+      \"epiPath\": \"$(escapejson "$myEpiPath")\""
     
     if ! issamedevice "$myResourcesPath" '/Applications' ; then
         result+=$',\n   \"wrongDevice\": true'
@@ -106,69 +108,55 @@ if [[ "$epiAction" = 'init' ]] ; then
         errlog 'GitHub update check disabled due to fatal error on a previous attempt.'
     fi
     
-    
-    # CREATE DEFAULT APP DIR IF NOT ALREADY DONE
-    
-    if [[ ! "$epiDefaultAppDirCreated" ]] ; then
-        
-        if [[ "$myResourcesPath" =~ ^(.+)/[^/]+\.[aA][pP][pP]/ ]] ; then
-                        
-            # path to this Epichrome's folder
-            appDir="${BASH_REMATCH[1]}/Apps"
-            
-            if [[ "$appDir" = "$HOME"* ]] ; then
-                
-                # we don't need to set permissions
-                appDirIsPerUser=
-            else
-                
-                # flag to set permissions
-                appDirIsPerUser=1
-                
-                if [[ -d "$appDir" ]] ; then
-                    # determine if this folder belongs to us
-                    try 'appDirOwner=' /usr/bin/stat -f '%u' "$appDir" \
-                            "Unable to get owner ID of '$appDir'"
-                    ok=1 ; errmsg=
-                    
-                    # folder doesn't belong to us (or we failed to get its UID), so add our username to the path
-                    if [[ "$appDirOwner" != "$UID" ]] ; then
-                        appDir+=" ($USER)"
-                    fi
-                fi
-            fi
-            
-            # if the directory doesn't exist, create it
-            if [[ ! -d "$appDir" ]] ; then
-                try /bin/mkdir -p "$appDir" "Error creating directory."
-                if [[ "$ok" && "$appDirIsPerUser" ]] ; then
-                    try /bin/chmod 700 "$appDir" 'Unable to set permissions for Apps folder.'
-                    ok=1 ; errmsg=
-                fi
-            fi
-        else
-            ok= ; errmsg='Unable to parse Epichrome path.'
-            errlog "$errmsg"
-        fi
-        
-        # determine if we need to warn about Epichrome's location
-        if [[ "$myResourcesPath" = '/Applications/Epichrome/'* ]] ; then
-            epiLocationWarning=
-        elif [[ "$myResourcesPath" = '/Applications/'* ]] ; then
-            epiLocationWarning=1
-        else  # Epichrome not under /Applications
-            epiLocationWarning=2
-        fi
-        
-        # add to result JSON
-        [[ "$ok" ]] || appDir="ERROR|$errmsg"
-        result+=$',\n   "defaultAppDir": '"\"$(escapejson "$appDir")\""
-        [[ "$epiLocationWarning" ]] && result+=$',\n   "locationWarning": '"$epiLocationWarning"
-    fi
-    
     # finish JSON result & return
     result+=$'\n}'
     echo "$result"
+    
+    
+elif [[ "$epiAction" = 'defaultappdir' ]] ; then
+    
+    # ACTION: CREATE DEFAULT APP DIR
+    
+    # path to the base Apps folder
+    appDir="${myEpiPath%/*}/Apps"
+    
+    if [[ "$appDir" = "$HOME"* ]] ; then
+        
+        # we don't need to set permissions
+        appDirIsPerUser=
+    else
+        
+        # flag to set permissions
+        appDirIsPerUser=1
+        
+        if [[ -d "$appDir" ]] ; then
+            # determine if this folder belongs to us
+            try 'appDirOwner=' /usr/bin/stat -f '%u' "$appDir" \
+                    "Unable to get owner ID of '$appDir'"
+            ok=1 ; errmsg=
+            
+            # folder doesn't belong to us (or we failed to get its UID), so add our username to the path
+            if [[ "$appDirOwner" != "$UID" ]] ; then
+                appDir+=" ($USER)"
+            fi
+        fi
+    fi
+    
+    # if the directory doesn't exist, create it
+    if [[ ! -d "$appDir" ]] ; then
+        try /bin/mkdir -p "$appDir" "Error creating directory."
+        if [[ "$ok" && "$appDirIsPerUser" ]] ; then
+            try /bin/chmod 700 "$appDir" 'Unable to set permissions for Apps folder.'
+            ok=1 ; errmsg=
+        fi
+    fi
+    
+    # echo path or error message
+    if [[ "$ok" ]] ; then
+        echo "$appDir"
+    else
+        echo "ERROR|$errmsg"
+    fi
     
     
 elif [[ "$epiAction" = 'log' ]] ; then

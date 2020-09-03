@@ -170,19 +170,30 @@ function getepichromeinfo {
 	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
 	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc=
 	
-	# housekeeping: update list of versions to ignore for updating
-	local newIgnoreList=()
-	local curIgnoreVersion=
-	for curIgnoreVersion in "${SSBUpdateIgnoreVersions[@]}" ; do
-		if vcmp "$curIgnoreVersion" '>' "$SSBVersion" ; then
-			newIgnoreList+=( "$curIgnoreVersion" )
-		fi
-	done
-	SSBUpdateIgnoreVersions=( "${newIgnoreList[@]}" )
+	# current version to test against
+	local myVersion=
+	if [[ "$coreContext" = 'app' ]] ; then
+		
+		myVersion="$SSBVersion"
+		
+		# housekeeping: update list of versions to ignore for updating
+		local newIgnoreList=()
+		local curIgnoreVersion=
+		for curIgnoreVersion in "${SSBUpdateIgnoreVersions[@]}" ; do
+			if vcmp "$curIgnoreVersion" '>' "$SSBVersion" ; then
+				newIgnoreList+=( "$curIgnoreVersion" )
+			fi
+		done
+		SSBUpdateIgnoreVersions=( "${newIgnoreList[@]}" )
+	else
+		myVersion="$coreVersion"
+	fi
 	
 	# start with preferred install locations: the engine path & default user & global paths
 	local preferred=()
-	[[ -d "$SSBPayloadPath" ]] && preferred+=( "${SSBPayloadPath%/$epiPayloadPathBase/*}/Epichrome.app" )
+	if [[ "$coreContext" = 'app' ]] ; then
+		[[ -d "$SSBPayloadPath" ]] && preferred+=( "${SSBPayloadPath%/$epiPayloadPathBase/*}/Epichrome.app" )
+	fi
 	local globalDefaultEpichrome='/Applications/Epichrome/Epichrome.app'
 	local userDefaultEpichrome="${HOME}$globalDefaultEpichrome"
 	[[ "${preferred[0]}" != "$userDefaultEpichrome" ]] && preferred+=( "$userDefaultEpichrome" )
@@ -238,7 +249,12 @@ function getepichromeinfo {
 	
 	# determine if we are running a beta version
 	local myVersionIsRelease=1
-	visbeta "$SSBVersion" && myVersionIsRelease=
+	visbeta "$myVersion" && myVersionIsRelease=
+	
+	if [[ "$coreContext" = 'epichrome' ]] ; then
+		# current path should always be ours
+		epiCurrentPath="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Contents/Resources/Scripts/launch.sh}"
+	fi
 	
 	# check instances of Epichrome to find the current and latest
 	local curInstance= ; local curVersion= ; local curDesc=
@@ -261,12 +277,16 @@ function getepichromeinfo {
 			if [[ "$myVersionIsRelease" ]] && visbeta "$curVersion" ; then
 				debuglog "Ignoring '$curInstance' (beta version $curVersion)."
 				
-			elif vcmp "$curVersion" '>=' "$SSBVersion" ; then
+			elif vcmp "$curVersion" '>=' "$myVersion" ; then
 				
 				debuglog "Found Epichrome $curVersion at '$curInstance'."
 				
 				# see if this is the first instance we've found of the current version
-				if vcmp "$curVersion" '==' "$SSBVersion" ; then
+				if [[ "$coreContext" = 'epichrome' ]] ; then
+					if [[ "$debug" && ( "$curInstance" = "$epiCurrentPath" ) ]] ; then
+						errlog DEBUG '  (This is the currently running instance of Epichrome.)'
+					fi
+				elif vcmp "$curVersion" '==' "$myVersion" ; then
 					[[ "$epiCurrentPath" ]] || epiCurrentPath="$(canonicalize "$curInstance")"
 				else
 					
@@ -317,7 +337,7 @@ function getepichromeinfo {
 		epiCurrentMissing=1
 		
 		# make sure we have a version to update to if possible
-		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$SSBVersion" ; then
+		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$myVersion" ; then
 			epiUpdatePath="$epiLatestPath"
 			epiUpdateVersion="$epiLatestVersion"
 			epiUpdateDesc="$epiLatestDesc"
@@ -327,7 +347,7 @@ function getepichromeinfo {
 	# log versions found
 	if [[ "$debug" ]] ; then
 		[[ "$epiCurrentPath" ]] && \
-			debuglog "Current version of Epichrome ($SSBVersion) found at '$epiCurrentPath'"
+			debuglog "Current version of Epichrome ($myVersion) found at '$epiCurrentPath'"
 		[[ "$epiLatestPath" && ( "$epiLatestPath" != "$epiCurrentPath" ) ]] && \
 			debuglog "Latest version of Epichrome ($epiLatestVersion) found at '$epiLatestPath'"
 		[[ "$epiUpdatePath" && ( "$epiUpdatePath" != "$epiLatestPath" ) ]] && \

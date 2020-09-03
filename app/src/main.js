@@ -59,10 +59,10 @@ const kAppInfoKeys = {
     shortName: 'Short Name',
     windowStyle: 'Style',
     urls: ['URL', 'Tabs'],
+    registerBrowser: 'Register as Browser',
     icon: 'Icon',
     engine: 'App Engine',
     id: kDotAdvanced + ' App ID / Data Directory',
-    registerBrowser: kDotAdvanced + ' Register as Browser',
     updateAction: kDotAdvanced + ' Update Action'
 };
 
@@ -210,48 +210,6 @@ function main(aApps=[]) {
     // wrap everything in a try to catch all errors
     try {
 
-        // DETERMINE IF WE'RE CREATING OR EDITING
-        
-        // default to Quit
-        let myAction;
-        
-        if (aApps.length == 0) {
-            
-            while (true) {
-                // no dropped files, so ask user for run mode
-                let myDlgResult = dialog('Would you like to create a new app, or edit existing apps?', {
-                    withTitle: 'Select Action | Epichrome EPIVERSION',
-                    withIcon: kEpiIcon,
-                    buttons: ['Create', 'Edit', 'Quit'],
-                    defaultButton: 1,
-                    cancelButton: 3
-                }).buttonIndex;
-                
-                if (myDlgResult == 0) {
-                    
-                    // CREATE button
-                    myAction = kActionCREATE;
-                    break;
-
-                } else if (myDlgResult == 1) {
-                    
-                    // EDIT/UPDATE button
-                    myAction = kActionEDIT;
-                    break;
-
-                } else {
-                    
-                    // QUIT button
-                    if (confirmQuit()) { return; }
-                }
-            }
-        } else {
-            
-            // we have dropped apps, so go straight to edit
-            myAction = kActionEDIT;
-        }
-        
-        
         // APP INIT
         
         // set up data path & settings file
@@ -268,11 +226,10 @@ function main(aApps=[]) {
         // read in persistent properties
         readProperties();
         
-        // initialize core, optionally create default app dir & check github for updates
+        // initialize core, optionally check github for updates
         let myInitInfo = JSON.parse(shell(
             'coreDoInit=1',
             'epiAction=init',
-            'epiDefaultAppDirCreated=' + ((gEpiDefaultAppDirCreated || (myAction != kActionCREATE)) ? '1' : ''),
             'epiGithubFatalError=' + (gEpiGithubFatalError ? '1' : '')
         ));
         
@@ -299,9 +256,82 @@ function main(aApps=[]) {
         if (myInitInfo.github) {
             handleGithubUpdate(myInitInfo.github);
         }
+        
+        
+        // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
 
+        if (aApps.length == 0) {
+
+            while (true) {
+                // no dropped files, so ask user for run mode
+                let myDlgResult = dialog('Would you like to create a new app, or edit existing apps?', {
+                    withTitle: 'Select Action | Epichrome EPIVERSION',
+                    withIcon: kEpiIcon,
+                    buttons: ['Create', 'Edit', 'Quit'],
+                    defaultButton: 1,
+                    cancelButton: 3
+                }).buttonIndex;
+
+                if (myDlgResult == 0) {
+
+                    // Create button
+
+                    return runCreate();
+
+                } else if (myDlgResult == 1) {
+
+                    // Edit/Update button
+
+                    // show file selection dialog
+                    let aApps = fileDialog('open', gEpiLastDir, 'edit', {
+                        withPrompt: 'Select any apps you want to edit or update.',
+                        ofType: ["com.apple.application"],
+                        multipleSelectionsAllowed: true,
+                        invisibles: false
+                    });
+                    if (!aApps) {
+                        // canceled: ask user to select action again
+                        continue;
+                    }
+
+                    // if we got here, the user chose files
+                    return runEdit(aApps);
+
+                } else {
+                    if (confirmQuit()) { return; }
+                }
+            }
+        } else {
+
+            // we have dropped apps, so go straight to edit
+            return runEdit(aApps);
+        }
+    } catch(myErr) {
+        errlog(myErr.message, 'FATAL');
+        kApp.displayDialog("Fatal error: " + myErr.message, {
+            withTitle: 'Error',
+            withIcon: 'stop',
+            buttons: ["Quit"],
+            defaultButton: 1
+        });
+    }
+}
+
+
+// --- CREATE AND EDIT MODES ---
+
+// RUNCREATE: run in create mode
+function runCreate() {
+    
+    // create default app dir if it doesn't already exist
+    
+    if (!gEpiDefaultAppDirCreated) {
+        
+        // run epichrome.sh to create directory
+        let myDefaultAppDir = shell('epiAction=defaultappdir');
+        
         // handle default app dir
-        if (myInitInfo.defaultAppDir) {
+        if (myDefaultAppDir) {
             
             // we won't try it again, even if there was an error
             gEpiDefaultAppDirCreated = true;
@@ -309,12 +339,12 @@ function main(aApps=[]) {
             // set up messages
             let myDeviceNote = ['Because Epichrome is installed on a different drive from the /Applications folder, your apps will not be able to use extensions like 1Password that require a validated browser. If you want to create apps for use with 1Password, you should first move Epichrome to /Applications.'];
             
-            if (myInitInfo.defaultAppDir.startsWith('ERROR|')) {
+            if (myDefaultAppDir.startsWith('ERROR|')) {
                 // warn the user
-                let myDlgMessage = 'Unable to create Apps folder. (' + myInitInfo.defaultAppDir.slice(6) + ')';
+                let myDlgMessage = 'Unable to create Apps folder. (' + myDefaultAppDir.slice(6) + ')';
                 
                 // add messages based on location of Epichrome
-                if (!myInitInfo.hasOwnProperty('locationWarning')) {
+                if (gCoreInfo.epiPath.startsWith('/Applications/Epichrome/')) {
                     // Epichrome.app is in /Applications/Epichrome
                     myDlgMessage += '\n\nIt is strongly recommended you create a subfolder under /Applications/Epichrome for your apps.';
                 } else if (!gCoreInfo.wrongDevice) {
@@ -335,16 +365,16 @@ function main(aApps=[]) {
             } else {
                 
                 // set default directories
-                gEpiLastDir.create = myInitInfo.defaultAppDir;
+                gEpiLastDir.create = myDefaultAppDir;
                 if (!gEpiLastDir.edit) {
-                    gEpiLastDir.edit = myInitInfo.defaultAppDir;
+                    gEpiLastDir.edit = myDefaultAppDir;
                 }
                 
                 // notify user of apps folder
-                let myDlgMessage = 'A folder called "' + myInitInfo.defaultAppDir.match('[^/]*$')[0] + '" has been created in the location where Epichrome is installed.';
+                let myDlgMessage = 'A folder called "' + myDefaultAppDir.match('[^/]*$')[0] + '" has been created in the location where Epichrome is installed.';
                 
                 // add warnings based on location of Epichrome
-                if ((!myInitInfo.hasOwnProperty('locationWarning')) || (myInitInfo.locationWarning == 1)) {
+                if (gCoreInfo.epiPath.startsWith('/Applications/')) {
                     // Epichrome.app is somewhere under /Applications
                     myDlgMessage += ' While you do not have to keep your apps there, it is strongly recommended you do.';
                 } else if (!gCoreInfo.wrongDevice) {
@@ -364,49 +394,7 @@ function main(aApps=[]) {
                 });
             }
         }
-        
-        
-        // HANDLE CREATE OR EDIT/UPDATE RUN
-        
-        if (myAction == kActionCREATE) {
-            return runCreate();
-        } else { // myAction == kActionEDIT
-            if (aApps.length == 0) {
-                while (true) {
-                    // show file selection dialog
-                    aApps = fileDialog('open', gEpiLastDir, 'edit', {
-                        withPrompt: 'Select any apps you want to edit or update.',
-                        ofType: ["com.apple.application"],
-                        multipleSelectionsAllowed: true,
-                        invisibles: false
-                    });
-                    if (!aApps) {
-                        // canceled: ask if user wants to quit
-                        if (confirmQuit()) { return; }
-                    }
-                }
-            }
-            
-            // if we got here, we have files to edit
-            return runEdit(aApps);
-        }
-
-    } catch(myErr) {
-        errlog(myErr.message, 'FATAL');
-        kApp.displayDialog("Fatal error: " + myErr.message, {
-            withTitle: 'Error',
-            withIcon: 'stop',
-            buttons: ["Quit"],
-            defaultButton: 1
-        });
     }
-}
-
-
-// --- CREATE AND EDIT MODES ---
-
-// RUNCREATE: run in create mode
-function runCreate() {
 
     // initialize app info from defaults
     let myInfo = {
@@ -426,6 +414,7 @@ function runCreate() {
         stepShortName,
         stepWinStyle,
         stepURLs,
+        stepBrowser,
         stepIcon,
         stepEngine,
         stepBuild
@@ -676,6 +665,7 @@ function runEdit(aApps) {
                 stepShortName,
                 stepWinStyle,
                 stepURLs,
+                stepBrowser,
                 stepIcon,
                 stepEngine,
                 stepBuild
@@ -2416,7 +2406,6 @@ function stepBuild(aInfo) {
             aInfo.stepInfo.showAdvanced = true;
             doSteps([
                 stepID,
-                stepBrowser,
                 stepUpdate
             ], aInfo, {
                 abortSilent: true,
