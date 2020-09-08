@@ -58,7 +58,7 @@ function cleanup {
     # we were interrupted in the middle of a restore
     if [[ "$restoreLock" && ( ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ) ]] ; then
         errlog "Interrupted while restoring app $curApp. Attempting to complete restore."
-        scan_restore
+        scan_restore CLEANUP
     fi
     
     # $$$$ if nothing happened, quit parent app
@@ -69,6 +69,7 @@ function cleanup {
 
 
 # SCAN_RESTORE: attempt to restore an app
+#  scan_restore([CLEANUP]) -- if CLEANUP is set, we are running in the cleanup function
 restoreLock=
 function scan_restore {
     
@@ -80,6 +81,7 @@ function scan_restore {
         
         if issamedevice "$myPayloadLauncherPath" "$SSBAppPath" ; then
             
+            
             # launcher is in payload, so try the canonical method
             setenginestate OFF "$curApp"
             
@@ -89,6 +91,8 @@ function scan_restore {
                 
                 # setenginestate failed, so try restoring launcher by hand
                 ok=1 ; errmsg=
+
+                debuglog "Attempting to restore app $curApp manually."
                 
                 try /bin/rm -rf "$SSBAppPath/Contents" \
                         "Unable to remove engine contents for app $curApp."
