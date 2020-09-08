@@ -263,6 +263,33 @@ SSBAppPath="$myAppPath"
 getepichromeinfo
 
 
+# CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
+
+if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
+    
+    checkappupdate
+    
+    if [[ "$?" != 0 ]] ; then
+        
+        # abort on fatal error
+        [[ "$ok" ]] || abort
+        
+        # display warning on non-fatal error
+        alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+        ok=1
+        errmsg=
+    fi
+    
+    # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
+    
+    if [[ ! "$SSBLastErrorGithubFatal" ]] ; then
+        checkgithubupdate
+    else
+        errlog 'GitHub update check disabled due to fatal error on a previous attempt.'
+    fi
+fi
+
+
 # UPDATE PAYLOAD PATH
 
 # determine where our payloads should be
@@ -327,42 +354,17 @@ if [[ -d "$epiCurrentPath" ]] ; then
     fi
 else
     # no current Epichrome! -- leave as is but make sure on same device as app
-    if ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
+    if [[ ! -d "$SSBPayloadPath" ]] ; then
+        abort "No engine payload path exists and this app's version of Epichrome can't be found."
+    elif ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
         abort 'App is not on the same physical volume as its engine payload.'
     fi
 fi
 
 # set up payload subsidiary paths
-myPayloadEnginePath="$SSBPayloadPath/Engine"
-myPayloadLauncherPath="$SSBPayloadPath/Launcher"
+myPayloadEnginePath="$SSBPayloadPath/$epiPayloadEngineDir"
+myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
 export myPayloadEnginePath myPayloadLauncherPath
-
-
-# CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
-
-if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
-    
-    checkappupdate
-    
-    if [[ "$?" != 0 ]] ; then
-        
-        # abort on fatal error
-        [[ "$ok" ]] || abort
-        
-        # display warning on non-fatal error
-        alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
-        ok=1
-        errmsg=
-    fi
-    
-    # CHECK FOR NEW EPICHROME ON GITHUB AND OFFER TO DOWNLOAD
-    
-    if [[ ! "$SSBLastErrorGithubFatal" ]] ; then
-        checkgithubupdate
-    else
-        errlog 'GitHub update check disabled due to fatal error on a previous attempt.'
-    fi
-fi
 
 
 # IF USING EXTERNAL ENGINE, GET INFO

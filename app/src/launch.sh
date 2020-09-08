@@ -29,6 +29,8 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 # CONSTANTS
 
 epiPayloadPathBase='Payload.noindex'
+epiPayloadLauncherDir='Launcher'
+epiPayloadEngineDir='Engine'
 
 # IDs of allowed external engine browsers
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
@@ -2304,18 +2306,18 @@ function checkenginepayload {
 	
 	return 0
 }
-#export -f checkenginepayload  $$$$ DELETE?
 
 
-# SETENGINESTATE -- set the engine to the active or inactive state   $$$$ I AM HERE
-# setenginestate( ON|OFF )
+# SETENGINESTATE -- set the engine to the active or inactive state
+# setenginestate( ON|OFF [appID] )
 function setenginestate {
 	
 	# only operate if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# argument
+	# arguments
 	local newState="$1" ; shift
+	local myAppID="$1" ; shift ; [[ "$myAppID" ]] && myAppID="App $myAppID: "
 	
 	# assume we're in the opposite state we're setting to
 	local oldInactivePath= ; local newInactivePath=
@@ -2335,54 +2337,45 @@ function setenginestate {
 	
 	# move the old payload out
 	if [[ -d "$newInactivePath" ]] ; then
-		ok= ; errmsg="Engine already ${newStateName}d."
+		ok= ; errmsg="${myAppID}Engine already ${newStateName}d."
 	fi
 	try /bin/mv "$myContents" "$newInactivePath" \
-			"Unable to $newStateName engine."
+			"${myAppID}Unable to $newStateName engine."
 	[[ "$ok" ]] || return 1
 	
 	# make double sure old payload is gone
 	if [[ -d "$myContents" ]] ; then
-		ok= ; errmsg="Unknown error moving old payload out of app."
+		ok= ; errmsg="${myAppID}Unknown error moving old payload out of app."
 		errlog "$errmsg"
 		return 1
 	fi
 	
 	# move the new payload in
 	try /bin/mv "$oldInactivePath" "$myContents" \
-			"Unable to $newStateName engine."
+			"${myAppID}Unable to $newStateName engine."
 	
 	# on error, try to restore the old payload
 	if [[ ! "$ok" ]] ; then
 		tryalways /bin/mv "$newInactivePath" "$myContents" \
-				"Unable to restore old app state. This app may be damaged and unable to run."
+				"${myAppID}Unable to restore old app state. This app may be damaged and unable to run."
 		return 1
 	fi
 	
-	# sometimes it takes a moment for the move to register  $$$$$ HANDLE THIS IN LAUNCHAPP NOW WITH LSREGISTER?
-	# if ! waitforcondition \
-	# 		"engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' to appear" \
-	# 		5 .5 \
-	# 		test -x "$myContents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" ; then
-	# 	ok=
-	# 	errmsg="Engine $oldInactiveError executable '${SSBEngineSourceInfo[$iExecutable]}' not found."
-	# 	errlog "$errmsg"
-	# 	return 1
-	# fi
-	
-	debuglog "Engine ${newStateName}d."
+	debuglog "${myAppID}Engine ${newStateName}d."
 	
 	return 0
 }
-#export -f setenginestate  $$$$ NO NEED TO EXPORT?
 
 
 # DELETEPAYLOAD -- delete payload directory
-#  deletepayload( [mustSucceed] ) -- mustSucceed: if set, failure is considered a fatal error
+#  deletepayload( [mustSucceed appID] )
+#    mustSucceed: if set, failure is considered a fatal error
+#    appID: if set, we're running in Epichrome Scan
 function deletepayload {
 	
-	# argument
+	# arguments
 	local mustSucceed="$1" ; shift
+	local myAppID="$1" ; shift ; [[ "$myAppID" ]] && myAppID="App $myAppID: "
 	
 	# default function state
 	local warning='Warning -- '
@@ -2404,22 +2397,27 @@ function deletepayload {
 	
 	if [[ -d "$SSBPayloadPath" ]] ; then
 
-		if [[ ( -e "$myPayloadLauncherPath" ) && (! -e "$myPayloadEnginePath" ) ]] ; then
+		if [[ ( ! "$myAppID" ) && \
+				( -e "$myPayloadLauncherPath" ) && \
+				(! -e "$myPayloadEnginePath" ) ]] ; then
 			errmsg="Cannot delete payload while engine is active."
 			errlog "$errmsg"
 			ok=
 		else
-			debuglog "Deleting payload at '$SSBPayloadPath'"
+			debuglog "${myAppID}Deleting payload at '$SSBPayloadPath'"
 			
 			# delete payload
 			$myTry /bin/rm -rf "$SSBPayloadPath" \
-			"Unable to delete payload."
+			"${myAppID}Unable to delete payload."
 			
 			# make sure payload deleted
 			if [[ "$?" = 0 ]] ; then
-				if ! waitforcondition 'payload to delete' 5 .5 \
+				# adapt app ID message for waitforcondition
+				local myAppIDWait="${myAppID/A/a}"
+				myAppIDWait="${myAppIDWait/:/}"
+				if ! waitforcondition "${myAppIDWait}payload to delete" 5 .5 \
 				test '!' -d "$SSBPayloadPath" ; then
-					errmsg="Removal of payload failed."
+					errmsg="${myAppID}Removal of payload failed."
 					errlog "$errmsg"
 					ok=
 				fi
@@ -2434,8 +2432,11 @@ function deletepayload {
 		local cleanOK="$ok"
 		local cleanErrmgs="$errmsg"
 		
-		# # if parent directory is empty, try to delete it too  $$$ I THINK LEAVE THIS FOR EPICHROME SCAN
-		# tryalways /bin/rmdir "${SSBPayloadPath%/*}" ''
+		# try to remove parent user directory in case it's empty
+		local myPayloadParent="${SSBPayloadPath%/*}"
+		if [[ "$myPayloadParent" = *"/$USER" ]] ; then
+			/bin/rmdir "$myPayloadParent" > /dev/null 2>&1
+		fi
 		
 		# delete link to the engine directory
 		tryalways /bin/rm -f "$myDataPath/Engine" \
@@ -2693,7 +2694,7 @@ function clearmasterprefs {
 	# only run if we have actually set the master prefs
 	if [[ "$myMasterPrefsState" ]] ; then
 		
-		if ! waitforcondition 'app prefs to appear' 7 .5 \
+		if ! waitforcondition 'app prefs to appear' 10 .5 \
 				test -e "$myPreferencesFile" ; then
 			ok=
 			errmsg="Timed out waiting for app prefs to appear."
@@ -2948,7 +2949,7 @@ function launchurls {
 	debuglog "Opening Urls" # $$$$ I AM HERE
 	
 	# make sure the app is open
-    if waitforcondition 'app to open' 5 .5 test -L "$myProfilePath/RunningChromeVersion" ; then
+    if waitforcondition 'app to open' 10 .5 test -L "$myProfilePath/RunningChromeVersion" ; then
 		
 		# launch the URLs
 		try '-1' "$SSBAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \

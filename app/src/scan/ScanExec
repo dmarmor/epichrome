@@ -21,10 +21,27 @@
 #
 
 
+# SCAN OR LOGIN APP SETUP
+
+scanMode='EPISCANMODE'
+
+if [[ "$scanMode" = 'login' ]] ; then
+    myLogID='EpichromeLogin'
+    myLogFilePrefix='epichrome_login_log'
+fi
+
+
+# CORE APP VARIABLES
+
+myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
+myScriptPath="$myAppPath/Contents/Resources/Scripts"
+
+logNoStderr=1
+
+
 # LOAD CORE SCRIPT
 
-myLogID=   # reset log ID
-source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' 'coreContext=scan' || exit 1
+source "$myScriptPath/core.sh" 'coreDoInit=1' 'coreContext=scan' || exit 1
 [[ "$ok" ]] || abort
 
 
@@ -51,10 +68,170 @@ initlogfile
 
 # LOAD LAUNCH FUNCTIONS
 
-safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
+safesource "$myScriptPath/launch.sh"
 [[ "$ok" ]] || abort
 
 
 # SCAN FOR ZOMBIE ENGINES
 
-# $$$$ I AM HERE
+# navigate to Epichrome app data directory
+try cd "$appDataPathBase" 'Unable to navigate to app data directory.'
+
+# get list of everything in the directory
+appDataDirItemList=( * )
+appIDList=()
+
+for curApp in "${appDataDirItemList[@]}" ; do
+    
+    # reset ok status
+    ok=1 ; errmsg=
+    
+    # clear config variables
+    SSBPayloadPath=
+    SSBAppPath=
+    
+    # check if it's really an app directory
+    [[ -d "$curApp" ]] || continue
+    
+    # add to (currently useless) list of IDs
+    appIDList+=( "$curApp" )
+    
+    # check app's config file
+    curConfig="$curApp/config.sh"
+    if [[ ! -f "$curConfig" ]] ; then
+        debuglog "Skipping app $curApp: no config file."
+        continue
+    fi
+    
+    # load config
+    safesource "$curApp/config.sh" "config for app $curApp"
+    [[ "$ok" ]] || continue
+    
+    # check payload directory
+    if [[ ! "$SSBPayloadPath" ]] ; then
+        debuglog "Skipping app $curApp: no payload path in config."
+        continue
+    fi
+    
+    # we have a current app to check
+    debuglog "Checking app ID $curApp..."
+    
+    # find app
+    if [[ ! "$SSBAppPath" || (! -d "$SSBAppPath" ) ]] ; then
+        debuglog "  Current path for app $curApp not found in config. Finding by ID."
+        
+        try 'SSBAppPath=(n)' /usr/bin/osascript "$myScriptPath/launch.scpt" \
+"{
+   \"action\": \"find\",
+   \"id\": \"$appIDBase.$curApp\"
+}" \
+                "Error finding app $curApp by ID."
+        [[ "$ok" ]] || continue
+            
+        # make sure we found exactly one path
+        if [[ "${#SSBAppPath[@]}" -lt 1 ]] ; then
+            
+            # no path found
+            debuglog "  App $curApp not found."
+            
+            # remove orphan payload if it exists
+            deletepayload '' "$curApp"
+            continue
+            
+        elif [[ "${#SSBAppPath[@]}" -gt 1 ]] ; then
+            
+            # multiple apps found for this ID
+            errlog "Cannot process app $curApp. ${#SSBAppPath[@]} different copies found:"
+            for p in "${SSBAppPath[@]}" ; do errlog "  $p" ; done
+            continue
+        fi
+        
+        # set app path
+        SSBAppPath="${SSBAppPath[0]}"
+    fi
+        
+    # make sure this app is not running
+    if ! /usr/bin/pgrep -fiq -- "--epichrome-id=$curApp" ; then
+        
+        if [[ ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ]] ; then
+            
+            # LAUNCHER IS NOT IN PLACE, SO TRY TO REPAIR
+            
+            # variables for setenginestate
+            myPayloadEnginePath="$SSBPayloadPath/$epiPayloadEngineDir"
+            myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
+            
+            # assume failure
+            myAppIsFixed=
+            
+            if [[ -d "$myPayloadLauncherPath" ]] ; then
+                
+                if issamedevice "$myPayloadLauncherPath" "$SSBAppPath" ; then
+                    
+                    # launcher is in payload, so try the canonical method
+                    setenginestate OFF "$curApp"
+                    
+                    if [[ "$ok" ]] ; then
+                        myAppIsFixed=1
+                    else
+                        
+                        # setenginestate failed, so try restoring launcher by hand
+                        ok=1 ; errmsg=
+                        
+                        try /bin/rm -rf "$SSBAppPath/Contents" \
+                                "Unable to remove engine contents for app $curApp."
+                        if [[ "$ok" ]] ; then
+                            try /bin/mv "$myPayloadLauncherPath" "$SSBAppPath/Contents" \
+                                    "Unable to restore launcher for app $curApp."
+                        fi
+                        
+                        if [[ "$ok" ]] ; then
+                            myAppIsFixed=1
+                            deletepayload '' "$curApp"
+                        else
+                            # try another method
+                            ok=1 ; errmsg=
+                        fi
+                    fi
+                else
+                    
+                    # payload is on wrong device
+                    errmsg "Payload for app $curApp is on a different device from app."
+                fi
+            fi
+            
+            if [[ ! "$myAppIsFixed" ]] ; then
+                
+                # fallback: try to restore from failsafe backup
+                debuglog "Attempting to restore app $curApp from failsafe backup."
+                
+                myFailsafeFile="$curApp/$appDataBackupDir/$appDataFailsafeFile"
+                
+                if [[ -f "$myFailsafeFile" ]] ; then
+                    try /bin/rm -rf "$SSBAppPath/Contents" \
+                            "Unable to remove engine contents from app $curApp."
+                    try /usr/bin/tar xzf "$myFailsafeFile" --cd "$SSBAppPath" \
+                            "Unable to restore app $curApp from failsafe backup."
+                    if [[ "$ok" ]] ; then
+                        myAppIsFixed=1
+                    else
+                        ok=1 ; errmsg=
+                        # $$$$ MARK FOR NOTIFICATION?
+                    fi
+                    deletepayload '' "$curApp"
+                else
+                    errlog "Cannot restore app $curApp: no launcher payload and no failsafe backup found."
+                    # $$$ MARK FOR NOTIFICATION?
+                fi
+            fi
+        else
+            debuglog "  App $curApp appears to be intact."
+            continue
+        fi
+    else
+        debuglog "  App $curApp is currently running."
+        continue
+    fi
+done
+
+cleanexit

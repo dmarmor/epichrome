@@ -51,43 +51,43 @@ coreDoInit=
 
 while [[ "$#" -gt 0 ]] ; do
     if [[ "$1" =~ ^([a-zA-Z][a-zA-Z0-9_]*)=(.*)$ ]] ; then
-
-	# move past this argument
-	shift
-
-	foundArray=
-	if [[ "${BASH_REMATCH[2]}" = '(' ]] ; then
-
-	    # this looks like the start of an array variable
-
-	    # save rest of args in temp variable
-	    tempArgs=( "$@" )
-
-	    # look for the end of the array variables
-	    for ((i=0 ; i < "${#tempArgs[@]}" ; i++)) ; do
-		if [[ "${tempArgs[$i]}" = ')' ]] ; then
-		    foundArray=1
-		    break
-		fi
-	    done
-	fi
-
-	# save array or scalar value
-	if [[ "$foundArray" ]] ; then
-
-	    # save as an array
-	    eval "${BASH_REMATCH[1]}=( \"\${tempArgs[@]::\$i}\" )"
-
-	    # remove array elements from args
-	    for ((j=0 ; j <= $i ; j++)) ; do shift ; done
-	else
-
-	    # save as a scalar variable
-	    eval "${BASH_REMATCH[1]}=\"\${BASH_REMATCH[2]}\""
-	fi
+        
+        # move past this argument
+        shift
+        
+        foundArray=
+        if [[ "${BASH_REMATCH[2]}" = '(' ]] ; then
+            
+            # this looks like the start of an array variable
+            
+            # save rest of args in temp variable
+            tempArgs=( "$@" )
+            
+            # look for the end of the array variables
+            for ((i=0 ; i < "${#tempArgs[@]}" ; i++)) ; do
+                if [[ "${tempArgs[$i]}" = ')' ]] ; then
+                    foundArray=1
+                    break
+                fi
+            done
+        fi
+        
+        # save array or scalar value
+        if [[ "$foundArray" ]] ; then
+            
+            # save as an array
+            eval "${BASH_REMATCH[1]}=( \"\${tempArgs[@]::\$i}\" )"
+            
+            # remove array elements from args
+            for ((j=0 ; j <= $i ; j++)) ; do shift ; done
+        else
+            
+            # save as a scalar variable
+            eval "${BASH_REMATCH[1]}=\"\${BASH_REMATCH[2]}\""
+        fi
     else
-	# assume any further args are not variables
-	break
+        # assume any further args are not variables
+        break
     fi
 done
 
@@ -140,6 +140,7 @@ appDataProfileDir='UserData'
 epiDataLogDir='Logs'
 appDataLogFilePrefix='epichrome_app_log'
 epiDataLogFilePrefix='epichrome_log'
+epiScanDataLogFilePrefix='epichrome_scan_log'
 appDataStderrFile='stderr.txt'
 appDataStdoutFile='stdout.txt'
 appDataPauseFifo='pause'
@@ -152,7 +153,7 @@ export userSupportPath epiDataPath \
         appDataPathBase \
         appDataConfigFile \
         epiDataExtIconDir appDataProfileDir \
-        epiDataLogDir appDataLogFilePrefix epiDataLogFilePrefix \
+        epiDataLogDir appDataLogFilePrefix epiDataLogFilePrefix epiScanDataLogFilePrefix \
         appDataStderrFile appDataStdoutFile appDataPauseFifo appDataLockFile appDataBackupDir \
         appDataWelcomeDir
 
@@ -174,38 +175,38 @@ export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPa
 
 # info on allowed Epichrome engine browsers
 appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
-					   '' 'Edge' 'Microsoft Edge' \
-					   '' '' '' '' \
-					   'Microsoft Edge' \
-                       '' )
+        '' 'Edge' 'Microsoft Edge' \
+        '' '' '' '' \
+        'Microsoft Edge' \
+        '' )
 appBrowserInfo_com_vivaldi_Vivaldi=( 'com.vivaldi.Vivaldi' \
-					   '' 'Vivaldi' 'Vivaldi' \
-					   '' '' '' '' \
-					   'Vivaldi' \
-                       '' )
+        '' 'Vivaldi' 'Vivaldi' \
+        '' '' '' '' \
+        'Vivaldi' \
+        '' )
 appBrowserInfo_com_operasoftware_Opera=( 'com.operasoftware.Opera' \
-					   '' 'Opera' 'Opera' \
-					   '' '' '' '' \
-					   'com.operasoftware.Opera' \
-                       '' )
+        '' 'Opera' 'Opera' \
+        '' '' '' '' \
+        'com.operasoftware.Opera' \
+        '' )
 appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
-					   'Brave Browser' 'Brave' 'Brave Browser' \
-					   '' '' '' '' \
-					   'BraveSoftware/Brave-Browser' \
-					   'Chromium Master Preferences' \
-                       noNMHLink )
+        'Brave Browser' 'Brave' 'Brave Browser' \
+        '' '' '' '' \
+        'BraveSoftware/Brave-Browser' \
+        'Chromium Master Preferences' \
+        noNMHLink )
 appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
-					   '' 'Chromium' 'Chromium' \
-					   '' '' '' '' \
-					   'Chromium' \
-                       '' )
+        '' 'Chromium' 'Chromium' \
+        '' '' '' '' \
+        'Chromium' \
+        '' )
 appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
-					   '' 'Chrome' 'Google Chrome' \
-					   '' '' '' '' \
-					   'Google/Chrome' \
-					   'Google Chrome Master Preferences' \
-                       '' \
-					   '--enable-features=PasswordImport' )
+        '' 'Chrome' 'Google Chrome' \
+        '' '' '' '' \
+        'Google/Chrome' \
+        'Google Chrome Master Preferences' \
+        '' \
+        '--enable-features=PasswordImport' )
 export appBrowserInfo_com_microsoft_edgemac \
         appBrowserInfo_com_vivaldi_Vivaldi \
         appBrowserInfo_com_operasoftware_Opera \
@@ -221,48 +222,51 @@ epiEngineSource=( "${appBrowserInfo_com_brave_Browser[@]}" )
 
 # variables used in config.sh
 appConfigVars=( SSBAppPath \
-		    SSBLastRunVersion \
-		    SSBLastRunEngineType \
-		    SSBLastRunEdited \
-		    SSBUpdateIgnoreVersions \
-		    SSBPayloadPath \
-            SSBLastErrorGithubFatal \
-		    SSBLastErrorNMHInstall)
+        SSBLastRunVersion \
+        SSBLastRunEngineType \
+        SSBLastRunEdited \
+        SSBUpdateIgnoreVersions \
+        SSBPayloadPath \
+        SSBLastErrorGithubFatal \
+        SSBLastErrorNMHInstall )
 export appConfigVars "${appConfigVars[@]}"
 
 
 # SET UP CORE INFO
 
 if [[ "$coreContext" = 'app' ]] ; then
-
+    
     # RUNNING IN AN APP
-
+    
     # set up this app's data path
     [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
-
+    
     # app backup directory
     [[ "$myBackupDir" ]] || myBackupDir="$myDataPath/$appDataBackupDir"
-
+    
     # pausing without spawning sleep processes
     [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/$appDataPauseFifo"
-
+    
     # path to important data directories and paths
     myConfigFile="$myDataPath/$appDataConfigFile"
     myProfilePath="$myDataPath/$appDataProfileDir"
-
+    
     # app log ID
     [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
-
+    
+    # log file prefix
+    [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$appDataLogFilePrefix"
+    
     # export all to helper
     export myDataPath myPauseFifo myConfigFile myProfilePath myLogID
 
 else
-
+    
     # RUNNING IN EPICHROME.APP, EPICHROME SCAN/LOGIN.APP OR SHELL
-
+    
     # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
-
+    
     # app backup directory
     if [[ ( ! "$myBackupDir" ) && "$SSBIdentifier" ]] ; then
         if [[ "$epiOldIdentifier" && -d "$appDataPathBase/$epiOldIdentifier" ]] ; then
@@ -273,27 +277,40 @@ else
     else
         myBackupDir="$myDataPath/$appDataBackupDir"
     fi
-
+    
     if [[ "$coreContext" = 'epichrome' ]] ; then
-
-	# set logging ID
-	if [[ ! "$myLogID" ]] ; then
-	    myLogID='Epichrome'
-	    [[ "$epiAction" ]] && myLogID+="|$epiAction" || myLogID+='|epichrome.sh'
-	fi
-
-	# file logging only (unless explicitly turned off)
-	[[ "$logNoFile" ]] && logNoStderr= || logNoStderr=1
-
+        
+        # set logging ID
+        if [[ ! "$myLogID" ]] ; then
+            myLogID='Epichrome'
+            if [[ "$epiAction" && ( "$epiAction" != 'log' ) ]] ; then
+                myLogID+="|$epiAction"
+            fi
+        fi
+        
+        # log file prefix
+        [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiDataLogFilePrefix"
+        
+        # file logging only (unless explicitly turned off)
+        [[ "$logNoFile" ]] && logNoStderr= || logNoStderr=1
+        
+    elif [[ "$coreContext" = 'scan' ]] ; then
+        
+        # set logging ID
+        [[ "$myLogID" ]] || myLogID='EpichromeScan'
+        
+        # log file prefix
+        [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiScanDataLogFilePrefix"
+        
     else  # shell
-
-	# running unfiltered outside the app
-
-	# stderr logging only
-	myLogID='Shell'
-	logNoFile=1
+        
+        # running unfiltered outside the app
+        
+        # stderr logging only
+        myLogID='Shell'
+        logNoFile=1
     fi
-
+    
     # export all to helper
     export myDataPath myLogID
 fi
@@ -321,7 +338,7 @@ fi
 
 # export all to helper
 export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
-       logNoStderr logNoFile myRunTimestamp myLogDir myBackupDir
+        logNoStderr logNoFile myRunTimestamp myLogDir myBackupDir
 
 
 # FUNCTION DEFINITIONS
@@ -329,86 +346,87 @@ export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
 
 # LOGGING -- log to stderr & a log file
 function errlog_raw {
-
+    
     # if we're logging to stderr, do it
     [[ "$logNoStderr" ]] || echo "$@" 1>&2
-
+    
     # logging to file
     if [[ ! "$logNoFile" ]] ; then
-
-	# check if there's a log file specified
-	if [[ "$myLogFile" ]] ; then
-
-	    # log to file if the file exists & is writeable,
-	    # or if it doesn't exist but parent directory is writeable
-	    if [[ ( ( ( -f "$myLogFile" ) && ( -w "$myLogFile" ) ) || \
-			( ( ! -e "$myLogFile" ) && ( -w "${myLogFile%/*}" ) ) ) ]] ; then
-		echo "$@" >> "$myLogFile"
-	    fi
-	else
-
-	    # no log file specified yet, so collect logs in a variable
-	    myLogTempVar+="$*"$'\n'
-	fi
+        
+        # check if there's a log file specified
+        if [[ "$myLogFile" ]] ; then
+            
+            # log to file if the file exists & is writeable,
+            # or if it doesn't exist but parent directory is writeable
+            if [[ ( ( ( -f "$myLogFile" ) && ( -w "$myLogFile" ) ) || \
+                    ( ( ! -e "$myLogFile" ) && ( -w "${myLogFile%/*}" ) ) ) ]] ; then
+                echo "$@" >> "$myLogFile"
+            fi
+        else
+            
+            # no log file specified yet, so collect logs in a variable
+            myLogTempVar+="$*"$'\n'
+        fi
     fi
 }
-function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
-
+# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] msg...)
+function errlog {
+    
     # prefix format: *[PID]LogID(line)/function(line)/...:
-
+    
     # arguments
     local logType="${1%%|*}"
     local logName="${1#*|}" ; [[ "$logName" = "$1" ]] && logName=
-
+    
     # determine log type & final name element
     case "$logType" in
-	DEBUG)
-	    logType=' '  # debug message
-	    shift
-	    ;;
-	FATAL)
-	    logType='!'  # fatal error
-	    shift
-	    ;;
-	ERROR)
-	    logType='*'  # error
-	    shift
-	    ;;
-	STDOUT)
-	    logType='1'  # stdout log
-	    shift
-	    ;;
-	STDERR)
-	    logType='2'  # stderr log
-	    shift
-	    ;;
-	*)
-	    logType='*'  # error
-	    logName=
-	    ;;
+        DEBUG)
+            logType=' '  # debug message
+            shift
+            ;;
+        FATAL)
+            logType='!'  # fatal error
+            shift
+            ;;
+        ERROR)
+            logType='*'  # error
+            shift
+            ;;
+        STDOUT)
+            logType='1'  # stdout log
+            shift
+            ;;
+        STDERR)
+            logType='2'  # stderr log
+            shift
+            ;;
+        *)
+            logType='*'  # error
+            logName=
+            ;;
     esac
 
     # make sure we have some logID
     local logID="$myLogID"
     [[ "$logID" ]] || logID='EpichromeCore'
-
+    
     # build function trace
     local trace=() ; [[ "$logName" ]] && trace=( "{$logName}" )
     local i=1
     local curfunc=
     while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
-	curfunc="${FUNCNAME[$i]}"
-	if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-	    trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
-	    break
-	elif [[ "$curfunc" =~ ^(errlog|debuglog|try|tryalways|runalways) ]] ; then
-	    : # skip these functions
-	else
-	    trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
-	fi
-	i=$(( $i + 1 ))
+        curfunc="${FUNCNAME[$i]}"
+        if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
+            trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+            break
+        elif [[ "$curfunc" =~ ^(errlog|debuglog|try|tryalways|runalways) ]] ; then
+            : # skip these functions
+        else
+            trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
+        fi
+        i=$(( $i + 1 ))
     done
-
+    
     # output prefix & message
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
@@ -424,7 +442,8 @@ export -f errlog_raw errlog debuglog_raw debuglog
 
 
 # INITLOGFILE: initialize log file
-function initlogfile {  # ( logFile )
+#  initlogfile([logFile])
+function initlogfile {
 
     # nothing to do if we're not logging to a file
     [[ "$logNoFile" ]] && return
@@ -434,66 +453,59 @@ function initlogfile {  # ( logFile )
 
     # set up log file
     if [[ "$1" ]] ; then
-
-	# log file passed to us
-	myLogFile="$1"
-	doKeepFile=1
-
-    elif [[ "$coreContext" = 'epichrome' ]] ; then
-
-	# Epichrome.app log file
-	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${epiDataLogFilePrefix}${myRunTimestamp}.txt"
+        
+        # log file passed to us
+        myLogFile="$1"
+        doKeepFile=1
+        
     else
-
-	# app log file
-	[[ "$myLogFile" ]] || myLogFile="$myLogDir/${appDataLogFilePrefix}${myRunTimestamp}.txt"
+        [[ "$myLogFile" ]] || myLogFile="$myLogDir/${myLogFilePrefix}${myRunTimestamp}.txt"
     fi
-
+    
     # trim saved logs so we don't have too many (ignore errors)
     trimsaves "$myLogDir" "$logPreserve" '.txt' 'logs'
     ok=1 ; errmsg=
-
+    
     # set up log file
     if  [[ ! -f "$myLogFile" ]] ; then
-
-	# make sure we have a directory for the log file
-	try /bin/mkdir -p "${myLogFile%/*}" \
-	    'Unable to create log directory.'
-
+        
+        # make sure we have a directory for the log file
+        try /bin/mkdir -p "${myLogFile%/*}" \
+                'Unable to create log directory.'
+        
     elif [[ ! "$doKeepFile" ]] ; then
-
-	# starting a fresh log, so clear the file
-	try "${myLogFile}<" /bin/cat /dev/null \
-	    'Unable to clear log file.'
+        
+        # starting a fresh log, so clear the file
+        try "${myLogFile}<" /bin/cat /dev/null \
+                'Unable to clear log file.'
     fi
-
+    
     if [[ "$ok" ]] ; then
-
-	# check if we have a writable log file
-	if [[ "$myLogTempVar" ]] ; then
-
-	    # add collected logs to file
-	    try "${myLogFile}<<" printf "$myLogTempVar" \
-		'Unable to add collected logs to file.'
-	    myLogTempVar=
-
-	    # fail silently
-	    if [[ ! "$ok" ]] ; then
-		ok=1 ; errmsg=
-	    fi
-	fi
-
-	return 0
+        
+        # check if we have a writable log file
+        if [[ "$myLogTempVar" ]] ; then
+            
+            # add collected logs to file
+            try "${myLogFile}<<" printf "$myLogTempVar" \
+                    'Unable to add collected logs to file.'
+            myLogTempVar=
+            
+            # fail silently
+            if [[ ! "$ok" ]] ; then
+                ok=1 ; errmsg=
+            fi
+        fi
+        
+        return 0
     else
-
-	# error -- turn off file logging
-	logNoFile=1
-	myLogTempVar=
-	errlog "Unable to write to log file -- logging will be to stderr only."
-	ok=1 ; errmsg=
-	return 1
+        
+        # error -- turn off file logging
+        logNoFile=1
+        myLogTempVar=
+        errlog "Unable to write to log file -- logging will be to stderr only."
+        ok=1 ; errmsg=
+        return 1
     fi
-
 }
 export -f initlogfile
 
@@ -1150,18 +1162,46 @@ function shoptrestore { # ( saveVar )
 
 
 # ISSAMEDEVICE -- check that two paths are on the same device
-function issamedevice { # ( path1 path2 )
+function issamedevice { # ( paths[0] paths[1] )
 	
 	# arguments
-	local path1="$1" ; shift
-	local path2="$1" ; shift
+	local paths=()
+    paths+=( "$1" ) ; shift
+	paths+=( "$1" ) ; shift
+	
+    # find first existing part of each path
+    local i= curPath= curParent=
+    for ((i=0 ; i < "${#paths[@]}" ; i++)) ; do
+        curPath="${paths[$i]}"
+        
+        # loop until we hit an existing directory
+        while [[ ! -e "$curPath" ]] ; do
+            curParent="${curPath%/*}"
+            if [[ ! "$curParent" ]] ; then
+                errlog "Couldn't find any part of '${paths[$i]}' that exists."
+                return 1
+            elif [[ "$curParent" = "$curPath" ]] ; then
+                # we've reached the end of a relative path
+                curPath="$PWD"
+            else
+                curPath="$curParent"
+            fi
+        done
+        
+        # if we got here, we should have a good path
+        paths[$i]="$curPath"
+    done
+    
+    # $$$ debuglog "Comparing devices for '${paths[0]}' and '${paths[1]}'."
 	
 	# get path devices
 	local device1=
 	local device2=
-	try 'device1=' /usr/bin/stat -f '%d' "$path1" ''
-	try 'device2=' /usr/bin/stat -f '%d' "$path2" ''
-	
+	try 'device1=' /usr/bin/stat -f '%d' "${paths[0]}" \
+            "Unable to get device for path '${paths[0]}'."
+	try 'device2=' /usr/bin/stat -f '%d' "${paths[1]}" \
+            "Unable to get device for path '${paths[1]}'."
+    
 	# unable to get one or both devices
 	if [[ ! "$ok" ]] ; then
 		ok=1 ; errmsg=
