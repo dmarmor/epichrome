@@ -28,10 +28,6 @@ safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
 
 # CONSTANTS
 
-epiPayloadPathBase='Payload.noindex'
-epiPayloadLauncherDir='Launcher'
-epiPayloadEngineDir='Engine'
-
 # IDs of allowed external engine browsers
 appExtEngineBrowsers=( 'com.microsoft.edgemac' \
 						'com.vivaldi.Vivaldi' \
@@ -1117,8 +1113,7 @@ function updateprofiledir {
 		
 		# remove all of the UserData directory except Default
 		local allExcept='!(Default)'
-		try /bin/rm -rf "$myProfilePath/"$allExcept \
-				'Error deleting top-level files.'
+		saferm 'Error deleting top-level files.' "$myProfilePath/"$allExcept
 		if [[ ! "$ok" ]] ; then
 			myErrDelete="$errmsg"
 			ok=1 ; errmsg=
@@ -1146,8 +1141,9 @@ function updateprofiledir {
 			# delete everything from Default except:
 			#  Bookmarks, Favicons, History, Local Extension Settings
 			allExcept='!(Bookmarks|Favicons|History|Local?Extension?Settings)'
-			try /bin/rm -rf "$myProfilePath/Default/"$allExcept \
-					'Error deleting browser profile files.'
+			saferm 'Error deleting browser profile files.' \
+					"$myProfilePath/Default/"$allExcept
+			
 			if [[ ! "$ok" ]] ; then
 				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
 				ok=1 ; errmsg=
@@ -2407,8 +2403,7 @@ function deletepayload {
 			debuglog "${myAppID}Deleting payload at '$SSBPayloadPath'"
 			
 			# delete payload
-			$myTry /bin/rm -rf "$SSBPayloadPath" \
-			"${myAppID}Unable to delete payload."
+			saferm "${myAppID}Unable to delete payload." "$SSBPayloadPath"
 			
 			# make sure payload deleted
 			if [[ "$?" = 0 ]] ; then

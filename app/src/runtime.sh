@@ -195,8 +195,8 @@ function updateolddatadir {  # ( [locDataPath locProfilePath] )
         debuglog 'Updating pre-2.3.0 data directory structure to current structure.'
         
         # remove old NativeMessagingHosts directory
-        try /bin/rm -rf "$locDataPath/$nmhDirName" \
-                'Unable to remove old native messaging hosts directory.'
+        saferm 'Unable to remove old native messaging hosts directory.' \
+                "$locDataPath/$nmhDirName"
         
         # create profile directory
         try /bin/mkdir -p "$locProfilePath" 'Unable to create profile directory.'

@@ -129,6 +129,12 @@ export appMonitorPath appEnginePath \
         appMasterPrefsPath \
         appBookmarksFile appBookmarksPath
 
+# payload paths
+epiPayloadPathBase='Payload.noindex'
+epiPayloadLauncherDir='Launcher'
+epiPayloadEngineDir='Engine'
+export epiPayloadPathBase epiPayloadLauncherDir epiPayloadEngineDir
+
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
 epiDataPath="$userSupportPath/Epichrome"
@@ -1210,6 +1216,35 @@ function issamedevice { # ( paths[0] paths[1] )
 	
 	# compare devices
 	[[ "$device1" = "$device2" ]] && return 0 || return 1
+}
+
+
+# SAFERM: rm -rf with safety checks for known paths
+#  saferm(aErrMsg item [item...])
+#    if myTry is set, use that instead of try
+function saferm {
+    
+    # only run if we're OK
+    [[ "$ok" ]] || return 1
+    
+    # argument
+    local aErrMsg="$1" ; shift
+    
+    # check that all paths are in known places
+    local curPath
+    for curPath in "$@" ; do
+        if [[ ( "$curPath" != "$epiDataPath"/* ) && \
+                ( "$curPath" != */"$epiPayloadPathBase"/* ) ]] ; then
+            ok= ; errmsg="Path '$curPath' is not in a known location."
+            errlog "$errmsg"
+            return 1
+        fi
+    done
+    
+    # all paths are OK, so run the rm
+    local iTry=try
+    [[ "$myTry" ]] && iTry="$myTry"
+    "$iTry" /bin/rm -rf "$@" "$aErrMsg"
 }
 
 

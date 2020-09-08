@@ -633,8 +633,8 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
         debuglog "No need to restore Epichrome Helper settings."
         
         # silently remove unused backup
-        try /bin/rm -rf "${myStatusFixRuntime[1]}" \
-                'Unable to remove backup of Epichrome Helper settings.'
+        saferm 'Unable to remove backup of Epichrome Helper settings.' \
+                "${myStatusFixRuntime[1]}"
         ok=1 ; errmsg=
     fi
 fi

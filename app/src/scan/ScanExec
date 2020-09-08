@@ -55,8 +55,114 @@ trap '' INT
 # CLEANUP -- clean up from an interrupted scan
 function cleanup {
     
-    # $$$ PUT CLEANUP STUFF HERE
-    :
+    # we were interrupted in the middle of a restore
+    if [[ "$restoreLock" && ( ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ) ]] ; then
+        errlog "Interrupted while restoring app $curApp. Attempting to complete restore."
+        scan_restore
+    fi
+    
+    # $$$$ if nothing happened, quit parent app
+    if false ; then
+        kill "$PPID"
+    fi
+}
+
+
+# SCAN_RESTORE: attempt to restore an app
+restoreLock=
+function scan_restore {
+    
+    # turn on restore lock
+    restoreLock=1
+    
+    if [[ -d "$myPayloadLauncherPath" ]] ; then
+        
+        
+        if issamedevice "$myPayloadLauncherPath" "$SSBAppPath" ; then
+            
+            # launcher is in payload, so try the canonical method
+            setenginestate OFF "$curApp"
+            
+            if [[ "$ok" ]] ; then
+                restoreLock=
+            else
+                
+                # setenginestate failed, so try restoring launcher by hand
+                ok=1 ; errmsg=
+                
+                try /bin/rm -rf "$SSBAppPath/Contents" \
+                        "Unable to remove engine contents for app $curApp."
+                if [[ "$ok" ]] ; then
+                    try /bin/mv "$myPayloadLauncherPath" "$SSBAppPath/Contents" \
+                            "Unable to restore launcher for app $curApp."
+                fi
+                
+                if [[ "$ok" ]] ; then
+                    restoreLock=
+                    deletepayload '' "$curApp"
+                else
+                    # try another method
+                    ok=1 ; errmsg=
+                fi
+            fi
+        else
+            
+            # payload is on wrong device
+            errlog "Payload for app $curApp is on a different device from app."
+        fi
+    fi
+    
+    if [[ "$restoreLock" ]] ; then
+        
+        # fallback: try to restore from failsafe backup
+        debuglog "Attempting to restore app $curApp from failsafe backup."
+        
+        myFailsafeFile="$curApp/$appDataBackupDir/$appDataFailsafeFile"
+        
+        if [[ -f "$myFailsafeFile" ]] ; then
+            try /bin/rm -rf "$SSBAppPath/Contents" \
+                    "Unable to remove engine contents from app $curApp."
+            try /usr/bin/tar xzf "$myFailsafeFile" --cd "$SSBAppPath" \
+                    "Unable to restore app $curApp from failsafe backup."
+            restoreLock=
+            if [[ "$ok" ]] ; then
+                : # $$$ MARK FOR NOTIFICATION
+            else
+                ok=1 ; errmsg=
+                # $$$$ MARK FOR NOTIFICATION?
+            fi
+            deletepayload '' "$curApp"
+        else
+            restoreLock=
+            errlog "Cannot restore app $curApp: no launcher payload and no failsafe backup found."
+            # $$$ MARK FOR NOTIFICATION?
+        fi
+    fi
+    
+    # if we got here, turn off lock just in case
+    restoreLock=
+}
+
+
+# PROGRESSMSG -- print a message for the progress bar
+#  progressmsg(aAction aCurItem aNumItems aStatus)
+function progressmsg {
+    
+    # arguments
+    local aAction="$1" ; shift
+    local aCurItem="$1" ; shift
+    local aNumItems="$1" ; shift
+    local aStatus="$1" ; shift ; [[ "$aStatus" ]] && aStatus=" - $aStatus"
+    
+    # percentage (or count)
+    local aPercent=
+    if [[ "$aCurItem" && "$aNumItems" ]] ; then
+        aPercent=" ($(($aCurItem * 100 / $aNumItems))%)"
+    elif [[ "$aCurItem" || "$aNumItems" ]] ; then
+        aPercent=" (${aCurItem}${aNumItems})"
+    fi
+    
+    echo "$aAction$aPercent$aStatus"
 }
 
 
@@ -81,6 +187,10 @@ try cd "$appDataPathBase" 'Unable to navigate to app data directory.'
 appDataDirItemList=( * )
 appIDList=()
 
+# progress bar data
+numItems="${#appDataDirItemList[@]}"
+curItemNum=-1
+
 for curApp in "${appDataDirItemList[@]}" ; do
     
     # reset ok status
@@ -89,6 +199,10 @@ for curApp in "${appDataDirItemList[@]}" ; do
     # clear config variables
     SSBPayloadPath=
     SSBAppPath=
+    
+    # update progress bar
+    curItemNum=$(($curItemNum + 1))
+    progressmsg 'Scanning apps' $curItemNum $numItems
     
     # check if it's really an app directory
     [[ -d "$curApp" ]] || continue
@@ -161,69 +275,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
             myPayloadEnginePath="$SSBPayloadPath/$epiPayloadEngineDir"
             myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
             
-            # assume failure
-            myAppIsFixed=
-            
-            if [[ -d "$myPayloadLauncherPath" ]] ; then
-                
-                if issamedevice "$myPayloadLauncherPath" "$SSBAppPath" ; then
-                    
-                    # launcher is in payload, so try the canonical method
-                    setenginestate OFF "$curApp"
-                    
-                    if [[ "$ok" ]] ; then
-                        myAppIsFixed=1
-                    else
-                        
-                        # setenginestate failed, so try restoring launcher by hand
-                        ok=1 ; errmsg=
-                        
-                        try /bin/rm -rf "$SSBAppPath/Contents" \
-                                "Unable to remove engine contents for app $curApp."
-                        if [[ "$ok" ]] ; then
-                            try /bin/mv "$myPayloadLauncherPath" "$SSBAppPath/Contents" \
-                                    "Unable to restore launcher for app $curApp."
-                        fi
-                        
-                        if [[ "$ok" ]] ; then
-                            myAppIsFixed=1
-                            deletepayload '' "$curApp"
-                        else
-                            # try another method
-                            ok=1 ; errmsg=
-                        fi
-                    fi
-                else
-                    
-                    # payload is on wrong device
-                    errmsg "Payload for app $curApp is on a different device from app."
-                fi
-            fi
-            
-            if [[ ! "$myAppIsFixed" ]] ; then
-                
-                # fallback: try to restore from failsafe backup
-                debuglog "Attempting to restore app $curApp from failsafe backup."
-                
-                myFailsafeFile="$curApp/$appDataBackupDir/$appDataFailsafeFile"
-                
-                if [[ -f "$myFailsafeFile" ]] ; then
-                    try /bin/rm -rf "$SSBAppPath/Contents" \
-                            "Unable to remove engine contents from app $curApp."
-                    try /usr/bin/tar xzf "$myFailsafeFile" --cd "$SSBAppPath" \
-                            "Unable to restore app $curApp from failsafe backup."
-                    if [[ "$ok" ]] ; then
-                        myAppIsFixed=1
-                    else
-                        ok=1 ; errmsg=
-                        # $$$$ MARK FOR NOTIFICATION?
-                    fi
-                    deletepayload '' "$curApp"
-                else
-                    errlog "Cannot restore app $curApp: no launcher payload and no failsafe backup found."
-                    # $$$ MARK FOR NOTIFICATION?
-                fi
-            fi
+            scan_restore
         else
             debuglog "  App $curApp appears to be intact."
             continue
@@ -233,5 +285,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
         continue
     fi
 done
+
+progressmsg 'Scan complete.'
 
 cleanexit
