@@ -1362,14 +1362,18 @@ function stepCreateDisplayName(aInfo) {
         // if we don't have an unrecoverable problem, add any other problems
         if (myWarnOverride) {
             
-            // location is on the wrong device
-            if (!myPathCheck.rightDevice) {
-                myWarnMessageList.push('That location is on a different drive than Epichrome. If you create the app there, it will NOT work until you move it onto the same drive as Epichrome.');
-            }
-            
-            // location isn't in the Applications folder
-            if (!myPathCheck.inApplicationsFolder) {
-                myWarnMessageList.push('That location is not a subfolder of /Applications, so the app will not be able to use extensions like 1Password that require a validated browser.');
+            // only add these location warnings if this is a new location from last time
+            if (myLastDir != gEpiLastDir.create) {
+
+                // location is on the wrong device
+                if (!myPathCheck.rightDevice) {
+                    myWarnMessageList.push('That location is on a different drive than Epichrome. If you create the app there, it will NOT work until you move it onto the same drive as Epichrome.');
+                }
+                
+                // location isn't in the Applications folder
+                if (!myPathCheck.inApplicationsFolder) {
+                    myWarnMessageList.push('That location is not a subfolder of /Applications, so the app will not be able to use extensions like 1Password that require a validated browser.');
+                }
             }
             
             // add on the final prompt & format the final message

@@ -62,9 +62,9 @@ function cleanup {
     fi
     
     # if nothing happened, quit parent app too
-    if [[ ! "$finalStatus" ]] ; then
-        kill "$PPID"
-    fi
+    # if [[ ! "$finalStatus" ]] ; then
+    #     kill "$PPID"
+    # fi
 }
 
 
@@ -168,13 +168,25 @@ function scan_restore {
 
 
 # PROGRESSMSG -- print a message for the progress bar
-#  progressmsg(aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
+#  progressmsg(aDetail aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
+progressPrevStatus=
+progressPrevTime=
 function progressmsg {
     
     # arguments
+    local aDetail="$1" ; shift ; [[ "$aDetail" ]] && aDetail+=$'\n'
     local aAction="$1" ; shift
     local aCurItem="$1" ; shift
     local aNumItems="$1" ; shift
+    
+    # build percentage (or count)
+    local aPercent= aPercentNum=
+    if [[ "$aCurItem" && "$aNumItems" ]] ; then
+        aPercentNum="$(($aCurItem * 100 / $aNumItems))"
+        aPercent=" ($aPercentNum%)"
+    elif [[ "$aCurItem" || "$aNumItems" ]] ; then
+        aPercent=" (${aCurItem}${aNumItems})"
+    fi
     
     # build status text
     local aStatus= aCurStatus=
@@ -200,15 +212,22 @@ function progressmsg {
     done
     [[ "$aStatus" ]] && aStatus=" - $aStatus"
     
-    # percentage (or count)
-    local aPercent=
-    if [[ "$aCurItem" && "$aNumItems" ]] ; then
-        aPercent=" ($(($aCurItem * 100 / $aNumItems))%)"
-    elif [[ "$aCurItem" || "$aNumItems" ]] ; then
-        aPercent=" (${aCurItem}${aNumItems})"
+    # update time
+    local iCurTime=
+    try 'iCurTime=' /usr/bin/perl -MTime::HiRes=time -e 'printf "%.1f\n", time' ''
+    ok=1 ; errmsg=
+    iCurTime="${iCurTime/./}"
+    
+    # decide whether to show this message (every 0.3 sec, or if status changes)
+    if [[ ( ( "$iCurTime" != "$progressPrevTime" ) && \
+            ( "${iCurTime:$((${#iCurTime}-1)):1}" = [036] ) ) || \
+            ( "$aStatus" != "$progressPrevStatus" ) ]] ; then
+        echo "$aDetail$aAction$aPercent$aStatus"
     fi
     
-    echo "$aAction$aPercent$aStatus"
+    # save status for next run
+    progressPrevStatus="$aStatus"
+    progressPrevTime="$iCurTime"
 }
 
 
@@ -255,7 +274,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     
     # update progress bar
     curItemNum=$(($curItemNum + 1))
-    progressmsg 'Scanning apps...' $curItemNum $numItems \
+    progressmsg "$curDetail" 'Scanning apps...' $curItemNum $numItems \
             'Restored' "${#appRestoreSuccessList[@]}" 'Failed' "${#appRestoreErrorList[@]}"
     
     # check if it's really an app directory
@@ -317,7 +336,10 @@ for curApp in "${appDataDirItemList[@]}" ; do
         # set app path
         SSBAppPath="${SSBAppPath[0]}"
     fi
-        
+    
+    # clear progress detail message
+    curDetail=
+    
     # make sure this app is not running
     if ! /usr/bin/pgrep -fiq -- "--epichrome-id=$curApp" ; then
         
@@ -332,10 +354,10 @@ for curApp in "${appDataDirItemList[@]}" ; do
             # perform restore & record result
             if scan_restore ; then
                 appRestoreSuccessList+=( "$curApp" )
-                echo "  ✅ Restored app \"${SSBAppPath##*/}\"."
+                curDetail="  ✅ Restored app \"${SSBAppPath##*/}\"."
             else
                 appRestoreErrorList+=( "$curApp" )
-                echo "  🚫 Failed to restore app \"${SSBAppPath##*/}\". ($errmsg)"
+                curDetail="  🚫 Failed to restore app \"${SSBAppPath##*/}\". ($errmsg)"
             fi
         else
             debuglog "  App $curApp appears to be intact."
@@ -349,16 +371,21 @@ done
 
 # build final status message
 if [[ "${#appRestoreSuccessList[@]}" -gt 0 ]] ; then
-    finalStatus+=" Restored ${#appRestoreSuccessList[@]} app"
-    [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && finalStatus+='s'
+    finalStatus+=" Restored: ${#appRestoreSuccessList[@]}"
+    # [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && finalStatus+='s' $$$$
 fi
 if [[ "${#appRestoreErrorList[@]}" -gt 0 ]] ; then
-    [[ "$finalStatus" ]] && finalStatus+=', failed ' || finalStatus+=' Failed '
-    finalStatus+="to restore ${#appRestoreErrorList[@]} app"
-    [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && finalStatus+='s'
+    [[ "$finalStatus" ]] && finalStatus+=','
+    finalStatus+=" Failed: ${#appRestoreErrorList[@]}"
+    # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && finalStatus+='s'  $$$
 fi
-[[ "$finalStatus" ]] && finalStatus+='. See Details or scan log for more info.'
 
-progressmsg "Scan complete.$finalStatus"
+if [[ "$finalStatus" ]] ; then
+    finalStatus+='. See Details or log for info.'
+else
+    finalStatus=' No apps found to restore.'
+fi
+
+echo "Scan complete.$finalStatus"
 
 cleanexit

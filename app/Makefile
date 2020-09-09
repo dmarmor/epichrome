@@ -25,6 +25,8 @@
 # BASIC INFO
 
 APP:=Epichrome/Epichrome.app
+SCAN_APP:=Epichrome/Epichrome\ Scan.app
+#LOGIN_APP:=Epichrome/Epichrome\ Login.app
 
 NMH_ID:=org.epichrome.runtime
 
@@ -142,6 +144,8 @@ NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chr
 APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
 
+SCAN_CT:=$(SCAN_APP)/Contents
+
 
 # META-TARGETS
 
@@ -194,7 +198,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
-.INTERMEDIATE: main engine runtime $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime scan-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # INTERNAL BUILD (DEFAULT TARGET)
@@ -203,7 +207,7 @@ internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/
 
 internal: VERSION:=$(VERSION_INTERNAL)
 
-internal: $(APP)
+internal: $(APP) $(SCAN_APP) #$(LOGIN_APP)
 
 
 # UTILITY TARGETS
@@ -225,6 +229,10 @@ clean-all: clean clean-package clean-engine
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
 		echo rm -f "$${psd%.psd}.png" ; done
+
+build/icons/%.icns: ../images/icons/%.png
+	@mkdir -p '$(dir $@)'
+	src/makeicon.sh -f $< $@
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -551,10 +559,6 @@ $(APP_RNTM)/Contents/Resources/%.icns: build/icons/%$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-build/icons/%.icns: ../images/icons/%.png
-	@mkdir -p '$(dir $@)'
-	src/makeicon.sh -f $< $@
-
 
 # RUNTIME SCRIPTS
 
@@ -567,7 +571,9 @@ $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt: build/launch.js
+	@if [[ -e '$@' ]] ; then chmod 644 '$@' ; fi
 	osacompile -l JavaScript -x -o '$@' '$<'
+	chmod 444 '$@'
 	
 build/launch.js: src/launch.js src/liblaunch.js
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
@@ -771,6 +777,67 @@ engine: build/engine/Brave
 #	rmdir build/engine/Brave/MacOS
 	mv build/engine/Brave $(APP_RNTM)/Engine/Payload
 	@touch $(APP_RNTM)/Engine/Payload
+
+
+# *** SCAN APP ***
+
+# SCAN APP DEPENDENCIES
+
+$(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
+	$(SCAN_CT)/Resources/MainMenu.nib \
+	$(SCAN_CT)/Resources/AppSettings.plist \
+	\
+	$(SCAN_CT)/Info.plist \
+	$(SCAN_CT)/Resources/script \
+	$(SCAN_CT)/Resources/app.icns \
+	\
+	$(SCAN_CT)/Resources/Scripts/core.sh \
+	$(SCAN_CT)/Resources/Scripts/filter.sh \
+	$(SCAN_CT)/Resources/Scripts/launch.scpt \
+	$(SCAN_CT)/Resources/Scripts/launch.sh
+
+$(SCAN_CT)/MacOS/Epichrome\ Scan \
+	$(SCAN_CT)/Resources/MainMenu.nib \
+	$(SCAN_CT)/Resources/AppSettings.plist: scan-core
+
+scan-core:
+	@rm -rf $(SCAN_APP)
+	@touch build/fake.icns build/fake.sh
+	platypus --name 'Epichrome Scan' \
+		--interface-type 'Progress Bar' \
+		--app-icon build/fake.icns \
+		--document-icon build/fake.icns \
+		--interpreter /bin/bash \
+		--app-version $(VERSION) \
+		--author 'David Marmor' \
+		--bundle-identifier org.epichrome.scan \
+		--optimize-nib \
+		build/fake.sh $(SCAN_APP)
+	@rm $(SCAN_CT)/Info.plist $(SCAN_CT)/Resources/*.icns $(SCAN_CT)/Resources/script
+
+
+# SCAN APP ELEMENTS
+
+$(SCAN_CT)/Info.plist: src/scan/Info.plist src/version.sh
+	@mkdir -p '$(dir $@)'
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+
+$(SCAN_CT)/Resources/script: src/scan/ScanExec
+	@mkdir -p '$(dir $@)'
+	sed -e 's/EPISCANMODE/scan/g' '$<' > '$@'
+	chmod 755 '$@'
+
+$(SCAN_CT)/Resources/%.icns: build/icons/scan_%$(BETA).icns src/version.sh
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/launch.scpt: $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt
+	@mkdir -p '$(dir $@)'
+	cp -a '$<' '$@'
 
 
 # *** LEGACY UPDATE CODE ***
