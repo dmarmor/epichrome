@@ -61,8 +61,8 @@ function cleanup {
         scan_restore CLEANUP
     fi
     
-    # $$$$ if nothing happened, quit parent app
-    if false ; then
+    # if nothing happened, quit parent app too
+    if [[ ! "$finalStatus" ]] ; then
         kill "$PPID"
     fi
 }
@@ -70,17 +70,19 @@ function cleanup {
 
 # SCAN_RESTORE: attempt to restore an app
 #  scan_restore([CLEANUP]) -- if CLEANUP is set, we are running in the cleanup function
+#    returns 0 on success, 1 on failure
 restoreLock=
 function scan_restore {
     
+    local curAppErrID="Error restoring app $curApp"
+    local iPrevErrs=()
+
     # turn on restore lock
     restoreLock=1
     
     if [[ -d "$myPayloadLauncherPath" ]] ; then
         
-        
         if issamedevice "$myPayloadLauncherPath" "$SSBAppPath" ; then
-            
             
             # launcher is in payload, so try the canonical method
             setenginestate OFF "$curApp"
@@ -89,74 +91,114 @@ function scan_restore {
                 restoreLock=
             else
                 
-                # setenginestate failed, so try restoring launcher by hand
+                # save error message & restore state
+                iPrevErrs+=( "${errmsg#${curAppErrID}: }" )
                 ok=1 ; errmsg=
 
-                debuglog "Attempting to restore app $curApp manually."
+                # setenginestate failed, so try restoring launcher by hand
+                debuglog "  App $curApp: Attempting to restore manually."
                 
                 try /bin/rm -rf "$SSBAppPath/Contents" \
-                        "Unable to remove engine contents for app $curApp."
+                        "${curAppErrID}: Unable to remove engine contents manually."
                 if [[ "$ok" ]] ; then
                     try /bin/mv "$myPayloadLauncherPath" "$SSBAppPath/Contents" \
-                            "Unable to restore launcher for app $curApp."
+                            "${curAppErrID}: Unable to restore launcher manually."
                 fi
                 
                 if [[ "$ok" ]] ; then
                     restoreLock=
                     deletepayload '' "$curApp"
-                else
-                    # try another method
-                    ok=1 ; errmsg=
                 fi
             fi
         else
             
             # payload is on wrong device
-            errlog "Payload for app $curApp is on a different device from app."
+            ok= ; errmsg="${curAppErrID}: Payload is on a different device from app."
+            errlog "$errmsg"
         fi
+    else
+        ok= ; errmsg="${curAppErrID}: Launcher not found in payload."
+        errlog "$errmsg"
     fi
     
     if [[ "$restoreLock" ]] ; then
         
         # fallback: try to restore from failsafe backup
-        debuglog "Attempting to restore app $curApp from failsafe backup."
+        debuglog "  App $curApp: Attempting to restore from failsafe backup."
         
+        # save any earlier error
+        if [[ ! "$ok" ]] ; then
+            iPrevErrs+=( "${errmsg#${curAppErrID}: }" )
+            ok=1 ; errmsg=
+        fi
+        
+        # path to failsafe backup
         myFailsafeFile="$curApp/$appDataBackupDir/$appDataFailsafeFile"
-        
+
+        # try to restore from failsafe backup
         if [[ -f "$myFailsafeFile" ]] ; then
             try /bin/rm -rf "$SSBAppPath/Contents" \
-                    "Unable to remove engine contents from app $curApp."
+                    "${curAppErrID}: Unable to remove engine contents."
             try /usr/bin/tar xzf "$myFailsafeFile" --cd "$SSBAppPath" \
-                    "Unable to restore app $curApp from failsafe backup."
-            restoreLock=
-            if [[ "$ok" ]] ; then
-                : # $$$ MARK FOR NOTIFICATION
-            else
-                ok=1 ; errmsg=
-                # $$$$ MARK FOR NOTIFICATION?
-            fi
+                    "${curAppErrID}: Unable to restore from failsafe backup."
+            [[ "$ok" ]] && restoreLock=
             deletepayload '' "$curApp"
         else
-            restoreLock=
-            errlog "Cannot restore app $curApp: no launcher payload and no failsafe backup found."
-            # $$$ MARK FOR NOTIFICATION?
+            ok=
+            errmsg="${curAppErrID}: No failsafe backup found."
+            errlog "$errmsg"
+        fi
+        
+        if [[ ! "$ok" ]] ; then
+            # format final error message for progress output
+            iPrevErrs+=( "${errmsg#${curAppErrID}: }" )
+            errmsg="$(join_array ' ' "${iPrevErrs[@]}")"
         fi
     fi
     
-    # if we got here, turn off lock just in case
-    restoreLock=
+    # handle result
+    local iResult=0
+    if [[ "$restoreLock" ]] ; then
+        iResult=1
+        restoreLock=
+    fi
+    
+    return "$iResult"
 }
 
 
 # PROGRESSMSG -- print a message for the progress bar
-#  progressmsg(aAction aCurItem aNumItems aStatus)
+#  progressmsg(aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
 function progressmsg {
     
     # arguments
     local aAction="$1" ; shift
     local aCurItem="$1" ; shift
     local aNumItems="$1" ; shift
-    local aStatus="$1" ; shift ; [[ "$aStatus" ]] && aStatus=" - $aStatus"
+    
+    # build status text
+    local aStatus= aCurStatus=
+    while [[ "$#" -gt 0 ]] ; do
+        [[ "$1" ]] && aCurStatus="$1"
+        shift
+        if [[ "$aCurStatus" ]] ; then
+            if [[ "$1" ]] ; then
+                # if this status has zero entries, skip it
+                if [[ "$1" -eq 0 ]] ; then
+                    shift
+                    continue
+                fi
+                
+                aCurStatus+=": $1"
+            fi
+            
+            # add to status message
+            [[ "$aStatus" ]] && aStatus+=', '
+            aStatus+="$aCurStatus"
+        fi
+        shift
+    done
+    [[ "$aStatus" ]] && aStatus=" - $aStatus"
     
     # percentage (or count)
     local aPercent=
@@ -189,7 +231,14 @@ try cd "$appDataPathBase" 'Unable to navigate to app data directory.'
 
 # get list of everything in the directory
 appDataDirItemList=( * )
+
+# lists built during scan
 appIDList=()
+appRestoreSuccessList=()
+appRestoreErrorList=()
+
+# final status message
+finalStatus=
 
 # progress bar data
 numItems="${#appDataDirItemList[@]}"
@@ -206,7 +255,8 @@ for curApp in "${appDataDirItemList[@]}" ; do
     
     # update progress bar
     curItemNum=$(($curItemNum + 1))
-    progressmsg 'Scanning apps' $curItemNum $numItems
+    progressmsg 'Scanning apps...' $curItemNum $numItems \
+            'Restored' "${#appRestoreSuccessList[@]}" 'Failed' "${#appRestoreErrorList[@]}"
     
     # check if it's really an app directory
     [[ -d "$curApp" ]] || continue
@@ -279,7 +329,14 @@ for curApp in "${appDataDirItemList[@]}" ; do
             myPayloadEnginePath="$SSBPayloadPath/$epiPayloadEngineDir"
             myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
             
-            scan_restore
+            # perform restore & record result
+            if scan_restore ; then
+                appRestoreSuccessList+=( "$curApp" )
+                echo "  ✅ Restored app \"${SSBAppPath##*/}\"."
+            else
+                appRestoreErrorList+=( "$curApp" )
+                echo "  🚫 Failed to restore app \"${SSBAppPath##*/}\". ($errmsg)"
+            fi
         else
             debuglog "  App $curApp appears to be intact."
             continue
@@ -290,6 +347,18 @@ for curApp in "${appDataDirItemList[@]}" ; do
     fi
 done
 
-progressmsg 'Scan complete.'
+# build final status message
+if [[ "${#appRestoreSuccessList[@]}" -gt 0 ]] ; then
+    finalStatus+=" Restored ${#appRestoreSuccessList[@]} app"
+    [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && finalStatus+='s'
+fi
+if [[ "${#appRestoreErrorList[@]}" -gt 0 ]] ; then
+    [[ "$finalStatus" ]] && finalStatus+=', failed ' || finalStatus+=' Failed '
+    finalStatus+="to restore ${#appRestoreErrorList[@]} app"
+    [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && finalStatus+='s'
+fi
+[[ "$finalStatus" ]] && finalStatus+='. See Details or scan log for more info.'
+
+progressmsg "Scan complete.$finalStatus"
 
 cleanexit

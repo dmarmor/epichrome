@@ -2313,7 +2313,12 @@ function setenginestate {
 	
 	# arguments
 	local newState="$1" ; shift
-	local myAppID="$1" ; shift ; [[ "$myAppID" ]] && myAppID="App $myAppID: "
+	local myAppID="$1" ; shift
+	local myAppDebugID= myAppErrID=
+	if [[ "$myAppID" ]] ; then
+		myAppDebugID="  App $myAppID: "
+		myAppErrID="Error restoring app $myAppID: "
+	fi
 	
 	# assume we're in the opposite state we're setting to
 	local oldInactivePath= ; local newInactivePath=
@@ -2333,31 +2338,32 @@ function setenginestate {
 	
 	# move the old payload out
 	if [[ -d "$newInactivePath" ]] ; then
-		ok= ; errmsg="${myAppID}Engine already ${newStateName}d."
+		ok= ; errmsg="${myAppErrID}Engine already ${newStateName}d."
+		errlog "$errmsg"
 	fi
 	try /bin/mv "$myContents" "$newInactivePath" \
-			"${myAppID}Unable to $newStateName engine."
+			"${myAppErrID}Unable to $newStateName engine."
 	[[ "$ok" ]] || return 1
 	
 	# make double sure old payload is gone
 	if [[ -d "$myContents" ]] ; then
-		ok= ; errmsg="${myAppID}Unknown error moving old payload out of app."
+		ok= ; errmsg="${myAppErrID}Unknown error moving old payload out of app."
 		errlog "$errmsg"
 		return 1
 	fi
 	
 	# move the new payload in
 	try /bin/mv "$oldInactivePath" "$myContents" \
-			"${myAppID}Unable to $newStateName engine."
+			"${myAppErrID}Unable to $newStateName engine."
 	
 	# on error, try to restore the old payload
 	if [[ ! "$ok" ]] ; then
 		tryalways /bin/mv "$newInactivePath" "$myContents" \
-				"${myAppID}Unable to restore old app state. This app may be damaged and unable to run."
+				"${myAppErrID}Unable to restore old app state. This app may be damaged and unable to run."
 		return 1
 	fi
 	
-	debuglog "${myAppID}Engine ${newStateName}d."
+	debuglog "${myAppDebugID}Engine ${newStateName}d."
 	
 	return 0
 }
