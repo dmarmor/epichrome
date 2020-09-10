@@ -28,15 +28,18 @@ scanMode='EPISCANMODE'
 if [[ "$scanMode" = 'login' ]] ; then
     myLogID='EpichromeLogin'
     myLogFilePrefix='epichrome_login_log'
+    myAppPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
+else
+    myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
+    logNoStderr=1
 fi
+[[ "${myAppPath::1}" = '/' ]] || myAppPath="$PWD/$myAppPath"
 
 
 # CORE APP VARIABLES
 
-myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
 myScriptPath="$myAppPath/Contents/Resources/Scripts"
 
-logNoStderr=1
 
 # set when scan is finished so cleanup can set a "canceled" message
 scanComplete=
@@ -60,10 +63,12 @@ function cleanup {
     
     # we were interrupted in the middle of a restore
     if [[ "$restoreLock" && ( ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ) ]] ; then
-        errlog "Interrupted while restoring app $curApp. Attempting to complete restore."
+        errlog "Scan canceled while restoring app $curApp. Attempting to complete restore."
         scan_restore CLEANUP
+    else
+        errlog "Scan canceled."
     fi
-
+    
     [[ "$scanComplete" ]] || finalprogressmsg 'Scan canceled.'
     
     # if nothing happened, quit parent app too
@@ -361,7 +366,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     if [[ ! "$SSBAppPath" || (! -d "$SSBAppPath" ) ]] ; then
         debuglog "  Current path for app $curApp not found in config. Finding by ID."
         
-        try 'SSBAppPath=(n)' /usr/bin/osascript "$myScriptPath/launch.scpt" \
+        try 'SSBAppPath=(n)' /usr/bin/osascript -x "$myScriptPath/launch.scpt" \
 "{
    \"action\": \"find\",
    \"id\": \"$appIDBase.$curApp\"

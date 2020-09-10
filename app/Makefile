@@ -26,7 +26,7 @@
 
 APP:=Epichrome/Epichrome.app
 SCAN_APP:=Epichrome/Epichrome\ Scan.app
-#LOGIN_APP:=Epichrome/Epichrome\ Login.app
+LOGIN_APP:=Epichrome/Epichrome\ Login.app
 
 NMH_ID:=org.epichrome.runtime
 
@@ -146,6 +146,8 @@ APP_RNTM:=$(APP_CT)/Resources/Runtime
 
 SCAN_CT:=$(SCAN_APP)/Contents
 
+LOGIN_CT:=$(LOGIN_APP)/Contents
+
 
 # META-TARGETS
 
@@ -170,6 +172,10 @@ INTERMEDIATES:=\
 PRECIOUS_INTERMEDIATES:=\
 	../images/icons/app.png \
 	../images/icons/app_beta.png \
+	../images/icons/scan_app.png \
+	../images/icons/scan_app_beta.png \
+	../images/icons/login_app.png \
+	../images/icons/login_app_beta.png \
 	../images/icons/docbg.png \
 	../images/icons/document.png \
 	../images/icons/document_beta.png \
@@ -198,7 +204,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
-.INTERMEDIATE: main engine runtime scan-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # INTERNAL BUILD (DEFAULT TARGET)
@@ -207,7 +213,7 @@ internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/
 
 internal: VERSION:=$(VERSION_INTERNAL)
 
-internal: $(APP) $(SCAN_APP) #$(LOGIN_APP)
+internal: $(APP) $(SCAN_APP) $(LOGIN_APP)
 
 
 # UTILITY TARGETS
@@ -779,7 +785,7 @@ engine: build/engine/Brave
 	@touch $(APP_RNTM)/Engine/Payload
 
 
-# *** SCAN APP ***
+# *** SCAN/LOGIN APPS ***
 
 # SCAN APP DEPENDENCIES
 
@@ -795,6 +801,22 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
 	$(SCAN_CT)/Resources/Scripts/filter.sh \
 	$(SCAN_CT)/Resources/Scripts/launch.scpt \
 	$(SCAN_CT)/Resources/Scripts/launch.sh
+
+
+# LOGIN APP DEPENDENCIES
+
+$(LOGIN_APP): $(LOGIN_CT)/MacOS/Epichrome\ Login \
+		\
+		$(LOGIN_CT)/Info.plist \
+		$(LOGIN_CT)/Resources/app.icns \
+		\
+		$(LOGIN_CT)/Resources/Scripts/core.sh \
+		$(LOGIN_CT)/Resources/Scripts/filter.sh \
+		$(LOGIN_CT)/Resources/Scripts/launch.scpt \
+		$(LOGIN_CT)/Resources/Scripts/launch.sh
+
+
+# SCAN APP ELEMENTS
 
 $(SCAN_CT)/MacOS/Epichrome\ Scan \
 	$(SCAN_CT)/Resources/MainMenu.nib \
@@ -816,27 +838,39 @@ scan-core:
 	@rm $(SCAN_CT)/Info.plist $(SCAN_CT)/Resources/*.icns $(SCAN_CT)/Resources/script
 
 
-# SCAN APP ELEMENTS
+# SCAN/LOGIN APP ELEMENTS
 
-$(SCAN_CT)/Info.plist: src/scan/Info.plist src/version.sh
-	@mkdir -p '$(dir $@)'
+$(SCAN_CT)/Info.plist: src/scan/Info.plist.scan src/version.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
 	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(SCAN_CT)/Resources/script: src/scan/ScanExec
-	@mkdir -p '$(dir $@)'
-	sed -e 's/EPISCANMODE/scan/g' '$<' > '$@'
+$(LOGIN_CT)/Info.plist: src/scan/Info.plist.login src/version.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+
+$(LOGIN_CT)/MacOS/Epichrome\ Login: SCAN_MODE:=login
+
+$(SCAN_CT)/Resources/script: SCAN_MODE:=scan
+	
+$(SCAN_CT)/Resources/script $(LOGIN_CT)/MacOS/Epichrome\ Login: src/scan/ScanExec
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	sed -e 's/EPISCANMODE/$(SCAN_MODE)/g' '$<' > '$@'
 	chmod 755 '$@'
 
 $(SCAN_CT)/Resources/%.icns: build/icons/scan_%$(BETA).icns src/version.sh
-	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'
-
-$(SCAN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
-$(SCAN_CT)/Resources/Scripts/launch.scpt: $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt
-	@mkdir -p '$(dir $@)'
+$(LOGIN_CT)/Resources/%.icns: build/icons/login_%$(BETA).icns src/version.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/%.sh $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/launch.scpt $(LOGIN_CT)/Resources/Scripts/launch.scpt: $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt
+	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'
 
 
