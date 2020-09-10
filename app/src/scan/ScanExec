@@ -38,6 +38,9 @@ myScriptPath="$myAppPath/Contents/Resources/Scripts"
 
 logNoStderr=1
 
+# set when scan is finished so cleanup can set a "canceled" message
+scanComplete=
+
 
 # LOAD CORE SCRIPT
 
@@ -60,6 +63,8 @@ function cleanup {
         errlog "Interrupted while restoring app $curApp. Attempting to complete restore."
         scan_restore CLEANUP
     fi
+
+    [[ "$scanComplete" ]] || finalprogressmsg 'Scan canceled.'
     
     # if nothing happened, quit parent app too
     # if [[ ! "$finalStatus" ]] ; then
@@ -163,21 +168,40 @@ function scan_restore {
         restoreLock=
     fi
     
+    # record result detail for progress window
+    if [[ "$iResult" = 0 ]] ; then
+        appRestoreSuccessList+=( "$curApp" )
+        progressCurDetail="  ✅ Restored app \"${SSBAppPath##*/}\"."
+    else
+        appRestoreErrorList+=( "$curApp" )
+        progressCurDetail="  🚫 Failed to restore app \"${SSBAppPath##*/}\". ($errmsg)"
+    fi
+    
     return "$iResult"
 }
 
 
 # PROGRESSMSG -- print a message for the progress bar
-#  progressmsg(aDetail aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
+#  progressmsg(aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
 progressPrevStatus=
 progressPrevTime=
+progressCurDetail=
 function progressmsg {
     
+    # don't show progress messages in login mode
+    [[ "$scanMode" != 'login' ]] || return 0
+    
     # arguments
-    local aDetail="$1" ; shift ; [[ "$aDetail" ]] && aDetail+=$'\n'
     local aAction="$1" ; shift
     local aCurItem="$1" ; shift
     local aNumItems="$1" ; shift
+    
+    # handle (and clear) detail message
+    local iDetail=
+    if [[ "$progressCurDetail" ]] ; then
+        iDetail="$progressCurDetail"$'\n'
+        progressCurDetail=
+    fi
     
     # build percentage (or count)
     local aPercent= aPercentNum=
@@ -222,12 +246,45 @@ function progressmsg {
     if [[ ( ( "$iCurTime" != "$progressPrevTime" ) && \
             ( "${iCurTime:$((${#iCurTime}-1)):1}" = [036] ) ) || \
             ( "$aStatus" != "$progressPrevStatus" ) ]] ; then
-        echo "$aDetail$aAction$aPercent$aStatus"
+        echo "$iDetail$aAction$aPercent$aStatus"
     fi
     
     # save status for next run
     progressPrevStatus="$aStatus"
     progressPrevTime="$iCurTime"
+}
+
+
+# FINALPROGRESSMSG: create final status message for progress bar
+#  finalprogressmsg(aBaseMsg)
+function finalprogressmsg {
+    
+    # don't show progress messages in login mode
+    [[ "$scanMode" != 'login' ]] || return 0
+    
+    # arguments
+    local aBaseMsg="$1" ; shift
+    
+    local iFinalStatus=
+    
+    # build final status message
+    if [[ "${#appRestoreSuccessList[@]}" -gt 0 ]] ; then
+        iFinalStatus+=" Restored: ${#appRestoreSuccessList[@]}"
+        # [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && iFinalStatus+='s' $$$$
+    fi
+    if [[ "${#appRestoreErrorList[@]}" -gt 0 ]] ; then
+        [[ "$iFinalStatus" ]] && iFinalStatus+=','
+        iFinalStatus+=" Failed: ${#appRestoreErrorList[@]}"
+        # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && iFinalStatus+='s'  $$$
+    fi
+
+    if [[ "$iFinalStatus" ]] ; then
+        iFinalStatus+='. See Details or log for info.'
+    else
+        iFinalStatus=' No apps found to restore.'
+    fi
+    
+    echo "$aBaseMsg$iFinalStatus"
 }
 
 
@@ -256,9 +313,6 @@ appIDList=()
 appRestoreSuccessList=()
 appRestoreErrorList=()
 
-# final status message
-finalStatus=
-
 # progress bar data
 numItems="${#appDataDirItemList[@]}"
 curItemNum=-1
@@ -274,7 +328,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     
     # update progress bar
     curItemNum=$(($curItemNum + 1))
-    progressmsg "$curDetail" 'Scanning apps...' $curItemNum $numItems \
+    progressmsg 'Scanning apps...' $curItemNum $numItems \
             'Restored' "${#appRestoreSuccessList[@]}" 'Failed' "${#appRestoreErrorList[@]}"
     
     # check if it's really an app directory
@@ -337,9 +391,6 @@ for curApp in "${appDataDirItemList[@]}" ; do
         SSBAppPath="${SSBAppPath[0]}"
     fi
     
-    # clear progress detail message
-    curDetail=
-    
     # make sure this app is not running
     if ! /usr/bin/pgrep -fiq -- "--epichrome-id=$curApp" ; then
         
@@ -352,13 +403,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
             myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
             
             # perform restore & record result
-            if scan_restore ; then
-                appRestoreSuccessList+=( "$curApp" )
-                curDetail="  ✅ Restored app \"${SSBAppPath##*/}\"."
-            else
-                appRestoreErrorList+=( "$curApp" )
-                curDetail="  🚫 Failed to restore app \"${SSBAppPath##*/}\". ($errmsg)"
-            fi
+            scan_restore
         else
             debuglog "  App $curApp appears to be intact."
             continue
@@ -369,23 +414,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     fi
 done
 
-# build final status message
-if [[ "${#appRestoreSuccessList[@]}" -gt 0 ]] ; then
-    finalStatus+=" Restored: ${#appRestoreSuccessList[@]}"
-    # [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && finalStatus+='s' $$$$
-fi
-if [[ "${#appRestoreErrorList[@]}" -gt 0 ]] ; then
-    [[ "$finalStatus" ]] && finalStatus+=','
-    finalStatus+=" Failed: ${#appRestoreErrorList[@]}"
-    # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && finalStatus+='s'  $$$
-fi
-
-if [[ "$finalStatus" ]] ; then
-    finalStatus+='. See Details or log for info.'
-else
-    finalStatus=' No apps found to restore.'
-fi
-
-echo "Scan complete.$finalStatus"
+finalprogressmsg "Scan complete."
+scanComplete=1
 
 cleanexit
