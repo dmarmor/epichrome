@@ -13,9 +13,8 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
-<h4 align="center">Rock Star Patrons</h4>
-<p align="center">
-<b>Alan Latteri</b><br />
+<h4 align="center" style="text-decoration: underline;">Rock Star Patrons</h4>
+<p align="center"><b>Alan Latteri</b><br />
 <b>Lyle Barrere</b><br />
 <b>Jonathan Berger</b><br />
 <b>Andrew Bonham</b><br />
@@ -33,13 +32,12 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>Matthew Scott</b><br />
 <b>Samuel Talleux</b><br />
 <b>Adam Tarnoff</b><br />
-<b>Thorbergsson</b>
-</p>
+<b>Thorbergsson</b></p>
 
 
-## New in version 2.3.10
+## New in version 2.3.11
 
-- The built-in engine has been updated to Brave 1.13.86.
+- The built-in engine has been updated to Brave 1.1X.XX.
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
