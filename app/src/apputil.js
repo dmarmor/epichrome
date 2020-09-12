@@ -1,6 +1,6 @@
 //
 //
-//  launch.js: launch an app, optionally with arguments and URLs
+//  apputil.js: launch an app, optionally with arguments and URLs
 //
 //  Copyright (C) 2020  David Marmor
 //

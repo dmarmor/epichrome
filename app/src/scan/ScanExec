@@ -65,16 +65,20 @@ function cleanup {
     if [[ "$restoreLock" && ( ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ) ]] ; then
         errlog "Scan canceled while restoring app $curApp. Attempting to complete restore."
         scan_restore CLEANUP
-    else
-        errlog "Scan canceled."
     fi
     
-    [[ "$scanComplete" ]] || finalprogressmsg 'Scan canceled.'
+    # determine if we finished or canceled
+    local iMsg=
+    if [[ "$scanComplete" ]] ; then
+        iMsg='Scan complete.'
+        debuglog "$iMsg"
+    else
+        iMsg='Scan canceled.'
+        errlog "$iMsg"
+    fi
     
-    # if nothing happened, quit parent app too
-    # if [[ ! "$finalStatus" ]] ; then
-    #     kill "$PPID"
-    # fi
+    # final progress message
+    finalprogressmsg "$iMsg"
 }
 
 
@@ -286,7 +290,7 @@ function finalprogressmsg {
     if [[ "$iFinalStatus" ]] ; then
         iFinalStatus+='. See Details or log for info.'
     else
-        iFinalStatus=' No apps found to restore.'
+        iFinalStatus=' No problems found.'
     fi
     
     echo "$aBaseMsg$iFinalStatus"
@@ -366,7 +370,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     if [[ ! "$SSBAppPath" || (! -d "$SSBAppPath" ) ]] ; then
         debuglog "  Current path for app $curApp not found in config. Finding by ID."
         
-        try 'SSBAppPath=(n)' /usr/bin/osascript -x "$myScriptPath/launch.scpt" \
+        try 'SSBAppPath=(n)' /usr/bin/osascript "$myScriptPath/apputil.js" \
 "{
    \"action\": \"find\",
    \"id\": \"$appIDBase.$curApp\"
@@ -419,7 +423,6 @@ for curApp in "${appDataDirItemList[@]}" ; do
     fi
 done
 
-finalprogressmsg "Scan complete."
 scanComplete=1
 
 cleanexit

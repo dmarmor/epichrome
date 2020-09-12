@@ -1,6 +1,6 @@
 //
 //
-//  liblaunch.js: JXA/Obj-C bridge calls to register, find & launch apps
+//  libapp.js: JXA/Obj-C bridge calls to register, find & launch apps
 //
 //  Copyright (C) 2020  David Marmor
 //

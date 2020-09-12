@@ -219,7 +219,7 @@ internal: $(APP) $(SCAN_APP) $(LOGIN_APP)
 # UTILITY TARGETS
 
 clean:
-	rm -rf Epichrome/Epichrome.app
+	rm -rf $(APP) $(SCAN_APP) $(LOGIN_APP)
 	rm -rf build/main* build/runtime* build/engine build/engine_tmp build/resources $(INTERMEDIATES)
 	@hdiutil detach build/dmg 2> /dev/null || true
 
@@ -415,7 +415,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
-	$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt \
+	$(APP_RNTM)/Contents/Resources/Scripts/apputil.js \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -436,7 +436,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet \
 $(APP_CT)/Resources/droplet.rsrc \
-$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/liblaunch.js src/version.sh main
+$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/libapp.js src/version.sh main
 
 main:
 	@mkdir -p build
@@ -444,7 +444,7 @@ main:
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
 		src/main.js > build/main.js
 	echo >> build/main.js
-	cat src/liblaunch.js >> build/main.js
+	cat src/libapp.js >> build/main.js
 	osacompile -l JavaScript -x -o build/main.app build/main.js
 	chmod 444 build/main.app/Contents/Resources/Scripts/main.scpt  # lock main.scpt so it doesn't get altered with each run
 	@mv build/main.app build/main
@@ -576,15 +576,10 @@ $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
-$(APP_RNTM)/Contents/Resources/Scripts/launch.scpt: build/launch.js
-	@if [[ -e '$@' ]] ; then chmod 644 '$@' ; fi
-	osacompile -l JavaScript -x -o '$@' '$<'
-	chmod 444 '$@'
-	
-build/launch.js: src/launch.js src/liblaunch.js
+$(APP_RNTM)/Contents/Resources/Scripts/apputil.js: src/apputil.js src/libapp.js
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 	echo >> '$@'
-	cat 'src/liblaunch.js' >> '$@'
+	cat 'src/libapp.js' >> '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
@@ -799,7 +794,7 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
 	\
 	$(SCAN_CT)/Resources/Scripts/core.sh \
 	$(SCAN_CT)/Resources/Scripts/filter.sh \
-	$(SCAN_CT)/Resources/Scripts/launch.scpt \
+	$(SCAN_CT)/Resources/Scripts/apputil.js \
 	$(SCAN_CT)/Resources/Scripts/launch.sh
 
 
@@ -812,7 +807,7 @@ $(LOGIN_APP): $(LOGIN_CT)/MacOS/Epichrome\ Login \
 		\
 		$(LOGIN_CT)/Resources/Scripts/core.sh \
 		$(LOGIN_CT)/Resources/Scripts/filter.sh \
-		$(LOGIN_CT)/Resources/Scripts/launch.scpt \
+		$(LOGIN_CT)/Resources/Scripts/apputil.js \
 		$(LOGIN_CT)/Resources/Scripts/launch.sh
 
 
@@ -869,7 +864,7 @@ $(SCAN_CT)/Resources/Scripts/%.sh $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
-$(SCAN_CT)/Resources/Scripts/launch.scpt $(LOGIN_CT)/Resources/Scripts/launch.scpt: $(APP_RNTM)/Contents/Resources/Scripts/launch.scpt
+$(SCAN_CT)/Resources/Scripts/apputil.js $(LOGIN_CT)/Resources/Scripts/apputil.js: $(APP_RNTM)/Contents/Resources/Scripts/apputil.js
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'
 
