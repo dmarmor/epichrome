@@ -1,7 +1,7 @@
-# Epichrome version (#.#.# = release version, #.#.#b# = beta)
+# Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b2
-epiBuildNum=29
+epiBuildNum=30
 epiDesc="🚀 MAJOR UPDATE!
 
    ▪️ Added ability to edit existing Epichrome apps
@@ -13,5 +13,3 @@ epiDesc="🚀 MAJOR UPDATE!
    ▪️ Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)
  
    ▪️ Fixed a problem that could cause apps to register as a browser after update even though they were created not to (existing apps that should not be registered browsers will need to be edited once to reset that setting)"
-
-mcssbVersion="${epiVersion%[*}"  # backward compatibility

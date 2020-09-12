@@ -43,30 +43,52 @@ THISYEAR:=$(shell date '+%Y')
 GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
 
 
+# APP PATHS
+
+APP_CT:=$(APP)/Contents
+APP_RNTM:=$(APP_CT)/Resources/Runtime
+
+SCAN_CT:=$(SCAN_APP)/Contents
+
+LOGIN_CT:=$(LOGIN_APP)/Contents
+
+
 # VERSION INFO
 
-VERSION:=$(shell source src/version.sh && echo "$$epiVersion")
+VERSION_INTERNAL:=$(shell source src/version.sh ; \
+		if [[ '$(filter bump,$(MAKECMDGOALS))' ]] ; then \
+			bumpedNum="$$(($$epiBuildNum + 1))" ; \
+			sed -i '' -E 's/^epiBuildNum=.*$$/epiBuildNum='"$$bumpedNum"'/' src/version.sh ; \
+			printf 'Bumped build number (%03d -> %03d)\n' "$$epiBuildNum" "$$bumpedNum" 1>&2 ; \
+			epiBuildNum="$$bumpedNum" ; \
+		fi ; \
+		echo "$$epiVersion[$$(printf '%03d' "$$epiBuildNum")]")
 
-BUILDNUM:=$(shell source src/version.sh ; \
-			read -p "$$(printf 'Bump build number (%03d -> %03d)? [n] ' $$epiBuildNum $$(($$epiBuildNum + 1)))" ans && \
-			if [[ "$$ans" =~ ^[Yy] ]] ; then \
-				epiBuildNum="$$(($$epiBuildNum + 1))" ; \
-				sed -i '' -E 's/^epiBuildNum=.*$$/epiBuildNum='"$$epiBuildNum"'/' src/version.sh ; \
-			fi ; \
-			echo "$$epiBuildNum")
-
-VERSION_INTERNAL:=$(VERSION)[$(shell printf '%03d' '$(BUILDNUM)')]
+ifeq ($(VERSION),)
+VERSION:=$(shell if [[ '$(filter release package,$(MAKECMDGOALS))' ]] ; then \
+			version='$(VERSION_INTERNAL)' ; \
+			echo "$${version%[*}" ; \
+		else \
+			echo '$(VERSION_INTERNAL)' ; \
+		fi)
+endif
+export VERSION
 
 VERSIONMAJOR:=$(shell version='$(VERSION)' && echo "$${version%.*}")
-
-VERSIONCODE:=$(shell src/versioncode.sh '$(VERSION)[$(BUILDNUM)]')
+VERSIONTEXT:=$(subst b, BETA ,$(VERSION))
+VERSIONCODE:=$(shell src/versioncode.sh '$(VERSION_INTERNAL)')
 ifeq ($(VERSIONCODE),FAIL)
 $(error Unable to parse version number in version.sh)
 endif
 
-VERSIONTEXT:=$(shell 	if [[ "$(VERSION)" =~ ^([0-9]+\.[0-9]+\.[0-9]+)b([0-9]+)$$ ]] ; then \
-			  printf '%s BETA %s' $${BASH_REMATCH[1]} $${BASH_REMATCH[2]} ; \
-			else echo '$(VERSION)' ; fi)
+# target to clean app when switching between release and internal builds
+CLEANVERSION:=$(shell if [[ -e $(APP_CT)/Resources/Scripts/version.sh ]] ; then \
+				source $(APP_CT)/Resources/Scripts/version.sh ; \
+				if [[ ( ( "$$epiVersion" = *']' ) && ( '$(VERSION)' != *']' ) ) || \
+					( ( "$$epiVersion" != *']' ) && ( '$(VERSION)' = *']' ) ) ]] ; then \
+					echo 'clean' ; \
+				fi ; \
+			fi)
 
 MIN_OS:="$$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' '$(APP)/Contents/Resources/Runtime/Engine/Filter/Info.plist')"
 
@@ -137,16 +159,9 @@ endif
 
 
 NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
-
-
-# APP PATHS
-
-APP_CT:=$(APP)/Contents
-APP_RNTM:=$(APP_CT)/Resources/Runtime
-
-SCAN_CT:=$(SCAN_APP)/Contents
-
-LOGIN_CT:=$(LOGIN_APP)/Contents
+ifeq ($(VERSION),$(VERSION_INTERNAL))
+NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
+endif
 
 
 # META-TARGETS
@@ -200,20 +215,24 @@ PRECIOUS_INTERMEDIATES:=\
 
 .DELETE_ON_ERROR:
 
-.PHONY: internal package clean clean-package clean-engine clean-all verify notarize notarize-check notarize-staple
+.PHONY: bump build release package clean no-clean clean-package clean-engine clean-all verify notarize notarize-check notarize-staple
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
 .INTERMEDIATE: main engine runtime scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
-# INTERNAL BUILD (DEFAULT TARGET)
+# BUILD TARGETS (DEFAULT TARGET)
 
-internal: NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
+build: $(CLEANVERSION) $(APP) $(SCAN_APP) $(LOGIN_APP)
 
-internal: VERSION:=$(VERSION_INTERNAL)
+release: build
 
-internal: $(APP) $(SCAN_APP) $(LOGIN_APP)
+
+# VERSION NUMBER MANAGEMENT TARGET
+
+bump:
+	@if [[ '$(filter-out bump,$(MAKECMDGOALS))' = '' ]] ; then echo 'GOING TO SUBMAKE' ; $(MAKE) ; fi
 
 
 # UTILITY TARGETS
@@ -222,6 +241,9 @@ clean:
 	rm -rf $(APP) $(SCAN_APP) $(LOGIN_APP)
 	rm -rf build/main* build/runtime* build/engine build/engine_tmp build/resources $(INTERMEDIATES)
 	@hdiutil detach build/dmg 2> /dev/null || true
+
+no-clean:
+	@:
 
 clean-package:
 	rm -f epichrome-*.pkg
@@ -242,7 +264,9 @@ build/icons/%.icns: ../images/icons/%.png
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
-	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
+	@printf 'Waiting for Photoshop to finish converting $@...'
+	@while [[ ( ! -e $@ ) || ( $@ -ot $< ) ]] ; do sleep 1 ; done
+	@echo 'done!'
 
 
 # PACKAGE BUILD
@@ -258,7 +282,7 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 		--sign '$(CODESIGN_IDENTITY)' \
 		'$@'
 
-build/epichrome-$(VERSION)-main.pkg: $(APP) build/icons/folder.icns
+build/epichrome-$(VERSION)-main.pkg: release build/icons/folder.icns
 	@rm -f '$@'
 	xattr -cr $(APP)
 	rm -rf build/package/Applications
@@ -393,7 +417,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Scripts/version.sh \
 	\
 	$(APP_CT)/Resources/NMH/$(NMH_ID).json \
-	$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION_INTERNAL) \
+	$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION) \
 	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
@@ -427,9 +451,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Engine/Filter/Info.plist \
 	$(APP_RNTM)/Engine/Payload \
-	$(APP_RNTM)/Engine/Link/Frameworks \
-	\
-	$(APP_RNTM)/Resources/Scripts/runtime.sh
+	$(APP_RNTM)/Engine/Link/Frameworks
 
 
 # MAIN APP CORE
@@ -489,7 +511,7 @@ $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'	
 
-$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION_INTERNAL): src/epichromeruntimehost.py src/version.sh
+$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed -e 's/EPIVERSION/$(VERSION)/g' \
 		-e 's/debug = True/$(DEBUG_PY)/g' \
@@ -860,17 +882,14 @@ $(LOGIN_CT)/Resources/%.icns: build/icons/login_%$(BETA).icns src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
-$(SCAN_CT)/Resources/Scripts/%.sh $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
+$(SCAN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp '$<' '$@'
+
+$(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
 $(SCAN_CT)/Resources/Scripts/apputil.js $(LOGIN_CT)/Resources/Scripts/apputil.js: $(APP_RNTM)/Contents/Resources/Scripts/apputil.js
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'
-
-
-# *** LEGACY UPDATE CODE ***
-
-$(APP_RNTM)/Resources/Scripts/runtime.sh: src/runtime.sh
-	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'
