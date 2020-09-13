@@ -13,9 +13,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Epichrome Scan</string>
+	<string>SCANDISPNAME</string>
 	<key>CFBundleName</key>
-	<string>Epichrome Scan</string>
+	<string>SCANSHORTNAME</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

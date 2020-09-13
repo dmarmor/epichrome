@@ -13,9 +13,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>Epichrome Login</string>
+	<string>LOGINDISPNAME</string>
 	<key>CFBundleName</key>
-	<string>Epichrome Login</string>
+	<string>LOGINSHORTNAME</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

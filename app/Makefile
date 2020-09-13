@@ -53,6 +53,16 @@ SCAN_CT:=$(SCAN_APP)/Contents
 LOGIN_CT:=$(LOGIN_APP)/Contents
 
 
+# APP NAMES
+
+EPICHROME_DISPNAME:=Epichrome
+EPICHROME_SHORTNAME:=$(EPICHROME_DISPNAME)
+SCAN_DISPNAME:=Epichrome Scan
+SCAN_SHORTNAME:=$(SCAN_DISPNAME)
+LOGIN_DISPNAME:=Epichrome Login
+LOGIN_SHORTNAME:=EpichromeLogin
+
+
 # VERSION INFO
 
 VERSION_INTERNAL:=$(shell source src/version.sh ; \
@@ -134,6 +144,14 @@ $(error Unable to retrieve Brave version from $(BRAVE))
 endif
 
 
+# NATIVE MESSAGING HOST EXTENSION IDS
+
+NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
+ifeq ($(VERSION),$(VERSION_INTERNAL))
+NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
+endif
+
+
 # NOTARIZE INFO
 
 NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2> /dev/null | sort | tail -n 1)
@@ -142,25 +160,28 @@ NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2>
 # BETA CONDITIONAL INFO
 
 ifeq ($(BETA),_beta)
+
 DEBUG_SH:=1
 DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
 BACKUPPRESERVE_SH:=9
-EPICHROME_DISPNAME:=Epichrome Beta
 PACKAGE_README:=build/resources/readme.rtf
+
+EPICHROME_DISPNAME:=$(EPICHROME_DISPNAME) Beta
+EPICHROME_SHORTNAME:=$(EPICHROME_SHORTNAME) Beta
+SCAN_DISPNAME:=$(SCAN_DISPNAME) Beta
+SCAN_SHORTNAME:=$(SCAN_SHORTNAME) ß
+LOGIN_DISPNAME:=$(LOGIN_DISPNAME) Beta
+LOGIN_SHORTNAME:=$(LOGIN_SHORTNAME) ß
+
 else
+
 DEBUG_SH:=
 DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
 BACKUPPRESERVE_SH:=4
-EPICHROME_DISPNAME:=Epichrome
 PACKAGE_README:=build/resources/readme.rtf
-endif
 
-
-NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
-ifeq ($(VERSION),$(VERSION_INTERNAL))
-NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 endif
 
 
@@ -489,7 +510,7 @@ main:
 
 $(APP_CT)/Info.plist: src/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPISHORTNAME/$(EPICHROME_DISPNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+	sed 's/EPIDISPNAME/$(EPICHROME_DISPNAME)/g; s/EPISHORTNAME/$(EPICHROME_SHORTNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'
@@ -859,11 +880,11 @@ scan-core:
 
 $(SCAN_CT)/Info.plist: src/scan/Info.plist.scan src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+	sed 's/SCANDISPNAME/$(SCAN_DISPNAME)/g; s/SCANSHORTNAME/$(SCAN_SHORTNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(LOGIN_CT)/Info.plist: src/scan/Info.plist.login src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
-	sed -e 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+	sed 's/LOGINDISPNAME/$(LOGIN_DISPNAME)/g; s/LOGINSHORTNAME/$(LOGIN_SHORTNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
 $(LOGIN_CT)/MacOS/Epichrome\ Login: SCAN_MODE:=login
 
