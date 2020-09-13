@@ -432,6 +432,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/docbg.png \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
+	$(APP_CT)/Resources/Scripts/legacy.sh \
 	$(APP_CT)/Resources/Scripts/makeicon.sh \
 	$(APP_CT)/Resources/Scripts/relaunch.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \

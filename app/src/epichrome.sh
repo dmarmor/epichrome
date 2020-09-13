@@ -37,8 +37,18 @@ source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID"
 # LOADSCRIPT: load a given script
 function loadscript {
     
-    local iScript="$1" ; shift
-    [[ "${iScript:0:1}" = '/' ]] || iScript="$myRuntimeScriptsPath/$iScript"
+    local iScript=
+    if [[ "${1:0:1}" = '/' ]] ; then
+        iScript="$1"
+    else
+        iScript="$myRuntimeScriptsPath/$1"
+        [[ -f "$iScript" ]] || iScript="$myResourcesPath/Scripts/$1"
+        if [[ ! -f "$iScript" ]] ; then
+            ok= ; errmsg="Unable to find \"$1\"."
+            errlog "$errmsg"
+            abort
+        fi
+    fi
     
     if ! source "$iScript" ; then
         ok= ; errmsg="Unable to load ${iScript##*/}."
@@ -290,12 +300,8 @@ elif [[ "$epiAction" = 'read' ]] ; then
         
         # 2.1.0 - 2.2.4
         
-        # load runtime.sh
-        if ! source "$myResourcesPath/Runtime/Resources/Scripts/runtime.sh" ; then
-            ok= ; errmsg="Unable to load runtime.sh."
-            errlog "$errmsg"
-            abort
-        fi
+        # load legacy.sh
+        loadscript 'legacy.sh'
         
         # read in app config
         safesource "$myOldConfigPath" 'app configuration'
@@ -306,8 +312,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
             abort 'Cannot edit apps older than version 2.1.0.'
         
         # update necessary variables (SSBIdentifier & SSBEngineType)
-        updateoldcoreinfo_preload
-        updateoldcoreinfo_postload
+        updateoldcoreinfo
         [[ "$ok" ]] || abort
         
     else
@@ -424,13 +429,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     # ACTION: BUILD NEW APP
     
     # load update.sh
-    if ! source "$myResourcesPath/Scripts/update.sh" ; then
-        ok=
-        errmsg="Unable to load update.sh."
-        errlog "$errmsg"
-        abort
-    fi
-    
+    loadscript 'update.sh'
     
     # CLEANUP -- clean up any half-made app
     function cleanup {
@@ -477,13 +476,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
     
     # load update.sh
-    if ! source "$myResourcesPath/Scripts/update.sh" ; then
-        ok=
-        errmsg="Unable to load update.sh."
-        errlog "$errmsg"
-        abort
-    fi
-    
+    loadscript 'update.sh'
     
     # CLEANUP -- clean up any half-finished edit
     function cleanup {
@@ -532,12 +525,8 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     
     if vcmp "$myOldVersion" '<=' '2.2.4' ; then
         
-        # load runtime.sh
-        if ! source "$myResourcesPath/Runtime/Resources/Scripts/runtime.sh" ; then
-            ok= ; errmsg="Unable to load runtime.sh."
-            errlog "$errmsg"
-            abort
-        fi
+        # load legacy.sh
+        loadscript 'legacy.sh'
         
         # update data directory structure
         updateolddatadir "$currentDataPath" "$currentDataPath/$appDataProfileDir"
