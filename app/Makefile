@@ -75,7 +75,7 @@ VERSION_INTERNAL:=$(shell source src/version.sh ; \
 		echo "$$epiVersion[$$(printf '%03d' "$$epiBuildNum")]")
 
 ifeq ($(VERSION),)
-VERSION:=$(shell if [[ '$(filter release package,$(MAKECMDGOALS))' ]] ; then \
+VERSION:=$(shell if [[ '$(filter release package notarize notarize-check notarize-staple,$(MAKECMDGOALS))' ]] ; then \
 			version='$(VERSION_INTERNAL)' ; \
 			echo "$${version%[*}" ; \
 		else \
@@ -401,10 +401,15 @@ notarize-staple: notarize-check
 	@if [[ ! -f 'epichrome-$(VERSION).pkg' ]] ; then \
 		echo '*** Unable to find epichrome-$(VERSION).pkg' ; false ; \
 	fi
-	@echo '*** This should only be done after notarization has been accepted by Apple.' ; \
-	read -p "Staple notarization for epichrome-$(VERSION).pkg? (y/n [n]) " -r ; \
-	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		xcrun stapler staple 'epichrome-$(VERSION).pkg' ; fi
+	@request_file="$$(ls epichrome-$(VERSION).notarize*.check.txt 2> /dev/null | sort | tail -n 1)" ; \
+	request_file="$$(cat "$$request_file")" ; \
+	re=$$'\n *Status: *success *\n' ; \
+	if [[ "$$request_file" =~ $$re ]] ; then \
+		xcrun stapler staple 'epichrome-$(VERSION).pkg' ; \
+	else \
+		echo '*** Stapling should only be done after notarization has been accepted by Apple.' ; \
+		false ; \
+	fi
 
 
 # CODESIGNING
