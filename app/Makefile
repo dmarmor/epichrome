@@ -165,7 +165,6 @@ DEBUG_SH:=1
 DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
 BACKUPPRESERVE_SH:=9
-PACKAGE_README:=build/resources/readme.rtf
 
 EPICHROME_DISPNAME:=$(EPICHROME_DISPNAME) Beta
 EPICHROME_SHORTNAME:=$(EPICHROME_SHORTNAME) Beta
@@ -180,7 +179,6 @@ DEBUG_SH:=
 DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
 BACKUPPRESERVE_SH:=4
-PACKAGE_README:=build/resources/readme.rtf
 
 endif
 
@@ -295,7 +293,7 @@ build/icons/%.icns: ../images/icons/%.png
 
 package: epichrome-$(VERSION).pkg
 
-epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf $(PACKAGE_README) build/resources/license.rtf
+epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf build/resources/readme.rtf build/resources/license.rtf
 	@rm -f '$@'
 	productbuild --distribution build/epichrome-$(VERSION)-dist.xml \
 		--package-path build \
@@ -308,19 +306,26 @@ build/epichrome-$(VERSION)-main.pkg: release build/icons/folder.icns
 	xattr -cr $(APP)
 	rm -rf build/package/Applications
 	mkdir -p build/package/Applications/Epichrome/Payload.noindex
-	chmod 1777 build/package/Applications/Epichrome \
-		build/package/Applications/Epichrome/Payload.noindex
 	../modules/fileicon/bin/fileicon set \
 		build/package/Applications/Epichrome \
 		build/icons/folder.icns
 	touch build/package/Applications/Epichrome/Payload.noindex/.preserve
 	mv $(APP) 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app'
+	mv $(SCAN_APP) 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app'
+	mv $(LOGIN_APP) 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app'
 	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
-	/usr/libexec/PlistBuddy -c 'Set 0:BundleIsRelocatable false' $(@:.pkg=).plist && \
-	pkgbuild --root build/package --component-plist $(@:.pkg=).plist '$@' && \
+	plutil -replace BundleIsRelocatable -bool NO $(@:.pkg=).plist && \
+	pkgbuild --root build/package --identifier org.epichrome.Epichrome \
+		--scripts src/package/scripts \
+		--component-plist $(@:.pkg=).plist '$@' && \
 	rm -f '$(@:.pkg=).plist' ) ; then \
-		mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP) ; false ; fi
+		mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP) ; \
+		mv 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app' $(SCAN_APP) ; \
+		mv 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app' $(LOGIN_APP) ; \
+	fi
 	mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP)
+	mv 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app' $(SCAN_APP)
+	mv 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app' $(LOGIN_APP)
 	rm -rf build/package/Applications
 	@cd build ; rmdir -p package
 

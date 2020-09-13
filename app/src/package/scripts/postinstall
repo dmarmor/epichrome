@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# install path info
+rootdir="$2"
+epidir='Applications/Epichrome'
+
+# set sticky bit permissions for Payload directory in /Applications
+if [[ "$rootdir" = '/' ]] ; then
+    /bin/chmod 1777 "/$epidir/Payload.noindex"
+    [[ "$?" = 0 ]] || exit 1
+else
+    rootdir+='/'
+fi
+
+# remove empty legacy EpichromeEngines.noindex folder
+oldengdir="${rootdir}$epidir/EpichromeEngines.noindex"
+/usr/bin/find "$oldengdir" -name '.DS_Store' -exec /bin/rm '{}' ';' && \
+/usr/bin/find "$oldengdir" -d -type d -exec /bin/rmdir '{}' ';' > /dev/null 2>&1
+
+exit 0

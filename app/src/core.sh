@@ -144,9 +144,13 @@ appDataConfigFile='config.sh'
 epiDataExtIconDir='ExtensionIcons'
 appDataProfileDir='UserData'
 epiDataLogDir='Logs'
+epiDataLogDirEpichrome="$epiDataLogDir/Epichrome"
+epiDataLogDirScan="$epiDataLogDir/Scan"
+epiDataLogDirLogin="$epiDataLogDir/Login"
 appDataLogFilePrefix='epichrome_app_log'
 epiDataLogFilePrefix='epichrome_log'
-epiScanDataLogFilePrefix='epichrome_scan_log'
+epiDataLogFilePrefixScan='epichrome_scan_log'
+epiDataLogFilePrefixLogin='epichrome_login_log'
 appDataStderrFile='stderr.txt'
 appDataStdoutFile='stdout.txt'
 appDataPauseFifo='pause'
@@ -159,7 +163,8 @@ export userSupportPath epiDataPath \
         appDataPathBase \
         appDataConfigFile \
         epiDataExtIconDir appDataProfileDir \
-        epiDataLogDir appDataLogFilePrefix epiDataLogFilePrefix epiScanDataLogFilePrefix \
+        epiDataLogDir epiDataLogDirEpichrome epiDataLogDirScan epiDataLogDirLogin \
+        appDataLogFilePrefix epiDataLogFilePrefix epiDataLogFilePrefixScan epiDataLogFilePrefixLogin \
         appDataStderrFile appDataStdoutFile appDataPauseFifo appDataLockFile appDataBackupDir \
         appDataWelcomeDir
 
@@ -263,6 +268,9 @@ if [[ "$coreContext" = 'app' ]] ; then
     # log file prefix
     [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$appDataLogFilePrefix"
     
+    # log file directory
+    [[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDir"
+    
     # export all to helper
     export myDataPath myPauseFifo myConfigFile myProfilePath myLogID
 
@@ -297,6 +305,9 @@ else
         # log file prefix
         [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiDataLogFilePrefix"
         
+        # log file directory
+        [[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDirEpichrome"
+
         # file logging only (unless explicitly turned off)
         [[ "$logNoFile" ]] && logNoStderr= || logNoStderr=1
         
@@ -306,7 +317,21 @@ else
         [[ "$myLogID" ]] || myLogID='EpichromeScan'
         
         # log file prefix
-        [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiScanDataLogFilePrefix"
+        [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiDataLogFilePrefixScan"
+        
+        # log file directory
+        [[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDirScan"
+        
+    elif [[ "$coreContext" = 'login' ]] ; then
+        
+        # set logging ID
+        [[ "$myLogID" ]] || myLogID='EpichromeLogin'
+        
+        # log file prefix
+        [[ "$myLogFilePrefix" ]] || myLogFilePrefix="$epiDataLogFilePrefixLogin"
+        
+        # log file directory
+        [[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDirLogin"
         
     else  # shell
         
@@ -340,11 +365,11 @@ if [[ ! "$myRunTimestamp" ]] ; then
     myRunTimestamp="_$(date '+%Y%m%d_%H%M%S' 2> /dev/null)"
     [[ "$?" = 0 ]] || myRunTimestamp=
 fi
-[[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDir"
 
 # export all to helper
-export myLogFile myLogTempVar stderrTempFile stdoutTempFile \
-        logNoStderr logNoFile myRunTimestamp myLogDir myBackupDir
+export myLogFile myLogFilePrefix myLogDir \
+        myLogTempVar stderrTempFile stdoutTempFile \
+        logNoStderr logNoFile myRunTimestamp myBackupDir
 
 
 # FUNCTION DEFINITIONS

@@ -26,10 +26,9 @@
 scanMode='EPISCANMODE'
 
 if [[ "$scanMode" = 'login' ]] ; then
-    myLogID='EpichromeLogin'
-    myLogFilePrefix='epichrome_login_log'
     myAppPath="${BASH_SOURCE[0]%/Contents/MacOS/*}"
 else
+    scanMode='scan'
     myAppPath="${BASH_SOURCE[0]%/Contents/Resources/script}"
     logNoStderr=1
 fi
@@ -47,7 +46,7 @@ scanComplete=
 
 # LOAD CORE SCRIPT
 
-source "$myScriptPath/core.sh" 'coreDoInit=1' 'coreContext=scan' || exit 1
+source "$myScriptPath/core.sh" 'coreDoInit=1' "coreContext=$scanMode" || exit 1
 [[ "$ok" ]] || abort
 
 
