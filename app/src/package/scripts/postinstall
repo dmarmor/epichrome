@@ -2,7 +2,7 @@
 
 # install path info
 rootdir="$2"
-epidir='Applications/Epichrome'
+epidir='Applications/INSTALLDIR'
 
 # set sticky bit permissions for Payload directory in /Applications
 if [[ "$rootdir" = '/' ]] ; then
@@ -14,7 +14,22 @@ fi
 
 # remove empty legacy EpichromeEngines.noindex folder
 oldengdir="${rootdir}$epidir/EpichromeEngines.noindex"
-/usr/bin/find "$oldengdir" -name '.DS_Store' -exec /bin/rm '{}' ';' && \
-/usr/bin/find "$oldengdir" -d -type d -exec /bin/rmdir '{}' ';' > /dev/null 2>&1
+if [[ -d "$oldengdir" ]] ; then
+    /usr/bin/find "$oldengdir" -name '.DS_Store' -exec /bin/rm '{}' ';' && \
+    /usr/bin/find "$oldengdir" -d -type d -exec /bin/rmdir '{}' ';' > /dev/null 2>&1
+fi
+
+# $$$ 2.4.0 BETA 2 ONLY -- remove Epichrome Beta stuff from */Applications/Epichrome
+releasedir='Applications/Epichrome'
+if [[ "$rootdir" = '/' ]] ; then
+    searchdirs=( "/$releasedir" )
+    [[ "$HOME" ]] && searchdirs+=( "$HOME/$releasedir" )
+else
+    searchdirs=( "${rootdir}$releasedir" )
+fi
+for dir in "${searchdirs[@]}" ; do
+    [[ -d "$dir/Epichrome Beta.app" ]] && /bin/rm -rf "$dir/Epichrome Beta.app"
+    [[ -d "$dir/Payload.noindex" ]] && /bin/rm -rf "$dir/Payload.noindex"        
+done
 
 exit 0

@@ -57,6 +57,7 @@ LOGIN_CT:=$(LOGIN_APP)/Contents
 
 EPICHROME_DISPNAME:=Epichrome
 EPICHROME_SHORTNAME:=$(EPICHROME_DISPNAME)
+INSTALL_FOLDER:=$(EPICHROME_DISPNAME)
 SCAN_DISPNAME:=Epichrome Scan
 SCAN_SHORTNAME:=$(SCAN_DISPNAME)
 LOGIN_DISPNAME:=Epichrome Login
@@ -173,6 +174,8 @@ SCAN_SHORTNAME:=$(SCAN_SHORTNAME) ß
 LOGIN_DISPNAME:=$(LOGIN_DISPNAME) Beta
 LOGIN_SHORTNAME:=$(LOGIN_SHORTNAME) ß
 
+INSTALL_FOLDER:=$(INSTALL_FOLDER) Beta
+
 else
 
 DEBUG_SH:=
@@ -197,7 +200,7 @@ INTERMEDIATES:=\
 	build/engine_tmp/brave_entitlements.plist \
 	build/fake.icns \
 	build/fake.sh \
-	build/Chromium.app \
+	build/scripts/postinstall \
 	build/package \
 	build/epichrome-$(VERSION)-main.plist \
 	build/epichrome-$(VERSION)-dist.xml
@@ -216,6 +219,7 @@ PRECIOUS_INTERMEDIATES:=\
 	../images/icons/epichrome.png \
 	../images/icons/epichrome_beta.png \
 	../images/icons/folder.png \
+	../images/icons/folder_beta.png \
 	build/icons/app.icns \
 	build/icons/app_beta.icns \
 	build/icons/document.icns \
@@ -223,6 +227,7 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/epichrome.icns \
 	build/icons/epichrome_beta.icns \
 	build/icons/folder.icns \
+	build/icons/folder_beta.icns \
 	build/img/app_icon.png \
 	build/img/app_icon_beta.png \
 	build/img/epichrome_icon.png \
@@ -285,6 +290,12 @@ build/icons/%.icns: ../images/icons/%.png
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
 	@printf 'Waiting for Photoshop to finish converting $@...'
 	@while [[ ( ! -e $@ ) || ( $@ -ot $< ) ]] ; do sleep 1 ; done
+	@mtime=$$(stat -f '%m' $@) ; \
+	while [[ "$$oldmtime" != "$$mtime" ]] ; do \
+		sleep 1 ; \
+		oldmtime="$$mtime" ; \
+		mtime=$$(stat -f '%m' $@) ; \
+	done
 	@echo 'done!'
 
 
@@ -301,31 +312,31 @@ epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(
 		--sign '$(CODESIGN_IDENTITY)' \
 		'$@'
 
-build/epichrome-$(VERSION)-main.pkg: release build/icons/folder.icns
+build/epichrome-$(VERSION)-main.pkg: release build/scripts/postinstall build/icons/folder$(BETA).icns
 	@rm -f '$@'
 	xattr -cr $(APP)
 	rm -rf build/package/Applications
-	mkdir -p build/package/Applications/Epichrome/Payload.noindex
+	mkdir -p 'build/package/Applications/$(INSTALL_FOLDER)/Payload.noindex'
 	../modules/fileicon/bin/fileicon set \
-		build/package/Applications/Epichrome \
-		build/icons/folder.icns
-	touch build/package/Applications/Epichrome/Payload.noindex/.preserve
-	mv $(APP) 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app'
-	mv $(SCAN_APP) 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app'
-	mv $(LOGIN_APP) 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app'
+		'build/package/Applications/$(INSTALL_FOLDER)' \
+		build/icons/folder$(BETA).icns
+	touch 'build/package/Applications/$(INSTALL_FOLDER)/Payload.noindex/.preserve'
+	mv $(APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app'
+	mv $(SCAN_APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app'
+	mv $(LOGIN_APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app'
 	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
 	plutil -replace BundleIsRelocatable -bool NO $(@:.pkg=).plist && \
 	pkgbuild --root build/package --identifier org.epichrome.Epichrome \
-		--scripts src/package/scripts \
+		--scripts build/scripts \
 		--component-plist $(@:.pkg=).plist '$@' && \
 	rm -f '$(@:.pkg=).plist' ) ; then \
-		mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP) ; \
-		mv 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app' $(SCAN_APP) ; \
-		mv 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app' $(LOGIN_APP) ; \
+		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app' $(APP) ; \
+		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app' $(SCAN_APP) ; \
+		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app' $(LOGIN_APP) ; \
 	fi
-	mv 'build/package/Applications/Epichrome/$(EPICHROME_DISPNAME).app' $(APP)
-	mv 'build/package/Applications/Epichrome/$(SCAN_DISPNAME).app' $(SCAN_APP)
-	mv 'build/package/Applications/Epichrome/$(LOGIN_DISPNAME).app' $(LOGIN_APP)
+	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app' $(APP)
+	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app' $(SCAN_APP)
+	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app' $(LOGIN_APP)
 	rm -rf build/package/Applications
 	@cd build ; rmdir -p package
 
@@ -344,6 +355,11 @@ build/resources/license.rtf: src/package/license.rtf src/version.sh
 build/resources/readme.rtf: src/package/readme.rtf src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSIONTEXT)/g' '$<' > '$@'
+
+build/scripts/postinstall: src/package/scripts/postinstall
+	@mkdir -p '$(dir $@)'
+	sed 's/INSTALLDIR/$(INSTALL_FOLDER)/g' '$<' > '$@'
+	chmod 755 '$@'
 
 build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/package/requirements.plist
 	@rm -f '$@'
