@@ -115,10 +115,10 @@ function updateapp {  # ( updateAppPath [NORELAUNCH] )
         SSBLastRunEngineType="${myStatusEngineChange[0]}"
     fi
 
-    # make sure we have info on the engine
-    [[ "${#SSBEngineSourceInfo[@]}" -gt "$iDisplayName" ]] || getbrowserinfo SSBEngineSourceInfo
-
-
+    # get current info for the engine
+    getbrowserinfo SSBEngineSourceInfo
+    
+    
     # LOAD FILTER.SH
 
     safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/filter.sh"

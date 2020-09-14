@@ -133,7 +133,8 @@ export appMonitorPath appEnginePath \
 epiPayloadPathBase='Payload.noindex'
 epiPayloadLauncherDir='Launcher'
 epiPayloadEngineDir='Engine'
-export epiPayloadPathBase epiPayloadLauncherDir epiPayloadEngineDir
+epiOldEngineBase='EpichromeEngines.noindex'
+export epiPayloadPathBase epiPayloadLauncherDir epiPayloadEngineDir epiOldEngineBase
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
@@ -205,7 +206,7 @@ appBrowserInfo_com_brave_Browser=( 'com.brave.Browser' \
         '' '' '' '' \
         'BraveSoftware/Brave-Browser' \
         'Chromium Master Preferences' \
-        noNMHLink )
+        'noNMHLink' )
 appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
         '' 'Chromium' 'Chromium' \
         '' '' '' '' \
@@ -408,7 +409,7 @@ function errlog {
     # arguments
     local logType="${1%%|*}"
     local logName="${1#*|}" ; [[ "$logName" = "$1" ]] && logName=
-    
+        
     # determine log type & final name element
     case "$logType" in
         DEBUG)
@@ -450,7 +451,9 @@ function errlog {
         if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
             trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
             break
-        elif [[ "$curfunc" =~ ^(errlog|debuglog|try|tryalways|runalways) ]] ; then
+        elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) || \
+                ( "$curfunc" = try ) || ( "$curfunc" = tryalways ) || \
+                ( "$curfunc" = runalways ) ]] ; then
             : # skip these functions
         else
             trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
@@ -1259,7 +1262,8 @@ function saferm {
     local curPath
     for curPath in "$@" ; do
         if [[ ( "$curPath" != "$epiDataPath"/* ) && \
-                ( "$curPath" != */"$epiPayloadPathBase"/* ) ]] ; then
+                ( "$curPath" != */"$epiPayloadPathBase"/* ) && \
+                ( "$curPath" != */"$epiOldEngineBase"/* ) ]] ; then
             ok= ; errmsg="Path '$curPath' is not in a known location."
             errlog "$errmsg"
             return 1

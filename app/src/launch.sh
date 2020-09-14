@@ -1980,14 +1980,15 @@ function installnmhs {
 		[[ "$errmsg" ]] && iEpichromeNMHError="$errmsg" || iEpichromeNMHError='Unknown error.'
 		ok=1 ; errmsg=
 	fi
-
+	
 	if [[ "${SSBEngineSourceInfo[$iNoNMHLink]}" ]] ; then
 
 		# for engines that don't use a local link to NMH: remove any found in our UserData
-		try /bin/rm -f "$myProfilePath/$nmhDirName" 'Unable to remove app profile native messaging hosts directory.'
+		saferm 'Unable to remove app profile native messaging hosts directory.' "$myProfilePath/$nmhDirName"
 		ok=1 ; errmsg=
 	else
 		# for engines that use a local link to NMH: link central NMH directory to our UserData
+		saferm 'Unable to remove old native messaging hosts.' "$myProfilePath/$nmhDirName"
 		try /bin/ln -sf "$iCentralNMHPath" "$myProfilePath" 'Unable to link to native messaging hosts.'
 		
 		if [[ ! "ok" ]] ; then

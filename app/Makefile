@@ -251,7 +251,7 @@ release: build
 # VERSION NUMBER MANAGEMENT TARGET
 
 bump:
-	@if [[ '$(filter-out bump,$(MAKECMDGOALS))' = '' ]] ; then echo 'GOING TO SUBMAKE' ; $(MAKE) ; fi
+	@if [[ '$(filter-out bump,$(MAKECMDGOALS))' = '' ]] ; then $(MAKE) ; fi
 
 
 # UTILITY TARGETS
@@ -391,10 +391,11 @@ notarize-check:
 		"$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' "$$request_file")" \
 		$(NOTARIZE_CREDENTIALS) > "$${request_file%.txt}.check.txt" ; \
 		cat "$${request_file%.txt}.check.txt" ; \
-		curl --silent --show-error \
-			"$$(sed -En 's/^ *LogFileURL: *(.+)$$/\1/p' "$${request_file%.txt}.check.txt")" > \
-			"$${request_file%.txt}.json" ; \
-		echo 'Created check file & issues manifest.' ; \
+		url="$$(sed -En 's/^ *LogFileURL: *(.+)$$/\1/p' "$${request_file%.txt}.check.txt")" ; \
+		if [[ "$$url" ]] ; then \
+			curl --silent --show-error "$$url" > "$${request_file%.txt}.json" ; \
+			echo 'Created issues manifest.' ; \
+		fi ; \
 	else echo 'No request file found.' ; fi
 
 notarize-staple: notarize-check
