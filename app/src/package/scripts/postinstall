@@ -6,10 +6,19 @@ epidir='Applications/INSTALLDIR'
 
 # set sticky bit permissions for Payload directory in /Applications
 if [[ "$rootdir" = '/' ]] ; then
-    /bin/chmod 1777 "/$epidir/Payload.noindex"
+    /bin/chmod 1777 "/$epidir" "/$epidir/Payload.noindex"
     [[ "$?" = 0 ]] || exit 1
 else
     rootdir+='/'
+fi
+
+# add apps directory
+appdir="${rootdir}$epidir/Apps"
+if [[ ! -d "$appdir" ]] ; then
+    /bin/mkdir "$appdir"
+    if [[ ( "$?" = 0 ) && ( "$rootdir" = '/' ) && "$USER" ]] ; then
+        /usr/sbin/chown "$USER" "$appdir" && /bin/chmod 700 "$appdir"
+    fi
 fi
 
 # remove empty legacy EpichromeEngines.noindex folder
