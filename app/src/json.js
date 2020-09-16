@@ -55,12 +55,17 @@ function run(aArgv) {
             // drill down into object
             let curObj = myObj;
             for (let curSubKey of curKey) {
-                curSubKey = curSubKey.toLowerCase();
                 if (curObj.hasOwnProperty(curSubKey)) {
                     curObj = curObj[curSubKey];
                 } else {
-                    curObj = null;
-                    break;
+                    // key not found, so try ignoring case
+                    let curObjKeys = Object.keys(curObj).filter(x => x.toLowerCase() == curSubKey.toLowerCase());
+                    if (curObjKeys.length > 0) {
+                        curObj = curObj[curObjKeys[0]];
+                    } else {
+                        curObj = null;
+                        break;
+                    }
                 }
             }
 
