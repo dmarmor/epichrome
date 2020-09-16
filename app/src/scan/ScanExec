@@ -37,16 +37,13 @@ fi
 
 # CORE APP VARIABLES
 
-myScriptPath="$myAppPath/Contents/Resources/Scripts"
-
-
 # set when scan is finished so cleanup can set a "canceled" message
 scanComplete=
 
 
 # LOAD CORE SCRIPT
 
-source "$myScriptPath/core.sh" 'coreDoInit=1' "coreContext=$scanMode" || exit 1
+source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' "coreContext=$scanMode" || exit 1
 [[ "$ok" ]] || abort
 
 

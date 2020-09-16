@@ -63,13 +63,7 @@ while [[ "$#" -gt 0 ]] ; do
         --epichrome-debug)
             debug=1
             ;;
-        
-        --epichrome-new-log)
-            myLogFile=
-            myLogTempVar=
-            myRunTimestamp=
-            ;;
-        
+            
         [hH][tT][tT][pP]'://'*|[hH][tT][tT][pP][sS]'://'*|[fF][tT][pP]'://'*|[fF][iI][lL][eE]'://'*)
             # this should be sent to the open command
             argsURIs+=( "$1" )

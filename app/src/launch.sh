@@ -23,7 +23,7 @@
 
 # REQUIRES FILTER.SH
 
-safesource "${BASH_SOURCE[0]%launch.sh}filter.sh"
+safesource "$myScriptPath/filter.sh"
 
 
 # CONSTANTS
@@ -105,7 +105,8 @@ function encodeurl {  # ( input [safe] )
 
 
 # READJSONKEYS: pull keys out of a JSON string
-function readjsonkeys {  # ( jsonVar key [key ...] )
+# readjsonkeys(jsonVar key [key.subkey ...])
+function readjsonkeys {
 	#  for each key found, sets the variable <jsonVar>_<key>
 
 	# pull json string from first arg
@@ -113,42 +114,24 @@ function readjsonkeys {  # ( jsonVar key [key ...] )
 	local json
 	eval "json=\"\$$jsonVar\""
 	
-	# whitespace
-	local s="[$epiWhitespace]*"
+	local jsonResult=
+	try 'jsonResult=' /usr/bin/osascript "$myScriptPath/json.js" "$json" "$jsonVar" "$@" \
+			'Unknown error reading JSON keys.'
+	if [[ "$ok" && ( "${jsonResult%%|*}" = 'ERROR' ) ]] ; then
+		ok= ; errmsg="${jsonResult#ERROR|}"
+		errlog "Unable to read JSON keys: $errmsg"
+	fi
 	
-	# loop through each key
-	local curKey curRe curMatch
-	for curKey in "$@"; do
+	if [[ "$ok" ]] ; then
 		
-		# set regex for pulling out string key (groups 1-3, val is group 2)
-		curRe="(\"$curKey\"$s:$s"
-		curRe+='"(([^\"]|\\\\|\\")*)")'
+		# eval the result
+		eval "$jsonResult"
 		
-		# set regex for pulling out dict key (groups 4-8, val is group 5)
-		curRe+="|(\"$curKey\"$s:$s{$s"
-		curRe+='(([^}"]*"([^\"]|\\\\|\\")*")*([^}"]*[^}"'"$epiWhitespace])?)$s})"
-		
-		# try to match
-		if [[ "$json" =~ $curRe ]] ; then
-			
-			if [[ "${BASH_REMATCH[2]}" ]] ; then
-				
-				# string key: fix escaped backslashes and double-quotes
-				curMatch="$(unescapejson "${BASH_REMATCH[2]}")"
-			else
-				
-				# dict key
-				curMatch="${BASH_REMATCH[5]}"
-			fi
-			
-			# set the variable
-			eval "${jsonVar}_${curKey}=$(formatscalar "$curMatch")"
-		else
-			
-			# clear the variable
-			eval "${jsonVar}_${curKey}="
-		fi
-	done
+		return 0
+	else
+		ok=1 ; errmsg=
+		return 1
+	fi
 }
 
 
@@ -251,7 +234,7 @@ function getepichromeinfo {
 	
 	if [[ "$coreContext" = 'epichrome' ]] ; then
 		# current path should always be ours
-		epiCurrentPath="${BASH_SOURCE[0]%/Contents/Resources/Runtime/Contents/Resources/Scripts/launch.sh}"
+		epiCurrentPath="$myEpichrome"
 	fi
 	
 	# check instances of Epichrome to find the current and latest
@@ -439,6 +422,9 @@ function checkappupdate {
 	# act based on dialog
 	case "$doUpdate" in
 		$updateBtnUpdate)
+		
+			# save my core script path
+			local myCore="$myScriptPath/core.sh"
 			
 			# read in the new runtime
 			if ! source "${epiUpdatePath}/Contents/Resources/Scripts/update.sh" ; then
@@ -455,7 +441,7 @@ function checkappupdate {
 			# temporarily turn OK back on & reload old runtime
 			oldErrmsg="$errmsg" ; errmsg=
 			oldOK="$ok" ; ok=1
-			source "$SSBAppPath/Contents/Resources/Scripts/core.sh" || ok=
+			source "$myCore" || ok=
 			if [[ ! "$ok" ]] ; then
 				
 				# fatal error
@@ -1140,7 +1126,7 @@ function updateprofiledir {
 			
 			# delete everything from Default except:
 			#  Bookmarks, Favicons, History, Local Extension Settings
-			allExcept='!(Bookmarks|Favicons|History|Local?Extension?Settings)'
+			allExcept='!(Bookmarks|databases|Favicons|History|Local?Extension?Settings)'
 			saferm 'Error deleting browser profile files.' \
 					"$myProfilePath/Default/"$allExcept
 			
@@ -1694,7 +1680,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 			fi
 			
 			# create local variable for message
-			local "msg_${curMessageID}="
+			local "msg_${curMessageID}_message="
 			
 			# read in locale messages file
 			msg="$curExtLocalePath/messages.json"
@@ -1707,12 +1693,8 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 					mani_name=
 					
 					# try to pull out name message
-					readjsonkeys msg "$curMessageID"
-					eval "msg=\"\$msg_${curMessageID}\""
-					if [[ "$msg" ]] ; then
-						readjsonkeys msg message
-						mani_name="$msg_message"
-					fi
+					readjsonkeys msg "${curMessageID}.message"
+					eval "mani_name=\"\$msg_${curMessageID}_message\""
 					
 					# check for error
 					[[ "$mani_name" ]] || \

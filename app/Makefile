@@ -485,10 +485,11 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/app.icns \
 	$(APP_RNTM)/Contents/Resources/document.icns \
 	\
+	$(APP_RNTM)/Contents/Resources/Scripts/apputil.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/json.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
-	$(APP_RNTM)/Contents/Resources/Scripts/apputil.js \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -651,6 +652,10 @@ $(APP_RNTM)/Contents/Resources/Scripts/apputil.js: src/apputil.js src/libapp.js
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 	echo >> '$@'
 	cat 'src/libapp.js' >> '$@'
+
+$(APP_RNTM)/Contents/Resources/Scripts/%.js: src/%.js
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'

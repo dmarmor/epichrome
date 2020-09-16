@@ -246,6 +246,24 @@ export appConfigVars "${appConfigVars[@]}"
 
 # SET UP CORE INFO
 
+# set up this script's path
+myScriptPath="${BASH_SOURCE[0]%/core.sh}"
+
+# if this core.sh is inside an Epichrome instance, set extra variables
+if [[ "$myScriptPath" = *'/Contents/Resources/Runtime/Contents/Resources/Scripts' ]] ; then
+    
+    # Epichrome-only script path
+    myScriptPathEpichrome="${myScriptPath%/Runtime/Contents/Resources/Scripts}/Scripts"
+    
+    # path to this Epichrome
+    myEpichrome="${myScriptPathEpichrome%/Contents/Resources/Scripts}"
+    
+else
+    myScriptPathEpichrome=
+    myEpichrome=
+fi
+export myScriptPath myScriptPathEpichrome myEpichrome
+
 if [[ "$coreContext" = 'app' ]] ; then
     
     # RUNNING IN AN APP
@@ -367,7 +385,7 @@ if [[ ! "$myRunTimestamp" ]] ; then
     [[ "$?" = 0 ]] || myRunTimestamp=
 fi
 
-# export all to helper
+# export all
 export myLogFile myLogFilePrefix myLogDir \
         myLogTempVar stderrTempFile stdoutTempFile \
         logNoStderr logNoFile myRunTimestamp myBackupDir
@@ -1906,9 +1924,13 @@ if [[ "$coreDoInit" ]] ; then
 	if [[ "$coreContext" = 'app' ]] ; then
 	    runningIn="app $SSBIdentifier"
 	elif [[ "$coreContext" = 'epichrome' ]] ; then
-	    runningIn="Epichrome.app"
+	    runningIn='Epichrome.app'
+    elif [[ "$coreContext" = 'scan' ]] ; then
+	    runningIn='Epichrome Scan.app'
+    elif [[ "$coreContext" = 'login' ]] ; then
+	    runningIn='Epichrome Login.app'
 	else
-	    runningIn="a shell"
+	    runningIn='a shell'
 	fi
 	debuglog "Core $coreVersion initialized in $runningIn."
 	unset runningIn
