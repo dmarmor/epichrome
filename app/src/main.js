@@ -1433,11 +1433,7 @@ function stepEditDisplayName(aInfo) {
     let myErr, myDlgResult;
 
     let myDlgMessage = 'Edit the name of the app.';
-
-    if (aInfo.stepInfo.isOrigFilename) {
-        myDlgMessage += '\n\n' + kDotWarning + ' Warning: Changing this will also rename the app file.';
-    }
-
+    
     try {
         myDlgResult = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.displayName.stepSummary, {
             withTitle: aInfo.stepInfo.dlgTitle,
