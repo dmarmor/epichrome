@@ -14,27 +14,44 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
 <h4 align="center"><ins>Rock Star Patrons</ins></h4>
-<p align="center">
-<b>Alan Latteri</b><br />
-<b>Lyle Barrere</b><br />
-<b>Jonathan Berger</b><br />
-<b>Andrew Bonham</b><br />
-<b>Buck Doyle</b><br />
-<b>Lev Dubinets</b><br />
-<b>Matt Fallshaw</b><br />
-<b>Lanny Heidbreder</b><br />
-<b>Eric Henderson</b><br />
-<b>Ben Johnson</b><br />
-<b>David Mankin</b><br />
-<b>Gregory Morse</b><br />
-<b>Alex Nauda</b><br />
-<b>Alan Ogilvie</b><br />
-<b>Rob Page</b><br />
-<b>Matthew Scott</b><br />
-<b>Samuel Talleux</b><br />
-<b>Adam Tarnoff</b><br />
-<b>Thorbergsson</b>
-</p>
+<b>
+<table align="center">
+<tr>
+<td align="center" width="31%">Alan Latteri</td>
+<td align="center" width="31%">Lyle Barrere</td>
+<td align="center" width="31%">Jonathan Berger</td>
+</tr>
+<td align="center" width="31%">Andrew Bonham</td>
+<td align="center" width="31%">Buck Doyle</td>
+<td align="center" width="31%">Lev Dubinets</td>
+</tr>		
+<tr>
+<td align="center" width="31%">Matt Fallshaw</td>
+<td align="center" width="31%">Lanny Heidbreder</td>
+<td align="center" width="31%">Eric Henderson</td>
+</tr>		
+<tr>
+<td align="center" width="31%">Ben Johnson</td>
+<td align="center" width="31%">David Mankin</td>
+<td align="center" width="31%">Gregory Morse</td>
+</tr>
+<tr>
+<td align="center" width="31%">Alex Nauda</td>
+<td align="center" width="31%">Alan Ogilvie</td>
+<td align="center" width="31%">Rob Page</td>
+</tr>
+<tr>
+<td align="center" width="31%">Matthew Scott</td>
+<td align="center" width="31%">Samuel Talleux</td>
+<td align="center" width="31%">Adam Tarnoff</td>
+</tr>
+<tr>
+<td align="center" width="31%"></td>
+<td align="center" width="31%">Thorbergsson</td>
+<td align="center" width="31%"></td>
+</tr>
+</table>
+</b>
 
 
 ## New in version 2.3.11
