@@ -13,8 +13,8 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
-<h4 align="center">Rock Star Patrons</h4>
-<p align="center">
+<h4 align="center" style="text-decoration: underline;">Rock Star Patrons</h4>
+<p align="center" style="font-family: 'Lucida Console', Monaco, monospace;">
 <b>Alan Latteri</b><br />
 <b>Lyle Barrere</b><br />
 <b>Jonathan Berger</b><br />
