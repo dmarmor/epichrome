@@ -46,8 +46,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <td align="center">Adam Tarnoff</td>
 </tr>
 <tr>
-<td align="center" colspan="3"></td>
-<td align="center">Thorbergsson</td>
+<td align="center" colspan="3">Thorbergsson</td>
 </tr>
 </table>
 </b>
