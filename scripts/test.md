@@ -1,20 +1,14 @@
-*****
-Title
-*****
-
-#######
-Chapter
-#######
-
-Section
-=======
-
-Here is some text with a ``monospaced`` section
+Here is some text with a `monospaced` section
 
 And here is some inline HTML:
 
 <h4 align="center" style="text-decoration: underline;">Rock Star Patrons</h4>
-<p align="center" style="font-family: 'Lucida Console', Monaco, monospace;">
+<p align="center">
+```
+And here is a fully inline block within the centered paragraph? Does this work?
+```
+</p>
+<!--
 <b>Alan Latteri</b><br />
 <b>Lyle Barrere</b><br />
 <b>Jonathan Berger</b><br />
@@ -35,7 +29,4 @@ And here is some inline HTML:
 <b>Adam Tarnoff</b><br />
 <b>Thorbergsson</b>
 </p>
-
-```
-And here is a fully inline block?
-```
+-->
