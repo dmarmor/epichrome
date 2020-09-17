@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.11</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.12</h1>
 
 ## Overview
 
@@ -13,31 +13,46 @@ Download the latest release **[here](https://github.com/dmarmor/epichrome/releas
 
 Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
 
-<h4 align="center">Rock Star Patrons</h4>
-<p align="center">
-<b>Alan Latteri</b><br />
-<b>Lyle Barrere</b><br />
-<b>Jonathan Berger</b><br />
-<b>Andrew Bonham</b><br />
-<b>Buck Doyle</b><br />
-<b>Lev Dubinets</b><br />
-<b>Matt Fallshaw</b><br />
-<b>Lanny Heidbreder</b><br />
-<b>Eric Henderson</b><br />
-<b>Ben Johnson</b><br />
-<b>David Mankin</b><br />
-<b>Gregory Morse</b><br />
-<b>Alex Nauda</b><br />
-<b>Alan Ogilvie</b><br />
-<b>Rob Page</b><br />
-<b>Matthew Scott</b><br />
-<b>Samuel Talleux</b><br />
-<b>Adam Tarnoff</b><br />
-<b>Thorbergsson</b>
-</p>
+<h4 align="center"><ins>Rock Star Patrons</ins></h4>
+<b>
+<table align="center">
+<tr>
+<td align="center" width="33%">Alan Latteri</td>
+<td align="center" width="33%">Lyle Barrere</td>
+<td align="center" width="33%">Jonathan Berger</td>
+</tr>
+<td align="center">Andrew Bonham</td>
+<td align="center">Buck Doyle</td>
+<td align="center">Lev Dubinets</td>
+</tr>		
+<tr>
+<td align="center">Matt Fallshaw</td>
+<td align="center">Lanny Heidbreder</td>
+<td align="center">Eric Henderson</td>
+</tr>		
+<tr>
+<td align="center">Ben Johnson</td>
+<td align="center">David Mankin</td>
+<td align="center">Gregory Morse</td>
+</tr>
+<tr>
+<td align="center">Alex Nauda</td>
+<td align="center">Alan Ogilvie</td>
+<td align="center">Rob Page</td>
+</tr>
+<tr>
+<td align="center">Matthew Scott</td>
+<td align="center">Samuel Talleux</td>
+<td align="center">Adam Tarnoff</td>
+</tr>
+<tr>
+<td align="center" colspan="3">Thorbergsson</td>
+</tr>
+</table>
+</b>
 
 
-## New in version 2.3.11
+## New in version 2.3.12
 
 - The built-in engine has been updated to Brave 1.1X.XX.
 
