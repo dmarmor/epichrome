@@ -17,38 +17,37 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <b>
 <table align="center">
 <tr>
-<td align="center" width="31%">Alan Latteri</td>
-<td align="center" width="31%">Lyle Barrere</td>
-<td align="center" width="31%">Jonathan Berger</td>
+<td align="center" width="33%">Alan Latteri</td>
+<td align="center" width="33%">Lyle Barrere</td>
+<td align="center" width="33%">Jonathan Berger</td>
 </tr>
-<td align="center" width="31%">Andrew Bonham</td>
-<td align="center" width="31%">Buck Doyle</td>
-<td align="center" width="31%">Lev Dubinets</td>
+<td align="center">Andrew Bonham</td>
+<td align="center">Buck Doyle</td>
+<td align="center">Lev Dubinets</td>
 </tr>		
 <tr>
-<td align="center" width="31%">Matt Fallshaw</td>
-<td align="center" width="31%">Lanny Heidbreder</td>
-<td align="center" width="31%">Eric Henderson</td>
+<td align="center">Matt Fallshaw</td>
+<td align="center">Lanny Heidbreder</td>
+<td align="center">Eric Henderson</td>
 </tr>		
 <tr>
-<td align="center" width="31%">Ben Johnson</td>
-<td align="center" width="31%">David Mankin</td>
-<td align="center" width="31%">Gregory Morse</td>
+<td align="center">Ben Johnson</td>
+<td align="center">David Mankin</td>
+<td align="center">Gregory Morse</td>
 </tr>
 <tr>
-<td align="center" width="31%">Alex Nauda</td>
-<td align="center" width="31%">Alan Ogilvie</td>
-<td align="center" width="31%">Rob Page</td>
+<td align="center">Alex Nauda</td>
+<td align="center">Alan Ogilvie</td>
+<td align="center">Rob Page</td>
 </tr>
 <tr>
-<td align="center" width="31%">Matthew Scott</td>
-<td align="center" width="31%">Samuel Talleux</td>
-<td align="center" width="31%">Adam Tarnoff</td>
+<td align="center">Matthew Scott</td>
+<td align="center">Samuel Talleux</td>
+<td align="center">Adam Tarnoff</td>
 </tr>
 <tr>
-<td align="center" width="31%"></td>
-<td align="center" width="31%">Thorbergsson</td>
-<td align="center" width="31%"></td>
+<td align="center" colspan="3"></td>
+<td align="center">Thorbergsson</td>
 </tr>
 </table>
 </b>
