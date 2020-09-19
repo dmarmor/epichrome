@@ -21,14 +21,20 @@
 #
 
 
-# ENSURE APP ISN'T ALREADY RUNNING, THEN FORK & TERMINATE
+# ENSURE APP ISN'T ALREADY RUNNING (OR THIS IS A RELAUNCH), THEN FORK & TERMINATE
 
 # unique ID tag for this app in the process table
 idTag='--epichrome-id=APPID'
 
-# if tag isn't in process table, we're clear to launch
-if ! /usr/bin/pgrep -fiq -- "$idTag" ; then
-    
-    # fork main script with ID tag & kill parent app
-    "${BASH_SOURCE[0]%/script}/Scripts/main.sh" "$idTag" "$@" < /dev/null &> /dev/null &
+if [[ "$1" = '--relaunch' ]] ; then
+    # this is a relaunch, so don't check for the ID tag
+    shift
+else
+    # if ID tag is in process table, we're already running
+    if /usr/bin/pgrep -fiq -- "$idTag" ; then
+        exit 0
+    fi
 fi
+
+# fork main script with ID tag
+"${BASH_SOURCE[0]%/script}/Scripts/main.sh" "$idTag" "$@" < /dev/null &> /dev/null &

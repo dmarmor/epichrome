@@ -442,8 +442,9 @@ elif [[ "$epiAction" = 'build' ]] ; then
                 rmtemp "$appTmp" 'temporary app bundle'
             else
                 if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
-                    echo "$myLogID: Unable to remove temporary app bundle." >> "$myLogFile"
-                    echo 'Unable to remove temporary app bundle.' 1>&2
+                    errmsg='Unable to remove temporary app bundle.'
+                    errlog "$errmsg"
+                    echo "$errmsg" 1>&2
                 fi
             fi
         fi

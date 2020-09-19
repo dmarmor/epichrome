@@ -33,7 +33,7 @@ import inspect
 
 # BUILD FLAGS
 
-debug = True                   # filled in by Makefile
+debug = bool(os.environ['debug'])
 
 
 # CORE APP INFO

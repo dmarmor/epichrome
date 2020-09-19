@@ -48,6 +48,9 @@ GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
 APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
 
+UPDATE_APP:=$(APP_CT)/Resources/EpichromeUpdate.app
+UPDATE_CT:=$(UPDATE_APP)/Contents
+
 SCAN_CT:=$(SCAN_APP)/Contents
 
 LOGIN_CT:=$(LOGIN_APP)/Contents
@@ -163,7 +166,6 @@ NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2>
 ifeq ($(BETA),_beta)
 
 DEBUG_SH:=1
-DEBUG_PY:=debug = True
 LOGPRESERVE_SH:=9
 BACKUPPRESERVE_SH:=9
 
@@ -179,7 +181,6 @@ INSTALL_FOLDER:=$(INSTALL_FOLDER) Beta
 else
 
 DEBUG_SH:=
-DEBUG_PY:=debug = False
 LOGPRESERVE_SH:=4
 BACKUPPRESERVE_SH:=4
 
@@ -243,7 +244,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
-.INTERMEDIATE: main engine runtime scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime update-core scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # BUILD TARGETS (DEFAULT TARGET)
@@ -256,7 +257,7 @@ release: build
 # VERSION NUMBER MANAGEMENT TARGET
 
 bump:
-	@if [[ '$(filter-out bump,$(MAKECMDGOALS))' = '' ]] ; then $(MAKE) ; fi
+	@: #if [[ '$(filter-out bump,$(MAKECMDGOALS))' = '' ]] ; then $(MAKE) ; fi
 
 
 # UTILITY TARGETS
@@ -461,12 +462,13 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
 	$(APP_CT)/Resources/Scripts/legacy.sh \
 	$(APP_CT)/Resources/Scripts/makeicon.sh \
-	$(APP_CT)/Resources/Scripts/relaunch.sh \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
 	\
 	$(APP_CT)/Resources/NMH/$(NMH_ID).json \
 	$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION) \
+	\
+	$(UPDATE_APP) \
 	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
@@ -563,10 +565,52 @@ $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 
 $(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed -e 's/EPIVERSION/$(VERSION)/g' \
-		-e 's/debug = True/$(DEBUG_PY)/g' \
-		'$<' > '$@'
+	sed -e 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 	chmod 755 '$@'
+
+
+# UPDATE APP
+
+$(UPDATE_APP): $(UPDATE_CT)/MacOS/EpichromeUpdate \
+		$(UPDATE_CT)/Resources/MainMenu.nib \
+		$(UPDATE_CT)/Resources/AppSettings.plist \
+		\
+		$(UPDATE_CT)/Info.plist \
+		$(UPDATE_CT)/Resources/script \
+		$(UPDATE_CT)/Resources/app.icns
+
+$(UPDATE_CT)/MacOS/EpichromeUpdate \
+	$(UPDATE_CT)/Resources/MainMenu.nib \
+	$(UPDATE_CT)/Resources/AppSettings.plist: update-core
+	
+update-core:
+	@rm -rf $(UPDATE_APP)
+	@touch build/fake.icns build/fake.sh
+	platypus --name 'EpichromeUpdate' \
+		--interface-type 'Progress Bar' \
+		--app-icon build/fake.icns \
+		--interpreter /bin/bash \
+		--app-version $(VERSION) \
+		--author 'David Marmor' \
+		--bundle-identifier org.epichrome.Update \
+		--background \
+		--quit-after-execution \
+		--optimize-nib \
+		build/fake.sh $(UPDATE_APP)
+	@rm $(UPDATE_CT)/Info.plist $(UPDATE_CT)/Resources/*.icns $(UPDATE_CT)/Resources/script
+
+$(UPDATE_CT)/Info.plist: src/update/Info.plist src/version.sh
+	@mkdir -p '$(dir $@)'
+	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+
+$(UPDATE_CT)/Resources/script: src/update/UpdateExec src/version.sh
+	@mkdir -p $(dir $@)
+	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
+	chmod 755 $@
+
+$(UPDATE_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
+	@mkdir -p $(dir $@)
+	cp $< $@
 
 
 # *** RUNTIME CORE ***
@@ -649,6 +693,7 @@ $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/apputil.js: src/apputil.js src/libapp.js
+	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 	echo >> '$@'
 	cat 'src/libapp.js' >> '$@'
@@ -899,11 +944,10 @@ scan-core:
 	platypus --name 'Epichrome Scan' \
 		--interface-type 'Progress Bar' \
 		--app-icon build/fake.icns \
-		--document-icon build/fake.icns \
 		--interpreter /bin/bash \
 		--app-version $(VERSION) \
 		--author 'David Marmor' \
-		--bundle-identifier org.epichrome.scan \
+		--bundle-identifier org.epichrome.Scan \
 		--optimize-nib \
 		build/fake.sh $(SCAN_APP)
 	@rm $(SCAN_CT)/Info.plist $(SCAN_CT)/Resources/*.icns $(SCAN_CT)/Resources/script

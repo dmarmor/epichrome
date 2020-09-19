@@ -113,7 +113,7 @@ function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
     [[ "$ok" ]] && return 0 || return 1
 
 }
-export -f filterplist
+# $$$$ export -f filterplist
 
 
 # LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file

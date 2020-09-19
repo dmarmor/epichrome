@@ -72,7 +72,7 @@ function updateolddatadir {  # ( [locDataPath locProfilePath] )
             shoptset shoptState extglob
             
             # find all except new log & profile directories
-            local allExcept="!($appDataProfileDir|$epiDataLogDir|$appDataStdoutFile|$appDataStderrFile|$appDataPauseFifo|$appDataLockFile|$appDataBackupDir|$appDataWelcomeDir)"
+            local allExcept="!($appDataProfileDir|$epiDataLogDir|$appDataStdoutFile|$appDataStderrFile|$appDataPauseFifo|$appDataBackupDir|$appDataWelcomeDir)"
             
             # move everything into profile directory
             try /bin/mv $allExcept "$locProfilePath" \

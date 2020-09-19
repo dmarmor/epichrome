@@ -38,10 +38,6 @@ SSBUpdateAction=APPUPDATEACTION
 SSBCommandLine=APPCOMMANDLINE
 SSBEdited=APPEDITED
 
-export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
-        SSBRegisterBrowser SSBCustomIcon SSBEngineType \
-        SSBUpdateAction SSBCommandLine SSBEdited
-
 
 # CORE APP VARIABLES
 
@@ -53,7 +49,6 @@ myEnginePID=
 
 argsURIs=()
 argsOptions=()
-export argsURIs argsOptions
 while [[ "$#" -gt 0 ]] ; do
     case "$1" in
         --epichrome-id=*)
@@ -94,20 +89,14 @@ source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 trap '' INT
 
 
-# EXPORT CORE ARRAY VARIABLES
-
-exportarray SSBCommandLine
-[[ "${SSBEngineSourceInfo[*]}" ]] && exportarray SSBEngineSourceInfo 
-
-
 # --- FUNCTION DEFINITIONS ---
 
 # CLEANUP -- clean up from any failed update & deactivate any active engine
 function cleanup {
     
     # clean up from any aborted update  $$$ MOVE THIS INTO PROGRESS APP?
-    [[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
-
+    #[[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
+    
     if [[ "$myEnginePID" ]] ; then
         
         # if engine is still running, kill it now        
@@ -358,7 +347,6 @@ fi
 # set up payload subsidiary paths
 myPayloadEnginePath="$SSBPayloadPath/$epiPayloadEngineDir"
 myPayloadLauncherPath="$SSBPayloadPath/$epiPayloadLauncherDir"
-export myPayloadEnginePath myPayloadLauncherPath
 
 
 # IF USING EXTERNAL ENGINE, GET INFO
@@ -370,9 +358,6 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     
     # if that fails, search the system for external engine
     [[ "${SSBEngineSourceInfo[$iPath]}" ]] || getextenginesrcinfo
-    
-    # export engine source
-    exportarray SSBEngineSourceInfo
 fi
 
 
@@ -517,6 +502,10 @@ setenginestate ON
 
 # set illegal PID to trigger engine deactivation on exit
 myEnginePID='LAUNCHFAILED'
+
+# export app info to native messaging host
+export SSBVersion SSBIdentifier CFBundleName CFBundleDisplayName \
+        myLogID myLogFile SSBAppPath
 
 # launch engine
 launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs  # $$$ REGISTER?

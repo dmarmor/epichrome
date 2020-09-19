@@ -426,7 +426,7 @@ function checkappupdate {
 			# save my core script path
 			local myCore="$myScriptPath/core.sh"
 			
-			# read in the new runtime
+			# load the update script
 			if ! source "${epiUpdatePath}/Contents/Resources/Scripts/update.sh" ; then
 				ok= ; errmsg="Unable to load update script $epiUpdateVersion."
 			fi
@@ -436,28 +436,7 @@ function checkappupdate {
 			# EXITS ON SUCCESS
 			
 			
-			# IF WE GET HERE, UPDATE FAILED -- reload my runtime
-			
-			# temporarily turn OK back on & reload old runtime
-			oldErrmsg="$errmsg" ; errmsg=
-			oldOK="$ok" ; ok=1
-			source "$myCore" || ok=
-			if [[ ! "$ok" ]] ; then
-				
-				# fatal error
-				errmsg="Update failed and unable to reload current app. (Unable to load core script $SSBVersion)"
-				return 1
-			fi
-			
-			# restore OK state
-			ok="$oldOK"
-			
-			# update error messages
-			if [[ "$oldErrmsg" && "$errmsg" ]] ; then
-				errmsg="$oldErrmsg $errmsg"
-			elif [[ "$oldErrmsg" ]] ; then
-				errmsg="$oldErrmsg"
-			fi
+			# IF WE GET HERE, UPDATE FAILED
 			
 			# alert the user to any error, but don't throw an exception
 			ok=1
@@ -2450,7 +2429,8 @@ function createenginepayload {
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	
+	# $$$$ EXPORT THIS IN CREATEENGINE export myPayloadEnginePath myPayloadLauncherPath
+
 	# CLEAR OUT ANY OLD PAYLOAD
 	
 	deletepayload MUSTSUCCEED
@@ -2734,13 +2714,13 @@ function readconfig { # ( myConfigFile )
 			
 			# array value
 			
-			eval "config$varname=(\"\${$varname[@]}\") ; export config$varname"
+			eval "config$varname=(\"\${$varname[@]}\")" # $$$$ ; export config$varname"
 			[[ "$debug" ]] && eval "errlog DEBUG \"$varname=( \${config$varname[*]} )\""
 		else
 			
 			# scalar value
 			
-			eval "config$varname=\"\${$varname}\" ; export config$varname"
+			eval "config$varname=\"\${$varname}\"" # $$$$ ; export config$varname"
 			[[ "$debug" ]] && eval "errlog DEBUG \"$varname='\$config$varname'\""
 		fi
 	done
@@ -2917,7 +2897,7 @@ function launchapp {
 	# return result code
 	[[ "$ok" ]] && return 0 || return 1
 }
-export -f launchapp
+# $$$$ export -f launchapp
 
 
 # LAUNCHURLS: launch URLs in a running app engine
@@ -2930,14 +2910,20 @@ function launchurls {
 	# arguments
 	local aUrlDesc="$1" ; shift ; [[ "$aUrlDesc" ]] || aUrlDesc='URLs'
 	
-	debuglog "Opening Urls" # $$$$ I AM HERE
+	if [[ "$debug" ]] ; then
+		errlog DEBUG "Opening $aUrlDesc in running engine:"
+		local curUrl=
+		for curUrl in "$@" ; do
+			errlog DEBUG "  $curUrl"
+		done
+	fi
 	
 	# make sure the app is open
     if waitforcondition 'app to open' 10 .5 test -L "$myProfilePath/RunningChromeVersion" ; then
 		
 		# launch the URLs
 		try '-1' "$SSBAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-				"--user-data-dir=$myProfilePath" "${argsURIs[@]}" \
+				"--user-data-dir=$myProfilePath" "$@" \
             	"Error sending $aUrlDesc to app engine."
     else
 		ok= ; errmsg='App engine does not appear to be running.'
@@ -2946,4 +2932,4 @@ function launchurls {
 	
 	[[ "$ok" ]] && return 0 || return 1
 }
-export -f launchurls
+# $$$$ export -f launchurls
