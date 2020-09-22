@@ -21,16 +21,10 @@
 #
 
 
-# GET PATH TO MY PARENT EPICHROME RESOURCES
+# LOAD CORE SCRIPT
 
-myResourcesPath="${BASH_SOURCE[0]%/Scripts/epichrome.sh}"
-myRuntimeScriptsPath="$myResourcesPath/Runtime/Contents/Resources/Scripts"
-myEpiPath="${myResourcesPath%/Contents/Resources}"
-
-
-# LOAD UPDATE SCRIPT (THIS ALSO LOADS CORE AND LAUNCH)
-
-source "$myRuntimeScriptsPath/core.sh" 'coreContext=epichrome' "epiLogPID=$PPID" "$@" || exit 1
+source "${BASH_SOURCE[0]%/Scripts/epichrome.sh}/Runtime/Contents/Resources/Scripts/core.sh" \
+        'coreContext=epichrome' "epiLogPID=$PPID" "$@" || exit 1
 [[ "$ok" ]] || abort
 
 
@@ -41,8 +35,8 @@ function loadscript {
     if [[ "${1:0:1}" = '/' ]] ; then
         iScript="$1"
     else
-        iScript="$myRuntimeScriptsPath/$1"
-        [[ -f "$iScript" ]] || iScript="$myResourcesPath/Scripts/$1"
+        iScript="$myScriptPath/$1"
+        [[ -f "$iScript" ]] || iScript="$myScriptPathEpichrome/$1"
         if [[ ! -f "$iScript" ]] ; then
             ok= ; errmsg="Unable to find \"$1\"."
             errlog "$errmsg"
@@ -88,9 +82,10 @@ if [[ "$epiAction" = 'init' ]] ; then
    \"core\": {
       \"dataPath\": \"$(escapejson "$myDataPath")\",
       \"logFile\": \"$(escapejson "$myLogFile")\",
-      \"epiPath\": \"$(escapejson "$myEpiPath")\""
+      \"epiPath\": \"$(escapejson "$myEpichromePath")\""
     
-    if ! issamedevice "$myResourcesPath" '/Applications' ; then
+    # make sure this instance of Epichrome is on the same volume as /Applications
+    if ! issamedevice "$myEpichromePath" '/Applications' ; then
         result+=$',\n   \"wrongDevice\": true'
     fi
     
@@ -128,7 +123,7 @@ elif [[ "$epiAction" = 'defaultappdir' ]] ; then
     # ACTION: CREATE DEFAULT APP DIR
     
     # path to the base Apps folder
-    appDir="${myEpiPath%/*}/Apps"
+    appDir="${myEpichromePath%/*}/Apps"
     
     if [[ "$appDir" = "$HOME"* ]] ; then
         
@@ -228,7 +223,7 @@ elif [[ "$epiAction" = 'checkpath' ]] ; then
     fi
     
     # check if app dir is on the same device as Epichrome
-    issamedevice "$appDir" "$myResourcesPath" && sameDevice='true' || sameDevice='false'
+    issamedevice "$appDir" "$myEpichromePath" && sameDevice='true' || sameDevice='false'
     
     # check if app dir is under /Applications
     [[ "$appDir" = '/Applications'* ]] && underApplications='true' || underApplications='false'
@@ -269,12 +264,23 @@ elif [[ "$epiAction" = 'read' ]] ; then
         [[ "$ok" ]] || abort
         
         # pull config from current flavor of app
+        myBadConfig=
         myConfigPart="${myConfigScript#*# CORE APP INFO}"
-        myConfig="${myConfigPart%%export*}"
+        if [[ "$myConfigPart" = "$myConfigScript" ]] ; then
+            myBadConfig=1
+        else
+            # handle both 2.3.0 & 2.4.0
+            myConfig="${myConfigPart%%# CORE APP VARIABLES*}"
+            if [[ "$myConfig" = "$myConfigPart" ]] ; then
+                myBadConfig=1
+            else
+                # for 2.3.0 & 2.4.0b1-3
+                myConfig="${myConfig%%export*}"
+            fi
+        fi
         
         # if either delimiter string wasn't found, that's an error
-        if [[ ( "$myConfigPart" = "$myConfigScript" ) || \
-                ( "$myConfig" = "$myConfigPart" ) ]] ; then
+        if [[ "$myBadConfig" ]] ; then
             abort "Unexpected app configuration"
         fi
         
@@ -464,7 +470,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     # POPULATE THE ACTUAL APP AND MOVE TO ITS PERMANENT HOME
     
     # populate the app bundle
-    updateapp "$appTmp"
+    updateapp "$appTmp" "$epiUpdateMessage"
     [[ "$ok" ]] || abort
     
     # move new app to permanent location (overwriting any old app)
@@ -490,7 +496,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     myOldVersion="$SSBVersion"
     
     # populate the app bundle
-    updateapp "$epiAppPath"
+    updateapp "$epiAppPath" "$epiUpdateMessage"
     [[ "$ok" ]] || abort
     
     # capture post-update action warnings

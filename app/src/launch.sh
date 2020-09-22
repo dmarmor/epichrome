@@ -234,7 +234,7 @@ function getepichromeinfo {
 	
 	if [[ "$coreContext" = 'epichrome' ]] ; then
 		# current path should always be ours
-		epiCurrentPath="$myEpichrome"
+		epiCurrentPath="$myEpichromePath"
 	fi
 	
 	# check instances of Epichrome to find the current and latest
@@ -432,7 +432,7 @@ function checkappupdate {
 			fi
 			
 			# use new runtime to update the app
-			updateapp "$SSBAppPath"
+			updateapp "$SSBAppPath" "Updating \"${SSBAppPath##*/}\""
 			# EXITS ON SUCCESS
 			
 			
@@ -440,7 +440,10 @@ function checkappupdate {
 			
 			# alert the user to any error, but don't throw an exception
 			ok=1
-			[[ "$errmsg" ]] && errmsg="Unable to complete update. ($errmsg)"
+			if [[ "$errmsg" != 'CANCEL' ]] ; then
+				[[ "$errmsg" ]] && errmsg=" ($errmsg)"
+				errmsg="Unable to complete update.$errmsg"
+			fi
 			result=1
 			;;
 			

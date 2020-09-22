@@ -258,8 +258,11 @@ if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || 
         [[ "$ok" ]] || abort
         
         # display warning on non-fatal error
-        alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
-        ok=1
+        if [[ "$errmsg" = 'CANCEL' ]] ; then
+            alert "Update canceled. The app has not been updated." 'Update Canceled' '|caution'            
+        else
+            alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+        fi
         errmsg=
     fi
     

@@ -24,21 +24,23 @@
 # FUNCTION DEFINITIONS
 
 # UPDATEAPP: run Epichrome Update.app to populate an app bundle
-#  updateapp(updateAppPath)
+#  updateapp(updateAppPath updateAppMessage)
 function updateapp {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # argument -- send to EpichromeUpdate.app
+    # arguments -- send to EpichromeUpdate.app
     local updateAppPath="$1" ; shift
+    local updateAppMessage="$1" ; shift
+    [[ "$updateAppMessage" ]] || updateAppMessage="Updating \"${SSBAppPath##*/}\""
     
     # export app scalar variables
-    export updateAppPath \
+    export updateAppPath updateAppMessage \
             SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
             SSBRegisterBrowser SSBCustomIcon SSBEngineType \
             SSBUpdateAction SSBEdited
-    
+            
     # export app array variables
     exportarray SSBCommandLine myStatusEngineChange
     
@@ -47,13 +49,27 @@ function updateapp {
         export epiAction epiIconSource
     fi
     
-    # start update app
-    local updateErr=
-    try 'updateErr&=' \
-            "${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}/Contents/Resources/EpichromeUpdate.app/Contents/MacOS/EpichromeUpdate" \
-            ''
+    # set up errmsg file
+    export myErrmsgFile="$myDataPath/"
+    if [[ "$appDataErrmsgFile" ]] ; then
+        myErrmsgFile+="$appDataErrmsgFile"
+    else
+        myErrmsgFile+='errmsg.txt'
+    fi
     
-    if [[ "$ok" ]] ; then
+    # get path to this script's enclosing Epichrome.app resources directory
+    local myEpiResources="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}/Contents/Resources"
+    
+    # run update app in background and wait for it to quit (to suppress any signal termination messages)
+    "$myEpiResources/EpichromeUpdate.app/Contents/MacOS/EpichromeUpdate" >& /dev/null &
+    wait "$!" >& /dev/null
+    
+    # get result of update app
+    local iUpdateResult="$?"
+    
+    if [[ "$iUpdateResult" = 0 ]] ; then
+        
+        errlog FATAL "wait result was 0!"
         
         # running in an app -- update config & relaunch
         if [[ "$coreContext" = 'app' ]] ; then
@@ -69,25 +85,73 @@ function updateapp {
             fi
             
             # start relaunch job
-            updaterelaunch &
+            updaterelaunch "$myEpiResources/Runtime/Contents/Resources/Scripts" &
             
             # exit
             cleanexit
         fi
         return 0
     else
-        # $$$$ fix this
-        errmsg="PENDING $updateErr"
+        # aborted or canceled
+        ok=
+        
+        # try to retrieve error message from EpichromeUpdate.app
+        if [[ "$iUpdateResult" = 143 ]] ; then
+            
+            # CANCEL button
+            if [[ "$coreContext" != 'epichrome' ]] && vcmp "$SSBVersion" '<' '2.4.0b4[004]' ; then
+                errmsg='Update canceled.'
+            else
+                errmsg='CANCEL'
+            fi
+            
+        else
+            local myErrMsg=
+            ok=1 ; errmsg=
+            if waitforcondition "error message file to appear" 2 .5 \
+                    test -f "$myErrmsgFile" ; then
+                try 'myErrMsg=' /bin/cat "$myErrmsgFile" 'Unable to read error message file.'
+            else
+                ok= ; errmsg='No error message found.'
+                errlog "$errmsg"
+            fi
+            if [[ "$ok" ]] ; then
+                errmsg="$myErrMsg"
+                ok=
+            else
+                errmsg="An unknown error occurred. Unable to read error message file."
+            fi
+            tryalways /bin/rm -f "$myErrmsgFile" 'Unable to remove error message file.'
+        fi
+        
+        unset myErrmsgFile
+        
         return 1
     fi
 }
 
 
 # UPDATERELAUNCH -- relaunch an updated app
+#   updaterelaunch(aEpiScripts)
 function updaterelaunch {
 
     # only run if we're OK
     [[ "$ok" ]] || return 1
+    
+    # arguments
+    local aEpiScripts="$1" ; shift
+    
+    # bootstrap updated core.sh & launch.sh
+    if ! source "$aEpiScripts/core.sh" ; then
+        ok= ; errmsg="Unable to load updated core."
+        abort
+    fi
+    if [[ "$ok" ]] ; then
+        if ! source "$aEpiScripts/launch.sh" ; then
+            ok= ; errmsg="Unable to load updated launch.sh."
+            abort
+        fi
+    fi
     
     # wait for parent to quit
     debuglog "Waiting for parent app (PID $$) to quit..."

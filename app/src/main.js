@@ -156,8 +156,8 @@ let gEpiLastDir = {
     icon: null
 }
 
-// flag whether a default app directory has already been created
-let gEpiDefaultAppDirCreated = false;
+// list of Epichrome locations where a default app directory has been created
+let gEpiDefaultAppDirCreated = [];
 
 // the last error encountered checking GitHub
 let gEpiGithubFatalError = '';
@@ -206,10 +206,13 @@ function quit() {
 function main(aApps=[]) {
 
     let myErr;
-
+    
     // wrap everything in a try to catch all errors
     try {
-
+        
+        // bring app to the front
+        kApp.activate();
+        
         // APP INIT
         
         // set up data path & settings file
@@ -323,9 +326,9 @@ function main(aApps=[]) {
 // RUNCREATE: run in create mode
 function runCreate() {
     
-    // create default app dir if it doesn't already exist
+    // create default app dir if it hasn't already been created
     
-    if (!gEpiDefaultAppDirCreated) {
+    if (!gEpiDefaultAppDirCreated.includes(gCoreInfo.epiPath)) {
         
         // run epichrome.sh to create directory
         let myDefaultAppDir = shell('epiAction=defaultappdir');
@@ -333,8 +336,8 @@ function runCreate() {
         // handle default app dir
         if (myDefaultAppDir) {
             
-            // we won't try it again, even if there was an error
-            gEpiDefaultAppDirCreated = true;
+            // we won't try it again for this location of Epichrome, even if there was an error
+            gEpiDefaultAppDirCreated.push(gCoreInfo.epiPath);
             
             // set up messages
             let myDeviceNote = ['Because Epichrome is installed on a different drive from the /Applications folder, your apps will not be able to use extensions like 1Password that require a validated browser. If you want to create apps for use with 1Password, you should first move Epichrome to /Applications.'];
@@ -768,7 +771,7 @@ function readProperties() {
     // if no properties read in, we're done
     if (!myProperties) { return; }
     
-    
+
     // SET PROPERTIES FROM THE FILE AND INITIALIZE ANY PROPERTIES NOT FOUND
 
     // EPICHROME SETTINGS
@@ -793,10 +796,10 @@ function readProperties() {
     }
 
     // defaultAppDirCreated
-	if (typeof myProperties["defaultAppDirCreated"] === 'boolean') {
+	if (myProperties["defaultAppDirCreated"] instanceof Array) {
         gEpiDefaultAppDirCreated = myProperties["defaultAppDirCreated"];
     }
-
+    
     // githubFatalError
 	if (typeof myProperties["githubFatalError"] === 'string') {
         gEpiGithubFatalError = myProperties["githubFatalError"];
@@ -962,7 +965,7 @@ function writeProperties() {
         myProperties = kSysEvents.PropertyListFile({
             name: gCoreInfo.settingsFile
         }).make();
-
+        
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
@@ -987,9 +990,9 @@ function writeProperties() {
         );
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
-                kind:"boolean",
-                name:"defaultAppDirCreated",
-                value:gEpiDefaultAppDirCreated
+                kind: "list",
+                name: "defaultAppDirCreated",
+                value: gEpiDefaultAppDirCreated
             })
         );
         myProperties.propertyListItems.push(
@@ -1241,11 +1244,6 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 if (myDlgResult == myDlgButtons[0]) {
 
                     // Back button
-                    if (myStepResult.resetProgress) {
-                        Progress.completedUnitCount = 0;
-                        Progress.description = myStepResult.resetMsg;
-                        Progress.additionalDescription = '';
-                    }
                     myNextStep += myStepResult.backStep;
                     continue;
                 }
@@ -2496,48 +2494,37 @@ function stepBuild(aInfo) {
 
     let myBuildMessage;
     if (aInfo.stepInfo.action == kActionCREATE) {
-        myBuildMessage = ['Building', 'Build', 'Configuring', 'Created'];
+        myBuildMessage = ['Creating', 'Creation', 'Created'];
     } else if (aInfo.stepInfo.action == kActionEDIT) {
-        myBuildMessage = ['Saving changes to', 'Save', 'Editing', 'Saved'];
+        myBuildMessage = ['Saving changes to', 'Save', 'Saved'];
     } else {
-        myBuildMessage = ['Updating', 'Update', 'Canceled', 'Updated'];
+        myBuildMessage = ['Updating', 'Update', 'Updated'];
     }
-    let myAppNameMessage = ' "' + aInfo.appInfo.displayName + '"...';
+    
     try {
-
-        Progress.totalUnitCount = 2;
-        Progress.completedUnitCount = 1;
-        Progress.description = myBuildMessage[0] + myAppNameMessage;
-        Progress.additionalDescription = 'This may take up to 30 seconds. The progress bar will not advance.';
-
-        // this somehow allows the progress bar to appear
-        delay(0.1);
-
+        myScriptArgs.push('epiUpdateMessage=' + myBuildMessage[0] + ' "' + aInfo.appInfo.displayName + '"');
+        
         // run the build/update script
         shell.apply(null, myScriptArgs);
-
-        Progress.completedUnitCount = 2;
-        Progress.description = myBuildMessage[1] + ' succeeded.';
-        Progress.additionalDescription = '';
-
+        
+        // bring app to the front
+        kApp.activate();
+        
     } catch(myErr) {
-
-        if (myErr.errorNumber == -128) {
-            Progress.completedUnitCount = 0;
-            Progress.description = myBuildMessage[2] + myAppNameMessage;
-            Progress.additionalDescription = '';
+        
+        // bring app to the front
+        kApp.activate();
+        
+        if (myErr.message == 'CANCEL') {
             if (aInfo.stepInfo.action == kActionUPDATE) {
                 return -1;
             } else {
                 return 0;
             }
         }
-
+        
         if (myErr.message.startsWith('WARN\r')) {
-            Progress.completedUnitCount = 2;
-            Progress.description = myBuildMessage[1] + ' succeeded with warnings.';
-            Progress.additionalDescription = '';
-
+            
             // collate all warnings
             let myWarnings = myErr.message.split('\r');
             myWarnings.shift();
@@ -2556,17 +2543,12 @@ function stepBuild(aInfo) {
                 defaultButton: 1
             });
         } else {
-            Progress.completedUnitCount = 0;
-            Progress.description = myBuildMessage[1] + ' failed.';
-            Progress.additionalDescription = '';
-
+            
             // show error dialog & quit or go back
             return {
                 message: myBuildMessage[1] + ' failed: ' + myErr.message,
-                title: 'Application Not ' + myBuildMessage[3],
+                title: 'Application Not ' + myBuildMessage[2],
                 backStep: -1,
-                resetProgress: true,
-                resetMsg: myBuildMessage[2] + myAppNameMessage
             };
         }
     }

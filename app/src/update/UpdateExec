@@ -28,8 +28,14 @@ updateVersion='EPIVERSION'
 
 # SUBAPP SETTINGS
 
-epiSubApp=1
+# don't write anything to stderr
 logNoStderr=1
+
+# on abort, send ABRT signal to parent app
+killParentOnAbort=ABRT
+
+# on Cancel button, send TERM signal to parent app
+trap handlecancel TERM
 
 
 # PATH TO THIS APP'S PARENT EPICHROME APP BUNDLE
@@ -77,9 +83,23 @@ function escapehtml {  # ( str )
     ok=1 ; errmsg=
 }
 
+# MYABORT: abort wrapper to distinguish from a canceled update
+updateComplete=
+function myabort {
+    updateComplete=1
+    abort "$@"
+}
 
-# CLEANUP: clean up from an aborted update
 
+# HANDLECANCEL: handle a cancel signal
+function handlecancel {
+    errlog FATAL "Operation canceled."
+    killParentOnAbort=TERM
+    cleanexit 1
+}
+
+
+# CLEANUP: clean up from an incomplete update
 function cleanup {
     local cleaned=1
 
@@ -102,7 +122,12 @@ function cleanup {
 
 # --- MAIN BODY ---
 
-# check for app path
+echo "$updateAppMessage..."
+
+# $$$
+#sleep 30
+
+# check for app path  $$$ FIX
 if [[ ! "$updateAppPath" ]] ; then
     ok= ; errmsg='No app path.'
     abort

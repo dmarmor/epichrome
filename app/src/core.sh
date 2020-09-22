@@ -162,6 +162,7 @@ epiDataLogFilePrefixScan='epichrome_scan_log'
 epiDataLogFilePrefixLogin='epichrome_login_log'
 appDataStderrFile='stderr.txt'
 appDataStdoutFile='stdout.txt'
+appDataErrmsgFile='errmsg.txt'
 appDataPauseFifo='pause'
 appDataBackupDir='Backups'
 appDataFailsafeFile='backup.dat'
@@ -261,13 +262,13 @@ if [[ "$myScriptPath" = *'/Contents/Resources/Runtime/Contents/Resources/Scripts
     myScriptPathEpichrome="${myScriptPath%/Runtime/Contents/Resources/Scripts}/Scripts"
     
     # path to this Epichrome
-    myEpichrome="${myScriptPathEpichrome%/Contents/Resources/Scripts}"
+    myEpichromePath="${myScriptPathEpichrome%/Contents/Resources/Scripts}"
     
 else
     myScriptPathEpichrome=
-    myEpichrome=
+    myEpichromePath=
 fi
-# $$$$ export myScriptPath myScriptPathEpichrome myEpichrome
+# $$$$ export myScriptPath myScriptPathEpichrome myEpichromePath
 
 if [[ "$coreContext" = 'app' ]] ; then
     
@@ -949,6 +950,9 @@ function safesource {
 
 # CLEANEXIT -- call any defined cleanup function and exit
 #   cleanexit([myCode])
+#      special values for myCode:
+#        SIGEXIT: called from exit handler, so don't actually exit
+#        KILLPARENT: kill parent process instead of exiting
 function cleanexit {
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
@@ -956,6 +960,7 @@ function cleanexit {
     # call cleanup with exit code
     if [[ "$( type -t cleanup )" = function ]] ; then
         cleanup "$myCode"
+        unset -f cleanup
     fi
     
     # delete any pause fifo
@@ -966,7 +971,13 @@ function cleanexit {
     readyToExit=1
     
     # exit unless we got here from an exit signal
-    [[ "$myCode" = 'SIGEXIT' ]] || exit "$myCode"
+    if [[ "$killParentOnAbort" && ( "$myCode" != 0 ) ]] ; then
+        debuglog "Sending $killParentOnAbort signal to parent process ($PPID)."
+        kill "-$killParentOnAbort" "$PPID"
+    fi
+    if [[ "$myCode" != 'SIGEXIT' ]] ; then
+        exit "$myCode"
+    fi
 }
 # $$$$ export -f cleanexit
 
@@ -989,12 +1000,7 @@ function abort {
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
     errlog FATAL "$myAbortLog"
     
-    if [[ ( "$coreContext" = 'epichrome' ) || ( "$epiSubApp" ) ]] ; then
-        
-        # log just the error message to stderr
-        [[ "$myErrMsg" ]] && echo "$myErrMsg" 1>&2
-        
-    elif [[ "$coreContext" = 'app' ]] ; then
+    if [[ ( "$coreContext" = 'app' ) && ( ! "$myErrmsgFile" ) ]] ; then
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
@@ -1013,6 +1019,9 @@ tell application "Finder" to activate' 'Error attempting to view log file.'
         fi
     fi
     
+    # set abort message for final handling
+    errmsg="$myErrMsg"
+    
     # quit with error code
     cleanexit "$myCode"
 }
@@ -1022,6 +1031,31 @@ tell application "Finder" to activate' 'Error attempting to view log file.'
 # HANDLEEXITSIGNAL -- handle an exit signal, cleaning up if needed
 readyToExit=
 function handleexitsignal {
+    
+    # send any final error messages
+    if [[ "$myErrmsgFile" ]] ; then
+        
+        # save error message
+        local iErrMsg="$errmsg"
+        
+        # make sure directory exists for errmsg file
+        local iErrmsgDir="${myErrmsgFile%/*}"
+        if [[ ! -d "$iErrmsgDir" ]] ; then
+            ok=1 ; errmsg=
+            try /bin/mkdir -p "$iErrmsgDir" 'Unable to create directory for error message file.'
+        fi
+        
+        # log just the error message to errmsg file
+        ok=1 ; errmsg=
+        try "$myErrmsgFile<" echo "$iErrMsg" 'Unable to write to error message file.'
+        
+    elif [[ "$coreContext" = 'epichrome' ]] ; then
+        
+        # log final error message to stderr
+        [[ "$errmsg" ]] && echo "$errmsg" 1>&2
+    fi
+    
+    # if we didn't get here through cleanexit, call it now
     if [[ ! "$readyToExit" ]] ; then
         local exitMsg='Unexpected termination.'
         errlog FATAL "$exitMsg"
