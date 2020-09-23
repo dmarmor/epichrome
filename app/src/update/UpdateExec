@@ -44,6 +44,12 @@ step08=936
 stepIconA1=659
 stepIconA2=10514
 stepIconA3=1164
+stepIconB1=783
+stepIconB2=930
+stepIconB3=1230
+stepIconB4=269
+stepIconB5=782
+stepIconB6=221
 step09=672
 step10=524
 step11=432
@@ -564,7 +570,7 @@ if [[ "${SSBEngineType%%|*}" = internal ]] ; then
     filterlproj "$updateEnginePath/Resources" 'app engine' \
             "${SSBEngineSourceInfo[$iName]}" 'stepIEng4'
 
-    #progress 'stepIEng4'  # CALIBRATION ONLY
+    # progress 'stepIEng4'  # CALIBRATION ONLY
 fi
 
 
