@@ -22,7 +22,8 @@
 
 
 # FILTERFILE -- filter a file using token-text pairs
-function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text2] ... )
+#   filterfile(sourceFile destFile fileInfo token1 text1 [token2 text2] ...)
+function filterfile {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
@@ -37,22 +38,22 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
     local arg=
     local isToken=1
     for arg in "$@" ; do
-
-	# escape special characters for sed
-	arg="${arg//\\/\\\\}"
-	arg="${arg//\//\\/}"
-	arg="${arg//&/\&}"
-
-	if [[ "$isToken" ]] ; then
-
-	    # starting a new token-text pair
-	    sedCommand+="s/$arg/"
-	    isToken=
-	else
-	    # finishing a token-text pair
-	    sedCommand+="$arg/g; "
-	    isToken=1
-	fi
+        
+        # escape special characters for sed
+        arg="${arg//\\/\\\\}"
+        arg="${arg//\//\\/}"
+        arg="${arg//&/\&}"
+        
+        if [[ "$isToken" ]] ; then
+            
+            # starting a new token-text pair
+            sedCommand+="s/$arg/"
+            isToken=
+        else
+            # finishing a token-text pair
+            sedCommand+="$arg/g; "
+            isToken=1
+        fi
     done
     
     # filter file
@@ -62,16 +63,17 @@ function filterfile { # ( sourceFile destFile fileInfo token1 text1 [token2 text
     # move script to permanent home
     # on error, remove temporary file
     if [[ "$ok" ]] ; then
-	permanent "$destFileTmp" "$destFile" "$fileInfo"
+        permanent "$destFileTmp" "$destFile" "$fileInfo"
     else
-	rmtemp "$destFileTmp" "$fileInfo"
+        rmtemp "$destFileTmp" "$fileInfo"
     fi
 }
 
 
 # FILTERPLIST: write out a new plist file by filtering an input file with PlistBuddy
-function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
-
+#   filterplist(srcFile destFile tryErrorID PlistBuddyCommands ...)
+function filterplist {
+    
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
@@ -84,7 +86,7 @@ function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
     local pbCommands=( )
     local curCmd=
     for curCmd in "$@" ; do
-	pbCommands+=( -c "$curCmd" )
+        pbCommands+=( -c "$curCmd" )
     done
     
     # create name for temp destination file
@@ -97,27 +99,28 @@ function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
     
     # use PlistBuddy to filter temp plist
     try /usr/libexec/PlistBuddy "${pbCommands[@]}" "$destFileTmp" \
-	"Error filtering $tryErrorID."
+            "Error filtering $tryErrorID."
     
     if [[ "$ok" ]] ; then
-	
-	# on success, move temp file to permanent location
-	permanent "$destFileTmp" "$destFile" "$tryErrorID"
+        
+        # on success, move temp file to permanent location
+        permanent "$destFileTmp" "$destFile" "$tryErrorID"
     else
-	
-	# on error, delete the temp file
-	rmtemp "$destFileTmp" "$tryErrorID"
+        
+        # on error, delete the temp file
+        rmtemp "$destFileTmp" "$tryErrorID"
     fi
-
+    
     # return code
     [[ "$ok" ]] && return 0 || return 1
-
+    
 }
 # $$$$ export -f filterplist
 
 
 # LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
-function lprojescape {  # ( string )
+#   lprojescape(string)
+function lprojescape {
     s="${1/\\/\\\\\\\\}"    # escape backslashes for both sed & .strings file
     s="${s//\//\\/}"        # escape forward slashes for sed only
     s="${s//&/\\&}"         # escape ampersands for sed only
@@ -126,60 +129,77 @@ function lprojescape {  # ( string )
 
 
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
-function filterlproj {  # ( basePath errID usageKey
-
+#   filterlproj(aBasePath aErrID aUsageKey [aStepId])
+function filterlproj {
+    
     [[ "$ok" ]] || return 1
     
     # turn on nullglob
-    local shoptState=
-    shoptset shoptState nullglob
+    local iShoptState=
+    shoptset iShoptState nullglob
     
-    # path to folder containing .lproj folders
-    local basePath="$1" ; shift
-
-    # info about this filtering for error messages
-    local errID="$1" ; shift
-    
-    # name to search for in usage description strings
-    local usageKey="$1" ; shift
+    # arguments
+    local aBasePath="$1" ; shift    # folder containing .lproj folders
+    local aErrID="$1" ; shift       # info about this filtering for error messages
+    local aUsageKey="$1" ; shift    # name to search for in usage description strings
+    if [[ ! "$progressDoCalibrate" ]] ; then
+        local aStepId="$1" ; shift  # ID for progress messages
+    fi
     
     # escape bundle name strings
     local displayName="$(lprojescape "$CFBundleDisplayName")"
     local bundleName="$(lprojescape "$CFBundleName")"
-
+    
     # create sed command
     local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/; s/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
-
+    
     # if we have a usage key, add command for searching usage descriptions
-    [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$bundleName"'\3/'
+    [[ "$aUsageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$aUsageKey"'(.*"; *)$/\1'"$bundleName"'\3/'
+    
+    # get list of lproj directories
+    local iLprojList=( "$aBasePath/"*.lproj )
+    
+    # initialize progress increment
+    if [[ "$aStepId" ]] ; then
+        local iNumLproj=${#iLprojList[@]}
+        if [[ "$iNumLproj" -gt 0 ]] ; then
+            local iLprojIncrement=
+            eval "iLprojIncrement=\$(( \$$aStepId / \$iNumLproj ))"
+        fi
+    fi
     
     # filter InfoPlist.strings files
     local curLproj=
-    for curLproj in "$basePath/"*.lproj ; do
-	
-	# get paths for current in & out files
-	local curStringsIn="$curLproj/InfoPlist.strings"
-	local curStringsOutTmp="$(tempname "$curStringsIn")"
-	
-	if [[ -f "$curStringsIn" ]] ; then
-	    # filter current localization
-	    try "$curStringsOutTmp<" /usr/bin/sed -E "$sedCommand" "$curStringsIn" \
-		"Unable to filter $errID localization strings."
-	    
-	    # move file to permanent home
-	    permanent "$curStringsOutTmp" "$curStringsIn" "$errID localization strings"
-
-	    # on any error, abort
-	    if [[ ! "$ok" ]] ; then
-		# remove temp output file on error
-		rmtemp "$curStringsOutTmp" "$errID localization strings"
-		break
-	    fi
-	fi
+    for curLproj in "${iLprojList[@]}" ; do
+        
+        # get paths for current in & out files
+        local curStringsIn="$curLproj/InfoPlist.strings"
+        local curStringsOutTmp="$(tempname "$curStringsIn")"
+        
+        if [[ -f "$curStringsIn" ]] ; then
+            # filter current localization
+            try "$curStringsOutTmp<" /usr/bin/sed -E "$sedCommand" "$curStringsIn" \
+                    "Unable to filter $aErrID localization strings."
+            
+            # move file to permanent home
+            permanent "$curStringsOutTmp" "$curStringsIn" "$aErrID localization strings"
+            
+            # update progress message if requested
+            if [[ "$aStepId" ]] ; then
+                progress 'iLprojIncrement'
+            fi
+            
+            # on any error, abort
+            if [[ ! "$ok" ]] ; then
+                # remove temp output file on error
+                rmtemp "$curStringsOutTmp" "$aErrID localization strings"
+                break
+            fi
+        fi
     done
     
     # restore nullglob
-    shoptrestore shoptState
+    shoptrestore iShoptState
     
     # return success or failure
     [[ "$ok" ]] && return 0 || return 1

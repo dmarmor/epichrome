@@ -69,8 +69,6 @@ function updateapp {
     
     if [[ "$iUpdateResult" = 0 ]] ; then
         
-        errlog FATAL "wait result was 0!"
-        
         # running in an app -- update config & relaunch
         if [[ "$coreContext" = 'app' ]] ; then
             

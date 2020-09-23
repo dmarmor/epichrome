@@ -492,6 +492,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/json.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/progress.sh \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \

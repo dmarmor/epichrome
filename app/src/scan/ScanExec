@@ -331,7 +331,7 @@ for curApp in "${appDataDirItemList[@]}" ; do
     SSBPayloadPath=
     SSBAppPath=
     
-    # update progress bar
+    # update progress bar  $$$ REWRITE TO USE PROGRESS.SH -- CHECK LOGIN HERE -- SET ACTION GLOBALLY
     curItemNum=$(($curItemNum + 1))
     progressmsg 'Scanning apps...' $curItemNum $numItems \
             'Restored' "${#appRestoreSuccessList[@]}" 'Failed' "${#appRestoreErrorList[@]}"
