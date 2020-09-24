@@ -136,10 +136,15 @@ ifeq ($(BRAVE),)
 $(error Unable to find Brave archive)
 endif
 ifneq ($(suffix $(BRAVE)),.tgz)
-ifneq ($(suffix $(BRAVE)),.dmg)
+ifeq ($(suffix $(BRAVE)),.dmg)
+BRAVE_SRC:=brave_dmg
+BRAVE:=$(BRAVE:.dmg=.tgz)
+else ifeq ($(suffix $(BRAVE)),.pkg)
+BRAVE_SRC:=brave_pkg
+BRAVE:=$(BRAVE:.pkg=.tgz)
+else
 $(error Unrecognized file in Engines directory: $(BRAVE))
 endif
-BRAVE:=$(BRAVE:.dmg=.tgz)
 endif
 BRAVE_VERSION:=$(shell if [[ '$(BRAVE)' =~ [0-9][0-9.]*[0-9] ]] ; then \
 				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
@@ -194,8 +199,10 @@ INTERMEDIATES:=\
 	build/launch.js \
 	build/engine/Brave \
 	build/engine/Chromium \
+	build/engine_tmp \
 	build/engine_tmp/brave \
 	build/engine_tmp/brave_dmg \
+	build/engine_tmp/brave_pkg \
 	build/engine_tmp/brave_recodesign.sh \
 	build/engine_tmp/brave_signature.txt \
 	build/engine_tmp/brave_entitlements.plist \
@@ -817,7 +824,7 @@ $(BRAVE): build/engine_tmp/brave
 	@touch build/engine/Brave
 	rm -rf build/engine_tmp
 
-build/engine_tmp/brave: build/engine_tmp/brave_dmg build/engine_tmp/brave_recodesign.sh
+build/engine_tmp/brave: build/engine_tmp/$(BRAVE_SRC) build/engine_tmp/brave_recodesign.sh
 	@rm -rf '$@'
 	mv -f '$<' '$@'
 	codesign --remove-signature build/engine_tmp/brave
@@ -844,7 +851,7 @@ build/engine_tmp/brave: build/engine_tmp/brave_dmg build/engine_tmp/brave_recode
 build/engine_tmp/brave_recodesign.sh:
 	@mkdir -p build/engine_tmp
 	printf "codesign -s '$(CODESIGN_IDENTITY)' -vv --identifier org.epichrome.engine.brave" > '$@'
-	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/brave_dmg/Contents/MacOS/Brave Browser' 2>&1)" && \
+	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/$(BRAVE_SRC)/Contents/MacOS/Brave Browser' 2>&1)" && \
 	ents="<?xml$${opts##*<?xml}" && \
 	touch 'build/engine_tmp/brave_entitlements.plist' && \
 	if [[ "$$opts" =~ flags=0x[0-9a-z]+\(([^ ]+)\) ]] ; then \
@@ -869,6 +876,14 @@ build/engine_tmp/brave_dmg: $(BRAVE:.tgz=.dmg)
 	cp -PRv 'build/dmg/Brave Browser.app' build/engine_tmp/brave_dmg ; \
 	hdiutil detach build/dmg
 	touch build/engine_tmp/brave_dmg
+
+build/engine_tmp/brave_pkg: $(BRAVE:.tgz=.pkg)
+	@rm -rf build/engine_tmp
+	@mkdir -p build/engine_tmp
+	pkgutil --expand-full $< build/engine_tmp/tmp
+	mv 'build/engine_tmp/tmp/Payload/Brave Browser.app' build/engine_tmp/brave_pkg
+	rm -rf build/engine_tmp/tmp
+	touch build/engine_tmp/brave_pkg
 
 
 # ENGINE FILTER ELEMENTS
