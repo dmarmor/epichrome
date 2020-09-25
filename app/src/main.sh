@@ -419,6 +419,7 @@ if [[ "$myStatusNewApp" ]] ; then
     # new app, so of course we need an engine
     doCreateEngine=1
     debuglog "Creating engine for new app."
+    createEngineAction1='Creating' ; createEngineAction2=
     createEngineErrMsg="Unable to create engine for new app"
     
 elif [[ "$myStatusNewVersion" ]] ; then
@@ -426,6 +427,7 @@ elif [[ "$myStatusNewVersion" ]] ; then
     # app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
+    createEngineAction1='Updating' ; createEngineAction2=" to version $SSBVersion"
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
     
 elif [[ "$myStatusEdited" ]] ; then
@@ -433,6 +435,7 @@ elif [[ "$myStatusEdited" ]] ; then
     # this app was edited, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for edited app."
+    createEngineAction1='Updating' ; createEngineAction2=
     createEngineErrMsg="Unable to update engine for edited app"
     
 elif [[ "${myStatusEngineChange[0]}" ]] ; then
@@ -440,6 +443,7 @@ elif [[ "${myStatusEngineChange[0]}" ]] ; then
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
     debuglog "Updating engine for new app engine type."
+    createEngineAction1='Switching' ; createEngineAction2=" to ${SSBEngineSourceInfo[$iName]}"
     createEngineErrMsg="Unable to update engine to new type"
     
 elif [[ "$myStatusEngineMoved" ]] ; then
@@ -447,6 +451,7 @@ elif [[ "$myStatusEngineMoved" ]] ; then
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
     debuglog "Recreating engine in new location '$SSBPayloadPath'."
+    createEngineAction1='Relocating' ; createEngineAction2=
     createEngineErrMsg="Unable to recreate engine in new location"
     
 elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
@@ -456,6 +461,7 @@ elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
     # new version of external engine
     doCreateEngine=1
     debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineAction1='Updating' ; createEngineAction2=" to ${SSBEngineSourceInfo[$iName]} version ${SSBEngineSourceInfo[$iVersion]}."
     createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
 
 elif ! checkenginepayload ; then
@@ -463,6 +469,7 @@ elif ! checkenginepayload ; then
     # engine damaged or missing
     doCreateEngine=1
     errlog "Replacing damaged or missing engine."
+    createEngineAction1='Replacing' ; createEngineAction2=
     createEngineErrMsg='Unable to replace damaged or missing engine'    
 fi
 [[ "$ok" ]] || abort
@@ -471,7 +478,7 @@ fi
 if [[ "$doCreateEngine" ]] ; then
     
     # (re)create engine payload
-    createenginepayload
+    createenginepayload "$createEngineAction1" "$createEngineAction2"
     [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
 fi
 

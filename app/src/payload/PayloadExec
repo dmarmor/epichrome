@@ -83,27 +83,16 @@ safesource "$payloadScripts/launch.sh"
 # FUNCTION DEFINITIONS
 
 # CLEANUP: clean up any incomplete update prior to exit  $$$$$
+payloadComplete=
 function cleanup {
     
     # set final progress message
     echo "$progressFinalMessage"
     
-    local cleaned=1
-
-    debuglog "Cleaning up..."
-
-    # clean up any temporary contents folder
-    if [[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] ; then
-        rmtemp "$updateContentsTmp" 'Contents folder'
-        [[ "$?" != 0 ]] && cleaned=
+    if [[ ! "$payloadComplete" ]] ; then    
+        debuglog "Cleaning up..."
+        deletepayload        
     fi
-    updateContentsTmp=
-
-    # clean up any app backup
-    if [[ "$cleaned" && "$updateBackupFile" && -f "$updateBackupFile" ]] ; then
-        tryalways /bin/rm -f "$updateBackupFile" 'Unable to remove app backup.'
-    fi
-    updateBackupFile=
 }
 
 
@@ -286,16 +275,20 @@ else
     progress 'stepIEng3'  # $$$
 fi
 
+[[ "$ok" ]] || abort
+
 # link to engine  $$$$ GET RID OF THIS?
 if [[ "$ok" ]] ; then
     try /bin/ln -s "$SSBPayloadPath" "$myDataPath/Engine" \
 			'Unable create to link to engine in data directory.'
+    ok=1 ; errmsg=
 fi
-
-[[ "$ok" ]] || abort
 
 progress 'end'  # $$$
 
 progressFinalMessage='Operation complete.'
+
+# signal that we're done to cleanup function
+payloadComplete=1
 
 cleanexit

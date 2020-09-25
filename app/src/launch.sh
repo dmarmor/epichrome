@@ -2287,15 +2287,17 @@ function setenginestate {
 	
 	# assume we're in the opposite state we're setting to
 	local oldInactivePath= ; local newInactivePath=
-	local newStateName=
+	local newStateName= newScriptPath=
 	if [[ "$newState" = ON ]] ; then
 		oldInactivePath="$myPayloadEnginePath"
 		newStateName="activate"
 		newInactivePath="$myPayloadLauncherPath"
+		newScriptPath="$myPayloadLauncherPath/Resources/Scripts"
 	else
 		oldInactivePath="$myPayloadLauncherPath"
 		newStateName="deactivate"
 		newInactivePath="$myPayloadEnginePath"
+		newScriptPath="$SSBAppPath/Contents/Resources/Scripts"
 	fi
 	
 	# engine app contents
@@ -2328,6 +2330,9 @@ function setenginestate {
 		return 1
 	fi
 	
+	# set script path
+	myScriptPath="$newScriptPath"
+
 	debuglog "${myAppDebugID}Engine ${newStateName}d."
 	
 	return 0
@@ -2427,7 +2432,7 @@ function deletepayload {
 
 
 # CREATEENGINEPAYLOAD -- create Epichrome engine payload
-#  createenginepayload(payloadMessage)
+#  createenginepayload(aMsg1 aMsg2)
 function createenginepayload {
 	
 	# only run if we're OK
@@ -2437,9 +2442,16 @@ function createenginepayload {
 	safesource "$myScriptPath/subapp.sh"
 	[[ "$ok" ]] || return 1
 	
-	# arguments -- send to EpichromePayload.app
-    local progressAction="$1" ; shift
-    [[ "$progressAction" ]] || progressAction="Creating engine payload for \"${SSBAppPath##*/}\""
+	# arguments
+	local aMsg1="$1" ; shift
+	if [[ "$aMsg1" ]] ; then
+		local aMsg2="$1" ; shift
+	else
+		aMsg1='Creating'
+	fi
+	
+	# send action message to EpichromePayload.app
+	progressAction="$aMsg1 \"${SSBAppPath##*/}\" engine$aMsg2"
     
     # export app scalar variables
     export progressAction \
@@ -2711,7 +2723,23 @@ function launchapp {
 	local aResultPIDVar="$1" ; shift
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
 	
-	# $$$ register app first if aDoRegister is set?
+	if [[ "$aDoRegister" ]] ; then
+		
+		# register app before launching it
+		debuglog "Registering '${aPath##*/}' with Launch Services."
+		local iAppUtilErr=
+		try 'iAppUtilErr&=' osascript "$myScriptPath/apputil.js" "{
+   \"action\": \"register\",
+   \"path\": \"$(escapejson "$aPath")\"
+}" ''
+		
+		# error is non-fatal, so just report it
+		if [[ ! "$ok" ]] ; then
+			errlog "Unable to register '${aPath##*/}' with Launch Services: $iAppUtilErr"
+			ok=1 ; errmsg=
+		fi
+
+	fi
 	
 	# find app executable
 	local iExec="$(echo "$aPath/Contents/MacOS/"*)"

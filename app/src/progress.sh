@@ -35,6 +35,9 @@ progressAction+='...'
 # sanity-check progress bar total
 [[ "$progressTotal" -gt 0 ]] || progressTotal=
 
+# default final message is abort
+progressFinalMessage='An error occurred. Operation aborted.'
+
 
 # --- FUNCTION DEFINITIONS ---
 

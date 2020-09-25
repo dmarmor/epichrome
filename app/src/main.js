@@ -2502,14 +2502,21 @@ function stepBuild(aInfo) {
     }
     
     try {
-        myScriptArgs.push('epiUpdateMessage=' + myBuildMessage[0] + ' "' + aInfo.appInfo.displayName + '"');
+        myScriptArgs.push('epiUpdateMessage=' + myBuildMessage[0] + ' "' + aInfo.appInfo.displayName + '.app"');
         
         // run the build/update script
         shell.apply(null, myScriptArgs);
         
-        // bring app to the front
+        // bring Epichrome to the front
         kApp.activate();
         
+        let mySubErr;
+        try {
+            registerApp(aInfo.appInfo.file.path);
+        } catch(mySubErr) {
+            mySubErr.message = 'WARN\rUnable to register app. (' + mySubErr.message + ') It may not launch immediately.'
+            throw(mySubErr);
+        }
     } catch(myErr) {
         
         // bring app to the front
