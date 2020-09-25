@@ -162,7 +162,6 @@ epiDataLogFilePrefixScan='epichrome_scan_log'
 epiDataLogFilePrefixLogin='epichrome_login_log'
 appDataStderrFile='stderr.txt'
 appDataStdoutFile='stdout.txt'
-appDataErrmsgFile='errmsg.txt'
 appDataPauseFifo='pause'
 appDataBackupDir='Backups'
 appDataFailsafeFile='backup.dat'
@@ -1000,7 +999,7 @@ function abort {
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
     errlog FATAL "$myAbortLog"
     
-    if [[ ( "$coreContext" = 'app' ) && ( ! "$myErrmsgFile" ) ]] ; then
+    if [[ ( "$coreContext" = 'app' ) || ( "$coreContext" = 'scan' ) && ( ! "$myErrmsgFile" ) ]] ; then
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then

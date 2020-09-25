@@ -25,15 +25,12 @@
 
 # PROGRESS BAR APP SETTINGS
 
-# don't write anything to stderr
-logNoStderr=1
-
 # set progress action message
 [[ "$progressAction" ]] || progressAction='Working'
 progressAction+='...'
 
-# start progress bar messages
-echo "$progressAction"
+# start progress bar messages  $$$ doesn't work with safesource
+#echo "$progressAction"
 
 # sanity-check progress bar total
 [[ "$progressTotal" -gt 0 ]] || progressTotal=
@@ -144,6 +141,7 @@ function progress {
 
 # PROGRESS: CALIBRATE progress bar
 #  progress(aStepId)
+# ---
 # progressCalibrateEndTime=
 # progressLastId=
 # progressDoCalibrate=1

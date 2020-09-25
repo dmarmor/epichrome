@@ -51,6 +51,9 @@ APP_RNTM:=$(APP_CT)/Resources/Runtime
 UPDATE_APP:=$(APP_CT)/Resources/EpichromeUpdate.app
 UPDATE_CT:=$(UPDATE_APP)/Contents
 
+PAYLOAD_APP:=$(APP_RNTM)/Contents/Resources/EpichromePayload.app
+PAYLOAD_CT:=$(PAYLOAD_APP)/Contents
+
 SCAN_CT:=$(SCAN_APP)/Contents
 
 LOGIN_CT:=$(LOGIN_APP)/Contents
@@ -251,7 +254,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
-.INTERMEDIATE: main engine runtime update-core scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime update-core payload-core scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # BUILD TARGETS (DEFAULT TARGET)
@@ -494,12 +497,15 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/app.icns \
 	$(APP_RNTM)/Contents/Resources/document.icns \
 	\
+	$(PAYLOAD_APP) \
+	\
 	$(APP_RNTM)/Contents/Resources/Scripts/apputil.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/json.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/progress.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/subapp.sh \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -617,6 +623,50 @@ $(UPDATE_CT)/Resources/script: src/update/UpdateExec src/version.sh
 	chmod 755 $@
 
 $(UPDATE_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+
+# CREATE-PAYLOAD APP
+
+$(PAYLOAD_APP): $(PAYLOAD_CT)/MacOS/EpichromePayload \
+		$(PAYLOAD_CT)/Resources/MainMenu.nib \
+		$(PAYLOAD_CT)/Resources/AppSettings.plist \
+		\
+		$(PAYLOAD_CT)/Info.plist \
+		$(PAYLOAD_CT)/Resources/script \
+		$(PAYLOAD_CT)/Resources/app.icns
+
+$(PAYLOAD_CT)/MacOS/EpichromePayload \
+	$(PAYLOAD_CT)/Resources/MainMenu.nib \
+	$(PAYLOAD_CT)/Resources/AppSettings.plist: payload-core
+	
+payload-core:
+	@rm -rf $(PAYLOAD_APP)
+	@touch build/fake.icns build/fake.sh
+	platypus --name 'EpichromePayload' \
+		--interface-type 'Progress Bar' \
+		--app-icon build/fake.icns \
+		--interpreter /bin/bash \
+		--app-version $(VERSION) \
+		--author 'David Marmor' \
+		--bundle-identifier org.epichrome.Update \
+		--background \
+		--quit-after-execution \
+		--optimize-nib \
+		build/fake.sh $(PAYLOAD_APP)
+	@rm $(PAYLOAD_CT)/Info.plist $(PAYLOAD_CT)/Resources/*.icns $(PAYLOAD_CT)/Resources/script
+
+$(PAYLOAD_CT)/Info.plist: src/payload/Info.plist src/version.sh
+	@mkdir -p '$(dir $@)'
+	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+
+$(PAYLOAD_CT)/Resources/script: src/payload/PayloadExec src/version.sh
+	@mkdir -p $(dir $@)
+	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
+	chmod 755 $@
+
+$(PAYLOAD_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
 	@mkdir -p $(dir $@)
 	cp $< $@
 
@@ -932,7 +982,8 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
 	$(SCAN_CT)/Resources/Scripts/core.sh \
 	$(SCAN_CT)/Resources/Scripts/filter.sh \
 	$(SCAN_CT)/Resources/Scripts/apputil.js \
-	$(SCAN_CT)/Resources/Scripts/launch.sh
+	$(SCAN_CT)/Resources/Scripts/launch.sh \
+	$(SCAN_CT)/Resources/Scripts/progress.sh
 
 
 # LOGIN APP DEPENDENCIES

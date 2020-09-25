@@ -46,6 +46,13 @@ scanComplete=
 source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' "coreContext=$scanMode" || exit 1
 [[ "$ok" ]] || abort
 
+# SET UP PROGRESS SCRIPT
+if [[ "$scanMode" != 'login' ]] ; then
+    progressAction='Scanning apps'
+    safesource "$myScriptPath/progress.sh"
+    [[ "$ok" ]] || abort
+fi
+
 
 # DON'T TRAP SIGINT
 
@@ -186,80 +193,6 @@ function scan_restore {
 }
 
 
-# PROGRESSMSG -- print a message for the progress bar
-#  progressmsg(aAction aCurItem [aNumItems] [aStatusItem aStatusNum]...)
-progressPrevStatus=
-progressPrevTime=
-progressCurDetail=
-function progressmsg {
-    
-    # don't show progress messages in login mode
-    [[ "$scanMode" != 'login' ]] || return 0
-    
-    # arguments
-    local aAction="$1" ; shift
-    local aCurItem="$1" ; shift
-    local aNumItems="$1" ; shift
-    
-    # handle (and clear) detail message
-    local iDetail=
-    if [[ "$progressCurDetail" ]] ; then
-        iDetail="$progressCurDetail"$'\n'
-        progressCurDetail=
-    fi
-    
-    # build percentage (or count)
-    local aPercent= aPercentNum=
-    if [[ "$aCurItem" && "$aNumItems" ]] ; then
-        aPercentNum="$(($aCurItem * 100 / $aNumItems))"
-        aPercent=" ($aPercentNum%)"
-    elif [[ "$aCurItem" || "$aNumItems" ]] ; then
-        aPercent=" (${aCurItem}${aNumItems})"
-    fi
-    
-    # build status text
-    local aStatus= aCurStatus=
-    while [[ "$#" -gt 0 ]] ; do
-        [[ "$1" ]] && aCurStatus="$1"
-        shift
-        if [[ "$aCurStatus" ]] ; then
-            if [[ "$1" ]] ; then
-                # if this status has zero entries, skip it
-                if [[ "$1" -eq 0 ]] ; then
-                    shift
-                    continue
-                fi
-                
-                aCurStatus+=": $1"
-            fi
-            
-            # add to status message
-            [[ "$aStatus" ]] && aStatus+=', '
-            aStatus+="$aCurStatus"
-        fi
-        shift
-    done
-    [[ "$aStatus" ]] && aStatus=" - $aStatus"
-    
-    # update time
-    local iCurTime=
-    try 'iCurTime=' /usr/bin/perl -MTime::HiRes=time -e 'printf "%.1f\n", time' ''
-    ok=1 ; errmsg=
-    iCurTime="${iCurTime/./}"
-    
-    # decide whether to show this message (every 0.3 sec, or if status changes)
-    if [[ ( ( "$iCurTime" != "$progressPrevTime" ) && \
-            ( "${iCurTime:$((${#iCurTime}-1)):1}" = [036] ) ) || \
-            ( "$aStatus" != "$progressPrevStatus" ) ]] ; then
-        echo "$iDetail$aAction$aPercent$aStatus"
-    fi
-    
-    # save status for next run
-    progressPrevStatus="$aStatus"
-    progressPrevTime="$iCurTime"
-}
-
-
 # FINALPROGRESSMSG: create final status message for progress bar
 #  finalprogressmsg(aBaseMsg)
 function finalprogressmsg {
@@ -319,8 +252,9 @@ appRestoreSuccessList=()
 appRestoreErrorList=()
 
 # progress bar data
-numItems="${#appDataDirItemList[@]}"
-curItemNum=-1
+progressTotal="${#appDataDirItemList[@]}"
+progressStep=1
+
 
 for curApp in "${appDataDirItemList[@]}" ; do
     
@@ -331,9 +265,8 @@ for curApp in "${appDataDirItemList[@]}" ; do
     SSBPayloadPath=
     SSBAppPath=
     
-    # update progress bar  $$$ REWRITE TO USE PROGRESS.SH -- CHECK LOGIN HERE -- SET ACTION GLOBALLY
-    curItemNum=$(($curItemNum + 1))
-    progressmsg 'Scanning apps...' $curItemNum $numItems \
+    # update progress bar
+    [[ "$scanMode" != 'login' ]] && progress progressStep \
             'Restored' "${#appRestoreSuccessList[@]}" 'Failed' "${#appRestoreErrorList[@]}"
     
     # check if it's really an app directory

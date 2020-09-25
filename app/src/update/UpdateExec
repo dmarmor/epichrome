@@ -89,6 +89,9 @@ updateBackupFile=
 
 # BOOTSTRAP MY VERSION OF CORE.SH, PROGRESS.SH, LAUNCH.SH
 
+# don't write anything to stderr
+logNoStderr=1
+
 if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
 'coreDoInit=1' 'logIDExt=Update' "$@" ; then
     ok= ; errmsg="Unable to load core $updateVersion."
@@ -97,16 +100,11 @@ if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
 fi
 [[ "$ok" ]] || abort
 
-progressAction="$updateAppMessage"
-if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/progress.sh" ; then
-    ok= ; errmsg="Unable to load progress.sh $updateVersion."
-    abort
-fi
+safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/progress.sh"
+[[ "$ok" ]] || abort
 
-if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/launch.sh" ; then
-    ok= ; errmsg="Unable to load launch.sh $updateVersion."
-    abort
-fi
+safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/launch.sh"
+[[ "$ok" ]] || abort
 
 
 # FUNCTION DEFINITIONS

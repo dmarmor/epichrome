@@ -21,6 +21,11 @@
 #
 
 
+# LOAD SUBAPP SCRIPT
+
+safesource "${BASH_SOURCE[0]%/Scripts/update.sh}/Runtime/Contents/Resources/Scripts/subapp.sh"
+
+
 # FUNCTION DEFINITIONS
 
 # UPDATEAPP: run Epichrome Update.app to populate an app bundle
@@ -32,11 +37,11 @@ function updateapp {
     
     # arguments -- send to EpichromeUpdate.app
     local updateAppPath="$1" ; shift
-    local updateAppMessage="$1" ; shift
+    local progressAction="$1" ; shift
     [[ "$updateAppMessage" ]] || updateAppMessage="Updating \"${SSBAppPath##*/}\""
     
     # export app scalar variables
-    export updateAppPath updateAppMessage \
+    export updateAppPath progressAction \
             SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
             SSBRegisterBrowser SSBCustomIcon SSBEngineType \
             SSBUpdateAction SSBEdited
@@ -49,25 +54,13 @@ function updateapp {
         export epiAction epiIconSource
     fi
     
-    # set up errmsg file
-    export myErrmsgFile="$myDataPath/"
-    if [[ "$appDataErrmsgFile" ]] ; then
-        myErrmsgFile+="$appDataErrmsgFile"
-    else
-        myErrmsgFile+='errmsg.txt'
-    fi
-    
     # get path to this script's enclosing Epichrome.app resources directory
     local myEpiResources="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}/Contents/Resources"
     
     # run update app in background and wait for it to quit (to suppress any signal termination messages)
-    "$myEpiResources/EpichromeUpdate.app/Contents/MacOS/EpichromeUpdate" >& /dev/null &
-    wait "$!" >& /dev/null
+    runsubapp "$myEpiResources/EpichromeUpdate.app/Contents/MacOS/EpichromeUpdate"
     
-    # get result of update app
-    local iUpdateResult="$?"
-    
-    if [[ "$iUpdateResult" = 0 ]] ; then
+    if [[ "$ok" ]] ; then
         
         # running in an app -- update config & relaunch
         if [[ "$coreContext" = 'app' ]] ; then
@@ -88,41 +81,16 @@ function updateapp {
             # exit
             cleanexit
         fi
+        
         return 0
     else
         # aborted or canceled
-        ok=
         
-        # try to retrieve error message from EpichromeUpdate.app
-        if [[ "$iUpdateResult" = 143 ]] ; then
-            
-            # CANCEL button
-            if [[ "$coreContext" != 'epichrome' ]] && vcmp "$SSBVersion" '<' '2.4.0b4[004]' ; then
-                errmsg='Update canceled.'
-            else
-                errmsg='CANCEL'
-            fi
-            
-        else
-            local myErrMsg=
-            ok=1 ; errmsg=
-            if waitforcondition "error message file to appear" 2 .5 \
-                    test -f "$myErrmsgFile" ; then
-                try 'myErrMsg=' /bin/cat "$myErrmsgFile" 'Unable to read error message file.'
-            else
-                ok= ; errmsg='No error message found.'
-                errlog "$errmsg"
-            fi
-            if [[ "$ok" ]] ; then
-                errmsg="$myErrMsg"
-                ok=
-            else
-                errmsg="An unknown error occurred. Unable to read error message file."
-            fi
-            tryalways /bin/rm -f "$myErrmsgFile" 'Unable to remove error message file.'
+        # fallback cancel message for old versions
+        if [[ ( "$errmsg" = 'CANCEL' ) && ( "$coreContext" != 'epichrome' ) ]] && \
+                vcmp "$SSBVersion" '<' '2.4.0b4[004]' ; then
+            errmsg='Update canceled.'
         fi
-        
-        unset myErrmsgFile
         
         return 1
     fi
