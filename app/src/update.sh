@@ -38,7 +38,7 @@ function updateapp {
     # arguments -- send to EpichromeUpdate.app
     local updateAppPath="$1" ; shift
     local progressAction="$1" ; shift
-    [[ "$updateAppMessage" ]] || updateAppMessage="Updating \"${SSBAppPath##*/}\""
+    [[ "$progressAction" ]] || progressAction="Updating \"${SSBAppPath##*/}\""
     
     # export app scalar variables
     export updateAppPath progressAction \

@@ -35,26 +35,24 @@ progressAction+='...'
 # sanity-check progress bar total
 [[ "$progressTotal" -gt 0 ]] || progressTotal=
 
-# default final message is abort
-progressFinalMessage='An error occurred. Operation aborted.'
+# set up for running as a sub-app
+if [[ "$subappErrFile" ]] ; then
+    coreExitParentSignal=ABRT
+    coreShowAlertOnAbort=
+    coreErrFile="$subappErrFile"
+fi
 
 
 # --- FUNCTION DEFINITIONS ---
 
-if [[ "$killParentOnAbort" ]] ; then
-
-    # if we're killing our parent on abort, set ABRT as the signal
-    killParentOnAbort=ABRT
-    
-    # HANDLECANCEL: handle a cancel signal
-    function handlecancel {
-        progressFinalMessage='Operation canceled.'
-        errlog FATAL "$progressFinalMessage"
-        killParentOnAbort=TERM
-        cleanexit 1
-    }
-    trap handlecancel TERM
-fi
+# HANDLECANCEL: handle a cancel signal
+progressCanceled=
+function handlecancel {
+    progressCanceled=1
+    [[ "$coreExitParentSignal" ]] && coreExitParentSignal=TERM
+    cleanexit 1
+}
+trap handlecancel TERM
 
 
 # PROGRESS: print a message for the progress bar

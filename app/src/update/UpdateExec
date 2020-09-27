@@ -28,9 +28,6 @@ updateVersion='EPIVERSION'
 
 # PROGRESS BAR SETUP
 
-# kill parent app on abort
-killParentOnAbort=1
-
 # step calibration
 stepStart=0
 step01=246
@@ -125,20 +122,17 @@ function escapehtml {  # ( str )
 # CLEANUP: clean up any incomplete update prior to exit
 function cleanup {
     
-    # set final progress message
-    echo "$progressFinalMessage"
-    
     local cleaned=1
-
+    
     debuglog "Cleaning up..."
-
+    
     # clean up any temporary contents folder
     if [[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] ; then
         rmtemp "$updateContentsTmp" 'Contents folder'
         [[ "$?" != 0 ]] && cleaned=
     fi
     updateContentsTmp=
-
+    
     # clean up any app backup
     if [[ "$cleaned" && "$updateBackupFile" && -f "$updateBackupFile" ]] ; then
         tryalways /bin/rm -f "$updateBackupFile" 'Unable to remove app backup.'
@@ -618,7 +612,5 @@ else
 fi
 
 progress 'end'  # $$$
-
-progressFinalMessage='Operation complete.'
 
 cleanexit

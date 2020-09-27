@@ -1094,7 +1094,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 if (aInfo.stepInfo.action == kActionEDIT) {
                     myDlgMessage = 'You have not finished editing "' + aInfo.appInfo.displayName + '". Your changes have not been saved' + (aInfo.update ? ' and the app will not be updated. ' : '. ') + myDlgMessage;
                 } else {
-                    myDlgMessage = 'You canceled the update of "' + aInfo.appInfo.displayName + '". The app has not been updated.' + myDlgMessage;
+                    myDlgMessage = 'You canceled the update of "' + aInfo.appInfo.displayName + '". The app has not been updated. ' + myDlgMessage;
                 }
 
                 if (aInfo.stepInfo.isLastApp) {

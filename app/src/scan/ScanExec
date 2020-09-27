@@ -66,7 +66,7 @@ function cleanup {
     
     # we were interrupted in the middle of a restore
     if [[ "$restoreLock" && ( ! -f "$SSBAppPath/Contents/MacOS/Epichrome" ) ]] ; then
-        errlog "Scan canceled while restoring app $curApp. Attempting to complete restore."
+        errlog "Scan stopped while restoring app $curApp. Attempting to complete restore."
         scan_restore CLEANUP
     fi
     
@@ -75,9 +75,14 @@ function cleanup {
     if [[ "$scanComplete" ]] ; then
         iMsg='Scan complete.'
         debuglog "$iMsg"
-    else
+    elif [[ "$progressCanceled" ]] ; then
         iMsg='Scan canceled.'
         errlog "$iMsg"
+    else
+        iMsg='Unable to complete scan.'
+        errlog FATAL "$iMsg"
+        iMsg="🚫 Aborting on error: $errmsg"$'\n'"🚫 $iMsg"
+        coreAborted=1  # should already be set
     fi
     
     # final progress message
@@ -216,7 +221,7 @@ function finalprogressmsg {
         # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && iFinalStatus+='s'  $$$
     fi
 
-    if [[ "$iFinalStatus" ]] ; then
+    if [[ "$iFinalStatus" || "$coreAborted" ]] ; then
         iFinalStatus+='. See Details or log for info.'
     else
         iFinalStatus=' No problems found.'

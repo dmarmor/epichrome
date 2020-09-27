@@ -292,12 +292,18 @@ if [[ "$coreContext" = 'app' ]] ; then
     # log file directory
     [[ "$myLogDir" ]] || myLogDir="$myDataPath/$epiDataLogDir"
     
+    # by default show alert on abort
+    coreShowAlertOnAbort=1
+    
     # export all to helper
     # $$$$ export myConfigFile myProfilePath
 
 else
     
     # RUNNING IN EPICHROME.APP, EPICHROME SCAN/LOGIN.APP OR SHELL
+    
+    # by default do not show alert on abort
+    coreShowAlertOnAbort=
     
     # use Epichrome's data path
     [[ "$myDataPath" ]] || myDataPath="$epiDataPath"
@@ -952,6 +958,7 @@ function safesource {
 #      special values for myCode:
 #        SIGEXIT: called from exit handler, so don't actually exit
 #        KILLPARENT: kill parent process instead of exiting
+coreExitParentSignal=
 function cleanexit {
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
@@ -970,9 +977,9 @@ function cleanexit {
     readyToExit=1
     
     # exit unless we got here from an exit signal
-    if [[ "$killParentOnAbort" && ( "$myCode" != 0 ) ]] ; then
-        debuglog "Sending $killParentOnAbort signal to parent process ($PPID)."
-        kill "-$killParentOnAbort" "$PPID"
+    if [[ "$coreExitParentSignal" ]] ; then
+        debuglog "Sending $coreExitParentSignal signal to parent process ($PPID)."
+        kill "-$coreExitParentSignal" "$PPID"
     fi
     if [[ "$myCode" != 'SIGEXIT' ]] ; then
         exit "$myCode"
@@ -983,6 +990,7 @@ function cleanexit {
 
 # ABORT -- display an error alert and abort
 #  abort([myErrMsg [myCode]])
+coreAborted=
 function abort {
     
     # arguments
@@ -999,7 +1007,8 @@ function abort {
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
     errlog FATAL "$myAbortLog"
     
-    if [[ ( "$coreContext" = 'app' ) || ( "$coreContext" = 'scan' ) && ( ! "$myErrmsgFile" ) ]] ; then
+    if [[ "$coreShowAlertOnAbort" ]] ; then
+    # $$$$ ( "$coreContext" = 'app' ) || ( "$coreContext" = 'scan' ) && ( ! "$coreErrFile" ) ]] ; then
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
@@ -1021,6 +1030,9 @@ tell application "Finder" to activate' 'Error attempting to view log file.'
     # set abort message for final handling
     errmsg="$myErrMsg"
     
+    # flag that we aborted
+    coreAborted=1
+    
     # quit with error code
     cleanexit "$myCode"
 }
@@ -1032,13 +1044,13 @@ readyToExit=
 function handleexitsignal {
     
     # send any final error messages
-    if [[ "$myErrmsgFile" ]] ; then
+    if [[ "$coreErrFile" ]] ; then
         
         # save error message
         local iErrMsg="$errmsg"
         
         # make sure directory exists for errmsg file
-        local iErrmsgDir="${myErrmsgFile%/*}"
+        local iErrmsgDir="${coreErrFile%/*}"
         if [[ ! -d "$iErrmsgDir" ]] ; then
             ok=1 ; errmsg=
             try /bin/mkdir -p "$iErrmsgDir" 'Unable to create directory for error message file.'
@@ -1046,7 +1058,7 @@ function handleexitsignal {
         
         # log just the error message to errmsg file
         ok=1 ; errmsg=
-        try "$myErrmsgFile<" echo "$iErrMsg" 'Unable to write to error message file.'
+        try "$coreErrFile<" echo "$iErrMsg" 'Unable to write to error message file.'
         
     elif [[ "$coreContext" = 'epichrome' ]] ; then
         

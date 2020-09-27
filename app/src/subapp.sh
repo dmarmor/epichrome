@@ -21,11 +21,6 @@
 #
 
 
-# CONSTANTS
-
-appDataErrmsgFile='errmsg.txt'
-
-
 # RUNSUBAPP: run a sub-app & process result
 #   runsubapp(aAppExec)
 function runsubapp {
@@ -37,8 +32,8 @@ function runsubapp {
     local aAppExec="$1" ; shift
     
     # set up errmsg file & export to subapp
-    local myErrmsgFile="$myDataPath/$appDataErrmsgFile"
-    export myErrmsgFile
+    local subappErrFile="$myDataPath/errmsg.txt"
+    export subappErrFile
     
     # run subapp in background and wait for it to quit (to suppress any signal termination messages)
     "$aAppExec" >& /dev/null &
@@ -55,14 +50,14 @@ function runsubapp {
         
         # try to retrieve error message from subapp
         if [[ "$iUpdateResult" = 143 ]] ; then            
-            # CANCEL button
+            # TERM signal: CANCEL button
             errmsg='CANCEL'
         else
             local myErrMsg=
             ok=1 ; errmsg=
             if waitforcondition "error message file to appear" 2 .5 \
-                    test -f "$myErrmsgFile" ; then
-                try 'myErrMsg=' /bin/cat "$myErrmsgFile" 'Unable to read error message file.'
+                    test -f "$subappErrFile" ; then
+                try 'myErrMsg=' /bin/cat "$subappErrFile" 'Unable to read error message file.'
             else
                 ok= ; errmsg='No error message found.'
                 errlog "$errmsg"
@@ -73,7 +68,7 @@ function runsubapp {
             else
                 errmsg="An unknown error occurred. Unable to read error message file."
             fi
-            tryalways /bin/rm -f "$myErrmsgFile" 'Unable to remove error message file.'
+            tryalways /bin/rm -f "$subappErrFile" 'Unable to remove error message file.'
         fi
         
         return 1
