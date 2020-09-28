@@ -78,6 +78,7 @@ function cleanup {
     elif [[ "$progressCanceled" ]] ; then
         iMsg='Scan canceled.'
         errlog "$iMsg"
+        iMsg="⚠️ $iMsg"
     else
         iMsg='Unable to complete scan.'
         errlog FATAL "$iMsg"
@@ -220,9 +221,10 @@ function finalprogressmsg {
         iFinalStatus+=" Failed: ${#appRestoreErrorList[@]}"
         # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && iFinalStatus+='s'  $$$
     fi
-
-    if [[ "$iFinalStatus" || "$coreAborted" ]] ; then
-        iFinalStatus+='. See Details or log for info.'
+    [[ "$iFinalStatus" ]] && iFinalStatus+='.'
+    
+    if [[ "$iFinalStatus" || ( "$coreAborted" && ( ! "$progressCanceled" ) ) ]] ; then
+        iFinalStatus+=' See Details or log for info.'
     else
         iFinalStatus=' No problems found.'
     fi
@@ -259,7 +261,6 @@ appRestoreErrorList=()
 # progress bar data
 progressTotal="${#appDataDirItemList[@]}"
 progressStep=1
-
 
 for curApp in "${appDataDirItemList[@]}" ; do
     
