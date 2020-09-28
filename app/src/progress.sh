@@ -37,7 +37,7 @@ progressAction+='...'
 
 # set up for running as a sub-app
 if [[ "$subappErrFile" ]] ; then
-    coreExitParentSignal=ABRT
+    coreAbortParentSignal=ABRT
     coreShowAlertOnAbort=
     coreErrFile="$subappErrFile"
 fi
@@ -49,8 +49,8 @@ fi
 progressCanceled=
 function handlecancel {
     progressCanceled=1
-    [[ "$coreExitParentSignal" ]] && coreExitParentSignal=TERM
-    cleanexit 1
+    [[ "$coreAbortParentSignal" ]] && coreAbortParentSignal=TERM
+    abort 'Operation canceled.'
 }
 trap handlecancel TERM
 
@@ -69,11 +69,11 @@ function progress {
     local aStepId="$1" ; shift
     if [[ "${aStepId::1}" = '!' ]] ; then
         iForce=1
-        aStepId="${aStepId/\!/}"
-        
-        # end step is only for calibration
-        [[ "$aStepId" = 'end' ]] && return
+        aStepId="${aStepId/\!/}"        
     fi
+    
+    # end step is only for calibration
+    [[ "$aStepId" = 'end' ]] && return
     
     # get increment for this step
     local iStepIncrement=

@@ -958,7 +958,7 @@ function safesource {
 #      special values for myCode:
 #        SIGEXIT: called from exit handler, so don't actually exit
 #        KILLPARENT: kill parent process instead of exiting
-coreExitParentSignal=
+coreAbortParentSignal=
 function cleanexit {
     
     local myCode="$1" ; shift ; [[ "$myCode" ]] || myCode=0
@@ -977,9 +977,9 @@ function cleanexit {
     readyToExit=1
     
     # exit unless we got here from an exit signal
-    if [[ "$coreExitParentSignal" ]] ; then
-        debuglog "Sending $coreExitParentSignal signal to parent process ($PPID)."
-        kill "-$coreExitParentSignal" "$PPID"
+    if [[ "$coreAborted" && "$coreAbortParentSignal" ]] ; then
+        debuglog "Sending $coreAbortParentSignal signal to parent process ($PPID)."
+        kill "-$coreAbortParentSignal" "$PPID"
     fi
     if [[ "$myCode" != 'SIGEXIT' ]] ; then
         exit "$myCode"
