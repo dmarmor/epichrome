@@ -2448,10 +2448,11 @@ function createenginepayload {
 		local aMsg2="$1" ; shift
 	else
 		aMsg1='Creating'
+		aMsg2='engine'
 	fi
 	
 	# send action message to EpichromePayload.app
-	progressAction="$aMsg1 \"${SSBAppPath##*/}\" engine$aMsg2"
+	progressAction="$aMsg1 \"${SSBAppPath##*/}\" $aMsg2"
     
     # export app scalar variables
     export progressAction \

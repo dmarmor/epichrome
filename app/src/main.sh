@@ -191,10 +191,6 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
         
     fi
     
-    # update last run variables
-    SSBLastRunVersion="$SSBVersion"
-    #SSBUpdateVersion="$SSBVersion"
-    
     # clear error states
     SSBLastErrorNMHInstall=
 fi
@@ -207,9 +203,6 @@ if [[ "$SSBEdited" && \
         ( "$SSBEdited" -gt "$SSBLastRunEdited" ) ) ]] ; then
     myStatusEdited=1
 fi
-
-# update last run variable
-SSBLastRunEdited="$SSBEdited"
 
 
 # DETERMINE IF WE'VE JUST CHANGED ENGINES
@@ -225,9 +218,6 @@ if [[ ( ! "$myStatusNewApp" ) && \
     # clear extension install error state
     SSBLastErrorNMHInstall=
 fi
-
-# update last-run engine
-SSBLastRunEngineType="$SSBEngineType"
 
 
 # DETERMINE IF SETTING HAVE BEEN RESET
@@ -309,27 +299,28 @@ if [[ -d "$epiCurrentPath" ]] ; then
     
     # check if payload path matches what it should be
     if [[ "$SSBPayloadPath" != "$myPayloadPath" ]] ; then
-                
+        
         if [[ "$SSBPayloadPath" ]] ; then
-
+            
             # payload path is out of date, so we'll recreate it
             debuglog "Payload path '$SSBPayloadPath' is out of date. Moving to new location."
+            
+            # set status variable
+            myStatusEngineMoved="$SSBPayloadPath"
             
             if [[ ( ! -d "$myPayloadPath" ) && -d "$SSBPayloadPath" ]] && \
                     issamedevice "$epiCurrentPath" "$SSBPayloadPath" ; then
                 try /bin/mv "$SSBPayloadPath" "$myPayloadPath" \
                         'Unable to move payload path to new location.'
-                ok=1 ; errmsg=
+                if [[ "$ok" ]] ; then
+                    myStatusEngineMoved=
+                else
+                    ok=1 ; errmsg=
+                fi
             fi
             
-            # engine still at old location -- delete
-            if [[ -d "$SSBPayloadPath" ]] ; then
-                
-                deletepayload
-                
-                # set status variable
-                myStatusEngineMoved="$SSBPayloadPath"
-            fi
+            # engine still at old location -- try to delete
+            [[ -d "$SSBPayloadPath" ]] && deletepayload
         else
             # no payload path yet
             debuglog "No payload path found. Creating new payload path."
@@ -419,7 +410,7 @@ if [[ "$myStatusNewApp" ]] ; then
     # new app, so of course we need an engine
     doCreateEngine=1
     debuglog "Creating engine for new app."
-    createEngineAction1='Creating' ; createEngineAction2=
+    createEngineAction1='Creating' ; createEngineAction2='engine'
     createEngineErrMsg="Unable to create engine for new app"
     
 elif [[ "$myStatusNewVersion" ]] ; then
@@ -427,31 +418,32 @@ elif [[ "$myStatusNewVersion" ]] ; then
     # app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
-    createEngineAction1='Updating' ; createEngineAction2=" to version $SSBVersion"
+    createEngineAction1='Updating' ; createEngineAction2="engine to version $SSBVersion"
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
+    
+elif [[ "${myStatusEngineChange[0]}" ]] ; then
+    
+    # the app engine was changed, so we need a new engine (probably never reached)
+    doCreateEngine=1
+    [[ "${SSBEngineType%%|*}" = 'internal' ]] && myEngTypeName='built-in' || myEngTypeName='external'
+    debuglog "Switching to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine."
+    createEngineAction1='Switching' ; createEngineAction2="to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine"
+    createEngineErrMsg="Unable to switch to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine"
     
 elif [[ "$myStatusEdited" ]] ; then
     
     # this app was edited, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for edited app."
-    createEngineAction1='Updating' ; createEngineAction2=
+    createEngineAction1='Updating' ; createEngineAction2='engine'
     createEngineErrMsg="Unable to update engine for edited app"
-    
-elif [[ "${myStatusEngineChange[0]}" ]] ; then
-    
-    # the app engine was changed, so we need a new engine (probably never reached)
-    doCreateEngine=1
-    debuglog "Updating engine for new app engine type."
-    createEngineAction1='Switching' ; createEngineAction2=" to ${SSBEngineSourceInfo[$iName]}"
-    createEngineErrMsg="Unable to update engine to new type"
     
 elif [[ "$myStatusEngineMoved" ]] ; then
     
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
     debuglog "Recreating engine in new location '$SSBPayloadPath'."
-    createEngineAction1='Relocating' ; createEngineAction2=
+    createEngineAction1='Relocating' ; createEngineAction2='engine'
     createEngineErrMsg="Unable to recreate engine in new location"
     
 elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
@@ -460,16 +452,16 @@ elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
     
     # new version of external engine
     doCreateEngine=1
-    debuglog "Updating engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
-    createEngineAction1='Updating' ; createEngineAction2=" to ${SSBEngineSourceInfo[$iName]} version ${SSBEngineSourceInfo[$iVersion]}."
-    createEngineErrMsg="Unable to update engine to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+    debuglog "Updating external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineAction1='Updating' ; createEngineAction2="external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineErrMsg="Unable to update external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
 
 elif ! checkenginepayload ; then
     
     # engine damaged or missing
     doCreateEngine=1
     errlog "Replacing damaged or missing engine."
-    createEngineAction1='Replacing' ; createEngineAction2=
+    createEngineAction1='Replacing' ; createEngineAction2='engine'
     createEngineErrMsg='Unable to replace damaged or missing engine'    
 fi
 [[ "$ok" ]] || abort
@@ -526,7 +518,15 @@ launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs  # $$$ REGIST
 # start collecting post-launch errors
 errPostLaunch=
 
-if [[ ! "$ok" ]] ; then
+if [[ "$ok" ]] ; then
+    
+    # launch succeeded
+
+    # update last run variables
+    SSBLastRunVersion="$SSBVersion"
+    SSBLastRunEdited="$SSBEdited"
+    SSBLastRunEngineType="$SSBEngineType"
+else
     
     # launch failed
     [[ "$errmsg" ]] && errPostLaunch="$errmsg "
