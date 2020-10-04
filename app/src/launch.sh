@@ -1416,9 +1416,9 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	
 	# find all valid extensions in each path
 	local myExtensions=
-	local curExtensions=()
+	local curExtensionList=()
 	local curExtDirPath=
-	local curExt=
+	local curExt curExtID
 	for curExtDirPath in "${myExtDirPaths[@]}" ; do
 		
 		# move into this Extensions directory
@@ -1431,10 +1431,10 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		fi
 		
 		# grab all valid extension IDs
-		curExtensions=( $allExcept )
+		curExtensionList=( $allExcept )
 		
 		# append each one with its path
-		for curExt in "${curExtensions[@]}" ; do
+		for curExt in "${curExtensionList[@]}" ; do
 			
 			# only operate on valid extension IDs
 			if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
@@ -1451,7 +1451,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	
 	# sort extension IDs
 	local oldIFS="$IFS" ; IFS=$'\n'
-	curExtensions=( $(echo "$myExtensions" | \
+	curExtensionList=( $(echo "$myExtensions" | \
 			try '-1' /usr/bin/sort 'Unable to sort extensions.' ) )
 	if [[ "$?" != 0 ]] ; then
 		ok=1 ; errmsg="Unable to create list of installed extensions."
@@ -1463,29 +1463,49 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	# uniquify extension IDs
 	local prevExtID=
 	myExtensions=()
-	for curExt in "${curExtensions[@]}" ; do
+	for curExt in "${curExtensionList[@]}" ; do
 		
-		if [[ "${curExt%%|*}" = 'EPIEXTIDRELEASE' ]] ; then
+		curExtID="${curExt%%|*}"
+		if [[ "$curExtID" = 'EPIEXTIDRELEASE' ]] ; then
 			
 			# don't include the Epichrome Runtime extension
-			prevExtId="${curExt%%|*}"
+			prevExtId="$curExtID"
 			
-		elif [[ "$prevExtID" != "${curExt%%|*}" ]] ; then
+		elif [[ "$prevExtID" != "$curExtID" ]] ; then
 			
 			# first time seeing this ID, so add id
 			myExtensions+=( "$curExt" )
-			prevExtID="${curExt%%|*}"
+			prevExtID="$curExtID"
 		fi
 	done
 	
-	# important paths
+	# SET LOCALE
+	
+	local iLocale=
+	if [[ "$LC_ALL" ]] ; then
+		iLocale="$LC_ALL"
+	elif [[ "$LC_MESSAGES" ]] ; then
+		iLocale="$LC_MESSAGES"
+	elif [[ "$LANG" ]] ; then
+		iLocale="$LANG"
+	else
+		iLocale='en_US'
+	fi
+	
+	# cut off any cruft
+	iLocale="${iLocale%%.*}"	
+	
+	
+	# IMPORTANT PATHS
+	
 	local welcomeExtGenericIcon="$SSBAppPath/Contents/$appWelcomePath/img/ext_generic_icon.png"
-	local epiExtIconPath="$epiDataPath/$epiDataExtIconDir"
+	local iExtIconPath="$epiDataPath/$epiDataExtIconDir"
+	local iExtInfoFile="$iExtIconPath/${epiDataExtInfoFile/LANG/$iLocale}"
 	
 	# ensure extension icons directory exists
 	if [[ "${#myExtensions[@]}" != 0 ]] ; then
 		
-		try /bin/mkdir -p "$epiExtIconPath" \
+		try /bin/mkdir -p "$iExtIconPath" \
 				'Unable to create extension icon directory.'
 		if [[ ! "$ok" ]] ; then
 			ok=1
@@ -1494,14 +1514,35 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	fi
 	
 	
+	# try to read in cached extension info
+	local iRewriteInfoFile=
+	local iExtInfoList=()
+	local iExtNewInfoList=()
+	if [[ -f "$iExtInfoFile" ]] ; then
+		try 'iExtInfoList=(n)' /bin/cat "$iExtInfoFile" 'Unable to read cached extension names.'
+		ok=1; errmsg=
+		
+		# parse cached names
+		eval "${iExtInfoList[*]}"
+		
+		# transform iExtInfoList into list of cached IDs  $$$$ CLEAN UP ERRLOGS
+		local curExtName i=0
+		for ((i=0; i<${#iExtInfoList[@]}; i++)) ; do
+			curExtName="${iExtInfoList[$i]#local iExtInfo_}"
+			iExtInfoList[$i]="${curExtName%%=*}"
+		done
+	fi
+	
+	
 	# GET INFO ON ALL EXTENSIONS
 	
 	# status variables & constants
 	local c
-	local curExtID curExtPath curExtVersions curExtVersionPath
+	local curExtPath curExtVersionList curExtVersion curExtVersionPath curExtInfo
+	local curExtName curExtIcon curExtLog
+	local curDoGetInfo curSkip
 	local mani mani_icons mani_name mani_default_locale mani_app
-	local curIconSrc biggestIcon
-	local curLocale=
+	local curIconSrc curBiggestIcon curIconType
 	local curExtLocalePath
 	local curMessageID msg msg_message
 	local iconRe='^([0-9]+):(.+)$'
@@ -1509,18 +1550,33 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	# loop through every extension
 	for curExt in "${myExtensions[@]}" ; do
 		
-		debuglog "Adding extension ID $curExt to welcome page."
+		# reset name & icon info
+		curExtName=
+		curExtIcon=
+		curDoGetInfo=
+		curSkip=
 		
 		# break out extension ID & path
 		curExtID="${curExt%%|*}"
 		curExtPath="${curExt#*|}/$curExtID"
 		
+		debuglog "Processing extension ID $curExtID for welcome page."		
 		
-		# PARSE EXTENSION'S MANIFEST
+		# get any cached info for this ID
+		eval "curExtInfo=\"\$iExtInfo_$curExtID\""
+		
+		# cached apps should be skipped without even checking version
+		if [[ "$curExtInfo" = 'APP' ]] ; then
+			debuglog '  Skipping cached app.'
+			continue
+		fi
+		
+		
+		# GET LATEST VERSION FOR THIS ID
 		
 		# get extension version directories
-		curExtVersions=( "$curExtPath"/* )
-		if [[ ! "${curExtVersions[*]}" ]] ; then
+		curExtVersionList=( "$curExtPath"/* )
+		if [[ ! "${curExtVersionList[*]}" ]] ; then
 			errlog "Unable to get version for extension $curExtID."
 			myFailedExtensions+=( "$curExtID" )
 			continue
@@ -1528,189 +1584,284 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		
 		# get latest version path
 		curExtVersionPath=
-		for c in "${curExtVersions[@]}" ; do
+		for c in "${curExtVersionList[@]}" ; do
 			[[ "$c" > "$curExtVersionPath" ]] && curExtVersionPath="$c"
 		done
+		curExtVersion="${curExtVersionPath##*/}"
 		curExtPath="$curExtVersionPath"
 		
-		# read manifest
-		try 'mani=' /bin/cat "$curExtPath/manifest.json" \
-				"Unable to read manifest for $curExt."
-		if [[ ! "$ok" ]] ; then
-			myFailedExtensions+=( "$curExtID" )
-			ok=1 ; errmsg=
-			continue
+		
+		# CHECK IF WE HAVE A CACHED ICON/NAME FOR THIS VERSION
+		
+		if [[ "$curExtInfo" ]] ; then
+			
+			if [[ "${curExtInfo%%|*}" = "$curExtVersion" ]] ; then
+				
+				# get name for this version
+				curExtName="${curExtInfo#*|}"
+				
+				[[ "$debug" ]] && curExtLog='  Cached info:'
+				
+				if [[ "$debug" ]] ; then
+					[[ "$curExtName" ]] && curExtLog+=" name '$curExtName'" || curExtLog+=' no name'
+				fi
+				
+				# check for cached icon
+				curExtIcon=( "$iExtIconPath/$curExtID".* )
+				if [[ -f "${curExtIcon[0]}" ]] ; then
+					
+					# found cached icon for this ID
+					curExtIcon="${curExtIcon[0]##*/}"
+					[[ "$debug" ]] && curExtLog+=", icon $curExtIcon"
+				else
+					curExtIcon=
+					[[ "$debug" ]] && curExtLog+=', no icon'
+				fi
+				
+				# log result
+				debuglog "${curExtLog}."
+				
+			elif [[ ( "$curExtInfo" = 'BAD|'* ) && ( "${curExtInfo#*|}" = "$curExtVersion" ) ]] ; then
+				
+				# cached version is current, and should be skipped
+				debuglog '  Skipping cached unreadable extension.'
+				continue
+				
+			else
+				
+				# cached version is out of date
+				iRewriteInfoFile=1
+				curDoGetInfo=1
+				debuglog "  Cached extension is out of date (${curExtInfo%%|*} -> $curExtVersion)."
+			fi
+		else
+			curDoGetInfo=1
+			iExtNewInfoList+=( "$curExtID" )
+			debuglog "  Extension not in cache."
 		fi
 		
-		# pull out icon and name info
-		readjsonkeys mani icons name default_locale app
 		
-		# for now, ignore apps
-		[[ "$mani_app" ]] && continue
+		# IF CACHE MISSING/OUT-OF-DATE, GO TO THE MANIFEST
 		
-		
-		# COPY BIGGEST ICON TO WELCOME PAGE (IF NOT FOUND)
-		
-		curExtIcon=( "$epiExtIconPath/$curExtID".* )
-		if [[ -f "${curExtIcon[0]}" ]] ; then
+		if [[ "$curDoGetInfo" ]] ; then
 			
-			# there's already an icon for this ID, so use that
-			curExtIcon="${curExtIcon[0]##*/}"
-			
-			debuglog "Found cached icon $curExtIcon."
-			
-		else
-			
-			# no icon found, so we have to copy it
-			
-			debuglog "No icon cached for extension $curExtID. Attempting to copy from extension."
-			
-			curIconSrc=
-			biggestIcon=0
-			if [[ "$mani_icons" ]] ; then
-				# remove all newlines
-				mani_icons="${mani_icons//$'\n'/}"
+			# read manifest
+			try 'mani=' /bin/cat "$curExtPath/manifest.json" \
+					"Unable to read manifest for $curExt."
+			if [[ "$ok" ]] ; then
 				
-				# munge entries into parsable lines
-				oldIFS="$IFS" ; IFS=$'\n'
-				mani_icons=( $(echo "$mani_icons" | \
-						/usr/bin/sed -E \
-						's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile") )
-				if [[ "$?" != 0 ]] ; then
-					local myStderr="$(/bin/cat "$stderrTempFile")"
-					[[ "$myStderr" ]] && errlog 'STDERR|sed' "$myStderr"
-					errlog "Unable to parse icons for extension $curExtID."
-					myFailedExtensions+=( "$curExtID" )
-					continue
+				# pull out icon and name info
+				readjsonkeys mani icons name default_locale app
+				
+				# for now, ignore apps
+				if [[ "$mani_app" ]] ; then
+					curSkip=1
+					eval "local iExtInfo_$curExtID='APP'"
+					debuglog '  Skipping app.'
 				fi
-				IFS="$oldIFS"
-				
-				# find biggest icon
-				for c in "${mani_icons[@]}" ; do
-					if [[ "$c" =~ $iconRe ]] ; then
-						if [[ "${BASH_REMATCH[1]}" -gt "$biggestIcon" ]] ; then
-							biggestIcon="${BASH_REMATCH[1]}"
-							curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
-						fi
-					fi
-				done
-			fi
-			
-			# get full path to icon (or generic, if none found)
-			if [[ ! "$curIconSrc" ]] ; then
-				debuglog "No icon found for extension $curExtID."
-				curIconSrc="$welcomeExtGenericIcon"
 			else
-				curIconSrc="$curExtPath/${curIconSrc#/}"
-			fi
-			
-			# create welcome-page icon name
-			curExtIcon="$curExtID.${curIconSrc##*.}"
-			
-			# copy icon to welcome page
-			try /bin/cp "$curIconSrc" "$epiExtIconPath/$curExtIcon" \
-					"Unable to copy icon for extension $curExtID."
-			if [[ ! "$ok" ]] ; then
 				myFailedExtensions+=( "$curExtID" )
 				ok=1 ; errmsg=
-				continue
+				curSkip=1
+				eval "local iExtInfo_$curExtID=\"BAD|\$curExtID\""
+				debuglog '  Skipping unreadable extension.'
 			fi
-		fi
-		
-		
-		# GET NAME
-		
-		if [[ "$mani_name" =~ ^__MSG_(.+)__$ ]] ; then
 			
-			# get message ID
-			curMessageID="${BASH_REMATCH[1]}"
-			
-			# set locale if not already set
-			if [[ ! "$curLocale" ]] ; then
-				if [[ "$LC_ALL" ]] ; then
-					curLocale="$LC_ALL"
-				elif [[ "$LC_MESSAGES" ]] ; then
-					curLocale="$LC_MESSAGES"
-				elif [[ "$LANG" ]] ; then
-					curLocale="$LANG"
-				else
-					curLocale='en_US'
+			if [[ ! "$curSkip" ]] ; then
+				
+				debuglog '  Reading extension.'
+				
+				# FIND BIGGEST ICON
+				
+				curIconSrc=
+				curBiggestIcon=0
+				if [[ "$mani_icons" ]] ; then
+					# remove all newlines
+					mani_icons="${mani_icons//$'\n'/}"
+					
+					# munge entries into parsable lines
+					oldIFS="$IFS" ; IFS=$'\n'
+					mani_icons=( $(echo "$mani_icons" | \
+							/usr/bin/sed -E \
+									's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile") )
+					if [[ "$?" = 0 ]] ; then
+						
+						IFS="$oldIFS"
+						
+						# find biggest icon
+						for c in "${mani_icons[@]}" ; do
+							if [[ "$c" =~ $iconRe ]] ; then
+								if [[ "${BASH_REMATCH[1]}" -gt "$curBiggestIcon" ]] ; then
+									curBiggestIcon="${BASH_REMATCH[1]}"
+									curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
+								fi
+							fi
+						done
+						
+					else
+						
+						IFS="$oldIFS"
+						local myStderr="$(/bin/cat "$stderrTempFile")"
+						[[ "$myStderr" ]] && errlog 'STDERR|sed' "$myStderr"
+						errlog "Unable to parse icons for extension $curExtID."
+					fi
 				fi
 				
-				# cut off any cruft
-				curLocale="${curLocale%%.*}"
-			fi
-			
-			# try to find the appropriate directory
-			curExtLocalePath="$curExtPath/_locales"
-			if [[ -d "$curExtLocalePath/$curLocale" ]] ; then
-				curExtLocalePath="$curExtLocalePath/$curLocale"
-			elif [[ -d "$curExtLocalePath/${curLocale%%_*}" ]] ; then
-				curExtLocalePath="$curExtLocalePath/${curLocale%%_*}"
-			elif [[ "$mani_default_locale" && -d "$curExtLocalePath/$mani_default_locale" ]] ; then
-				curExtLocalePath="$curExtLocalePath/$mani_default_locale"
-			else
-				# failed to match, so pick any
-				for c in "$curExtLocalePath"/* ; do
-					if [[ -d "$c" ]] ; then
-						curExtLocalePath="$c"
-						break
-					else
-						curExtLocalePath=
+				# get full path to icon if one was found
+				if [[ "$curIconSrc" ]] ; then
+					debuglog "  Using icon '${curIconSrc##*/}'."
+					
+					# get full path to icon
+					curIconSrc="$curExtPath/${curIconSrc#/}"
+					
+					# create welcome-page icon name
+					curIconType="${curIconSrc##*.}"
+					[[ "$curIconType" != "$curIconSrc" ]] || curIconType='png'
+					curExtIcon="$curExtID.$curIconType"
+					
+					# copy icon to cache
+					safecopy "$curIconSrc" "$iExtIconPath/$curExtIcon" \
+							"icon for extension $curExtID"
+					if [[ ! "$ok" ]] ; then
+						curExtIcon=
+						ok=1 ; errmsg=
 					fi
-				done
-			fi
-			
-			# create local variable for message
-			local "msg_${curMessageID}_message="
-			
-			# read in locale messages file
-			msg="$curExtLocalePath/messages.json"
-			if [[ "$curExtLocalePath" && ( -f "$msg" ) ]] ; then
-				try 'msg=' /bin/cat "$msg" \
-						"Unable to read locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
-				if [[ "$ok" ]] ; then
-					
-					# clear mani_name
-					mani_name=
-					
-					# try to pull out name message
-					readjsonkeys msg "${curMessageID}.message"
-					eval "mani_name=\"\$msg_${curMessageID}_message\""
-					
-					# check for error
-					[[ "$mani_name" ]] || \
-						errlog "Unable to get locale ${curExtLocalePath##*/} name for extension $curExtID. Using ID as name."
 				else
-					
-					# failed to read locale JSON file, so no name
-					mani_name=
-					ok=1 ; errmsg=
+					debuglog '  No icon found.'
 				fi
-			else
-				mani_name=
-				errlog "Unable to find locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
-			fi
+				
+				
+				# GET NAME
+				
+				if [[ "$mani_name" =~ ^__MSG_(.+)__$ ]] ; then
+					
+					# get message ID
+					curMessageID="${BASH_REMATCH[1]}"
+					
+					# try to find the appropriate directory
+					curExtLocalePath="$curExtPath/_locales"
+					if [[ -d "$curExtLocalePath/$iLocale" ]] ; then
+						curExtLocalePath="$curExtLocalePath/$iLocale"
+					elif [[ -d "$curExtLocalePath/${iLocale%%_*}" ]] ; then
+						curExtLocalePath="$curExtLocalePath/${iLocale%%_*}"
+					elif [[ "$mani_default_locale" && -d "$curExtLocalePath/$mani_default_locale" ]] ; then
+						curExtLocalePath="$curExtLocalePath/$mani_default_locale"
+					else
+						# failed to match, so pick any
+						for c in "$curExtLocalePath"/* ; do
+							if [[ -d "$c" ]] ; then
+								curExtLocalePath="$c"
+								break
+							else
+								curExtLocalePath=
+							fi
+						done
+					fi
+					
+					# create local variable for message
+					local "msg_${curMessageID}_message="
+					
+					# read in locale messages file
+					msg="$curExtLocalePath/messages.json"
+					if [[ "$curExtLocalePath" && ( -f "$msg" ) ]] ; then
+						try 'msg=' /bin/cat "$msg" \
+								"Unable to read locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
+						if [[ "$ok" ]] ; then
+							
+							# clear mani_name
+							mani_name=
+							
+							# try to pull out name message
+							readjsonkeys msg "${curMessageID}.message"
+							eval "mani_name=\"\$msg_${curMessageID}_message\""
+							
+							# check for error
+							[[ "$mani_name" ]] || \
+								errlog "Unable to get locale ${curExtLocalePath##*/} name for extension $curExtID. Using ID as name."
+						else
+							
+							# failed to read locale JSON file, so no name
+							mani_name=
+							ok=1 ; errmsg=
+						fi
+					else
+						mani_name=
+						errlog "Unable to find locale ${curExtLocalePath##*/} messages for extension $curExtID. Using ID as name."
+					fi
+				fi
+				
+				# set extension name (or clear it if none found)
+				curExtName="$mani_name"
+				if [[ "$debug" ]] ; then
+					if [[ "$curExtName" ]] ; then
+						errlog DEBUG "  Found name '$curExtName'."
+					else
+						errlog DEBUG '  No name found.'
+					fi
+				fi
+				
+				
+				# UPDATE INFO VARIABLE
+				
+				eval "local iExtInfo_$curExtID=\"\$curExtVersion|\$curExtName\""
+				
+			fi  # [[ ! "$curSkip" ]]
+		fi # [[ "$curDoGetInfo" ]]
+		
+		
+		# IF WE SUCCEEDED, ADD EXTENSION TO WELCOME PAGE ARGS
+		
+		if [[ ! "$curSkip" ]] ; then
+			
+			[[ "$result" ]] && result+='&'
+			#[[ "$mani_app" ]] && result+='a=' || result+='x='
+			[[ "$curExtIcon" ]] || curExtIcon="$curExtID"
+			result+="x=$(encodeurl "${curExtIcon},$curExtName")"
+			
+			# report success
+			mySuccessfulExtensions+=( "$curExtID" )
 		fi
-		
-		
-		# SUCCESS! ADD EXTENSION OR APP TO WELCOME PAGE ARGS
-		
-		[[ "$result" ]] && result+='&'
-		#[[ "$mani_app" ]] && result+='a=' || result+='x='
-		result+="x=$(encodeurl "${curExtIcon},$mani_name")"
-		
-		# report success
-		mySuccessfulExtensions+=( "$curExtID" )
 	done	    
 	
 	# restore nullglob and extended glob
 	shoptrestore myShoptState
 	
-	# write out result variable
+	# REWRITE CACHE IF NECESSARY & APPEND NEW EXTENSIONS TO CACHE
+	
+	# format new cache info
+	[[ "$iRewriteInfoFile" ]] && iExtNewInfoList=( "${iExtInfoList[@]}" "${iExtNewInfoList[@]}" )
+	local iExtNewInfoText=
+	if [[ "${#iExtNewInfoList[@]}" -gt 0 ]] ; then
+		iExtNewInfoText="local iExtInfo_${iExtNewInfoList[0]}=$(eval "formatscalar \"\$iExtInfo_${iExtNewInfoList[0]}\"")"
+		for curExtID in "${iExtNewInfoList[@]:1}" ; do
+			iExtNewInfoText+=$'\n'"local iExtInfo_$curExtID=$(eval "formatscalar \"\$iExtInfo_$curExtID\"")"
+		done
+	fi
+	
+	# write out new cache info
+	if [[ "$iRewriteInfoFile" ]] ; then
+		# rewrite entire info file
+		debuglog 'Writing extension cache.'
+		if [[ "$iExtNewInfoText" ]] ; then
+			try "$iExtInfoFile<" echo "$iExtNewInfoText" 'Unable to write extension cache.'
+		else
+			try /bin/rm -f "$iExtInfoFile" 'Unable to remove empty extension cache file.'
+		fi
+	elif [[ "$iExtNewInfoText" ]] ; then
+		# append to info file
+		debuglog 'Adding new extensions to cache.'
+		try "$iExtInfoFile<<" echo "$iExtNewInfoText" 'Unable to add to extension cache file.'
+	fi
+	ok=1 ; errmsg=
+	
+
+	# WRITE OUT RESULT VARIABLE
+	
 	eval "${resultVar}=\"\$result\""
 	
-	# return error states
+	
+	# RETURN ERROR STATES
+	
 	if [[ "$myGlobalError" || \
 			( "${myFailedExtensions[*]}" && ! "${mySuccessfulExtensions[*]}" ) ]] ; then
 		

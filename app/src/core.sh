@@ -151,6 +151,7 @@ epiGithubCheckFile="$epiDataPath/github.dat"
 appDataPathBase="$epiDataPath/Apps"
 appDataConfigFile='config.sh'
 epiDataExtIconDir='ExtensionIcons'
+epiDataExtInfoFile="info_LANG.dat"
 appDataProfileDir='UserData'
 epiDataLogDir='Logs'
 epiDataLogDirEpichrome="$epiDataLogDir/Epichrome"
@@ -1419,6 +1420,7 @@ function rmtemp {
 
 
 # SAFECOPY: safely copy a file or directory to a new location
+#   safecopy(src, dst, filetype)
 function safecopy {
     
     # only run if we're OK
