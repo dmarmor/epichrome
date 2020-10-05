@@ -469,7 +469,7 @@ function errlog {
             logName=
             ;;
     esac
-
+    
     # make sure we have some logID
     local logID="$myLogID"
     [[ "$logID" ]] || logID='EpichromeCore'
@@ -496,7 +496,19 @@ function errlog {
     # output prefix & message
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
-    errlog_raw "$logType[$logPID]$(join_array '/' "${trace[@]}"): $@"
+    local iPrologue="$logType[$logPID]$(join_array '/' "${trace[@]}"):"
+    local IFS=$'\n'
+    local iLogLines=( $@ )
+    if [[ "${#iLogLines[@]}" -lt 2 ]] ; then
+        errlog_raw "$iPrologue ${iLogLines[*]}"
+    else
+        local iLogText="$iPrologue"
+        local curLine
+        for curLine in "${iLogLines[@]}" ; do
+            iLogText+=$'\n'"$logType"$'\t'"$curLine"
+        done
+        errlog_raw "$iLogText"
+    fi
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
@@ -828,24 +840,24 @@ function try {
     if [[ "$logStdout" || "$logStderr" ]] ; then
         
         # set up logging state
-        local myOutput=() IFS=$'\n' hasOutput= curOutputLine=
+        local myOutput=() hasOutput= curOutputLine=
         
         # log any stdout output
         if [[ "$logStdout" ]] ; then
-            myOutput=( $(/bin/cat "$stdoutTempFile" 2> /dev/null) )
-            for curOutputLine in "${myOutput[@]}" ; do
+            myOutput="$(/bin/cat "$stdoutTempFile" 2> /dev/null)"
+            if [[ "$myOutput" ]] ; then
                 hasOutput=1
-                errlog "STDOUT|${args[0]##*/}" "$curOutputLine"
-            done
+                errlog "STDOUT|${args[0]##*/}" "$myOutput"
+            fi
         fi
         
         # log any stderr output
         if [[ "$logStderr" ]] ; then
-            myOutput=( $(/bin/cat "$stderrTempFile" 2> /dev/null) )
-            for curOutputLine in "${myOutput[@]}" ; do
+            myOutput="$(/bin/cat "$stderrTempFile" 2> /dev/null)"
+            if [[ "$myOutput" ]] ; then
                 hasOutput=1
-                errlog "STDERR|${args[0]##*/}" "$curOutputLine"
-            done
+                errlog "STDERR|${args[0]##*/}" "$myOutput"
+            fi
         fi
     fi
     
