@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+#  progress.sh: utility functions for progress bar apps
+#
+#  Copyright (C) 2020  David Marmor
+#
+#  https://github.com/dmarmor/epichrome
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+# CORE INFO
+
+progressVersion='EPIVERSION'
+
+
+# BOOTSTRAP CORE.SH, LAUNCH.SH & BASIC SETUP
+
+# don't write anything to stderr
+logNoStderr=1
+
+# path to progress app scripts
+progressScripts="${BASH_SOURCE[0]%/script}/Scripts"
+
+# load core.sh
+if ! source "${BASH_SOURCE[0]%/EpichromeProgress.app/Contents/Resources/script}/Scripts/core.sh" \
+'coreDoInit=1' "logIDExt=$progressMode" "$@" ; then
+    ok= ; errmsg="Unable to load core $progressVersion."
+    abort
+    echo "$errmsg" 1>&2 ; exit 1  # in case abort is not set
+fi
+[[ "$ok" ]] || abort
+
+# load launch.sh
+safesource "$myScriptPath/launch.sh"
+[[ "$ok" ]] || abort
+
+# load progress.sh
+safesource "$progressScripts/progress.sh"
+[[ "$ok" ]] || abort
+
+
+# IF PROGRESS.SH RETURNED, IT LOADED SUCCESSFULLY, SO RUN REQUESTED MODE
+
+if ! source "$progressScripts/mode_${progressMode}.sh" ; then
+    ok= ; errmsg="Error loading $progressMode mode."
+    abort
+fi
+
+cleanexit

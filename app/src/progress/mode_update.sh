@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  UpdateExec: main executable for update progress bar app
+#  mode_update.sh: mode script for updating/creating an app
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -19,11 +19,6 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-
-
-# CORE INFO
-
-updateVersion='EPIVERSION'
 
 
 # PROGRESS BAR SETUP
@@ -74,7 +69,7 @@ fi
 
 # PATH TO THIS APP'S PARENT EPICHROME APP BUNDLE
 
-updateEpichromeResources="${BASH_SOURCE[0]%/EpichromeUpdate.app/Contents/Resources/script}"
+updateEpichromeResources="${myScriptPathEpichrome%/Scripts}"
 updateEpichromeRuntime="$updateEpichromeResources/Runtime"
 
 
@@ -82,26 +77,6 @@ updateEpichromeRuntime="$updateEpichromeResources/Runtime"
 
 updateContentsTmp=
 updateBackupFile=
-
-
-# BOOTSTRAP MY VERSION OF CORE.SH, PROGRESS.SH, LAUNCH.SH
-
-# don't write anything to stderr
-logNoStderr=1
-
-if ! source "$updateEpichromeRuntime/Contents/Resources/Scripts/core.sh" \
-'coreDoInit=1' 'logIDExt=Update' "$@" ; then
-    ok= ; errmsg="Unable to load core $updateVersion."
-    abort
-    echo "$errmsg" 1>&2 ; exit 1  # in case abort is not set
-fi
-[[ "$ok" ]] || abort
-
-safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/progress.sh"
-[[ "$ok" ]] || abort
-
-safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/launch.sh"
-[[ "$ok" ]] || abort
 
 
 # FUNCTION DEFINITIONS
@@ -171,12 +146,8 @@ getbrowserinfo SSBEngineSourceInfo
 
 progress 'step01'  # $$$
 
-# LOAD FILTER.SH
+progress 'step02'  # $$$  GET RID OF THIS STEP & RENUMBER ALL
 
-safesource "$updateEpichromeRuntime/Contents/Resources/Scripts/filter.sh"
-[[ "$ok" ]] || abort
-
-progress 'step02'  # $$$
 
 # SET APP BUNDLE ID
 
@@ -192,7 +163,7 @@ if [[ "$epiAction" != 'build' ]] ; then
     myAction="$epiAction"
     [[ "$myAction" ]] || myAction='update'
     myActionText="$myAction"
-    if [[ "$myAction" = 'edit' ]] && vcmp "$SSBVersion" '<' "$updateVersion" ; then
+    if [[ "$myAction" = 'edit' ]] && vcmp "$SSBVersion" '<' "$progressVersion" ; then
         myAction='edit-update'
         myActionText='edit & update'
     fi
@@ -612,5 +583,3 @@ else
 fi
 
 progress 'end'  # $$$
-
-cleanexit

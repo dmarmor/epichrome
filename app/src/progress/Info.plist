@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>EpichromePayload</string>
+	<string>EpichromeProgress</string>
 	<key>CFBundleIconFile</key>
 	<string>app.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.epichrome.Payload</string>
+	<string>org.epichrome.Progress</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>EpichromePayload</string>
+	<string>EpichromeProgress</string>
 	<key>CFBundleName</key>
 	<string>Epichrome</string>
 	<key>CFBundlePackageType</key>

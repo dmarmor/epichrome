@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  PayloadExec: main executable for create-engine progress bar app
+#  mode_payload.sh: mode script for creating engine payload
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -47,45 +47,15 @@ else
 fi
 
 
-# PATH TO THIS APP'S PARENT APP SCRIPTS
-
-payloadScripts="${BASH_SOURCE[0]%/EpichromePayload.app/Contents/Resources/script}/Scripts"
-
-
-# WORKING PATHS FOR CLEANUP  $$$$
-
-# updateContentsTmp=
-# updateBackupFile=
-
-
-# BOOTSTRAP MY VERSION OF CORE.SH, PROGRESS.SH, LAUNCH.SH
-
-# don't write anything to stderr
-logNoStderr=1
-
-if ! source "$payloadScripts/core.sh" \
-'coreDoInit=1' 'logIDExt=Payload' "$@" ; then
-    ok= ; errmsg="Unable to load core."
-    abort
-    echo "$errmsg" 1>&2 ; exit 1  # in case abort is not set
-fi
-
-safesource "$payloadScripts/progress.sh"
-[[ "$ok" ]] || abort
-
-safesource "$payloadScripts/launch.sh"
-[[ "$ok" ]] || abort
-
-
 # FUNCTION DEFINITIONS
 
-# CLEANUP: clean up any incomplete update prior to exit  $$$$$
+# CLEANUP: clean up any incomplete payload prior to exit
 payloadComplete=
 function cleanup {
     
     if [[ ! "$payloadComplete" ]] ; then    
         debuglog "Cleaning up..."
-        deletepayload        
+        deletepayload
     fi
 }
 
@@ -282,5 +252,3 @@ progress 'end'  # $$$
 
 # signal that we're done to cleanup function
 payloadComplete=1
-
-cleanexit

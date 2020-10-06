@@ -2589,8 +2589,8 @@ function createenginepayload {
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# load subapp script
-	safesource "$myScriptPath/subapp.sh"
+	# load progress sub-app script
+	safesource "$myScriptPath/runprogress.sh"
 	[[ "$ok" ]] || return 1
 	
 	# arguments
@@ -2602,12 +2602,8 @@ function createenginepayload {
 		aMsg2='engine'
 	fi
 	
-	# send action message to EpichromePayload.app
-	progressAction="$aMsg1 \"${SSBAppPath##*/}\" $aMsg2"
-    
     # export app scalar variables
-    export progressAction \
-			SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
+    export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
 			SSBRegisterBrowser SSBCustomIcon SSBEngineType \
 			SSBUpdateAction SSBEdited \
 			SSBAppPath SSBPayloadPath \
@@ -2618,8 +2614,8 @@ function createenginepayload {
     # export app array variables
 	exportarray SSBEngineSourceInfo
 	
-	# run payload-creation sub-app
-	runsubapp "${myScriptPath%/Scripts}/EpichromePayload.app/Contents/MacOS/EpichromePayload"
+	# run progress sub-app
+	runprogress "${myScriptPath%/Scripts}" 'payload' "$aMsg1 \"${SSBAppPath##*/}\" $aMsg2"
 	
 	# handle result
 	if [[ "$ok" ]] ; then

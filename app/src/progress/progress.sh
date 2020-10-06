@@ -21,16 +21,11 @@
 #
 
 
-# START PROGRESS BAR
-
 # PROGRESS BAR APP SETTINGS
 
 # set progress action message
 [[ "$progressAction" ]] || progressAction='Working'
 progressAction+='...'
-
-# start progress bar messages  $$$ doesn't work with safesource
-#echo "$progressAction"
 
 # sanity-check progress bar total
 [[ "$progressTotal" -gt 0 ]] || progressTotal=
@@ -71,7 +66,7 @@ function progress {
         iForce=1
         aStepId="${aStepId/\!/}"        
     fi
-    
+
     # end step is only for calibration
     [[ "$aStepId" = 'end' ]] && return
     
@@ -127,10 +122,10 @@ function progress {
     
     # decide whether to show this message (if forced, if status changes, or every 1/4 sec)
     if [[ "$iForce" || ( "$iStatus" != "$progressPrevStatus" ) || \
-            ( $(( $iCurTime - $progressPrevTime )) -ge 25 ) ]] ; then
+            ( $(( $iCurTime - $progressPrevTime )) -ge 15 ) ]] ; then
 #        errlog FATAL "showing message $aStepId$iPercent:  iForce=$iForce  status=($iStatus/$progressPrevStatus)  timediff=$(( $iCurTime - $progressPrevTime ))"  # $$$$
         echo "$iDetail$progressAction$iPercent$iStatus"
-
+        
         # update status for next run
         progressPrevTime="$iCurTime"
         progressPrevStatus="$iStatus"

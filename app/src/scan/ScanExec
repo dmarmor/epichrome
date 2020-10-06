@@ -204,7 +204,7 @@ function scan_restore {
 function finalprogressmsg {
     
     # don't show progress messages in login mode
-    [[ "$scanMode" != 'login' ]] || return 0
+    [[ "$scanMode" = 'login' ]] && return 0
     
     # arguments
     local aBaseMsg="$1" ; shift

@@ -21,11 +21,6 @@
 #
 
 
-# LOAD SUBAPP SCRIPT
-
-safesource "${BASH_SOURCE[0]%/Scripts/update.sh}/Runtime/Contents/Resources/Scripts/subapp.sh"
-
-
 # FUNCTION DEFINITIONS
 
 # UPDATEAPP: run Epichrome Update.app to populate an app bundle
@@ -35,13 +30,20 @@ function updateapp {
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
-    # arguments -- send to EpichromeUpdate.app
+    # arguments -- send to progress app
     local updateAppPath="$1" ; shift
-    local progressAction="$1" ; shift
-    [[ "$progressAction" ]] || progressAction="Updating \"${SSBAppPath##*/}\""
+    local aAction="$1" ; shift
+    [[ "$aAction" ]] || aAction="Updating \"${SSBAppPath##*/}\""
+    
+    # get path to this script's enclosing Epichrome.app Resources directory
+    local myEpiRuntimeResources="${BASH_SOURCE[0]%/Scripts/update.sh}/Runtime/Contents/Resources"
+    
+    # load subapp script
+    safesource "$myEpiRuntimeResources/Scripts/runprogress.sh"
+    [[ "$ok" ]] || return 1
     
     # export app scalar variables
-    export updateAppPath progressAction \
+    export updateAppPath \
             SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
             SSBRegisterBrowser SSBCustomIcon SSBEngineType \
             SSBUpdateAction SSBEdited
@@ -54,11 +56,8 @@ function updateapp {
         export epiAction epiIconSource
     fi
     
-    # get path to this script's enclosing Epichrome.app resources directory
-    local myEpiResources="${BASH_SOURCE[0]%/Contents/Resources/Scripts/update.sh}/Contents/Resources"
-    
-    # run update app in background and wait for it to quit (to suppress any signal termination messages)
-    runsubapp "$myEpiResources/EpichromeUpdate.app/Contents/MacOS/EpichromeUpdate"
+    # run update
+    runprogress "$myEpiRuntimeResources" 'update' "$aAction"
     
     if [[ "$ok" ]] ; then
         
@@ -76,7 +75,7 @@ function updateapp {
             fi
             
             # start relaunch job
-            updaterelaunch "$myEpiResources/Runtime/Contents/Resources/Scripts" &
+            updaterelaunch "$myEpiRuntimeResources/Scripts" &
             
             # exit
             cleanexit

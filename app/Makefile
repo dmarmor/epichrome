@@ -48,11 +48,8 @@ GITHUB_UPDATE_URL:=https:\/\/github.com\/dmarmor\/epichrome\/releases\/latest
 APP_CT:=$(APP)/Contents
 APP_RNTM:=$(APP_CT)/Resources/Runtime
 
-UPDATE_APP:=$(APP_CT)/Resources/EpichromeUpdate.app
-UPDATE_CT:=$(UPDATE_APP)/Contents
-
-PAYLOAD_APP:=$(APP_RNTM)/Contents/Resources/EpichromePayload.app
-PAYLOAD_CT:=$(PAYLOAD_APP)/Contents
+PROGRESS_APP:=$(APP_RNTM)/Contents/Resources/EpichromeProgress.app
+PROGRESS_CT:=$(PROGRESS_APP)/Contents
 
 SCAN_CT:=$(SCAN_APP)/Contents
 
@@ -254,7 +251,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
-.INTERMEDIATE: main engine runtime update-core payload-core scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
+.INTERMEDIATE: main engine runtime progress-core scan-core login-core $(INTERMEDIATES) $(PRECIOUS_INTERMEDIATES)
 
 
 # BUILD TARGETS (DEFAULT TARGET)
@@ -478,8 +475,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/NMH/$(NMH_ID).json \
 	$(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION) \
 	\
-	$(UPDATE_APP) \
-	\
 	$(APP_RNTM)/Filter/Info.plist \
 	$(APP_RNTM)/Filter/AppExec \
 	$(APP_RNTM)/Filter/main.sh \
@@ -497,15 +492,14 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/app.icns \
 	$(APP_RNTM)/Contents/Resources/document.icns \
 	\
-	$(PAYLOAD_APP) \
+	$(PROGRESS_APP) \
 	\
 	$(APP_RNTM)/Contents/Resources/Scripts/apputil.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/core.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/json.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
-	$(APP_RNTM)/Contents/Resources/Scripts/progress.sh \
-	$(APP_RNTM)/Contents/Resources/Scripts/subapp.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/runprogress.sh \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
@@ -583,93 +577,101 @@ $(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehos
 	chmod 755 '$@'
 
 
-# UPDATE APP
+# PROGRESS SUB-APP
 
-$(UPDATE_APP): $(UPDATE_CT)/MacOS/EpichromeUpdate \
-		$(UPDATE_CT)/Resources/MainMenu.nib \
-		$(UPDATE_CT)/Resources/AppSettings.plist \
+$(PROGRESS_APP): $(PROGRESS_CT)/MacOS/EpichromeProgress \
+		$(PROGRESS_CT)/Resources/MainMenu.nib \
+		$(PROGRESS_CT)/Resources/AppSettings.plist \
 		\
-		$(UPDATE_CT)/Info.plist \
-		$(UPDATE_CT)/Resources/script \
-		$(UPDATE_CT)/Resources/app.icns
+		$(PROGRESS_CT)/Info.plist \
+		$(PROGRESS_CT)/Resources/script \
+		$(PROGRESS_CT)/Resources/app.icns \
+		\
+		$(PROGRESS_CT)/Resources/Scripts/progress.sh \
+		$(PROGRESS_CT)/Resources/Scripts/mode_payload.sh \
+		$(PROGRESS_CT)/Resources/Scripts/mode_update.sh
 
-$(UPDATE_CT)/MacOS/EpichromeUpdate \
-	$(UPDATE_CT)/Resources/MainMenu.nib \
-	$(UPDATE_CT)/Resources/AppSettings.plist: update-core
+$(PROGRESS_CT)/MacOS/EpichromeProgress \
+	$(PROGRESS_CT)/Resources/MainMenu.nib \
+	$(PROGRESS_CT)/Resources/AppSettings.plist: progress-core
 	
-update-core:
-	@rm -rf $(UPDATE_APP)
+progress-core:
+	@rm -rf $(PROGRESS_APP)
 	@touch build/fake.icns build/fake.sh
-	platypus --name 'EpichromeUpdate' \
+	platypus --name 'EpichromeProgress' \
 		--interface-type 'Progress Bar' \
 		--app-icon build/fake.icns \
 		--interpreter /bin/bash \
 		--app-version $(VERSION) \
 		--author 'David Marmor' \
-		--bundle-identifier org.epichrome.Update \
+		--bundle-identifier org.epichrome.Progress \
 		--background \
 		--quit-after-execution \
 		--optimize-nib \
-		build/fake.sh $(UPDATE_APP)
-	@rm $(UPDATE_CT)/Info.plist $(UPDATE_CT)/Resources/*.icns $(UPDATE_CT)/Resources/script
+		build/fake.sh $(PROGRESS_APP)
+	@rm $(PROGRESS_CT)/Info.plist $(PROGRESS_CT)/Resources/*.icns $(PROGRESS_CT)/Resources/script
 
-$(UPDATE_CT)/Info.plist: src/update/Info.plist src/version.sh
+$(PROGRESS_CT)/Info.plist: src/progress/Info.plist src/version.sh
 	@mkdir -p '$(dir $@)'
 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(UPDATE_CT)/Resources/script: src/update/UpdateExec src/version.sh
+$(PROGRESS_CT)/Resources/script: src/progress/ProgressExec src/version.sh
 	@mkdir -p $(dir $@)
 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
 	chmod 755 $@
 
-$(UPDATE_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
+$(PROGRESS_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+$(PROGRESS_CT)/Resources/Scripts/%.sh: src/progress/%.sh
 	@mkdir -p $(dir $@)
 	cp $< $@
 
 
-# CREATE-PAYLOAD APP
-
-$(PAYLOAD_APP): $(PAYLOAD_CT)/MacOS/EpichromePayload \
-		$(PAYLOAD_CT)/Resources/MainMenu.nib \
-		$(PAYLOAD_CT)/Resources/AppSettings.plist \
-		\
-		$(PAYLOAD_CT)/Info.plist \
-		$(PAYLOAD_CT)/Resources/script \
-		$(PAYLOAD_CT)/Resources/app.icns
-
-$(PAYLOAD_CT)/MacOS/EpichromePayload \
-	$(PAYLOAD_CT)/Resources/MainMenu.nib \
-	$(PAYLOAD_CT)/Resources/AppSettings.plist: payload-core
-	
-payload-core:
-	@rm -rf $(PAYLOAD_APP)
-	@touch build/fake.icns build/fake.sh
-	platypus --name 'EpichromePayload' \
-		--interface-type 'Progress Bar' \
-		--app-icon build/fake.icns \
-		--interpreter /bin/bash \
-		--app-version $(VERSION) \
-		--author 'David Marmor' \
-		--bundle-identifier org.epichrome.Update \
-		--background \
-		--quit-after-execution \
-		--optimize-nib \
-		build/fake.sh $(PAYLOAD_APP)
-	@rm $(PAYLOAD_CT)/Info.plist $(PAYLOAD_CT)/Resources/*.icns $(PAYLOAD_CT)/Resources/script
-
-$(PAYLOAD_CT)/Info.plist: src/payload/Info.plist src/version.sh
-	@mkdir -p '$(dir $@)'
-	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
-
-$(PAYLOAD_CT)/Resources/script: src/payload/PayloadExec src/version.sh
-	@mkdir -p $(dir $@)
-	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
-	chmod 755 $@
-
-$(PAYLOAD_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
-	@mkdir -p $(dir $@)
-	cp $< $@
-
+# # CREATE-PAYLOAD APP  $$$ DELETE
+# 
+# $(PAYLOAD_APP): $(PAYLOAD_CT)/MacOS/EpichromePayload \
+# 		$(PAYLOAD_CT)/Resources/MainMenu.nib \
+# 		$(PAYLOAD_CT)/Resources/AppSettings.plist \
+# 		\
+# 		$(PAYLOAD_CT)/Info.plist \
+# 		$(PAYLOAD_CT)/Resources/script \
+# 		$(PAYLOAD_CT)/Resources/app.icns
+# 
+# $(PAYLOAD_CT)/MacOS/EpichromePayload \
+# 	$(PAYLOAD_CT)/Resources/MainMenu.nib \
+# 	$(PAYLOAD_CT)/Resources/AppSettings.plist: payload-core
+# 
+# payload-core:
+# 	@rm -rf $(PAYLOAD_APP)
+# 	@touch build/fake.icns build/fake.sh
+# 	platypus --name 'EpichromePayload' \
+# 		--interface-type 'Progress Bar' \
+# 		--app-icon build/fake.icns \
+# 		--interpreter /bin/bash \
+# 		--app-version $(VERSION) \
+# 		--author 'David Marmor' \
+# 		--bundle-identifier org.epichrome.Update \
+# 		--background \
+# 		--quit-after-execution \
+# 		--optimize-nib \
+# 		build/fake.sh $(PAYLOAD_APP)
+# 	@rm $(PAYLOAD_CT)/Info.plist $(PAYLOAD_CT)/Resources/*.icns $(PAYLOAD_CT)/Resources/script
+# 
+# $(PAYLOAD_CT)/Info.plist: src/payload/Info.plist src/version.sh
+# 	@mkdir -p '$(dir $@)'
+# 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
+# 
+# $(PAYLOAD_CT)/Resources/script: src/payload/PayloadExec src/version.sh
+# 	@mkdir -p $(dir $@)
+# 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
+# 	chmod 755 $@
+# 
+# $(PAYLOAD_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
+# 	@mkdir -p $(dir $@)
+# 	cp $< $@
+# 
 
 # *** RUNTIME CORE ***
 
@@ -1044,6 +1046,10 @@ $(SCAN_CT)/Resources/%.icns: build/icons/scan_%$(BETA).icns src/version.sh
 	cp '$<' '$@'
 
 $(LOGIN_CT)/Resources/%.icns: build/icons/login_%$(BETA).icns src/version.sh
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/progress.sh: src/progress/progress.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 

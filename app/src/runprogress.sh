@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#  subapp.sh: functions/data for running Epichrome sub-apps
+#  runprogress.sh: functions/data for running Epichrome sub-apps
 #
 #  Copyright (C) 2020  David Marmor
 #
@@ -21,22 +21,25 @@
 #
 
 
-# RUNSUBAPP: run a sub-app & process result
-#   runsubapp(aAppExec)
-function runsubapp {
+# RUNPROGRESS: run a progress sub-app & process result
+#   runprogress(aProgressAppPath progressMode progressAction)
+function runprogress {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
     # arguments
-    local aAppExec="$1" ; shift
+    local aProgressAppPath="$1" ; shift
+    local progressMode="$1" ; shift
+    local progressAction="$1" ; shift
+    export progressMode progressAction
     
     # set up errmsg file & export to subapp
     local subappErrFile="$myDataPath/errmsg.txt"
     export subappErrFile
     
-    # run subapp in background and wait for it to quit (to suppress any signal termination messages)
-    "$aAppExec" >& /dev/null &
+    # run progress app in background and wait for it to quit (to suppress any signal termination messages)
+    "$aProgressAppPath/EpichromeProgress.app/Contents/MacOS/EpichromeProgress" >& /dev/null &
     wait "$!" >& /dev/null
     
     # get result of subapp
