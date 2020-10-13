@@ -962,21 +962,9 @@ function setwelcomepage {
 		# no extensions, so give the option to install them
 		debuglog 'App has no extensions, so offering browser extensions.'
 		
-		# collect data directories for all known browsers
-		extDirs=()
-		for browser in "${appExtEngineBrowsers[@]}" ; do
-			getbrowserinfo browserInfo "$browser"
-			if [[ "${browserInfo[$iLibraryPath]}" ]] ; then
-				browserInfo="$userSupportPath/${browserInfo[$iLibraryPath]}"
-				[[ -d "$browserInfo" ]] && extDirs+=( "$browserInfo" )
-			else
-				errlog "Unable to get info on browser ID $browser."
-			fi
-		done
-		
 		# mine extensions from all browsers
 		local extArgs=
-		getextensioninfo extArgs "${extDirs[@]}"
+		getextensioninfo extArgs
 		
 		# if any extensions found, add them to the page
 		[[ "$extArgs" ]] && myStatusWelcomeURL+="&xi=1&$extArgs"
@@ -1080,8 +1068,8 @@ function updateprofiledir {
 		shoptset shoptState extglob
 		
 		# remove all of the UserData directory except Default
-		local allExcept='!(Default)'
-		saferm 'Error deleting top-level files.' "$myProfilePath/"$allExcept
+		local iAllExcept='!(Default)'
+		saferm 'Error deleting top-level files.' "$myProfilePath/"$iAllExcept
 		if [[ ! "$ok" ]] ; then
 			myErrDelete="$errmsg"
 			ok=1 ; errmsg=
@@ -1108,9 +1096,9 @@ function updateprofiledir {
 			
 			# delete everything from Default except:
 			#  Bookmarks, Favicons, History, Local Extension Settings
-			allExcept='!(Bookmarks|databases|Favicons|History|Local?Extension?Settings)'
+			iAllExcept='!(Bookmarks|databases|Favicons|History|Local?Extension?Settings)'
 			saferm 'Error deleting browser profile files.' \
-					"$myProfilePath/Default/"$allExcept
+					"$myProfilePath/Default/"$iAllExcept
 			
 			if [[ ! "$ok" ]] ; then
 				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
@@ -1362,124 +1350,20 @@ ${BASH_REMATCH[5]}}"
 
 
 # GETEXTENSIONINFO -- collect info on a set of extensions & format into URL variables
-function getextensioninfo {  # ( resultVar [dir dir ...] )
+#   getextensioninfo([aResultVar dir dir ...])
+#     aResultVar -- variable to write back URL args; if none provided, only rewrite info cache
+#     dir ... -- directory or directories to search; if none provided, search all compatible browsers
+function getextensioninfo {
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
-	# arguments
-	local resultVar="$1" ; shift
-	local result=
+	# result variables
+	local aResultVar="$1" ; shift  # if not set, we are creating cache only
+	local iResult=
 	
-	local mySearchPaths=( "$@" )
-	if [[ "${#mySearchPaths[@]}" = 0 ]] ; then
-		mySearchPaths=( "$myProfilePath/Default" )
-	fi
 	
-	# error states
-	local myGlobalError=
-	local myFailedExtensions=()
-	local mySuccessfulExtensions=()
-	
-	# turn on nullglob & extglob
-	local myShoptState=
-	shoptset myShoptState nullglob extglob
-	
-	# find all requested extensions directories
-	local myExtDirPaths=()
-	local d sd
-	for d in "${mySearchPaths[@]}" ; do
-		if [[ -d "$d/Extensions" ]] ; then
-			
-			# we're in an actual profile directory
-			myExtDirPaths+=( "$d/Extensions" )
-		else
-			
-			# we're in a root browser data directory
-			for sd in "$d"/* ; do
-				if [[ ( -d "$sd" ) && ( -d "$sd/Extensions" ) ]] ; then
-					myExtDirPaths+=( "$sd/Extensions" )
-				fi
-			done
-		fi
-	done
-	
-	# set backstop directory to return to
-	try '!1' pushd . \
-			'Unable to save working directory.'
-	if [[ ! "$ok" ]] ; then
-		ok=1 ; return 1
-	fi
-	
-	# get extension IDs, excluding weird internal Chrome ones
-	local allExcept="!(Temp|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)"
-	
-	# find all valid extensions in each path
-	local myExtensions=
-	local curExtensionList=()
-	local curExtDirPath=
-	local curExt curExtID
-	for curExtDirPath in "${myExtDirPaths[@]}" ; do
-		
-		# move into this Extensions directory
-		try cd "$curExtDirPath" \
-				"Unable to navigate to extensions directory '$curExtDirPath'."
-		if [[ ! "$ok" ]] ; then
-			myGlobalError=1
-			ok=1
-			continue
-		fi
-		
-		# grab all valid extension IDs
-		curExtensionList=( $allExcept )
-		
-		# append each one with its path
-		for curExt in "${curExtensionList[@]}" ; do
-			
-			# only operate on valid extension IDs
-			if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
-				myExtensions+="${curExt}|$curExtDirPath"$'\n'
-			fi
-		done
-	done
-	
-	# move back out of extensions directory
-	try '!1' popd 'Unable to restore working directory.'
-	if [[ ! "$ok" ]] ; then
-		myGlobalError=1 ; ok=1
-	fi
-	
-	# sort extension IDs
-	local oldIFS="$IFS" ; IFS=$'\n'
-	curExtensionList=( $(echo "$myExtensions" | \
-			try '-1' /usr/bin/sort 'Unable to sort extensions.' ) )
-	if [[ "$?" != 0 ]] ; then
-		ok=1 ; errmsg="Unable to create list of installed extensions."
-		IFS="$oldIFS"
-		return 1
-	fi
-	IFS="$oldIFS"
-	
-	# uniquify extension IDs
-	local prevExtID=
-	myExtensions=()
-	for curExt in "${curExtensionList[@]}" ; do
-		
-		curExtID="${curExt%%|*}"
-		if [[ "$curExtID" = 'EPIEXTIDRELEASE' ]] ; then
-			
-			# don't include the Epichrome Runtime extension
-			prevExtId="$curExtID"
-			
-		elif [[ "$prevExtID" != "$curExtID" ]] ; then
-			
-			# first time seeing this ID, so add id
-			myExtensions+=( "$curExt" )
-			prevExtID="$curExtID"
-		fi
-	done
-	
-	# SET LOCALE
+	# GET LOCALE
 	
 	local iLocale=
 	if [[ "$LC_ALL" ]] ; then
@@ -1496,14 +1380,160 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	iLocale="${iLocale%%.*}"	
 	
 	
-	# IMPORTANT PATHS
+	# SET UP VARIABLES
 	
-	local welcomeExtGenericIcon="$SSBAppPath/Contents/$appWelcomePath/img/ext_generic_icon.png"
+	# set important paths
 	local iExtIconPath="$epiDataPath/$epiDataExtIconDir"
 	local iExtInfoFile="$iExtIconPath/${epiDataExtInfoFile/LANG/$iLocale}"
 	
-	# ensure extension icons directory exists
-	if [[ "${#myExtensions[@]}" != 0 ]] ; then
+	# error states
+	local iGlobalError=
+	local iFailedExtensions=()
+	local iSuccessfulExtensions=()
+	
+	
+	# GET SEARCH PATHS & POSSIBLY RUN SUB-APP
+	
+	local iSearchPaths
+	
+	if [[ "$aResultVar" ]] ; then
+		iSearchPaths=( "$@" )
+		if [[ "${#iSearchPaths[@]}" = 0 ]] ; then
+			iSearchPaths=( "$myProfilePath/Default" )
+		elif [[ ! -f "$iExtInfoFile" ]] ; then
+			
+			# load subapp script
+		    safesource "$myScriptPath/runprogress.sh"
+		    if [[ "$ok" ]] ; then
+				
+				# run this function in progress bar app to build cache
+				runprogress "${myScriptPath%/Scripts}" 'extcache'
+				local iCacheResult="$?"
+				
+				if [[ "$iCacheResult" = 1 ]] ; then
+					# global error
+					return 1
+				elif [[ "$iCacheResult" = 2 ]] ; then
+					# some extensions failed, so record them
+					iFailedExtensions="$errmsg"
+					split_array iFailedExtensions
+					ok=1 ; errmsg=
+				fi
+			fi
+		fi
+	fi
+	
+	# $$$$ INTEGRATE THIS
+	# collect data directories for all known browsers
+	local iExtDirs=() iBrowser iBrowserInfo
+	for iBrowser in "${appExtEngineBrowsers[@]}" ; do
+		getbrowserinfo iBrowserInfo "$iBrowser"
+		if [[ "${iBrowserInfo[$iLibraryPath]}" ]] ; then
+			iBrowserInfo="$userSupportPath/${iBrowserInfo[$iLibraryPath]}"
+			[[ -d "$iBrowserInfo" ]] && iExtDirs+=( "$iBrowserInfo" )
+		else
+			errlog "Unable to get info on browser ID $iBrowser."
+		fi
+	done
+
+	
+	# FIND ALL REQUESTED EXTENSIONS DIRECTORIES
+	
+	# turn on nullglob & extglob
+	local iShoptState=
+	shoptset iShoptState nullglob extglob
+	
+	local iExtDirPaths=()
+	local d sd
+	for d in "${iSearchPaths[@]}" ; do
+		if [[ -d "$d/Extensions" ]] ; then
+			
+			# we're in an actual profile directory
+			iExtDirPaths+=( "$d/Extensions" )
+		else
+			
+			# we're in a root browser data directory
+			for sd in "$d"/* ; do
+				if [[ ( -d "$sd" ) && ( -d "$sd/Extensions" ) ]] ; then
+					iExtDirPaths+=( "$sd/Extensions" )
+				fi
+			done
+		fi
+	done
+	
+	# set backstop directory to return to
+	try '!1' pushd . \
+			'Unable to save working directory.'
+	if [[ ! "$ok" ]] ; then
+		ok=1 ; return 1
+	fi
+	
+	
+	# GET ALL EXTENSION IDS EXCEPT WEIRD INTERNAL CHROME ONES
+	
+	# $$$ add beta ID??
+	local iAllExcept="!(Temp|EPIEXTIDRELEASE|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)"
+	
+	# find all valid extensions in each path
+	local iExtensions=
+	local curExtensionList=()
+	local curExtDirPath=
+	local curExt curExtID
+	for curExtDirPath in "${iExtDirPaths[@]}" ; do
+		
+		# move into this Extensions directory
+		try cd "$curExtDirPath" \
+				"Unable to navigate to extensions directory '$curExtDirPath'."
+		if [[ ! "$ok" ]] ; then
+			iGlobalError=1
+			ok=1
+			continue
+		fi
+		
+		# grab all valid extension IDs
+		curExtensionList=( $iAllExcept )
+		
+		# append each one with its path
+		for curExt in "${curExtensionList[@]}" ; do
+			
+			# only operate on valid extension IDs
+			if [[ "$curExt" =~ ^[a-z]{32}$ ]] ; then
+				iExtensions+="${curExt}|$curExtDirPath"$'\n'
+			fi
+		done
+	done
+	
+	# move back out of extensions directory
+	try '!1' popd 'Unable to restore working directory.'
+	if [[ ! "$ok" ]] ; then
+		iGlobalError=1 ; ok=1
+	fi
+	
+	# sort extension IDs
+	curExtensionList="$(echo "$iExtensions" | \
+			try '-1' /usr/bin/sort 'Unable to sort extensions.' )"
+	if [[ "$?" != 0 ]] ; then
+		ok=1 ; errmsg="Unable to sort extensions."
+		return 1
+	fi
+	split_array curExtensionList
+	
+	# uniquify extension IDs
+	local prevExtID=
+	iExtensions=()
+	for curExt in "${curExtensionList[@]}" ; do
+		
+		curExtID="${curExt%%|*}"
+		if [[ "$prevExtID" != "$curExtID" ]] ; then
+			
+			# first time seeing this ID, so add id
+			iExtensions+=( "$curExt" )
+			prevExtID="$curExtID"
+		fi
+	done
+
+	# ensure extension icons directory exists  $$$$
+	if [[ "${#iExtensions[@]}" != 0 ]] ; then
 		
 		try /bin/mkdir -p "$iExtIconPath" \
 				'Unable to create extension icon directory.'
@@ -1513,12 +1543,12 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		fi
 	fi
 	
-	
+	# $$$$ I AM HERE -- ONLY DO THIS NOT IN SUBAPP -- ALSO LOOK FOR ARESULTVAR
 	# try to read in cached extension info
 	local iRewriteInfoFile=
 	local iExtInfoList=()
 	local iExtNewInfoList=()
-	if [[ -f "$iExtInfoFile" ]] ; then
+	if [[ "$aResultVar" && ( -f "$iExtInfoFile" ) ]] ; then
 		try 'iExtInfoList=(n)' /bin/cat "$iExtInfoFile" 'Unable to read cached extension names.'
 		ok=1; errmsg=
 		
@@ -1531,6 +1561,9 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 			curExtName="${iExtInfoList[$i]#local iExtInfo_}"
 			iExtInfoList[$i]="${curExtName%%=*}"
 		done
+	else
+		# create or recreate new cache file
+		iRewriteInfoFile=1
 	fi
 	
 	
@@ -1545,10 +1578,10 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	local curIconSrc curBiggestIcon curIconType
 	local curExtLocalePath
 	local curMessageID msg msg_message
-	local iconRe='^([0-9]+):(.+)$'
+	local iIconRe='^([0-9]+):(.+)$'
 	
 	# loop through every extension
-	for curExt in "${myExtensions[@]}" ; do
+	for curExt in "${iExtensions[@]}" ; do
 		
 		# reset name & icon info
 		curExtName=
@@ -1562,15 +1595,17 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		
 		debuglog "Processing extension ID $curExtID for welcome page."		
 		
-		# get any cached info for this ID
-		eval "curExtInfo=\"\$iExtInfo_$curExtID\""
-		
-		# cached apps should be skipped without even checking version
-		if [[ "$curExtInfo" = 'APP' ]] ; then
-			debuglog '  Skipping cached app.'
-			continue
+		if [[ "$aResultVar" ]] ; then
+			
+			# get any cached info for this ID
+			eval "curExtInfo=\"\$iExtInfo_$curExtID\""
+			
+			# cached apps should be skipped without even checking version
+			if [[ "$curExtInfo" = 'APP' ]] ; then
+				debuglog '  Skipping cached app.'
+				continue
+			fi
 		fi
-		
 		
 		# GET LATEST VERSION FOR THIS ID
 		
@@ -1578,7 +1613,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		curExtVersionList=( "$curExtPath"/* )
 		if [[ ! "${curExtVersionList[*]}" ]] ; then
 			errlog "Unable to get version for extension $curExtID."
-			myFailedExtensions+=( "$curExtID" )
+			iFailedExtensions+=( "$curExtID" )
 			continue
 		fi
 		
@@ -1660,7 +1695,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 					debuglog '  Skipping app.'
 				fi
 			else
-				myFailedExtensions+=( "$curExtID" )
+				iFailedExtensions+=( "$curExtID" )
 				ok=1 ; errmsg=
 				curSkip=1
 				eval "local iExtInfo_$curExtID=\"BAD|\$curExtID\""
@@ -1680,17 +1715,17 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 					mani_icons="${mani_icons//$'\n'/}"
 					
 					# munge entries into parsable lines
-					oldIFS="$IFS" ; IFS=$'\n'
-					mani_icons=( $(echo "$mani_icons" | \
+					mani_icons="$(echo "$mani_icons" | \
 							/usr/bin/sed -E \
-									's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile") )
+									's/[^"]*"([0-9]+)"[ 	]*:[ 	]*"(([^\"]|\\\\|\\")*)"[^"]*/\1:\2\'$'\n''/g' 2> "$stderrTempFile")"
 					if [[ "$?" = 0 ]] ; then
 						
-						IFS="$oldIFS"
+						# break up lines into array
+						split_array mani_icons
 						
 						# find biggest icon
 						for c in "${mani_icons[@]}" ; do
-							if [[ "$c" =~ $iconRe ]] ; then
+							if [[ "$c" =~ $iIconRe ]] ; then
 								if [[ "${BASH_REMATCH[1]}" -gt "$curBiggestIcon" ]] ; then
 									curBiggestIcon="${BASH_REMATCH[1]}"
 									curIconSrc="$(unescapejson "${BASH_REMATCH[2]}")"
@@ -1699,10 +1734,10 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 						done
 						
 					else
+						mani_icons=()
 						
-						IFS="$oldIFS"
-						local myStderr="$(/bin/cat "$stderrTempFile")"
-						[[ "$myStderr" ]] && errlog 'STDERR|sed' "$myStderr"
+						local iStderr="$(/bin/cat "$stderrTempFile")"
+						[[ "$iStderr" ]] && errlog 'STDERR|sed' "$iStderr"
 						errlog "Unable to parse icons for extension $curExtID."
 					fi
 				fi
@@ -1811,20 +1846,20 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 		
 		# IF WE SUCCEEDED, ADD EXTENSION TO WELCOME PAGE ARGS
 		
-		if [[ ! "$curSkip" ]] ; then
+		if [[ "$aResultVar" && ( ! "$curSkip" ) ]] ; then
 			
-			[[ "$result" ]] && result+='&'
-			#[[ "$mani_app" ]] && result+='a=' || result+='x='
+			[[ "$iResult" ]] && iResult+='&'
+			#[[ "$mani_app" ]] && iResult+='a=' || iResult+='x='
 			[[ "$curExtIcon" ]] || curExtIcon="$curExtID"
-			result+="x=$(encodeurl "${curExtIcon},$curExtName")"
+			iResult+="x=$(encodeurl "${curExtIcon},$curExtName")"
 			
 			# report success
-			mySuccessfulExtensions+=( "$curExtID" )
+			iSuccessfulExtensions+=( "$curExtID" )
 		fi
 	done	    
 	
 	# restore nullglob and extended glob
-	shoptrestore myShoptState
+	shoptrestore iShoptState
 	
 	# REWRITE CACHE IF NECESSARY & APPEND NEW EXTENSIONS TO CACHE
 	
@@ -1857,20 +1892,27 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 
 	# WRITE OUT RESULT VARIABLE
 	
-	eval "${resultVar}=\"\$result\""
+	[[ "$aResultVar" ]] && eval "${aResultVar}=\"\$iResult\""
 	
 	
 	# RETURN ERROR STATES
 	
-	if [[ "$myGlobalError" || \
-			( "${myFailedExtensions[*]}" && ! "${mySuccessfulExtensions[*]}" ) ]] ; then
+	if [[ "$iGlobalError" || \
+			( "${iFailedExtensions[*]}" && ! "${iSuccessfulExtensions[*]}" ) ]] ; then
 		
 		return 1
-	elif [[ "${myFailedExtensions[*]}" && "${mySuccessfulExtensions[*]}" ]] ; then
+	elif [[ "${iFailedExtensions[*]}" && "${iSuccessfulExtensions[*]}" ]] ; then
 		
 		# some succeeded, some failed, so report list of failures
-		errmsg="${myFailedExtensions[*]}"
-		errmsg="${errmsg// /, }"
+
+		if [[ "$aResultVar" ]] ; then
+			# normal run, so create comma-separated list
+			errmsg="${iFailedExtensions[*]}"
+			errmsg="${errmsg// /, }"
+		else
+			# running in cache mode, so new-line separate list
+			errmsg="$(join_array $'\n' "${iFailedExtensions[@]}")"
+		fi
 		return 2
 	else
 		return 0
@@ -2602,14 +2644,11 @@ function createenginepayload {
 		aMsg2='engine'
 	fi
 	
-    # export app scalar variables
-    export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
-			SSBRegisterBrowser SSBCustomIcon SSBEngineType \
-			SSBUpdateAction SSBEdited \
-			SSBAppPath SSBPayloadPath \
+    # export important scalar variables
+    export SSBAppPath SSBPayloadPath \
 			epiCurrentPath epiLatestVersion epiLatestPath \
 			myPayloadEnginePath myPayloadLauncherPath \
-			myStatusPayloadUserDir
+			myStatusPayloadUserDir		    
 	
     # export app array variables
 	exportarray SSBEngineSourceInfo

@@ -42,12 +42,9 @@ function updateapp {
     safesource "$myEpiRuntimeResources/Scripts/runprogress.sh"
     [[ "$ok" ]] || return 1
     
-    # export app scalar variables
-    export updateAppPath \
-            SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
-            SSBRegisterBrowser SSBCustomIcon SSBEngineType \
-            SSBUpdateAction SSBEdited
-            
+    # export update-related scalar variables
+    export updateAppPath
+    
     # export app array variables
     exportarray SSBCommandLine myStatusEngineChange
     

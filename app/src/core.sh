@@ -497,8 +497,8 @@ function errlog {
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
     local iPrologue="$logType[$logPID]$(join_array '/' "${trace[@]}"):"
-    local IFS=$'\n'
-    local iLogLines=( $@ )
+    local iLogLines="$*"
+    split_array iLogLines
     if [[ "${#iLogLines[@]}" -lt 2 ]] ; then
         errlog_raw "$iPrologue ${iLogLines[*]}"
     else
@@ -574,7 +574,7 @@ function initlogfile {
 #   join_array(aDelimiter)
 function join_array {
     
-    local aDelimiter=$1; shift
+    local aDelimiter="$1" ; shift
     
     local result="$1"
     shift
@@ -587,6 +587,19 @@ function join_array {
     printf "$result"
 }
 # $$$$ export -f join_array
+
+
+# SPLIT_ARRAY -- split a string in a variable into an array with a delimiter
+#   split_array(aVar [IFS])
+function split_array {
+    
+    # arguments
+    local aVar="$1"; shift
+    local IFS="$1" ; shift ; [[ "$IFS" ]] || IFS=$'\n'
+    
+    # break into array
+    eval "$aVar=( \$$aVar )"
+}
 
 
 # TRY: try to run a command, as long as no errors have already been thrown
@@ -757,10 +770,8 @@ function try {
             [[ "$doAppend" ]] || eval "$target=()"
             
             # break up the output using our chosen delimiter (and newline, no way around that)
-            local temparray=
-            while IFS="$ifscode" read -ra temparray ; do
-                eval "$target+=( \"\${temparray[@]}\" )"
-            done <<< "$temp"
+            split_array temp "$ifscode"
+            eval "$target+=( \"\${temp[@]}\" )"
         fi
         
     elif [[ "$type" = file_append ]] ; then

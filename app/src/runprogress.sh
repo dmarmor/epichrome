@@ -38,6 +38,11 @@ function runprogress {
     local subappErrFile="$myDataPath/errmsg.txt"
     export subappErrFile
     
+    # export basic app settings
+    export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
+            SSBRegisterBrowser SSBCustomIcon SSBEngineType \
+            SSBUpdateAction SSBEdited
+    
     # run progress app in background and wait for it to quit (to suppress any signal termination messages)
     "$aProgressAppPath/EpichromeProgress.app/Contents/MacOS/EpichromeProgress" >& /dev/null &
     wait "$!" >& /dev/null
@@ -74,6 +79,6 @@ function runprogress {
             tryalways /bin/rm -f "$subappErrFile" 'Unable to remove error message file.'
         fi
         
-        return 1
+        return "$iUpdateResult"
     fi
 }

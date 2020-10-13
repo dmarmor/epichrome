@@ -263,7 +263,7 @@ function buildPage() {
         // populate extensions list
         populateExtList(extListNode, extNode, extIconTemplate, extensions);
 
-        // populate extensions list
+        // populate apps list
         populateExtList(appListNode, extNode, extIconTemplate, apps);
 
         // what type of list are we showing?
@@ -412,7 +412,7 @@ function populateExtList(extListNode, extNode, extIconTemplate, items) {
     if (items.length > 0) {
 
         // create regex for parsing extensions & apps
-        const regexpExt = new RegExp('^((.+)\\.[^.]+),(.*)$');
+        const regexpExt = new RegExp('^(([^.]+)(\\.[^.]+)?),(.*)$');
         const regexpIcon = new RegExp('EXTICON');
 
         // parse list into sortable array
@@ -423,9 +423,9 @@ function populateExtList(extListNode, extNode, extIconTemplate, items) {
             var curExt = items[i];
             var curMatch = curExt.match(regexpExt);
             if (curMatch) {
-                var curExtIcon = curMatch[1];
+                var curExtIcon = (curMatch[3] ? curMatch[1] : null);
                 var curExtID = curMatch[2];
-                var curExtName = curMatch[3];
+                var curExtName = curMatch[4];
                 if (! curExtName) { curExtName = curExtID; }
             } else {
 
@@ -461,8 +461,11 @@ function populateExtList(extListNode, extNode, extIconTemplate, items) {
             var curNode = extNode.cloneNode(true);
 
             // set icon image
-            curNode.getElementsByClassName('extension_icon')[0].src = extIconTemplate.replace(regexpIcon, curExtIcon);
-
+            if (curExtIcon) {
+                curNode.getElementsByClassName('extension_icon')[0].src =
+                    extIconTemplate.replace(regexpIcon, curExtIcon);
+            }
+            
             // remove all text from name
             var curNameNode = curNode.getElementsByClassName('extension_name')[0]
             while (curNameNode.firstChild) {
