@@ -142,19 +142,15 @@ function filterlproj {
     local aBasePath="$1" ; shift    # folder containing .lproj folders
     local aErrID="$1" ; shift       # info about this filtering for error messages
     local aUsageKey="$1" ; shift    # name to search for in usage description strings
-    if [[ ! "$progressDoCalibrate" ]] ; then
-        local aStepId="$1" ; shift  # ID for progress messages
-    fi
+    [[ "$aUsageKey" ]] && local iUsageRe='^[a-zA-Z]+UsageDescription *= *"'
+    local aStepId="$1" ; shift  # ID for progress messages
+    [[ "$aStepId" && "$progressDoCalibrate" ]] && aStepId=
     
     # escape bundle name strings
-    local displayName="$(lprojescape "$CFBundleDisplayName")"
-    local bundleName="$(lprojescape "$CFBundleName")"
-    
-    # create sed command
-    local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/; s/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
-    
-    # if we have a usage key, add command for searching usage descriptions
-    [[ "$aUsageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$aUsageKey"'(.*"; *)$/\1'"$bundleName"'\3/'
+    local iDisplayName="$(lprojescape "$CFBundleDisplayName")"
+    local iDisplayLine="CFBundleDisplayName = \"$iDisplayName\";"
+    local iBundleName="$(lprojescape "$CFBundleName")"
+    local iBundleLine="CFBundleName = \"$iBundleName\";"
     
     # get list of lproj directories
     local iLprojList=( "$aBasePath/"*.lproj )
@@ -169,32 +165,56 @@ function filterlproj {
     fi
     
     # filter InfoPlist.strings files
-    local curLproj=
-    for curLproj in "${iLprojList[@]}" ; do
+    local curLprojDir curStringsFile curStringsOutTmp curStringsLines i curLine
+    local curHasBundleName curHasDisplayName
+    for curLprojDir in "${iLprojList[@]}" ; do
         
         # get paths for current in & out files
-        local curStringsIn="$curLproj/InfoPlist.strings"
-        local curStringsOutTmp="$(tempname "$curStringsIn")"
+        curStringsFile="$curLprojDir/InfoPlist.strings"
         
-        if [[ -f "$curStringsIn" ]] ; then
-            # filter current localization
-            try "$curStringsOutTmp<" /usr/bin/sed -E "$sedCommand" "$curStringsIn" \
-                    "Unable to filter $aErrID localization strings."
+        if [[ -f "$curStringsFile" ]] ; then
             
-            # move file to permanent home
-            permanent "$curStringsOutTmp" "$curStringsIn" "$aErrID localization strings"
+            # read in current localization
+            curStringsLines=()
+            try 'curStringsLines=(n)' /bin/cat "$curStringsFile" \
+                    "Unable to read $aErrID localization strings."
+            [[ "$ok" ]] || break
+            
+            # initialize flags for name fields
+            curHasBundleName=
+            curHasDisplayName=
+            
+            # filter each line
+            for ((i=0 ; i < ${#curStringsLines[@]}; i++)) ; do
+                curLine="${curStringsLines[$i]}"
+                if [[ "$curLine" = 'CFBundleName'* ]] ; then
+                    curStringsLines[$i]="$iBundleLine"
+                    curHasBundleName=1
+                elif [[ "$curLine" = 'CFBundleDisplayName'* ]] ; then
+                    curStringsLines[$i]="$iDisplayLine"
+                    curHasDisplayName=1
+                elif [[ "$aUsageKey" && \
+                        ( "$curLine" =~ $iUsageRe ) ]] ; then
+                    curStringsLines[$i]="${curLine//$aUsageKey/$iBundleName}"
+                fi
+            done
+            
+            # add name fields if necessary
+            [[ "$curHasBundleName" ]] || curStringsLines+=( "$iBundleLine" )
+            [[ "$curHasDisplayName" ]] || curStringsLines+=( "$iDisplayLine" )
+            
+            # add extra field for final newline
+            curStringsLines+=( '' )
+            
+            # write out filtered localization
+            try "$curStringsFile<" join_array $'\n' "${curStringsLines[@]}" \
+                    "Unable to write filtered $aErrID localization strings."
+            [[ "$ok" ]] || break
             
             # update progress message if requested
             if [[ "$aStepId" ]] ; then
                 progress 'iLprojIncrement'
-            fi
-            
-            # on any error, abort
-            if [[ ! "$ok" ]] ; then
-                # remove temp output file on error
-                rmtemp "$curStringsOutTmp" "$aErrID localization strings"
-                break
-            fi
+            fi            
         fi
     done
     
