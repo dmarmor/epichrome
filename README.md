@@ -54,7 +54,10 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## New in version 2.3.13
 
-- The built-in engine has been updated to Brave 1.1X.XX.
+- The built-in engine has been updated to Brave 1.15.72.
+
+- Fixed a problem introduced in Chrome 86.0.4240.80 where Chrome-engine apps would not show the app name in the menubar.
+
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
@@ -87,7 +90,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS Catalina 10.15.6 and Google Chrome version 85.0.4183.121.
+- Built and tested on macOS Catalina 10.15.7 and Google Chrome version 86.0.4240.80.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 

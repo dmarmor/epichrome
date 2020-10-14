@@ -736,10 +736,16 @@ build/engine_tmp/brave_recodesign.sh:
 			if [[ "$$ents" != "$$opts" ]] ; then \
 				echo "$$ents" > 'build/engine_tmp/brave_entitlements.plist' ; \
 				printf " --entitlements 'build/engine_tmp/brave_entitlements.plist'" >> '$@' ; \
-				/usr/libexec/PlistBuddy \
-					-c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave'  \
-					-c 'Delete :keychain-access-groups' \
-					'build/engine_tmp/brave_entitlements.plist' ; \
+				pbcmds=() ; \
+				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' > /dev/null ; then \
+					pbcmds+=( -c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave' ) ; \
+				fi ; \
+				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' > /dev/null ; then \
+					pbcmds+=( -c 'Delete :keychain-access-groups' ) ; \
+				fi ; \
+				if [[ "$${pbcmds[*]}" ]] ; then \
+					/usr/libexec/PlistBuddy "$${pbcmds[@]}" 'build/engine_tmp/brave_entitlements.plist' ; \
+				fi ; \
 			fi ; \
 		fi ; \
 	fi

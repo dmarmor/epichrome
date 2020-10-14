@@ -116,70 +116,82 @@ function filterplist {  # ( srcFile destFile tryErrorID PlistBuddyCommands ... )
 export -f filterplist
 
 
-# LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
-function lprojescape {  # ( string )
-    s="${1/\\/\\\\\\\\}"    # escape backslashes for both sed & .strings file
-    s="${s//\//\\/}"        # escape forward slashes for sed only
-    s="${s//&/\\&}"         # escape ampersands for sed only
-    echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
-}
-
-
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
-function filterlproj {  # ( basePath errID usageKey
-
+#   filterlproj(aBasePath aErrID aUsageKey)
+function filterlproj {
+    
     [[ "$ok" ]] || return 1
     
     # turn on nullglob
-    local shoptState=
-    shoptset shoptState nullglob
+    local iShoptState=
+    shoptset iShoptState nullglob
     
-    # path to folder containing .lproj folders
-    local basePath="$1" ; shift
-
-    # info about this filtering for error messages
-    local errID="$1" ; shift
-    
-    # name to search for in usage description strings
-    local usageKey="$1" ; shift
+    # arguments
+    local aBasePath="$1" ; shift    # folder containing .lproj folders
+    local aErrID="$1" ; shift       # info about this filtering for error messages
+    local aUsageKey="$1" ; shift    # name to search for in usage description strings
+    [[ "$aUsageKey" ]] && local iUsageRe='^[a-zA-Z]+UsageDescription *= *"'
     
     # escape bundle name strings
-    local displayName="$(lprojescape "$CFBundleDisplayName")"
-    local bundleName="$(lprojescape "$CFBundleName")"
-
-    # create sed command
-    local sedCommand='s/^(CFBundleName *= *").*("; *)$/\1'"$bundleName"'\2/; s/^(CFBundleDisplayName *= *").*("; *)$/\1'"$displayName"'\2/'
-
-    # if we have a usage key, add command for searching usage descriptions
-    [[ "$usageKey" ]] && sedCommand="$sedCommand; "'s/^((NS[A-Za-z]+UsageDescription) *= *".*)'"$usageKey"'(.*"; *)$/\1'"$bundleName"'\3/'
+    local iDisplayName="$(escapejson "$CFBundleDisplayName")"
+    local iDisplayLine="CFBundleDisplayName = \"$iDisplayName\";"
+    local iBundleName="$(escapejson "$CFBundleName")"
+    local iBundleLine="CFBundleName = \"$iBundleName\";"
+    
+    # get list of lproj directories
+    local iLprojList=( "$aBasePath/"*.lproj )
     
     # filter InfoPlist.strings files
-    local curLproj=
-    for curLproj in "$basePath/"*.lproj ; do
-	
-	# get paths for current in & out files
-	local curStringsIn="$curLproj/InfoPlist.strings"
-	local curStringsOutTmp="$(tempname "$curStringsIn")"
-	
-	if [[ -f "$curStringsIn" ]] ; then
-	    # filter current localization
-	    try "$curStringsOutTmp<" /usr/bin/sed -E "$sedCommand" "$curStringsIn" \
-		"Unable to filter $errID localization strings."
-	    
-	    # move file to permanent home
-	    permanent "$curStringsOutTmp" "$curStringsIn" "$errID localization strings"
-
-	    # on any error, abort
-	    if [[ ! "$ok" ]] ; then
-		# remove temp output file on error
-		rmtemp "$curStringsOutTmp" "$errID localization strings"
-		break
-	    fi
-	fi
+    local curLprojDir curStringsFile curStringsOutTmp curStringsLines i curLine
+    local curHasBundleName curHasDisplayName
+    for curLprojDir in "${iLprojList[@]}" ; do
+        
+        # get paths for current in & out files
+        curStringsFile="$curLprojDir/InfoPlist.strings"
+        
+        if [[ -f "$curStringsFile" ]] ; then
+            
+            # read in current localization
+            curStringsLines=()
+            try 'curStringsLines=(n)' /bin/cat "$curStringsFile" \
+                    "Unable to read $aErrID localization strings."
+            [[ "$ok" ]] || break
+            
+            # initialize flags for name fields
+            curHasBundleName=
+            curHasDisplayName=
+            
+            # filter each line
+            for ((i=0 ; i < ${#curStringsLines[@]}; i++)) ; do
+                curLine="${curStringsLines[$i]}"
+                if [[ "$curLine" = 'CFBundleName'* ]] ; then
+                    curStringsLines[$i]="$iBundleLine"
+                    curHasBundleName=1
+                elif [[ "$curLine" = 'CFBundleDisplayName'* ]] ; then
+                    curStringsLines[$i]="$iDisplayLine"
+                    curHasDisplayName=1
+                elif [[ "$aUsageKey" && \
+                        ( "$curLine" =~ $iUsageRe ) ]] ; then
+                    curStringsLines[$i]="${curLine//$aUsageKey/$iBundleName}"
+                fi
+            done
+            
+            # add name fields if necessary
+            [[ "$curHasBundleName" ]] || curStringsLines+=( "$iBundleLine" )
+            [[ "$curHasDisplayName" ]] || curStringsLines+=( "$iDisplayLine" )
+            
+            # add extra field for final newline
+            curStringsLines+=( '' )
+            
+            # write out filtered localization
+            try "$curStringsFile<" join_array $'\n' "${curStringsLines[@]}" \
+                    "Unable to write filtered $aErrID localization strings."
+            [[ "$ok" ]] || break            
+        fi
     done
     
     # restore nullglob
-    shoptrestore shoptState
+    shoptrestore iShoptState
     
     # return success or failure
     [[ "$ok" ]] && return 0 || return 1
