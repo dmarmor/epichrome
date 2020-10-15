@@ -18,6 +18,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
 
 
+## [2.3.13] - 2020-10-14
+### Changed
+- Updated built-in engine to Brave 1.15.72
+### Fixed
+- Restored app name to menubar for Chrome-engine apps, fixing problem introduced in Chrome 86.0.4240.80 ([issue #267](https://github.com/dmarmor/epichrome/issues/276 "issue #267")
+
 ## [2.3.12] - 2020-09-24
 ### Changed
 - Updated built-in engine to Brave 1.14.84

@@ -118,16 +118,6 @@ function filterplist {
 # $$$$ export -f filterplist
 
 
-# LPROJESCAPE: escape a string for insertion in an InfoPlist.strings file
-#   lprojescape(string)
-function lprojescape {
-    s="${1/\\/\\\\\\\\}"    # escape backslashes for both sed & .strings file
-    s="${s//\//\\/}"        # escape forward slashes for sed only
-    s="${s//&/\\&}"         # escape ampersands for sed only
-    echo "${s//\"/\\\\\"}"  # escape double quotes for both sed & .strings file
-}
-
-
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories
 #   filterlproj(aBasePath aErrID aUsageKey [aStepId])
 function filterlproj {
@@ -147,9 +137,9 @@ function filterlproj {
     [[ "$aStepId" && "$progressDoCalibrate" ]] && aStepId=
     
     # escape bundle name strings
-    local iDisplayName="$(lprojescape "$CFBundleDisplayName")"
+    local iDisplayName="$(escapejson "$CFBundleDisplayName")"
     local iDisplayLine="CFBundleDisplayName = \"$iDisplayName\";"
-    local iBundleName="$(lprojescape "$CFBundleName")"
+    local iBundleName="$(escapejson "$CFBundleName")"
     local iBundleLine="CFBundleName = \"$iBundleName\";"
     
     # get list of lproj directories
