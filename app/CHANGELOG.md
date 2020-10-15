@@ -2,7 +2,7 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.3.13] - 2020-10-15
+## [2.3.13] - 2020-10-14
 ### Changed
 - Updated built-in engine to Brave 1.15.72
 ### Fixed
