@@ -134,7 +134,6 @@ function filterlproj {
     local aUsageKey="$1" ; shift    # name to search for in usage description strings
     [[ "$aUsageKey" ]] && local iUsageRe='^[a-zA-Z]+UsageDescription *= *"'
     local aStepId="$1" ; shift  # ID for progress messages
-    [[ "$aStepId" && "$progressDoCalibrate" ]] && aStepId=
     
     # escape bundle name strings
     local iDisplayName="$(escapejson "$CFBundleDisplayName")"
@@ -202,14 +201,19 @@ function filterlproj {
             [[ "$ok" ]] || break
             
             # update progress message if requested
-            if [[ "$aStepId" ]] ; then
+            if [[ "$aStepId"  && ( ! "$progressDoCalibrate" ) ]] ; then
                 progress 'iLprojIncrement'
-            fi            
+            fi
         fi
     done
     
     # restore nullglob
     shoptrestore iShoptState
+    
+    # update progress for calibration
+    if [[ "$aStepId"  && "$progressDoCalibrate" ]] ; then
+        progress "$aStepId"
+    fi
     
     # return success or failure
     [[ "$ok" ]] && return 0 || return 1

@@ -25,7 +25,7 @@
 
 # step calibration
 stepStart=0
-step1=416
+step1=600
 stepIEng1=1146
 stepIEng2=916
 stepIEng3=2125
@@ -33,7 +33,7 @@ stepEEng1=745
 stepEEng2=464
 stepEEng3=918
 stepEEng4=2686
-stepEEng5=27522
+stepEEng5=10000
 stepEEng6=434
 
 # set up progress total based on what we're doing in this update
@@ -53,7 +53,7 @@ fi
 payloadComplete=
 function cleanup {
     
-    if [[ ! "$payloadComplete" ]] ; then    
+    if [[ ! "$payloadComplete" ]] ; then
         debuglog "Cleaning up..."
         deletepayload
     fi
@@ -182,8 +182,6 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     filterlproj "$myPayloadEnginePath/Resources" \
 			"${SSBEngineSourceInfo[$iDisplayName]} app engine" '' 'stepEEng5'
 	
-    # progress 'stepEEng5'  # CALIBRATE ONLY $$$
-
 	# copy app's icons
     try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
 			"$myPayloadEnginePath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \

@@ -99,7 +99,7 @@ function cleanup {
     
     if [[ "$myEnginePID" ]] ; then
         
-        # if engine is still running, kill it now        
+        # if engine is still running, kill it now
         if kill -0 "$myEnginePID" 2> /dev/null ; then
             errlog FATAL 'Terminated while engine still running! Killing engine.'
             kill "$myEnginePID"
@@ -118,7 +118,7 @@ function cleanup {
         # attempt to alert the user if the app was not left in a runnable state
         # $$$$ PROBABLY FALL BACK TO TRYING TO REPLACE APP WITH BACKUP?
         [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $errmsg"$'\n\nThis app has most likely been damaged and will not run again. Please restore from backup.' 'Error' '|stop'
-    fi    
+    fi
 }
 
 
@@ -173,6 +173,7 @@ myStatusEngineChange=   # on engine change, this contains old engine info
 myStatusReset=          # set if app settings appear to have been reset
 myStatusWelcomeURL=     # set by setwelcomepage if welcome page should be shown
 myStatusWelcomeTitle=   # title for URL bookmark
+myStatusCannotCreatePayload= # set by getepichromeinfo if we cannot create a new payload for this app
 
 
 # DETERMINE IF THIS IS A NEW APP OR FIRST RUN ON A NEW VERSION
@@ -238,7 +239,11 @@ getepichromeinfo
 
 # CHECK FOR NEW EPICHROME ON SYSTEM AND OFFER TO UPDATE
 
-if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
+# check for update if either of the following are true:
+#  - we cannot create a new payload
+#  - this is not the first run of a new app, or a new version, or with a new engine
+if [[ "$myStatusCannotCreatePayload" || \
+        ! ( "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEngineChange" ) ]] ; then
     
     checkappupdate
     
@@ -249,7 +254,7 @@ if [[ "$epiCurrentMissing" || ! ( "$myStatusNewApp" || "$myStatusNewVersion" || 
         
         # display warning on non-fatal error
         if [[ "$errmsg" = 'CANCEL' ]] ; then
-            alert "Update canceled. The app has not been updated." 'Update Canceled' '|caution'            
+            alert "Update canceled. The app has not been updated." 'Update Canceled' '|caution'
         else
             alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
         fi
@@ -269,17 +274,21 @@ fi
 # UPDATE PAYLOAD PATH
 
 # determine where our payloads should be
-myPayloadPath=
-
-# start with Epichrome.app location
 if [[ -d "$epiCurrentPath" ]] ; then
+    myPayloadPath="$epiCurrentPath"
+elif [[ -d "$epiLatestPath" ]] ; then
+    myPayloadPath="$epiLatestPath"
+else
+    myPayloadPath=
+fi
+
+# start with current or latest Epichrome.app location
+if [[ -d "$myPayloadPath" ]] ; then
     
     # apps must be on the same volume as their engine
-    if ! issamedevice "$SSBAppPath" "$epiCurrentPath" ; then
-        abort 'Apps must reside on the same physical volume as the version of Epichrome they are based on.'
+    if ! issamedevice "$SSBAppPath" "$myPayloadPath" ; then
+        abort 'Apps must reside on the same physical volume as Epichrome.'
     fi
-    
-    myPayloadPath="$epiCurrentPath"
     
     # get directory path
     myPayloadPath="${myPayloadPath%/*}/$epiPayloadPathBase"
@@ -329,13 +338,12 @@ if [[ -d "$epiCurrentPath" ]] ; then
         # set new payload path
         SSBPayloadPath="$myPayloadPath"
     fi
-else
-    # no current Epichrome! -- leave as is but make sure on same device as app
-    if [[ ! -d "$SSBPayloadPath" ]] ; then
-        abort "No engine payload path exists and this app's version of Epichrome can't be found."
-    elif ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
-        abort 'App is not on the same physical volume as its engine payload.'
-    fi
+elif [[ ! "$SSBPayloadPath" ]] ; then
+    # no current or latest Epichrome & no payload path found
+    abort 'No payload path found.'
+elif ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
+    # no current or latest Epichrome & app is not on same volume as payload
+    abort 'App is not on the same physical volume as its engine payload.'
 fi
 
 # set up payload subsidiary paths
@@ -462,12 +470,17 @@ elif ! checkenginepayload ; then
     doCreateEngine=1
     errlog "Replacing damaged or missing engine."
     createEngineAction1='Replacing' ; createEngineAction2='engine'
-    createEngineErrMsg='Unable to replace damaged or missing engine'    
+    createEngineErrMsg='Unable to replace damaged or missing engine'
 fi
 [[ "$ok" ]] || abort
 
 # create engine payload if necessary
 if [[ "$doCreateEngine" ]] ; then
+    
+    # make sure we can actually create a new engine
+    if [[ "$myStatusCannotCreatePayload" ]] ; then
+        abort "Unable to create engine payload, as this app's version of Epichrome can't be found."
+    fi
     
     # (re)create engine payload
     createenginepayload "$createEngineAction1" "$createEngineAction2"

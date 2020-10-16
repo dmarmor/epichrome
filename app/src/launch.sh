@@ -139,7 +139,6 @@ function readjsonkeys {
 function getepichromeinfo {
 	# populates the following globals (if found):
 	#    epiCurrentPath -- path to version of Epichrome that corresponds to this app
-	#    epiCurrentMissing -- non-empty if no current version found & we have an internal engine
 	#    epiLatestVersion/Path/Desc -- version/path/description of the latest Epichrome found
 	#    epiUpdateVersion/Path/Desc -- version/path/description of the latest Epichrome eligible for update
 	
@@ -147,7 +146,7 @@ function getepichromeinfo {
 	[[ "$ok" ]] || return 1
 	
 	# default global return values
-	epiCurrentPath= ; epiCurrentMissing=
+	epiCurrentPath=
 	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
 	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc=
 	
@@ -244,7 +243,7 @@ function getepichromeinfo {
 		if [[ -d "$curInstance" ]] ; then
 			
 			# get this instance's version & optional description
-			curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi && echo "$epiDesc" )"			
+			curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi && echo "$epiDesc" )"
 			if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
 				curVersion=0.0.0
 				curDesc=
@@ -311,11 +310,16 @@ function getepichromeinfo {
 		fi
 	done
 	
-	# check if there's no current Epichrome installed & we have a built-in engine
-	if [[ ( ! "$epiCurrentPath" ) && ( "${SSBEngineType%%|*}" = internal ) ]] ; then
+	# check if we cannot create a new payload -- true if:
+	#  - no current Epichrome exists, and
+	#  - either no latest Epichrome exists and no payload path is specified, or
+	#  - this is an internal-engine app
+	if [[ ( ! -d "$epiCurrentPath" ) && \
+		        ( ( ( ! -d "$epiLatestPath" ) && ( ! "$SSBPayloadPath" ) ) || \
+		        ( "${SSBEngineType%%|*}" = 'internal' ) ) ]] ; then
 		
-		# flag that current Epichrome is missing
-		epiCurrentMissing=1
+		# flag that we can't create a payload
+		myStatusCannotCreatePayload=1
 		
 		# make sure we have a version to update to if possible
 		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$myVersion" ; then
@@ -352,7 +356,7 @@ function getepichromeinfo {
 
 
 # CHECKAPPUPDATE -- check for a new version of Epichrome and offer to update app
-function checkappupdate { 
+function checkappupdate {
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
@@ -401,7 +405,7 @@ function checkappupdate {
 		
 		# if the Epichrome version corresponding to this app's version is not found, and
 		# the app uses an internal engine, don't allow the user to ignore this version
-		if [[ ! "$epiCurrentMissing" ]] ; then
+		if [[ ! "$myStatusCannotCreatePayload" ]] ; then
 			updateButtonList+=( "Don't Ask Again For This Version" )
 		fi
 		
@@ -521,7 +525,7 @@ function checkgithubupdate {
 					# trim off downloaded version
 					iGithubNextDate="${iGithubNextDate%%|*}"
 				fi
-			fi		
+			fi
 			
 			# integrity-check date
 			if [[ ! "$iGithubNextDate" =~ ^[1-9][0-9]*$ ]] ; then
@@ -620,14 +624,14 @@ function checkgithubupdate {
 							
 							# add any description to message
 							[[ "$iUpdateDesc" ]] && iResultMsg+=' This update includes the following changes:'$'\n\n'"$iUpdateDesc"
-						fi					
+						fi
 					else
 						debuglog "Latest Epichrome version on GitHub ($iGithubLatestVersion) is not newer than $iGithubCheckVersion."
 					fi
 					
 				else
 					
-					ok= ; errmsg='No Epichrome release found on GitHub.'			
+					ok= ; errmsg='No Epichrome release found on GitHub.'
 					errlog  "$errmsg"
 				fi
 			fi
@@ -761,7 +765,7 @@ function checkgithubinfowrite {
 	# arguments
 	local aCheckDate="$1" ; shift
 	local aNextVersion="$1" ; shift
-	local aUpdateError="$1" ; shift	
+	local aUpdateError="$1" ; shift
 	
 	# update next check date
 	local iGithubNextDate=7
@@ -824,7 +828,7 @@ $tab}\""
 		
 	else
 		# in apps, only report non-fatal errors -- fatal errors are only reported in Epichrome
-		if [[ "$iErrWarning" ]] ; then		
+		if [[ "$iErrWarning" ]] ; then
 			# we have a new error to report
 			alert "⚠️ $iErrWarning" 'Checking For Update' '|caution'
 		fi
@@ -1084,7 +1088,7 @@ function updateprofiledir {
 			
 			# if there are any extensions, try to save them
 			local oldExtensionArgs=
-			getextensioninfo 'oldExtensionArgs'
+			getextensioninfo 'oldExtensionArgs' "$myProfilePath/Default"
 			if [[ "$?" = 1 ]] ; then
 				local myErrAllExtensions=1
 			elif [[ "$?" = 2 ]] ; then
@@ -1323,7 +1327,7 @@ ${BASH_REMATCH[5]}}"
 			myErrBookmarks=
 		fi
 		
-		# let the page know the result of this bookmarking	
+		# let the page know the result of this bookmarking
 		[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
 	fi
 	
@@ -1377,7 +1381,7 @@ function getextensioninfo {
 	fi
 	
 	# cut off any cruft
-	iLocale="${iLocale%%.*}"	
+	iLocale="${iLocale%%.*}"
 	
 	
 	# SET UP VARIABLES
@@ -1394,48 +1398,58 @@ function getextensioninfo {
 	
 	# GET SEARCH PATHS & POSSIBLY RUN SUB-APP
 	
-	local iSearchPaths
-	
+	local iSearchPaths=()
+		
 	if [[ "$aResultVar" ]] ; then
-		iSearchPaths=( "$@" )
-		if [[ "${#iSearchPaths[@]}" = 0 ]] ; then
-			iSearchPaths=( "$myProfilePath/Default" )
-		elif [[ ! -f "$iExtInfoFile" ]] ; then
+		
+		# if we weren't passed paths, or need to build the cache, get extensions from all browsers
+		if [[ ( "$#" = 0 ) || (! -f "$iExtInfoFile" ) ]] ; then
 			
-			# load subapp script
-		    safesource "$myScriptPath/runprogress.sh"
-		    if [[ "$ok" ]] ; then
+			# collect data directories for all known browsers
+			local curBrowser curBrowserInfo
+			for curBrowser in "${appExtEngineBrowsers[@]}" ; do
+				getbrowserinfo curBrowserInfo "$curBrowser"
+				if [[ "${curBrowserInfo[$iLibraryPath]}" ]] ; then
+					curBrowserInfo="$userSupportPath/${curBrowserInfo[$iLibraryPath]}"
+					[[ -d "$curBrowserInfo" ]] && iSearchPaths+=( "$curBrowserInfo" )
+				else
+					errlog "Unable to get info on browser ID $curBrowser."
+				fi
+			done
+			
+			# if no cache, run progress bar sub-app to build it
+			if [[ ! -f "$iExtInfoFile" ]] ; then
 				
-				# run this function in progress bar app to build cache
-				runprogress "${myScriptPath%/Scripts}" 'extcache'
-				local iCacheResult="$?"
-				
-				if [[ "$iCacheResult" = 1 ]] ; then
-					# global error
-					return 1
-				elif [[ "$iCacheResult" = 2 ]] ; then
-					# some extensions failed, so record them
-					iFailedExtensions="$errmsg"
-					split_array iFailedExtensions
-					ok=1 ; errmsg=
+				# load subapp script
+				safesource "$myScriptPath/runprogress.sh"
+				if [[ "$ok" ]] ; then
+					
+					# export search paths for sub-app
+					exportarray iSearchPaths
+					
+					# run this function in progress bar app to build cache
+					runprogress "${myScriptPath%/Scripts}" 'extcache'
+					local iCacheResult="$?"
+					
+					if [[ "$iCacheResult" = 1 ]] ; then
+						# global error
+						return 1
+					elif [[ "$iCacheResult" = 2 ]] ; then
+						# some extensions failed, so record them
+						iFailedExtensions="$errmsg"
+						split_array iFailedExtensions
+						ok=1 ; errmsg=
+					fi
 				fi
 			fi
 		fi
 	fi
 	
-	# $$$$ INTEGRATE THIS
-	# collect data directories for all known browsers
-	local iExtDirs=() iBrowser iBrowserInfo
-	for iBrowser in "${appExtEngineBrowsers[@]}" ; do
-		getbrowserinfo iBrowserInfo "$iBrowser"
-		if [[ "${iBrowserInfo[$iLibraryPath]}" ]] ; then
-			iBrowserInfo="$userSupportPath/${iBrowserInfo[$iLibraryPath]}"
-			[[ -d "$iBrowserInfo" ]] && iExtDirs+=( "$iBrowserInfo" )
-		else
-			errlog "Unable to get info on browser ID $iBrowser."
-		fi
-	done
-
+	# if we were passed paths, use those now
+	if [[ "$#" -gt 0 ]] ; then
+		iSearchPaths=( "$@" )
+	fi
+	
 	
 	# FIND ALL REQUESTED EXTENSIONS DIRECTORIES
 	
@@ -1543,7 +1557,6 @@ function getextensioninfo {
 		fi
 	fi
 	
-	# $$$$ I AM HERE -- ONLY DO THIS NOT IN SUBAPP -- ALSO LOOK FOR ARESULTVAR
 	# try to read in cached extension info
 	local iRewriteInfoFile=
 	local iExtInfoList=()
@@ -1580,9 +1593,23 @@ function getextensioninfo {
 	local curMessageID msg msg_message
 	local iIconRe='^([0-9]+):(.+)$'
 	
+	# if in sub-app, set up progress bar steps
+	if [[ ( ! "$aResultVar" ) && ( ! "$progressDoCalibrate" ) ]] ; then
+		local iNumExts=${#iExtensions[@]}
+		if [[ "$iNumExts" -gt 0 ]] ; then
+			local iStepExtCache=$(( $progressTotal / $iNumExts ))
+		fi
+	fi
+	
 	# loop through every extension
+	curExtID=
 	for curExt in "${iExtensions[@]}" ; do
 		
+		# update progress bar (except on first iteration)
+		if [[ ( ! "$aResultVar" ) && ( ! "$progressDoCalibrate" ) && "$curExtID" ]] ; then
+			progress 'iStepExtCache'
+		fi
+
 		# reset name & icon info
 		curExtName=
 		curExtIcon=
@@ -1593,7 +1620,7 @@ function getextensioninfo {
 		curExtID="${curExt%%|*}"
 		curExtPath="${curExt#*|}/$curExtID"
 		
-		debuglog "Processing extension ID $curExtID for welcome page."		
+		debuglog "Processing extension ID $curExtID for welcome page."
 		
 		if [[ "$aResultVar" ]] ; then
 			
@@ -1856,7 +1883,7 @@ function getextensioninfo {
 			# report success
 			iSuccessfulExtensions+=( "$curExtID" )
 		fi
-	done	    
+	done
 	
 	# restore nullglob and extended glob
 	shoptrestore iShoptState
@@ -1890,9 +1917,14 @@ function getextensioninfo {
 	ok=1 ; errmsg=
 	
 
-	# WRITE OUT RESULT VARIABLE
+	# WRITE OUT RESULT VARIABLE IF WE HAVE ONE
 	
-	[[ "$aResultVar" ]] && eval "${aResultVar}=\"\$iResult\""
+	if [[ "$aResultVar" ]] ; then
+		eval "${aResultVar}=\"\$iResult\""
+	else
+		# final progress update (or only one if calibrating)
+		progress 'iStepExtCache'
+	fi
 	
 	
 	# RETURN ERROR STATES
@@ -2113,7 +2145,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 		
 		debuglog "External engine ${SSBEngineSourceInfo[$iDisplayName]} ${SSBEngineSourceInfo[$iVersion]} found at '${SSBEngineSourceInfo[$iPath]}'."
 		
-		break	
+		break
 	done
 }
 
@@ -2274,28 +2306,28 @@ function installepichromenmh {
 
 # # LINKEXTERNALNMHS -- link to native message hosts in central Google Chrome directory
 # function linkexternalnmhs {
-# 
+#
 # 	# only run if we're OK
 # 	[[ "$ok" ]] || return 1
-# 
+#
 # 	# paths to NMH directories for compatible browsers
-# 
+#
 # 	# get path to destination NMH manifest directory
 # 	local myHostDir="$myProfilePath/$nmhDirName"
-# 
+#
 # 	# list of NMH directories to search
 # 	local myNMHBrowsers=()
-# 
+#
 # 	# favor hosts from whichever browser our engine is using
 # 	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
-# 
+#
 # 		# see if the current engine is in the list
 # 		local curBrowser= ; local i=0
 # 		for curBrowser in "${appExtEngineBrowsers[@]}" ; do
 # 			if [[ "${SSBEngineType#*|}" = "$curBrowser" ]] ; then
-# 
+#
 # 				debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
-# 
+#
 # 				# engine found, so bump it to the end of the list (giving it top priority)
 # 				myNMHBrowsers=( "${appExtEngineBrowsers[@]::$i}" \
 # 						"${appExtEngineBrowsers[@]:$(($i + 1))}" \
@@ -2305,26 +2337,26 @@ function installepichromenmh {
 # 			i=$(($i + 1))
 # 		done
 # 	fi
-# 
+#
 # 	# for internal engine, or if external engine not found, use vanilla list
 # 	[[ "${myNMHBrowsers[*]}" ]] || myNMHBrowsers=( "${appExtEngineBrowsers[@]}" )
-# 
+#
 # 	# navigate to our host directory (report error)
 # 	try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
 # 	if [[ ! "$ok" ]] ; then
 # 		ok=1 ; return 1
 # 	fi
-# 
+#
 # 	# turn on nullglob
 # 	local shoptState=
 # 	shoptset shoptState nullglob
-# 
+#
 # 	# get list of host files currently installed
 # 	hostFiles=( * )
-# 
+#
 # 	# collect errors
 # 	local myError=
-# 
+#
 # 	# remove dead host links
 # 	local curFile=
 # 	for curFile in "${hostFiles[@]}" ; do
@@ -2338,13 +2370,13 @@ function installepichromenmh {
 # 			fi
 # 		fi
 # 	done
-# 
+#
 # 	# link to hosts from both directories
 # 	local curHost=
 # 	local curHostDir=
 # 	local curError=
 # 	for curHost in "${myNMHBrowsers[@]}" ; do
-# 
+#
 # 		# get only the data directory
 # 		getbrowserinfo 'curHostDir' "$curHost"
 # 		if [[ ! "${curHostDir[$iLibraryPath]}" ]] ; then
@@ -2355,9 +2387,9 @@ function installepichromenmh {
 # 			continue
 # 		fi
 # 		curHostDir="$userSupportPath/${curHostDir[$iLibraryPath]}/$nmhDirName"
-# 
+#
 # 		if [[ -d "$curHostDir" ]] ; then
-# 
+#
 # 			# get a list of all hosts in this directory
 # 			try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
 # 			if [[ ! "$ok" ]] ; then
@@ -2366,9 +2398,9 @@ function installepichromenmh {
 # 				ok=1 ; errmsg=
 # 				continue
 # 			fi
-# 
+#
 # 			hostFiles=( * )
-# 
+#
 # 			try '!1' popd "Unable to navigate away from ${curHostDir}"
 # 			if [[ ! "$ok" ]] ; then
 # 				[[ "$myError" ]] && myError+=' '
@@ -2376,7 +2408,7 @@ function installepichromenmh {
 # 				ok=1 ; errmsg=
 # 				continue
 # 			fi
-# 
+#
 # 			# link to any hosts that are not already in our directory or are
 # 			# links to a different file -- this way if a given host is in
 # 			# multiple NMH directories, whichever we hit last wins
@@ -2384,9 +2416,9 @@ function installepichromenmh {
 # 				if [[ ( ! -e "$curFile" ) || \
 # 						( -L "$curFile" && \
 # 						! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
-# 
+#
 # 					debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
-# 
+#
 # 					# symbolic link to current native messaging host
 # 					try ln -sf "${curHostDir}/$curFile" "$curFile" \
 # 							"Unable to link to native messaging host ${curFile}."
@@ -2400,7 +2432,7 @@ function installepichromenmh {
 # 			done
 # 		fi
 # 	done
-# 
+#
 # 	# silently return to original directory
 # 	try '!1' popd "Unable to navigate away from '$myHostDir'."
 # 	if [[ ! "$ok" ]] ; then
@@ -2409,10 +2441,10 @@ function installepichromenmh {
 # 		ok=1 ; errmsg=
 # 		continue
 # 	fi
-# 
+#
 # 	# restore nullglob
 # 	shoptrestore shoptState
-# 
+#
 # 	# return success or failure
 # 	if [[ "$myError" ]] ; then
 # 		errmsg="$myError"
@@ -2434,7 +2466,7 @@ function checkenginepayload {
 		# get a list of all items in the payload folder
 		local iPayloadItems=( "$SSBPayloadPath"/* )
 
-		# engine payload directory is only item 
+		# engine payload directory is only item
 		if [[ ( "${iPayloadItems[0]}" = "$myPayloadEnginePath" ) && \
 				( "${#iPayloadItems[@]}" = 1 )]] ; then
 			
@@ -2648,7 +2680,7 @@ function createenginepayload {
     export SSBAppPath SSBPayloadPath \
 			epiCurrentPath epiLatestVersion epiLatestPath \
 			myPayloadEnginePath myPayloadLauncherPath \
-			myStatusPayloadUserDir		    
+			myStatusPayloadUserDir
 	
     # export app array variables
 	exportarray SSBEngineSourceInfo
@@ -2763,7 +2795,7 @@ function clearmasterprefs {
 		fi
 		
 		# clear state
-		myMasterPrefsState=	
+		myMasterPrefsState=
 	fi
 	
 	# return error state
@@ -2956,7 +2988,7 @@ function launchapp {
 				elif [[ "$iExitCode" = 126 ]] ; then
 					# executable not found
 					errmsg="Error launching $aAppDesc: could not run executable."
-					errlog "$errmsg"			
+					errlog "$errmsg"
 				elif [[ "$iExitCode" != 0 ]] ; then
 					# launched but immediately quit with an error
 					errmsg="Launched $aAppDesc but it quit with code $iExitCode."
@@ -2975,7 +3007,7 @@ function launchapp {
 				else
 					echo "$iResultPID"
 				fi
-			fi							
+			fi
 		else
 			# app executable is not executable
 			ok= ; errmsg="Not allowed to run executable for $aAppDesc."

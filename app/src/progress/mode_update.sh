@@ -32,9 +32,9 @@ step04=604
 step05=738
 step06=936
 step07=1179
-step08=936
-stepIconA1=659
-stepIconA2=10514
+step08=1732
+stepIconA1=850
+stepIconA2=20000
 stepIconA3=1164
 stepIconB1=783
 stepIconB2=930
@@ -42,14 +42,14 @@ stepIconB3=1230
 stepIconB4=269
 stepIconB5=782
 stepIconB6=221
-step09=672
-step10=524
-step11=432
+step09=1100
+step10=750
+step11=450
 stepIEng1=835
 stepIEng2=863
 stepIEng3=860
-stepIEng4=28310
-step12=339
+stepIEng4=15000
+step12=400
 
 # set up progress total based on what we're doing in this update
 progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 + $step11 + $step12 ))
@@ -532,8 +532,6 @@ if [[ "${SSBEngineType%%|*}" = internal ]] ; then
     # filter localization strings in place
     filterlproj "$updateEnginePath/Resources" 'app engine' \
             "${SSBEngineSourceInfo[$iName]}" 'stepIEng4'
-
-    # progress 'stepIEng4'  # CALIBRATION ONLY
 fi
 
 

@@ -23,9 +23,14 @@
 
 # PROGRESS BAR SETUP  $$$$$ TBD
 
+# step calibration
+stepStart=0
+# stepExtCache=32791
+# stepExtCache=32497
+# progressTotal=$(( $stepStart + $stepExtCache ))
+
 progressAction='Searching for installed extensions...'
-progressTotal=1 # $$$$
-progressStep=1
+progressTotal=10000 # $$$$
 
 
 # FUNCTION DEFINITIONS
@@ -34,7 +39,7 @@ progressStep=1
 extcacheComplete=
 function cleanup {
     
-    if [[ ! "$extcacheComplete" ]] ; then    
+    if [[ ! "$extcacheComplete" ]] ; then
         debuglog "Cleaning up..."
         # $$$$ TBD
     fi
@@ -43,10 +48,14 @@ function cleanup {
 
 # --- MAIN BODY ---
 
+# import search paths
+importarray iSearchPaths
+
 # start progress bar
 progress 'stepStart'  # $$$
 
-getextensioninfo
+# run in cache-only mode (no result var)
+getextensioninfo '' "${iSearchPaths[@]}"
 
 progress 'end'  # $$$
 
