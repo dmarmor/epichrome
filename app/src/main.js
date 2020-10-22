@@ -215,6 +215,38 @@ function main(aApps=[]) {
         
         // APP INIT
         
+        // $$$ TEST OUT LOGIN ITEM THINGY
+        
+        ObjC.import('ServiceManagement');
+        // ObjC.bindFunction('CFMakeCollectable', [ 'id', [ 'void *' ] ]);
+        // Ref.prototype.toNS = function() { return $.CFMakeCollectable(this); }
+        const myID = 'org.epichrome.Login';
+        
+        let foo = $.SMCopyAllJobDictionaries($.kSMDomainUserLaunchd);
+        foo = foo.toNS().js;
+        
+        let moo = true;
+        for (let x of foo) {
+            if (x.js.Label.js == myID) {
+                moo = false;
+                if ($.SMLoginItemSetEnabled($(myID), false)) {
+                    dialog('Login item REMOVED successfully!');
+                } else {
+                    dialog('Login item failed to REMOVE!');
+                }
+                break;
+            }
+        }
+        if (moo) {
+            // use false to remove
+            if ($.SMLoginItemSetEnabled($(myID), true)) {
+                dialog('Login item installed successfully!');
+            } else {
+                dialog('Login item failed to install!');
+            }
+        }
+        // $$$$ END TEST
+                
         // set up data path & settings file
         gCoreInfo = {};
         try {

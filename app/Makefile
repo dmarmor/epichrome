@@ -26,7 +26,7 @@
 
 APP:=Epichrome/Epichrome.app
 SCAN_APP:=Epichrome/Epichrome\ Scan.app
-LOGIN_APP:=Epichrome/Epichrome\ Login.app
+LOGIN_APP:=Epichrome/Epichrome.app/Contents/Library/LoginItems/EpichromeLogin.app
 
 NMH_ID:=org.epichrome.runtime
 
@@ -256,7 +256,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 # BUILD TARGETS (DEFAULT TARGET)
 
-build: $(CLEANVERSION) $(APP) $(SCAN_APP) $(LOGIN_APP)
+build: $(CLEANVERSION) $(APP) $(SCAN_APP)
 
 release: build
 
@@ -270,7 +270,7 @@ bump:
 # UTILITY TARGETS
 
 clean:
-	rm -rf $(APP) $(SCAN_APP) $(LOGIN_APP)
+	rm -rf $(APP) $(SCAN_APP)
 	rm -rf build/main* build/runtime* build/engine build/engine_tmp build/resources $(INTERMEDIATES)
 	@hdiutil detach build/dmg 2> /dev/null || true
 
@@ -331,7 +331,6 @@ build/epichrome-$(VERSION)-main.pkg: release build/scripts/postinstall build/ico
 	touch 'build/package/Applications/$(INSTALL_FOLDER)/Payload.noindex/.preserve'
 	mv $(APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app'
 	mv $(SCAN_APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app'
-	mv $(LOGIN_APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app'
 	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
 	plutil -replace BundleIsRelocatable -bool NO $(@:.pkg=).plist && \
 	pkgbuild --root build/package --identifier org.epichrome.Epichrome \
@@ -340,11 +339,9 @@ build/epichrome-$(VERSION)-main.pkg: release build/scripts/postinstall build/ico
 	rm -f '$(@:.pkg=).plist' ) ; then \
 		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app' $(APP) ; \
 		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app' $(SCAN_APP) ; \
-		mv 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app' $(LOGIN_APP) ; \
 	fi
 	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app' $(APP)
 	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app' $(SCAN_APP)
-	mv 'build/package/Applications/$(INSTALL_FOLDER)/$(LOGIN_DISPNAME).app' $(LOGIN_APP)
 	rm -rf build/package/Applications
 	@cd build ; rmdir -p package
 
@@ -463,6 +460,8 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_CT)/Info.plist \
 	\
+	$(LOGIN_APP) \
+	\
 	$(APP_CT)/Resources/droplet.icns \
 	$(APP_CT)/Resources/docbg.png \
 	\
@@ -569,7 +568,7 @@ $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
 
 $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
 	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'	
+	cp '$<' '$@'
 
 $(APP_CT)/Resources/NMH/epichromeruntimehost_$(VERSION): src/epichromeruntimehost.py src/version.sh
 	@mkdir -p '$(dir $@)'
@@ -631,7 +630,7 @@ $(PROGRESS_CT)/Resources/Scripts/%.sh: src/progress/%.sh
 
 
 # # CREATE-PAYLOAD APP  $$$ DELETE
-# 
+#
 # $(PAYLOAD_APP): $(PAYLOAD_CT)/MacOS/EpichromePayload \
 # 		$(PAYLOAD_CT)/Resources/MainMenu.nib \
 # 		$(PAYLOAD_CT)/Resources/AppSettings.plist \
@@ -639,11 +638,11 @@ $(PROGRESS_CT)/Resources/Scripts/%.sh: src/progress/%.sh
 # 		$(PAYLOAD_CT)/Info.plist \
 # 		$(PAYLOAD_CT)/Resources/script \
 # 		$(PAYLOAD_CT)/Resources/app.icns
-# 
+#
 # $(PAYLOAD_CT)/MacOS/EpichromePayload \
 # 	$(PAYLOAD_CT)/Resources/MainMenu.nib \
 # 	$(PAYLOAD_CT)/Resources/AppSettings.plist: payload-core
-# 
+#
 # payload-core:
 # 	@rm -rf $(PAYLOAD_APP)
 # 	@touch build/fake.icns build/fake.sh
@@ -659,20 +658,20 @@ $(PROGRESS_CT)/Resources/Scripts/%.sh: src/progress/%.sh
 # 		--optimize-nib \
 # 		build/fake.sh $(PAYLOAD_APP)
 # 	@rm $(PAYLOAD_CT)/Info.plist $(PAYLOAD_CT)/Resources/*.icns $(PAYLOAD_CT)/Resources/script
-# 
+#
 # $(PAYLOAD_CT)/Info.plist: src/payload/Info.plist src/version.sh
 # 	@mkdir -p '$(dir $@)'
 # 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
-# 
+#
 # $(PAYLOAD_CT)/Resources/script: src/payload/PayloadExec src/version.sh
 # 	@mkdir -p $(dir $@)
 # 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
 # 	chmod 755 $@
-# 
+#
 # $(PAYLOAD_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
 # 	@mkdir -p $(dir $@)
 # 	cp $< $@
-# 
+#
 
 # *** RUNTIME CORE ***
 
@@ -906,22 +905,23 @@ build/engine_tmp/brave_recodesign.sh:
 	printf "codesign -s '$(CODESIGN_IDENTITY)' -vv --identifier org.epichrome.engine.brave" > '$@'
 	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/$(BRAVE_SRC)/Contents/MacOS/Brave Browser' 2>&1)" && \
 	ents="<?xml$${opts##*<?xml}" && \
-	touch 'build/engine_tmp/brave_entitlements.plist' && \
+	entfile='build/engine_tmp/brave_entitlements.plist' && \
+	touch "$$entfile" && \
 	if [[ "$$opts" =~ flags=0x[0-9a-z]+\(([^ ]+)\) ]] ; then \
 		if [[ "$${BASH_REMATCH[1]}" != 'none' ]] ; then \
 			printf " --options \"$${BASH_REMATCH[1]}\"" >> '$@' ; \
 			if [[ "$$ents" != "$$opts" ]] ; then \
-				echo "$$ents" > 'build/engine_tmp/brave_entitlements.plist' ; \
-				printf " --entitlements 'build/engine_tmp/brave_entitlements.plist'" >> '$@' ; \
+				echo "$$ents" > "$$entfile" ; \
+				printf " --entitlements '$$entfile'" >> '$@' ; \
 				pbcmds=() ; \
-				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' > /dev/null ; then \
+				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$$entfile" > /dev/null ; then \
 					pbcmds+=( -c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave' ) ; \
 				fi ; \
-				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' > /dev/null ; then \
+				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' "$$entfile" > /dev/null ; then \
 					pbcmds+=( -c 'Delete :keychain-access-groups' ) ; \
 				fi ; \
 				if [[ "$${pbcmds[*]}" ]] ; then \
-					/usr/libexec/PlistBuddy "$${pbcmds[@]}" 'build/engine_tmp/brave_entitlements.plist' ; \
+					/usr/libexec/PlistBuddy "$${pbcmds[@]}" "$$entfile" ; \
 				fi ; \
 			fi ; \
 		fi ; \
