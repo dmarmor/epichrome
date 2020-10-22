@@ -729,22 +729,23 @@ build/engine_tmp/brave_recodesign.sh:
 	printf "codesign -s '$(CODESIGN_IDENTITY)' -vv --identifier org.epichrome.engine.brave" > '$@'
 	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/$(BRAVE_SRC)/Contents/MacOS/Brave Browser' 2>&1)" && \
 	ents="<?xml$${opts##*<?xml}" && \
-	touch 'build/engine_tmp/brave_entitlements.plist' && \
+	entfile='build/engine_tmp/brave_entitlements.plist' && \
+	touch "$$entfile" && \
 	if [[ "$$opts" =~ flags=0x[0-9a-z]+\(([^ ]+)\) ]] ; then \
 		if [[ "$${BASH_REMATCH[1]}" != 'none' ]] ; then \
 			printf " --options \"$${BASH_REMATCH[1]}\"" >> '$@' ; \
 			if [[ "$$ents" != "$$opts" ]] ; then \
-				echo "$$ents" > 'build/engine_tmp/brave_entitlements.plist' ; \
-				printf " --entitlements 'build/engine_tmp/brave_entitlements.plist'" >> '$@' ; \
+				echo "$$ents" > "$$entfile" ; \
+				printf " --entitlements '$$entfile'" >> '$@' ; \
 				pbcmds=() ; \
-				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' > /dev/null ; then \
+				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$$entfile" > /dev/null ; then \
 					pbcmds+=( -c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave' ) ; \
 				fi ; \
-				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' > /dev/null ; then \
+				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' "$$entfile" > /dev/null ; then \
 					pbcmds+=( -c 'Delete :keychain-access-groups' ) ; \
 				fi ; \
 				if [[ "$${pbcmds[*]}" ]] ; then \
-					/usr/libexec/PlistBuddy "$${pbcmds[@]}" 'build/engine_tmp/brave_entitlements.plist' ; \
+					/usr/libexec/PlistBuddy "$${pbcmds[@]}" "$$entfile" ; \
 				fi ; \
 			fi ; \
 		fi ; \
