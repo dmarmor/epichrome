@@ -537,7 +537,7 @@ function initlogfile {
         
         # make sure we have a directory for the log file
         try /bin/mkdir -p "${myLogFile%/*}" \
-                'Unable to create log directory.'        
+                'Unable to create log directory.'
     fi
     
     if [[ "$ok" ]] ; then
@@ -1037,7 +1037,7 @@ function abort {
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
             local buttons=( '+Quit' )
-            [[ "$logNoFile" ]] || buttons+=( '-View Log' )
+            [[ "$logNoFile" ]] || buttons+=( '-View Log & Quit' )
             local choice=
             dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
             if [[ "$choice" = 'View Log' ]] ; then
@@ -1830,7 +1830,7 @@ function importarray {
 	local curVar=
 	for curVar in "$@" ; do
 		eval "eval \"\$${curVar}_array\""
-	done    
+	done
 }
 # $$$$ export -f importarray
 

@@ -439,6 +439,16 @@ a:active {
     margin-bottom: 1em;
 }
 
+.loginscan_text {
+    flex-direction: row;
+    align-items: center;
+}
+img.loginscan_icon {
+    width: 56px;
+    height: 56px;
+    margin-right: 1em;
+}
+
 .epichromeruntimestatus.runtime_status_off {
     background: #ffe0e0;
 }

@@ -301,10 +301,15 @@ function buildPage() {
     }
 
     // SHOW/HIDE ACTION ITEMS
-
+    
+    // show login scan message if needed
+    if (oldVersion && vcmp(oldVersion, '2.4.0b4') < 0) {
+        setDisplay('#loginscan');
+    }
+    
     // set appropriate runtime extension message
     setDisplayGroup('group_rt', runtimeAction);
-
+    
     // show passwords message if needed
     if (activePassword != null) { setDisplayGroup('group_pw', activePassword); }
 

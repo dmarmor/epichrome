@@ -19,10 +19,12 @@
 /app/build
 /app/icons/**
 /app/runtime/**
-/app/src/welcome/img/ext
+/app/src/welcome/vcmp.js
+/app/src/welcome/img/app_icon.png
 /app/src/welcome/img/bookmark.png
 /app/src/welcome/img/epichrome_icon.png
-/app/src/welcome/img/app_icon.png
+/app/src/welcome/img/ext
+/app/src/welcome/img/scan_icon.png
 /app/test/icons/*.png
 /builder/**
 /dmg/images/*.png

@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   <title>App (EPIVERSION)</title>
   <link rel="stylesheet" type="text/css" href="welcome.css" />
   <link rel="shortcut icon" href="img/app_icon.png" type="image/png">
+  <script src="vcmp.js"></script>
   <script src="welcome.js"></script>
 
 </head>
@@ -106,13 +107,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <li>Epichrome apps can now be edited by dropping them on Epichrome.app!</li>
                   <li>Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID</li>
                   <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
-                  <li>Added two new apps, <span class="folder_name">Epichrome Scan.app</span> and <span class="folder_name">Epichrome Login.app</span> to restore apps left in an unlaunchable state after a crash</li>
+                  <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, <span class="folder_name">Epichrome Scan.app</span>, to do the same manually</li>
                   <li>Checking GitHub for updates is now unified across all apps and Epichrome itself, so when a new update is found, you will only receive one notification</li>
                   <li>Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)</li>
                   <li>Many other improvements and bug fixes...</li>
                 </ul>
               </div>
-              <!-- begin hide for x.x.0 releases 
+              <!-- begin hide for x.x.0 releases
               <div id="changes_major" class="change_list changes_major">
                 <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
                 <ul>
@@ -136,6 +137,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
           <div id="actions_list" class="actions_list">
 
+            <!-- LOGIN SCAN -->
+            <div id="loginscan" class="item hide">
+              <div id="loginscan_num" class="itemnum"></div>
+              <div class="action_container">
+                <h3>Run Epichrome To Enable Login Scan</h3>
+                <div class="loginscan_text">
+                  <img class="loginscan_icon" src="img/scan_icon.png" alt="Epichrome Scan icon" />
+                  <p>Epichrome EPIMAJORVERSION is designed to run a brief scan at login to ensure your apps are ready to use. To enable this, please run Epichrome. It will display a dialog with information and ask to enable the scan.</p>
+                </div>
+              </div>
+            </div> <!-- #bookmark -->
+            
             <!-- EPICHROME RUNTIME -->
             <div id="epichromeruntimestatus" class="item epichromeruntimestatus runtime_status_off">
               <div id="runtime_num" class="itemnum"></div>
@@ -241,7 +254,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                   <img src="img/bookmark.png" alt="Bookmarks->Bookmark This Tab..." />
                 </div>
               </div>
-            </div>
+            </div> <!-- #bookmark -->
 
           </div> <!-- #actions_list -->
         </div> <!-- #actions -->

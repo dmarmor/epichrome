@@ -49,7 +49,8 @@ const kDotSuccess = '✅'; // ✔️
 const kDotError = '🚫';
 const kDotSkip = '✖️'; // ◼️
 const kDotWarning = '⚠️';
-const kDotAdvanced = '⚙️';
+const kDotGear = '⚙️';
+const kDotInfo = 'ℹ️';
 
 // app info and their summary headers
 const kAppInfoKeys = {
@@ -62,8 +63,8 @@ const kAppInfoKeys = {
     registerBrowser: 'Register as Browser',
     icon: 'Icon',
     engine: 'App Engine',
-    id: kDotAdvanced + ' App ID / Data Directory',
-    updateAction: kDotAdvanced + ' Update Action'
+    id: kDotGear + ' App ID / Data Directory',
+    updateAction: kDotGear + ' Update Action'
 };
 
 // app defaults & settings
@@ -130,6 +131,7 @@ const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
 
 // app resources
 const kEpiIcon = kApp.pathToResource("droplet.icns");
+const kEpiScanIcon = kApp.pathToResource("scan.icns");
 
 // general utility
 const kDay = 24 * 60 * 60 * 1000;
@@ -149,12 +151,18 @@ const kStepResultSKIP = 4;
 
 // --- GLOBAL VARIABLES ---
 
+// last run version of Epichrome
+let gEpiLastVersion = '';
+
 // Epichrome state
 let gEpiLastDir = {
     create: null,
     edit: null,
     icon: null
 }
+
+// state of EpichromeLogin installation
+let gEpiLoginScanEnabled = 'unset';
 
 // list of Epichrome locations where a default app directory has been created
 let gEpiDefaultAppDirCreated = [];
@@ -210,43 +218,17 @@ function main(aApps=[]) {
     // wrap everything in a try to catch all errors
     try {
         
+        // collect modifier keys for bringing up preferences
+        // https://apple.stackexchange.com/questions/352236/detect-if-ctrl-key-is-pressed
+        ObjC.import('Cocoa');
+        let iDoPrefs = Boolean($.NSEvent.modifierFlags & $.NSEventModifierFlagOption);
+        
         // bring app to the front
         kApp.activate();
         
+        
         // APP INIT
         
-        // $$$ TEST OUT LOGIN ITEM THINGY
-        
-        ObjC.import('ServiceManagement');
-        // ObjC.bindFunction('CFMakeCollectable', [ 'id', [ 'void *' ] ]);
-        // Ref.prototype.toNS = function() { return $.CFMakeCollectable(this); }
-        const myID = 'org.epichrome.Login';
-        
-        let foo = $.SMCopyAllJobDictionaries($.kSMDomainUserLaunchd);
-        foo = foo.toNS().js;
-        
-        let moo = true;
-        for (let x of foo) {
-            if (x.js.Label.js == myID) {
-                moo = false;
-                if ($.SMLoginItemSetEnabled($(myID), false)) {
-                    dialog('Login item REMOVED successfully!');
-                } else {
-                    dialog('Login item failed to REMOVE!');
-                }
-                break;
-            }
-        }
-        if (moo) {
-            // use false to remove
-            if ($.SMLoginItemSetEnabled($(myID), true)) {
-                dialog('Login item installed successfully!');
-            } else {
-                dialog('Login item failed to install!');
-            }
-        }
-        // $$$$ END TEST
-                
         // set up data path & settings file
         gCoreInfo = {};
         try {
@@ -293,13 +275,64 @@ function main(aApps=[]) {
         }
         
         
-        // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
+        throw(Error('$$$ AN ERROR AFTER!!! logs started.'));
 
+        // OFFER TO INSTALL LOGIN ITEM IF NOT PREVIOUSLY SET
+        
+        let iLoginScanIsEnabled = loginScanGetState();
+        
+        if ((gEpiLoginScanEnabled === true) && !iLoginScanIsEnabled) {
+            loginScanSetState(true);
+        } else if (gEpiLoginScanEnabled == 'unset') {
+            if (iLoginScanIsEnabled) {
+                gEpiLoginScanEnabled = true;
+                dialog('The Epichrome login scan was found already enabled.\n\n' +
+                'If you wish to disable it, you can do so by holding down the Option key while starting Epichrome.', {
+                    withTitle: 'Login Scan Enabled',
+                    withIcon: kEpiScanIcon,
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+            } else {
+                while (true) {
+                    if (dialog("By default, Epichrome runs a brief scan at login to ensure your apps are ready to use. It is strongly recommended you enable this.\n\n" +
+                    
+                    "You can change your setting later by holding down the Option key while starting Epichrome.\n\n" +
+                    
+                    kDotInfo + " Epichrome 2.4 apps \"hot-swap\" their engine into the app at launch. In most respects, this is an improvement over 2.3, but if your computer crashes with apps running, they can be left in an unusable state. This scan silently fixes any apps left in this state.", {
+                        withTitle: 'Login Scan',
+                        withIcon: kEpiScanIcon,
+                        buttons: ['Enable', 'Disable'],
+                        defaultButton: 1
+                    }).buttonIndex == 0) {
+                        
+                        // enable login item
+                        loginScanSetState(true);
+                        break;
+                    } else if (confirmDisableLoginScan()) {
+                        gEpiLoginScanEnabled = false;
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
+            }
+        }
+        
+        
+        // RUN PREFS IF REQUESTED
+        if (iDoPrefs) {
+            editPreferences();
+        }
+        
+        
+        // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
+        
         if (aApps.length == 0) {
 
             while (true) {
                 // no dropped files, so ask user for run mode
-                let myDlgResult = dialog('Would you like to create a new app, or edit existing apps?', {
+                let myDlgResult = dialog('Would you like to create a new app or edit existing apps?\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)', {
                     withTitle: 'Select Action | Epichrome EPIVERSION',
                     withIcon: kEpiIcon,
                     buttons: ['Create', 'Edit', 'Quit'],
@@ -337,18 +370,20 @@ function main(aApps=[]) {
                 }
             }
         } else {
-
+            
             // we have dropped apps, so go straight to edit
             return runEdit(aApps);
         }
     } catch(myErr) {
         errlog(myErr.message, 'FATAL');
-        kApp.displayDialog("Fatal error: " + myErr.message, {
+        if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
-            buttons: ["Quit"],
+            buttons: ['Report Error & Quit', 'Quit'],
             defaultButton: 1
-        });
+        }).buttonIndex == 0) {
+            reportError('Epichrome reports fatal error: "' + myErr.message + '"');
+        }
     }
 }
 
@@ -807,7 +842,12 @@ function readProperties() {
     // SET PROPERTIES FROM THE FILE AND INITIALIZE ANY PROPERTIES NOT FOUND
 
     // EPICHROME SETTINGS
-
+    
+    // lastVersion
+    if (typeof myProperties["lastVersion"] === 'string') {
+        gEpiLastVersion = myProperties["lastVersion"];
+    }
+    
     // lastAppCreatePath (fall back to old lastAppPath)
 	if (typeof myProperties["lastAppCreatePath"] === 'string') {
         gEpiLastDir.create = myProperties["lastAppCreatePath"];
@@ -826,7 +866,12 @@ function readProperties() {
     if (typeof myProperties["lastIconPath"] === 'string') {
         gEpiLastDir.icon = myProperties["lastIconPath"];
     }
-
+    
+    // loginScanEnabled
+	if (typeof myProperties["loginScanEnabled"] === 'boolean') {
+        gEpiLoginScanEnabled = myProperties["loginScanEnabled"];
+    }
+    
     // defaultAppDirCreated
 	if (myProperties["defaultAppDirCreated"] instanceof Array) {
         gEpiDefaultAppDirCreated = myProperties["defaultAppDirCreated"];
@@ -998,6 +1043,18 @@ function writeProperties() {
             name: gCoreInfo.settingsFile
         }).make();
         
+        // EPICHROME STATE
+        
+        // our version of Epichrome is now the last to run
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"string",
+                name:"lastVersion",
+                value:kVersion
+            })
+        );
+        
+        // last-used app paths
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
@@ -1012,7 +1069,6 @@ function writeProperties() {
                 value:gEpiLastDir.edit
             })
         );
-        // fill property list with Epichrome state
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind: "string",
@@ -1020,6 +1076,17 @@ function writeProperties() {
                 value: gEpiLastDir.icon
             })
         );
+        
+        if (typeof gEpiLoginScanEnabled === 'boolean') {
+            myProperties.propertyListItems.push(
+                kSysEvents.PropertyListItem({
+                    kind: "boolean",
+                    name: "loginScanEnabled",
+                    value: gEpiLoginScanEnabled
+                })
+            );
+        }
+        
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind: "list",
@@ -1027,6 +1094,7 @@ function writeProperties() {
                 value: gEpiDefaultAppDirCreated
             })
         );
+        
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
@@ -1035,7 +1103,9 @@ function writeProperties() {
             })
         );
         
-        // fill property list with app state
+        
+        // APP STATE
+        
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
@@ -2372,7 +2442,7 @@ function stepBuild(aInfo) {
 
             // create summary of the app
             myAppSummary = 'Ready to create!\n\n' +
-                Object.entries(aInfo.appInfoStatus).filter(x => x[1].buildSummary && (aInfo.stepInfo.showAdvanced || (typeof(kAppInfoKeys[x[0]]) != 'string') || !kAppInfoKeys[x[0]].startsWith(kDotAdvanced))).map(x => x[1].buildSummary).join('\n\n');
+                Object.entries(aInfo.appInfoStatus).filter(x => x[1].buildSummary && (aInfo.stepInfo.showAdvanced || (typeof(kAppInfoKeys[x[0]]) != 'string') || !kAppInfoKeys[x[0]].startsWith(kDotGear))).map(x => x[1].buildSummary).join('\n\n');
             myActionButton = 'Create';
         } else {
 
@@ -2385,7 +2455,7 @@ function stepBuild(aInfo) {
                 if (curItem.buildSummary &&
                     (aInfo.stepInfo.showAdvanced ||
                         typeof(kAppInfoKeys[curKey]) != 'string') ||
-                        !kAppInfoKeys[curKey].startsWith(kDotAdvanced)) {
+                        !kAppInfoKeys[curKey].startsWith(kDotGear)) {
                     if (curItem.changed) {
                         myChangedSummary.push(curItem.buildSummary);
                     } else {
@@ -2430,7 +2500,7 @@ function stepBuild(aInfo) {
         }
 
         // display summary
-        myDlgResult = stepDialog(aInfo, myAppSummary, {buttons: [myActionButton, kDotAdvanced + ' Advanced Settings']}).buttonIndex;
+        myDlgResult = stepDialog(aInfo, myAppSummary, {buttons: [myActionButton, kDotGear + ' Advanced Settings']}).buttonIndex;
         if (myDlgResult == 1) {
             // ADVANCED button
             aInfo.stepInfo.showAdvanced = true;
@@ -2633,7 +2703,7 @@ function stepBuild(aInfo) {
             try {
                 launchApp(aInfo.appInfo.file.path);
             } catch(myErr) {
-                kApp.displayDialog(myErr.message + ' Please try launching from the Finder.', {
+                dialog(myErr.message + ' Please try launching from the Finder.', {
                     withTitle: 'Unable to Launch',
                     withIcon: 'caution',
                     buttons: ['OK'],
@@ -2652,6 +2722,91 @@ function stepBuild(aInfo) {
 
     // we're finished! quit
     return false;
+}
+
+
+// --- PREFERENCES ---
+
+// EDITPREFERENCES: edit Epichrome preferences
+function editPreferences() {
+    while (true) {
+        let iDlgResult = dialog(' Epichrome login scan is ' + (gEpiLoginScanEnabled ? 'enabled' : 'disabled') + '.', {
+            withTitle: 'Login Scan | Epichrome ' + kVersion,
+            withIcon: kEpiScanIcon,
+            buttons: [(gEpiLoginScanEnabled ? 'Disable' : 'Enable'), 'Done'],
+            defaultButton: 2
+        }).buttonIndex;
+        if (iDlgResult == 0) {
+            // if disabling, confirm first
+            if (gEpiLoginScanEnabled && !confirmDisableLoginScan()) {
+                continue;
+            }
+            
+            // change state
+            loginScanSetState(!gEpiLoginScanEnabled);
+            break;
+        } else {
+            break;
+        }
+    }
+}
+
+
+// CONFIRMDISABLELOGINSCAN: confirm dialog for disabling login scan
+function confirmDisableLoginScan() {
+    return (dialog("Are you sure you want to disable the login scan? If any apps are running during a system crash, you'll need to fix them manually by running the \"Epichrome Scan\" app, installed alongside Epichrome.", {
+        withTitle: 'Confirm',
+        withIcon: kEpiScanIcon,
+        buttons: ['No', 'Yes'],
+        defaultButton: 1
+    }).buttonIndex == 1);
+}
+
+
+// --- LOGIN ITEM FUNCTIONS ---
+
+ObjC.import('ServiceManagement');
+const kLoginScanID = 'org.epichrome.Login';
+
+// LOGINSCANGETSTATE: return true if login item is installed or false if not
+function loginScanGetState() {
+    
+    let iLoginItems = $.SMCopyAllJobDictionaries($.kSMDomainUserLaunchd).toNS().js;
+    
+    for (let curItem of iLoginItems) {
+        if (curItem.js.Label.js == kLoginScanID) {
+            return true;
+        }
+    }
+    
+    // if we got here, we didn't find it
+    return false;
+}
+
+
+// LOGINSCANSETSTATE: return true if login item is installed or false if not
+function loginScanSetState(aNewState) {
+    if ($.SMLoginItemSetEnabled($(kLoginScanID), aNewState)) {
+        
+        // success
+        gEpiLoginScanEnabled = aNewState;
+        
+    } else {
+        
+        // error alert
+        let iNewStateVerb = (aNewState ? 'enable' : 'disable');
+        if (dialog('Unable to ' + iNewStateVerb + ' Epichrome login item.' + ((gEpiLoginScanEnabled == 'unset') ? ' You can try again to ' + iNewStateVerb + ' it by holding down the Option key next time you run Epichrome.' : '') + '\n\nIf the problem persists, please report it on GitHub.', {
+            withTitle: 'Login Scan Not ' + iNewStateVerb.charAt(0).toUpperCase() + iNewStateVerb.slice(1) + 'd',
+            withIcon: 'caution',
+            buttons: ['OK', 'Report Error'],
+            defaultButton: 1
+        }).buttonIndex == 1) {
+            
+            // report error
+            reportError('Unable to ' + iNewStateVerb + ' login scan');
+        }
+        gEpiLoginScanEnabled = loginScanGetState();
+    }
 }
 
 
@@ -3061,56 +3216,6 @@ function engineName(aEngine, aCapType=true) {
 }
 
 
-// VCMP: compare version numbers (v1 < v2: -1, v1 == v2: 0, v1 > v2: 1)
-function vcmp (v1, v2) {
-
-    // regex for pulling out version parts
-    const vRe='^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$';
-
-    // array for comparable version integers
-    var vStr = [];
-
-    // munge version numbers into comparable integers
-    for (const curV of [ v1, v2 ]) {
-
-        let vmaj, vmin, vbug, vbeta, vbuild;
-
-        const curMatch = curV.match(vRe);
-
-        if (curMatch) {
-
-            // extract version number parts
-            vmaj   = parseInt(curMatch[1]);
-            vmin   = parseInt(curMatch[2]);
-            vbug   = parseInt(curMatch[3]);
-            vbeta  = (curMatch[5] ? parseInt(curMatch[5]) : 1000);
-            vbuild = (curMatch[7] ? parseInt(curMatch[7]) : 10000);
-        } else {
-
-            // unable to parse version number
-            console.log('Unable to parse version "' + curV + '"');
-            vmaj = vmin = vbug = vbeta = vbuild = 0;
-        }
-
-        // add to array
-        vStr.push(vmaj.toString().padStart(3,'0')+'.'+
-                  vmin.toString().padStart(3,'0')+'.'+
-                  vbug.toString().padStart(3,'0')+'.'+
-                  vbeta.toString().padStart(4,'0')+'.'+
-                  vbuild.toString().padStart(5,'0'));
-    }
-
-    // compare version strings
-    if (vStr[0] < vStr[1]) {
-        return -1;
-    } else if (vStr[0] > vStr[1]) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-
 // --- APP ID FUNCTIONS ---
 
 // APPIDISUNIQUE: check if an app ID is unique on the system
@@ -3316,6 +3421,24 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
 }
 
 
+// REPORTERROR: report an error to GitHub
+function reportError(aTitle) {
+    
+    // attempt to read in log
+    let iLog = '';
+    if (gCoreInfo && gCoreInfo.logFile) {
+        let iIgnoreErr;
+        try {
+            iLog = kApp.read(Path(gCoreInfo.logFile));
+            iLog = "\n\n[Below is a log of this run of Epichrome, which may be helpful in diagnosing this error. Please redact any paths or information you're not comfortable sharing before posting this issue.]\n\n```\n" + iLog + '\n```'
+        } catch(iIgnoreErr) {}
+    }
+    
+    kApp.openLocation('https://github.com/dmarmor/epichrome/issues/new?title=' +
+        encodeURIComponent(aTitle) + '&body=' + encodeURIComponent('[Please provide as much detail as you can about how this error occurred.]' + iLog));
+}
+
+
 // CONFIRMQUIT: confirm quit
 function confirmQuit(aMessage='') {
 
@@ -3512,7 +3635,7 @@ function indent(aStr, aIndent) {
 
 // ERRLOG -- log an error message
 function errlog(aMsg, aType='ERROR') {
-    if (gCoreInfo.logFile) {
+    if (gCoreInfo && gCoreInfo.logFile) {
         shell(
             'epiAction=log',
             'epiLogType=' + aType,

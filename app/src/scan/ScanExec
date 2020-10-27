@@ -239,6 +239,18 @@ function finalprogressmsg {
 initlogfile
 
 
+# MAKE SURE SCAN ISN'T ALREADY RUNNING
+
+# get PIDs of all running scans
+/usr/bin/pgrep -fiq '/Contents/MacOS/Epichrome( ?)(Scan|Login)( |$)' > /dev/null 2>&1
+pgrepResult="$?"
+if [[ "$pgrepResult" = 0 ]] ; then
+    abort 'Another scan is already running.'
+elif [[ "$pgrepResult" != 1 ]] ; then
+    abort 'Unable to get list of running scans.'
+fi
+
+
 # LOAD LAUNCH FUNCTIONS
 
 safesource "$myScriptPath/launch.sh"

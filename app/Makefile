@@ -464,6 +464,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_CT)/Resources/droplet.icns \
 	$(APP_CT)/Resources/docbg.png \
+	$(APP_CT)/Resources/scan.icns \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
 	$(APP_CT)/Resources/Scripts/legacy.sh \
@@ -502,11 +503,13 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.js \
+	$(APP_RNTM)/Contents/Resources/Welcome/vcmp.js \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/bookmark.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/ext_generic_icon.png \
 	$(APP_RNTM)/Contents/Resources/Welcome/img/passwords_button.png \
+	$(APP_RNTM)/Contents/Resources/Welcome/img/scan_icon.png \
 	\
 	$(APP_RNTM)/Engine/Filter/Info.plist \
 	$(APP_RNTM)/Engine/Payload \
@@ -517,7 +520,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet \
 $(APP_CT)/Resources/droplet.rsrc \
-$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/libapp.js src/version.sh main
+$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/vcmp.js src/libapp.js src/version.sh main
 
 main:
 	@mkdir -p build
@@ -525,7 +528,8 @@ main:
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
 		src/main.js > build/main.js
 	echo >> build/main.js
-	cat src/libapp.js >> build/main.js
+	cat src/vcmp.js >> build/main.js
+	cat src/libapp.js >> build/main.js  # EVENTUALLY OPTIMIZE MAIN.JS?
 	osacompile -l JavaScript -x -o build/main.app build/main.js
 	chmod 444 build/main.app/Contents/Resources/Scripts/main.scpt  # lock main.scpt so it doesn't get altered with each run
 	@mv build/main.app build/main
@@ -555,6 +559,10 @@ $(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	cp '$<' '$@'
 
 $(APP_CT)/Resources/docbg.png: ../images/icons/docbg.png
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
+$(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
@@ -799,11 +807,19 @@ $(APP_RNTM)/Contents/Resources/Welcome/welcome.%: src/welcome/welcome.%
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png: build/img/app_icon$(BETA).png
+$(APP_RNTM)/Contents/Resources/Welcome/vcmp.js: src/vcmp.js
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
+$(APP_RNTM)/Contents/Resources/Welcome/img/app_icon.png: build/img/app_icon$(BETA).png src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
 $(APP_RNTM)/Contents/Resources/Welcome/img/epichrome_icon.png: build/img/epichrome_icon.png
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
+$(APP_RNTM)/Contents/Resources/Welcome/img/scan_icon.png: build/img/scan_icon$(BETA).png src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
@@ -816,6 +832,10 @@ build/img/app_icon$(BETA).png: ../images/icons/app$(BETA).png
 	sips -z 128 128 $< --out $@
 
 build/img/epichrome_icon.png: ../images/icons/app.png
+	@mkdir -p '$(dir $@)'
+	sips -z 128 128 $< --out $@
+
+build/img/scan_icon$(BETA).png: ../images/icons/scan_app$(BETA).png
 	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 
@@ -980,7 +1000,7 @@ engine: build/engine/Brave
 
 # SCAN APP DEPENDENCIES
 
-$(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
+$(SCAN_APP): $(SCAN_CT)/MacOS/EpichromeScan \
 	$(SCAN_CT)/Resources/MainMenu.nib \
 	$(SCAN_CT)/Resources/AppSettings.plist \
 	\
@@ -997,7 +1017,7 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/Epichrome\ Scan \
 
 # LOGIN APP DEPENDENCIES
 
-$(LOGIN_APP): $(LOGIN_CT)/MacOS/Epichrome\ Login \
+$(LOGIN_APP): $(LOGIN_CT)/MacOS/EpichromeLogin \
 		\
 		$(LOGIN_CT)/Info.plist \
 		$(LOGIN_CT)/Resources/app.icns \
@@ -1010,14 +1030,14 @@ $(LOGIN_APP): $(LOGIN_CT)/MacOS/Epichrome\ Login \
 
 # SCAN APP ELEMENTS
 
-$(SCAN_CT)/MacOS/Epichrome\ Scan \
+$(SCAN_CT)/MacOS/EpichromeScan \
 	$(SCAN_CT)/Resources/MainMenu.nib \
 	$(SCAN_CT)/Resources/AppSettings.plist: scan-core
 
 scan-core:
 	@rm -rf $(SCAN_APP)
 	@touch build/fake.icns build/fake.sh
-	platypus --name 'Epichrome Scan' \
+	platypus --name 'EpichromeScan' \
 		--interface-type 'Progress Bar' \
 		--app-icon build/fake.icns \
 		--interpreter /bin/bash \
@@ -1039,11 +1059,11 @@ $(LOGIN_CT)/Info.plist: src/scan/Info.plist.login src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	sed 's/LOGINDISPNAME/$(LOGIN_DISPNAME)/g; s/LOGINSHORTNAME/$(LOGIN_SHORTNAME)/g; s/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
 
-$(LOGIN_CT)/MacOS/Epichrome\ Login: SCAN_MODE:=login
+$(LOGIN_CT)/MacOS/EpichromeLogin: SCAN_MODE:=login
 
 $(SCAN_CT)/Resources/script: SCAN_MODE:=scan
 	
-$(SCAN_CT)/Resources/script $(LOGIN_CT)/MacOS/Epichrome\ Login: src/scan/ScanExec
+$(SCAN_CT)/Resources/script $(LOGIN_CT)/MacOS/EpichromeLogin: src/scan/ScanExec
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	sed -e 's/EPISCANMODE/$(SCAN_MODE)/g' '$<' > '$@'
 	chmod 755 '$@'
