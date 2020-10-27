@@ -499,6 +499,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_RNTM)/Contents/Resources/Scripts/filter.sh \
 	$(APP_RNTM)/Contents/Resources/Scripts/json.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/launch.sh \
+	$(APP_RNTM)/Contents/Resources/Scripts/reporterr.js \
 	$(APP_RNTM)/Contents/Resources/Scripts/runprogress.sh \
 	\
 	$(APP_RNTM)/Contents/Resources/Welcome/welcome.css \
@@ -520,7 +521,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 
 $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet \
 $(APP_CT)/Resources/droplet.rsrc \
-$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/vcmp.js src/libapp.js src/version.sh main
+$(APP_CT)/Resources/Scripts/main.scpt: src/main.js src/libapp.js src/libreporterr.js src/vcmp.js src/version.sh main
 
 main:
 	@mkdir -p build
@@ -528,8 +529,9 @@ main:
 	sed -e 's/EPIVERSION/$(VERSION)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' \
 		src/main.js > build/main.js
 	echo >> build/main.js
-	cat src/vcmp.js >> build/main.js
 	cat src/libapp.js >> build/main.js  # EVENTUALLY OPTIMIZE MAIN.JS?
+	cat src/libreporterr.js >> build/main.js
+	cat src/vcmp.js >> build/main.js
 	osacompile -l JavaScript -x -o build/main.app build/main.js
 	chmod 444 build/main.app/Contents/Resources/Scripts/main.scpt  # lock main.scpt so it doesn't get altered with each run
 	@mv build/main.app build/main
@@ -765,6 +767,12 @@ $(APP_RNTM)/Contents/Resources/Scripts/apputil.js: src/apputil.js src/libapp.js
 	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 	echo >> '$@'
 	cat 'src/libapp.js' >> '$@'
+
+$(APP_RNTM)/Contents/Resources/Scripts/reporterr.js: src/reporterr.js src/libreporterr.js
+	@mkdir -p '$(dir $@)'
+	sed 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
+	echo >> '$@'
+	cat 'src/libreporterr.js' >> '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/%.js: src/%.js
 	@mkdir -p '$(dir $@)'
@@ -1012,7 +1020,8 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/EpichromeScan \
 	$(SCAN_CT)/Resources/Scripts/filter.sh \
 	$(SCAN_CT)/Resources/Scripts/apputil.js \
 	$(SCAN_CT)/Resources/Scripts/launch.sh \
-	$(SCAN_CT)/Resources/Scripts/progress.sh
+	$(SCAN_CT)/Resources/Scripts/progress.sh \
+	$(SCAN_CT)/Resources/Scripts/reporterr.js
 
 
 # LOGIN APP DEPENDENCIES
@@ -1089,5 +1098,9 @@ $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
 	cp '$<' '$@'
 
 $(SCAN_CT)/Resources/Scripts/apputil.js $(LOGIN_CT)/Resources/Scripts/apputil.js: $(APP_RNTM)/Contents/Resources/Scripts/apputil.js
+	@dir='$@' ; mkdir -p "$${dir%/*}"
+	cp -a '$<' '$@'
+
+$(SCAN_CT)/Resources/Scripts/reporterr.js: $(APP_RNTM)/Contents/Resources/Scripts/reporterr.js
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'

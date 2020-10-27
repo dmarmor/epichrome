@@ -379,7 +379,7 @@ function main(aApps=[]) {
         if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
-            buttons: ['Report Error & Quit', 'Quit'],
+            buttons: ['Quit & Report Error', 'Quit'],
             defaultButton: 1
         }).buttonIndex == 0) {
             reportError('Epichrome reports fatal error: "' + myErr.message + '"');
@@ -785,8 +785,8 @@ function runEdit(aApps) {
         } else {
 
             // if errors encountered, add log button
-            if (myHasError && hasLogFile()) {
-                myDlgButtons.push('View Log & Quit');
+            if (myHasError) {
+                myDlgButtons.push('Quit & Report Error');
             }
 
             // build summary message
@@ -804,16 +804,14 @@ function runEdit(aApps) {
         }
 
         // show summary
-        let myDlgResult = kApp.displayDialog(myDlgMessage, {
+        if (dialog(myDlgMessage, {
             withTitle: 'Summary',
             withIcon: kEpiIcon,
             buttons: myDlgButtons,
             defaultButton: 1
-        }).buttonReturned;
-
-        if (myDlgResult != 'Quit') {
-            // show log
-            showLogFile();
+        }).buttonIndex != 0) {
+            // report errors
+            reportError('Epichrome encountered errors ' + (myDoEdit ? 'editing' : 'updating') + ' apps');
         }
     }
 }
@@ -1297,24 +1295,14 @@ function doSteps(aSteps, aInfo, aOptions={}) {
             myResult = kStepResultERROR;
             
             // always show exit button
-            let myExitButton, myDlgButtons;
-            let myViewLogButton = false;
-
+            let myDlgButtons;
+            
             if (aInfo.stepInfo.isOnlyApp) {
-                myExitButton = 'Quit';
-
-                myDlgButtons = [myExitButton];
-
-                // show View Log option if there's a log
-                if (hasLogFile()) {
-                    myViewLogButton = 'View Log & ' + myExitButton;
-                    myDlgButtons.push(myViewLogButton);
-                }
+                myDlgButtons = ['Quit', 'Quit & Report Error'];
             } else {
-                myExitButton = 'Abort';
-                myDlgButtons = [myExitButton];
+                myDlgButtons = ['Abort'];
             }
-
+            
             // display dialog
             let myDlgResult;
 
@@ -1325,47 +1313,41 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 myDlgButtons.unshift('Back');
 
                 // dialog with Back button
-                try {
-                    myDlgResult = kApp.displayDialog(myStepResult.message, {
-                        withTitle: myStepResult.title,
-                        withIcon: 'stop',
-                        buttons: myDlgButtons,
-                        defaultButton: 1
-                    }).buttonReturned;
-                } catch(myErr) {
-                    if (myErr.errorNumber == -128) {
-                        // Back button
-                        myDlgResult = myDlgButtons[0];
-                    } else {
-                        throw myErr;
-                    }
-                }
-
-                // handle dialog result
-
-                if (myDlgResult == myDlgButtons[0]) {
-
-                    // Back button
-                    myNextStep += myStepResult.backStep;
-                    continue;
-                }
-            } else {
-
-                // dialog with no Back button
-                myDlgResult = kApp.displayDialog(myStepResult.message, {
+                myDlgResult = dialog(myStepResult.message, {
                     withTitle: myStepResult.title,
                     withIcon: 'stop',
                     buttons: myDlgButtons,
                     defaultButton: 1
-                }).buttonReturned;
-            }
+                }).buttonIndex;
+                
+                // handle dialog result
+                if (myDlgResult == 0) {
+                    // Back button
+                    myNextStep += myStepResult.backStep;
+                    continue;
+                } else {
+                    myDlgResult--;  // conform with non-back-button dialog
+                }
+            } else {
 
-            // if user clicked 'View Log & Quit', then try to show the log
-            if (myDlgResult == myViewLogButton) {
-                showLogFile();
+                // dialog with no Back button
+                myDlgResult = dialog(myStepResult.message, {
+                    withTitle: myStepResult.title,
+                    withIcon: 'stop',
+                    buttons: myDlgButtons,
+                    defaultButton: 1
+                }).buttonIndex;
+            }
+            
+            if (myDlgResult == 1) {
+                // user clicked 'Quit & Report Error'
+                reportError('Epichrome encountered an error ' +
+                    ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
+                        ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
+                    'an app');
             }
         }
-
+        
         // done
         break;
     }
@@ -3421,24 +3403,6 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
 }
 
 
-// REPORTERROR: report an error to GitHub
-function reportError(aTitle) {
-    
-    // attempt to read in log
-    let iLog = '';
-    if (gCoreInfo && gCoreInfo.logFile) {
-        let iIgnoreErr;
-        try {
-            iLog = kApp.read(Path(gCoreInfo.logFile));
-            iLog = "\n\n[Below is a log of this run of Epichrome, which may be helpful in diagnosing this error. Please redact any paths or information you're not comfortable sharing before posting this issue.]\n\n```\n" + iLog + '\n```'
-        } catch(iIgnoreErr) {}
-    }
-    
-    kApp.openLocation('https://github.com/dmarmor/epichrome/issues/new?title=' +
-        encodeURIComponent(aTitle) + '&body=' + encodeURIComponent('[Please provide as much detail as you can about how this error occurred.]' + iLog));
-}
-
-
 // CONFIRMQUIT: confirm quit
 function confirmQuit(aMessage='') {
 
@@ -3647,19 +3611,6 @@ function errlog(aMsg, aType='ERROR') {
 // DEBUGLOG -- log a debugging message
 function debuglog(aMsg) {
     errlog(aMsg, 'DEBUG');
-}
-
-
-// HASLOGFILE: check if a log file for this run exists
-function hasLogFile() {
-    return kFinder.exists(Path(gCoreInfo.logFile));
-}
-
-
-// SHOWLOGFILE: reveal log file in the Finder
-function showLogFile() {
-    kFinder.select(Path(gCoreInfo.logFile));
-    kFinder.activate();
 }
 
 

@@ -1032,21 +1032,27 @@ function abort {
     errlog FATAL "$myAbortLog"
     
     if [[ "$coreShowAlertOnAbort" ]] ; then
-    # $$$$ ( "$coreContext" = 'app' ) || ( "$coreContext" = 'scan' ) && ( ! "$coreErrFile" ) ]] ; then
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
-            local buttons=( '+Quit' )
-            [[ "$logNoFile" ]] || buttons+=( '-View Log & Quit' )
+            local buttons=( '+Quit' 'Quit & Report Error' )
             local choice=
             dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
-            if [[ "$choice" = 'View Log' ]] ; then
+            if [[ "$choice" = "${buttons[1]}" ]] ; then
+                
+                local iReportErrArgs=( "App aborted with error: \"$myErrMsg\"" )
+                [[ -f "$myLogFile" ]] && iReportErrArgs+=( "$myLogFile" )
+                local iReportErrMsg=
                 
                 # clear OK state so try works & ignore result
                 ok=1 ; errmsg=
-                try /usr/bin/osascript -e '
-tell application "Finder" to reveal ((POSIX file "'"$myLogFile"'") as alias)
-tell application "Finder" to activate' 'Error attempting to view log file.'
+                try 'iReportErrMsg&=' /usr/bin/osascript "$myScriptPath/reporterr.js" "${iReportErrArgs[@]}" ''
+                
+                # error is non-fatal, so just report it
+                if [[ ! "$ok" ]] ; then
+                    errlog "$iReportErrMsg"
+                    ok=1 ; errmsg=
+                fi
             fi
         fi
     fi

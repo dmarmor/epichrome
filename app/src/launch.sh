@@ -2947,7 +2947,7 @@ function launchapp {
 		# register app before launching it
 		debuglog "Registering '${aPath##*/}' with Launch Services."
 		local iAppUtilErr=
-		try 'iAppUtilErr&=' osascript "$myScriptPath/apputil.js" "{
+		try 'iAppUtilErr&=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
    \"action\": \"register\",
    \"path\": \"$(escapejson "$aPath")\"
 }" ''
@@ -2957,7 +2957,6 @@ function launchapp {
 			errlog "Unable to register '${aPath##*/}' with Launch Services: $iAppUtilErr"
 			ok=1 ; errmsg=
 		fi
-
 	fi
 	
 	# find app executable
