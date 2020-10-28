@@ -17,7 +17,7 @@ epiDesc="🚀 MAJOR UPDATE!
    ▪️ Many more improvements and bug fixes (see change log on GitHub for details)"
 
    # Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)
-   # 
+   #
    # ▪️ Fixed a problem that could cause apps to register as a browser after update even though they were created not to (existing apps that should not be registered browsers will need to be edited once to reset that setting)
-   # 
+   #
    # ▪️ Updated built-in engine to Brave 1.13.86
