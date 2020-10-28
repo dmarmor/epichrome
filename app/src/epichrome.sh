@@ -245,7 +245,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
     # figure out where to find the app's settings
     myConfigPath="$epiAppPath/Contents/Resources/Scripts/main.sh"
     myOldConfigPath=
-    if [[ ! -f "$myConfigPath" ]] ; then    
+    if [[ ! -f "$myConfigPath" ]] ; then
         # not 2.4.x, so try the 2.3.x location
         myConfigPath="$epiAppPath/Contents/Resources/script"
         if [[ ! -f "$myConfigPath" ]] ; then
@@ -405,7 +405,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
     # adapt update action value
     if [[ "$SSBUpdateAction" = 'Auto' ]] ; then
         SSBUpdateAction='auto'
-    elif [[ "$SSBUpdateAction" = 'Never' ]] ; then        
+    elif [[ "$SSBUpdateAction" = 'Never' ]] ; then
         SSBUpdateAction='never'
     else
         SSBUpdateAction='prompt'

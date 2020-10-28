@@ -1020,8 +1020,7 @@ $(SCAN_APP): $(SCAN_CT)/MacOS/EpichromeScan \
 	$(SCAN_CT)/Resources/Scripts/filter.sh \
 	$(SCAN_CT)/Resources/Scripts/apputil.js \
 	$(SCAN_CT)/Resources/Scripts/launch.sh \
-	$(SCAN_CT)/Resources/Scripts/progress.sh \
-	$(SCAN_CT)/Resources/Scripts/reporterr.js
+	$(SCAN_CT)/Resources/Scripts/progress.sh
 
 
 # LOGIN APP DEPENDENCIES
@@ -1098,9 +1097,5 @@ $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
 	cp '$<' '$@'
 
 $(SCAN_CT)/Resources/Scripts/apputil.js $(LOGIN_CT)/Resources/Scripts/apputil.js: $(APP_RNTM)/Contents/Resources/Scripts/apputil.js
-	@dir='$@' ; mkdir -p "$${dir%/*}"
-	cp -a '$<' '$@'
-
-$(SCAN_CT)/Resources/Scripts/reporterr.js: $(APP_RNTM)/Contents/Resources/Scripts/reporterr.js
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'

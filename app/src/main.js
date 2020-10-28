@@ -275,8 +275,6 @@ function main(aApps=[]) {
         }
         
         
-        throw(Error('$$$ AN ERROR AFTER!!! logs started.'));
-
         // OFFER TO INSTALL LOGIN ITEM IF NOT PREVIOUSLY SET
         
         let iLoginScanIsEnabled = loginScanGetState();
@@ -379,8 +377,9 @@ function main(aApps=[]) {
         if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
-            buttons: ['Quit & Report Error', 'Quit'],
-            defaultButton: 1
+            buttons: ['Report Error & Quit', 'Quit'],
+            defaultButton: 1,
+            cancelButton: 2
         }).buttonIndex == 0) {
             reportError('Epichrome reports fatal error: "' + myErr.message + '"');
         }
@@ -775,7 +774,13 @@ function runEdit(aApps) {
 
         let myDlgMessage;
         let myDlgButtons = ['Quit'];
-
+        let myDlgOptions = {
+            withTitle: 'Summary',
+            withIcon: kEpiIcon,
+            buttons: myDlgButtons,
+            defaultButton: 1
+        };
+        
         if (!myHasError && !myHasAbort) {
             if (myHasSuccess) {
                 myDlgMessage = 'All apps were ' + myActionText + ' successfully!';
@@ -784,11 +789,13 @@ function runEdit(aApps) {
             }
         } else {
 
-            // if errors encountered, add log button
+            // if errors encountered, add report error button
             if (myHasError) {
-                myDlgButtons.push('Quit & Report Error');
+                // this is now default, & Quit button is cancel
+                myDlgButtons.unshift('Report Error & Quit');
+                myDlgOptions.cancelButton = 2;
             }
-
+            
             // build summary message
             myDlgMessage = [];
             if (myHasSuccess) {
@@ -804,14 +811,9 @@ function runEdit(aApps) {
         }
 
         // show summary
-        if (dialog(myDlgMessage, {
-            withTitle: 'Summary',
-            withIcon: kEpiIcon,
-            buttons: myDlgButtons,
-            defaultButton: 1
-        }).buttonIndex != 0) {
+        if ((dialog(myDlgMessage, myDlgOptions).buttonIndex == 0) && (myDlgButtons.length == 2)) {
             // report errors
-            reportError('Epichrome encountered errors ' + (myDoEdit ? 'editing' : 'updating') + ' apps');
+            reportError('Epichrome reports errors while ' + (myDoEdit ? 'editing' : 'updating') + ' multiple apps');
         }
     }
 }
@@ -1294,18 +1296,22 @@ function doSteps(aSteps, aInfo, aOptions={}) {
             
             myResult = kStepResultERROR;
             
-            // always show exit button
-            let myDlgButtons;
+            let myDlgButtons, myDlgOptions, myDlgResult;
             
+            // set up buttons
             if (aInfo.stepInfo.isOnlyApp) {
-                myDlgButtons = ['Quit', 'Quit & Report Error'];
+                myDlgButtons = ['Report Error & Quit', 'Quit'];
             } else {
-                myDlgButtons = ['Abort'];
+                myDlgButtons = ['Skip'];
             }
             
-            // display dialog
-            let myDlgResult;
-
+            myDlgOptions = {
+                withTitle: myStepResult.title,
+                withIcon: 'stop',
+                buttons: myDlgButtons,
+                defaultButton: 1
+            };
+            
             // if we're allowed to backstep & this isn't the first step
             if ((myStepResult.backStep !== false) && (myNextStep != 0)) {
 
@@ -1313,12 +1319,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 myDlgButtons.unshift('Back');
 
                 // dialog with Back button
-                myDlgResult = dialog(myStepResult.message, {
-                    withTitle: myStepResult.title,
-                    withIcon: 'stop',
-                    buttons: myDlgButtons,
-                    defaultButton: 1
-                }).buttonIndex;
+                myDlgResult = dialog(myStepResult.message, myDlgOptions).buttonIndex;
                 
                 // handle dialog result
                 if (myDlgResult == 0) {
@@ -1329,22 +1330,22 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                     myDlgResult--;  // conform with non-back-button dialog
                 }
             } else {
-
+                
+                // if Quit button exists, make it cancel
+                if (myDlgButtons.length == 2) {
+                    myDlgOptions.cancelButton = 2;
+                }
+                
                 // dialog with no Back button
-                myDlgResult = dialog(myStepResult.message, {
-                    withTitle: myStepResult.title,
-                    withIcon: 'stop',
-                    buttons: myDlgButtons,
-                    defaultButton: 1
-                }).buttonIndex;
+                myDlgResult = dialog(myStepResult.message, myDlgOptions).buttonIndex;
             }
             
-            if (myDlgResult == 1) {
-                // user clicked 'Quit & Report Error'
-                reportError('Epichrome encountered an error ' +
+            if (aInfo.stepInfo.isOnlyApp && (myDlgResult == 0)) {
+                // user clicked 'Report Error & Quit'
+                reportError('Epichrome reports an error ' +
                     ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
                         ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
-                    'an app');
+                    ' an app: "' + myStepResult.error.message + '"');
             }
         }
         
@@ -2598,8 +2599,9 @@ function stepBuild(aInfo) {
         try {
             registerApp(aInfo.appInfo.file.path);
         } catch(mySubErr) {
-            mySubErr.message = 'WARN\rUnable to register app. (' + mySubErr.message + ') It may not launch immediately.'
-            throw(mySubErr);
+            errlog('Unable to register app "' + aInfo.appInfo.file.name + '". (' + mySubErr.message + ') It may not launch immediately.');
+            // mySubErr.message = 'WARN\rUnable to register app. (' + mySubErr.message + ') It may not launch immediately.'
+            // throw(mySubErr);
         }
     } catch(myErr) {
         
@@ -2637,9 +2639,10 @@ function stepBuild(aInfo) {
             
             // show error dialog & quit or go back
             return {
-                message: myBuildMessage[1] + ' failed: ' + myErr.message,
+                message: myBuildMessage[1] + (aInfo.stepInfo.isOnlyApp ? '' : ' of app "' + aInfo.appInfo.displayName + '"') + ' failed: ' + myErr.message,
+                error: myErr,
                 title: 'Application Not ' + myBuildMessage[2],
-                backStep: -1,
+                backStep: 0,
             };
         }
     }

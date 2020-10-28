@@ -8,11 +8,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added an advanced setting during app creation and editing to control how the app handles updates
 - Added an advanced setting during app creation and editing to customize the app's ID
 - New unified app engine architecture for better compatibility with the dock, notifications, and other system services
-- Added two new apps, "Epichrome Scan.app" and "Epichrome Login.app" to restore apps left in an unlaunchable state after a crash
+- Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, "Epichrome Scan.app" to do the same manually
 - Unified GitHub update-checking across apps and Epichrome itself, so when a new update is found, you will only receive one notification (issue #???)
 - The GitHub update-found dialog now shows info about changes in the new version
 - The app update prompt now shows info about changes in the new version
 - Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)
+- Added option to abort dialogs to report the error on GitHub
 - Updated built-in engine to Brave 1.XX.XX
 ### Fixed
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)

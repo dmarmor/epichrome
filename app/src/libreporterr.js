@@ -23,19 +23,21 @@
 // REPORTERROR: report an error to GitHub
 function reportError(aTitle, aLogFile=undefined) {
     
+    let iResult, iErr;
+    
+    // get default log file if we have one
+    if ((aLogFile === undefined) && gCoreInfo && gCoreInfo.logFile) {
+        aLogFile = gCoreInfo.logFile;
+    }
+    
     // attempt to read in log
     let iLog = '';
     if (aLogFile) {
         aLogFile = Path(aLogFile);
-        let iIgnoreErr;
         try {
             iLog = kApp.read(aLogFile);
             iLog = "\n\n[Below is a log of this run of Epichrome, which may be helpful in diagnosing this error. Please redact any paths or information you're not comfortable sharing before posting this issue.]\n\n```\n" + iLog + '\n```'
-            
-            // reveal log file
-            kFinder.select(aLogFile);
-            kFinder.activate();
-        } catch(iIgnoreErr) {}
+        } catch(iErr) {} // fail silently
     }
     
     // open a GitHub issue page populated with our error info
@@ -53,7 +55,18 @@ function reportError(aTitle, aLogFile=undefined) {
                 defaultButton: 1
             });
         } else {
-            return iErrMsg;
+            iResult = iErrMsg;
         }
     }
+    
+    if (aLogFile) {
+        try {
+            // reveal log file
+            kFinder.select(aLogFile);
+            kFinder.activate();
+        } catch(iErr) {} // fail silently
+    }
+    
+    // return any error message
+    return iResult;
 }

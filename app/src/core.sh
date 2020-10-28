@@ -1035,10 +1035,10 @@ function abort {
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
-            local buttons=( '+Quit' 'Quit & Report Error' )
+            local buttons=( '+Report Error & Quit' '-Quit' )
             local choice=
             dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
-            if [[ "$choice" = "${buttons[1]}" ]] ; then
+            if [[ "$choice" = "${buttons[0]:1}" ]] ; then
                 
                 local iReportErrArgs=( "App aborted with error: \"$myErrMsg\"" )
                 [[ -f "$myLogFile" ]] && iReportErrArgs+=( "$myLogFile" )
