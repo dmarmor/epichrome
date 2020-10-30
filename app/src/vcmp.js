@@ -21,11 +21,18 @@
 
 
 // VCMP: compare version numbers (v1 < v2: -1, v1 == v2: 0, v1 > v2: 1)
-function vcmp (v1, v2) {
-
+//   aNumComponents: if >0, number of components to compare, starting with major version (1.2.3b4[5])
+function vcmp (v1, v2, aNumComponents=0) {
+    
     // regex for pulling out version parts
-    const vRe='^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$';
-
+    const kVersionRe='^0*([0-9]+)\\.0*([0-9]+)\\.0*([0-9]+)(b0*([0-9]+))?(\\[0*([0-9]+)])?$';
+    
+    // normalize number of components (if <= 0 or not a number, use all)
+    aNumComponents = Number(aNumComponents);
+    if (!(aNumComponents > 0)) {
+        aNumComponents = 10;  // safely past all components
+    }
+    
     // array for comparable version integers
     var vStr = [];
 
@@ -41,16 +48,16 @@ function vcmp (v1, v2) {
         
         let vmaj, vmin, vbug, vbeta, vbuild;
 
-        const curMatch = curV.match(vRe);
+        const curMatch = curV.match(kVersionRe);
 
         if (curMatch) {
 
             // extract version number parts
             vmaj   = parseInt(curMatch[1]);
-            vmin   = parseInt(curMatch[2]);
-            vbug   = parseInt(curMatch[3]);
-            vbeta  = (curMatch[5] ? parseInt(curMatch[5]) : 1000);
-            vbuild = (curMatch[7] ? parseInt(curMatch[7]) : 10000);
+            vmin   = (aNumComponents >= 2) ? parseInt(curMatch[2]) : 0;
+            vbug   = (aNumComponents >= 3) ? parseInt(curMatch[3]) : 0;
+            vbeta  = (aNumComponents >= 4) ? (curMatch[5] ? parseInt(curMatch[5]) : 1000) : 0;
+            vbuild = (aNumComponents >= 5) ? (curMatch[7] ? parseInt(curMatch[7]) : 10000) : 0;
         } else {
 
             // unable to parse version number

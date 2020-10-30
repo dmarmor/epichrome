@@ -1117,13 +1117,18 @@ epiVersionRe='0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?'
 
 
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
-#   vcmp(version1 operator version2)
+#   vcmp(v1 op v2 [aNumComponents])
+#     compare v1 to v2 using op, comparing aNumComponents parts (1.2.3b4[5])
 function vcmp {
     
     # arguments
     local v1="$1" ; shift
     local op="$1" ; shift ; [[ "$op" ]] || op='='
     local v2="$1" ; shift
+    local aNumComponents="$1" ; shift
+    
+    # normalize aNumComponents & if not set, set safely beyond all components
+    [[ "$aNumComponents" -lt 1 ]] && aNumComponents=10
     
     # munge version numbers into comparable integers
     local curv=
@@ -1134,10 +1139,12 @@ function vcmp {
             
             # extract version number parts
             vmaj="${BASH_REMATCH[1]}"
-            vmin="${BASH_REMATCH[2]}"
-            vbug="${BASH_REMATCH[3]}"
-            vbeta="${BASH_REMATCH[5]}" ; [[ "$vbeta" ]] || vbeta=1000
-            vbuild="${BASH_REMATCH[7]}" ; [[ "$vbuild" ]] || vbuild=10000
+            [[ $aNumComponents -ge 2 ]] && vmin="${BASH_REMATCH[2]}" || vmin=0
+            [[ $aNumComponents -ge 3 ]] && vbug="${BASH_REMATCH[3]}" || vbug=0
+            [[ $aNumComponents -ge 4 ]] && vbeta="${BASH_REMATCH[5]}" || vbeta=0
+            [[ "$vbeta" ]] || vbeta=1000
+            [[ $aNumComponents -ge 5 ]] && vbuild="${BASH_REMATCH[7]}" || vbuild=0
+            [[ "$vbuild" ]] || vbuild=10000
         else
             
             # no version

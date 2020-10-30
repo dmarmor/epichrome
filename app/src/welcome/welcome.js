@@ -137,7 +137,6 @@ function buildPage() {
     // update page
     const oldVersion = urlParams.get('ov');
     const statusUpdate = (oldVersion != null);
-    // var statusUpdateSpecial = false;
     if (statusUpdate) {
         activePage = 'pg_update';
         pageTitle = document.head.dataset['update'].replace('OLDVERSION', oldVersion).replace('NEWVERSION', appVersion);
@@ -293,12 +292,24 @@ function buildPage() {
     // show active changes
     if (statusUpdate || (appChanges.length > 0)) {
         setDisplay('#changes_msg');
-
+        
+        // if major version hasn't changed, hide that element
+        if (statusUpdate && (vcmp(oldVersion, appVersion, 2) == 0)) {
+            setDisplay('#changes_major', false);
+            
+            // if neither changes are visible, hide the parent element
+            if (!getDisplay('#changes_minor')) {
+                setDisplay('#changes_update', false);
+            }
+        }
+        
         if (appChanges.length > 0) {
             for (let curChange of appChanges) { setDisplay(curChange); }
             setDisplay('#changes_user');
         }
     }
+
+
 
     // SHOW/HIDE ACTION ITEMS
     
@@ -321,22 +332,24 @@ function buildPage() {
         setDisplayGroup('group_bm', bookmarkResult);
     }
 
-    // show special update text
 
-    // if (statusUpdateSpecial) {
-    //     setDisplayGroup('group_ov', 'ov_update');
-    // }
-
-    // RENUMBER ACTIONS LIST
+    // RENUMBER ACTIONS LIST & SAVE FIRST ITEM
 
     const actionsList = document.getElementById('actions_list').getElementsByClassName('item');
+    let firstActionItem;
+    
     var nextNum = 1;
     var lastItemNum = null;
     for (let curAction of actionsList) {
 
         // check if this action is visible
         if (getComputedStyle(curAction).display != 'none') {
-
+            
+            // set first action item
+            if (nextNum == 1) {
+                firstActionItem = curAction;
+            }
+            
             // update item number
             var curItemNum = curAction.getElementsByClassName('itemnum')[0];
             curItemNum.innerHTML = nextNum;
@@ -344,22 +357,28 @@ function buildPage() {
             lastItemNum = curItemNum;
         }
     }
-
+        
     // special case: only one visible, so hide number
     if (nextNum == 2) { lastItemNum.style.display = 'none'; }
 
 
+    // possibly flash first action item
+    if (urlParams.get('fa') == '1') {
+        firstActionItem.classList.add('flash');
+    }
+    
     // SHOW PAGE CONTENTS
     setDisplay('.contents');
 
-    // possibly show look at me dammit alert
+    // possibly show look at me dammit alert & flash first action item
     if (urlParams.get('m') == '1') {
 
         // turn on any extras
         if (alertExtras.length > 0) {
             for (let curExtra of alertExtras) { setDisplay(curExtra); }
         }
-
+        
+        // turn on alert box
         var alertbox = document.getElementById('alert');
         setDisplay(alertbox);
         document.getElementById('alert_close').addEventListener('click', function(evt) {
@@ -370,36 +389,58 @@ function buildPage() {
 }
 
 
-function setDisplay(selector, displayMode = true, root=document) {
-
-    // get elements to set display for
-    if (typeof selector === 'string') {
-        if (selector[0] == '#') {
-            var nodes = [ root.getElementById(selector.slice(1)) ];
+function getDisplay(aSelector, aRoot=document) {
+    
+    // get element to find display for
+    let iNode;
+    if (typeof aSelector === 'string') {
+        if (aSelector[0] == '#') {
+            iNode = aRoot.getElementById(aSelector.slice(1));
         } else {
-            if (selector[0] == '.') { selector = selector.slice(1); }
-            var nodes = root.getElementsByClassName(selector);
+            if (aSelector[0] == '.') { aSelector = aSelector.slice(1); }
+            // only use first element of class
+            iNode = aRoot.getElementsByClassName(aSelector)[0];
         }
-    } else if (selector instanceof Node) {
-        var nodes = [ selector ];
     } else {
-        var nodes = selector;
+        iNode = aSelector;
     }
-
-    // iterate & set display style
-    for (let curNode of nodes) {
-        if (!displayMode) {
-            curNode.classList.add('hide');
-        } else if (displayMode == true) {
-            curNode.classList.remove('hide');
-            //style.display = getComputedStyle(curNode).getPropertyValue("--display-on");
-        } else {
-            curNode.style.display = displayMode;
-        }
+    if (iNode instanceof Node) {
+        return !iNode.classList.contains('hide');
+    } else {
+        return false;
     }
 }
 
 
+function setDisplay(aSelector, aDisplayMode = true, aRoot=document) {
+
+    // get elements to set display for
+    let iNodes;
+    if (typeof aSelector === 'string') {
+        if (aSelector[0] == '#') {
+            iNodes = [ aRoot.getElementById(aSelector.slice(1)) ];
+        } else {
+            if (aSelector[0] == '.') { aSelector = aSelector.slice(1); }
+            iNodes = aRoot.getElementsByClassName(aSelector);
+        }
+    } else if (aSelector instanceof Node) {
+        iNodes = [ aSelector ];
+    } else {
+        iNodes = aSelector;
+    }
+
+    // iterate & set display style
+    for (let curNode of iNodes) {
+        if (!aDisplayMode) {
+            curNode.classList.add('hide');
+        } else if (aDisplayMode == true) {
+            curNode.classList.remove('hide');
+            //style.display = getComputedStyle(curNode).getPropertyValue("--display-on");
+        } else {
+            curNode.style.display = aDisplayMode;
+        }
+    }
+}
 function setDisplayGroup(group, activeItem, root=document) {
 
     for (let curItem of root.getElementsByClassName(group)) {

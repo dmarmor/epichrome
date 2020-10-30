@@ -139,16 +139,16 @@ function readjsonkeys {
 function getepichromeinfo {
 	# populates the following globals (if found):
 	#    epiCurrentPath -- path to version of Epichrome that corresponds to this app
-	#    epiLatestVersion/Path/Desc -- version/path/description of the latest Epichrome found
-	#    epiUpdateVersion/Path/Desc -- version/path/description of the latest Epichrome eligible for update
+	#    epiLatestVersion/Path/Desc/DescMajor -- version/path/description of the latest Epichrome found
+	#    epiUpdateVersion/Path/Desc/DescMajor -- version/path/description of the latest Epichrome eligible for update
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
 	# default global return values
 	epiCurrentPath=
-	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc=
-	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc=
+	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc= ; epiLatestDescMajor=
+	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc= ; epiUpdateDescMajor=
 	
 	# current version to test against
 	local myVersion=
@@ -237,44 +237,49 @@ function getepichromeinfo {
 	fi
 	
 	# check instances of Epichrome to find the current and latest
-	local curInstance= ; local curVersion= ; local curDesc=
+	local curInstance=
 	local doIgnoreCurVersion=
+	local epiVersion mcssbVersion epiDesc epiDescMajor
 	for curInstance in "${instances[@]}" ; do
 		if [[ -d "$curInstance" ]] ; then
 			
+			# clear old version.sh values
+			epiVersion= ; mcssbVersion= ; epiDesc= ; epiDescMajor=
+			
 			# get this instance's version & optional description
-			curVersion="$( safesource "$curInstance/Contents/Resources/Scripts/version.sh" && if [[ "$epiVersion" ]] ; then echo "$epiVersion" ; else echo "$mcssbVersion" ; fi && echo "$epiDesc" )"
-			if [[ ( "$?" != 0 ) || ( ! "$curVersion" ) ]] ; then
-				curVersion=0.0.0
-				curDesc=
+			safesource "$curInstance/Contents/Resources/Scripts/version.sh"
+			if [[ "$ok" ]] ; then
+				[[ "$mcssbVersion" && ! "$epiVersion" ]] && epiVersion="$mcssbVersion"
+			else
+				# ignore failure -- this will just be considered a non-version
+				ok=1 ; errmsg=
 			fi
 			
-			# parse out version & description
-			curDesc="${curVersion#*$'\n'}"
-			curVersion="${curVersion%%$'\n'*}"
+			# if no version found, set it to non-version
+			[[ "$epiVersion" ]] || epiVersion=0.0.0
 			
 			# if we are a release version, only look at release versions
-			if [[ "$myVersionIsRelease" ]] && visbeta "$curVersion" ; then
-				debuglog "Ignoring '$curInstance' (beta version $curVersion)."
+			if [[ "$myVersionIsRelease" ]] && visbeta "$epiVersion" ; then
+				debuglog "Ignoring '$curInstance' (beta version $epiVersion)."
 				
-			elif vcmp "$curVersion" '>=' "$myVersion" ; then
+			elif vcmp "$epiVersion" '>=' "$myVersion" ; then
 				
-				debuglog "Found Epichrome $curVersion at '$curInstance'."
+				debuglog "Found Epichrome $epiVersion at '$curInstance'."
 				
 				# see if this is the first instance we've found of the current version
 				if [[ "$coreContext" = 'epichrome' ]] ; then
 					if [[ "$debug" && ( "$curInstance" = "$epiCurrentPath" ) ]] ; then
 						errlog DEBUG '  (This is the currently running instance of Epichrome.)'
 					fi
-				elif vcmp "$curVersion" '==' "$myVersion" ; then
+				elif vcmp "$epiVersion" '==' "$myVersion" ; then
 					[[ "$epiCurrentPath" ]] || epiCurrentPath="$(canonicalize "$curInstance")"
 				else
 					
 					# this instance is later than our version, so check it for update
 					doIgnoreCurVersion=
 					for curIgnoreVersion in "${SSBUpdateIgnoreVersions[@]}" ; do
-						if vcmp "$curIgnoreVersion" '=' "$curVersion" ; then
-							debuglog "Ignoring version $curVersion for updating."
+						if vcmp "$curIgnoreVersion" '=' "$epiVersion" ; then
+							debuglog "Ignoring version $epiVersion for updating."
 							doIgnoreCurVersion=1
 							break
 						fi
@@ -283,25 +288,27 @@ function getepichromeinfo {
 					# if not ignored, see if it's newer than the current update version
 					if [[ ! "$doIgnoreCurVersion" ]] && \
 							( [[ ! "$epiUpdatePath" ]] || \
-							vcmp "$epiUpdateVersion" '<' "$curVersion" ) ; then
+							vcmp "$epiUpdateVersion" '<' "$epiVersion" ) ; then
 						epiUpdatePath="$(canonicalize "$curInstance")"
-						epiUpdateVersion="$curVersion"
-						epiUpdateDesc="$curDesc"
+						epiUpdateVersion="$epiVersion"
+						epiUpdateDesc=( "${epiDesc[@]}" )
+						epiUpdateDescMajor=( "${epiDescMajor[@]}" )
 					fi
 				fi
 				
 				# see if this is newer than the current latest Epichrome
 				if [[ ! "$epiLatestPath" ]] || \
-						vcmp "$epiLatestVersion" '<' "$curVersion" ; then
+						vcmp "$epiLatestVersion" '<' "$epiVersion" ; then
 					epiLatestPath="$(canonicalize "$curInstance")"
-					epiLatestVersion="$curVersion"
-					epiLatestDesc="$curDesc"
+					epiLatestVersion="$epiVersion"
+					epiLatestDesc=( "${epiDesc[@]}" )
+					epiLatestDescMajor=( "${epiDescMajor[@]}" )
 				fi
 				
 			elif [[ "$debug" ]] ; then
-				if vcmp "$curVersion" '>' 0.0.0 ; then
+				if vcmp "$epiVersion" '>' 0.0.0 ; then
 					# old version
-					debuglog "Ignoring '$curInstance' (old version $curVersion)."
+					debuglog "Ignoring '$curInstance' (old version $epiVersion)."
 				else
 					# failed to get version, so assume this isn't really Epichrome
 					debuglog "Ignoring '$curInstance' (unable to get version)."
@@ -325,7 +332,8 @@ function getepichromeinfo {
 		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$myVersion" ; then
 			epiUpdatePath="$epiLatestPath"
 			epiUpdateVersion="$epiLatestVersion"
-			epiUpdateDesc="$epiLatestDesc"
+			epiUpdateDesc=( "${epiLatestDesc[@]}" )
+			epiUpdateDescMajor=( "${epiLatestDescMajor[@]}" )
 		fi
 	fi
 	
@@ -383,7 +391,9 @@ function checkappupdate {
 	# by default, don't update
 	local doUpdate="$updateBtnLater"
 	
-	if [[ "$SSBUpdateAction" = 'Auto' ]] ; then
+	if [[ "$SSBUpdateAction" = 'Auto' ]] && vcmp "$SSBVersion" '==' "$epiUpdateVersion" 2 ; then
+		
+		# we have auto-updates turned on, and new version is the same major version (X.X)
 		
 		debuglog 'Automatically updating.'
 		
@@ -391,9 +401,23 @@ function checkappupdate {
 		doUpdate="$updateBtnUpdate"
 	else
 		
-		# set dialog info
-		local updateMsg="A new version of Epichrome was found ($epiUpdateVersion). This app is using version $SSBVersion. Would you like to update it? This update contains the following changes:"
-		[[ "$epiUpdateDesc" ]] && updateMsg+=$'\n\n'"$epiUpdateDesc"
+		# basic update message
+		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
+		
+		# add description of this update, and possibly the major version
+		local iUpdateDesc="$(join_array $'\n\n   ▪️ ' "${epiUpdateDesc[@]}")"
+		[[ "$iUpdateDesc" ]] && iUpdateDesc="NEW IN VERSION $epiUpdateVersion:"$'\n\n   ▪️ '"$iUpdateDesc"
+		if [[ "${epiUpdateDescMajor[*]}" ]] && vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
+			if [[ "$iUpdateDesc" ]] ; then
+				iUpdateDesc+=$'\n\n'"🚀 NEW IN MAJOR VERSION ${epiUpdateVersion%.*}"
+			else
+				iUpdateDesc="🚀 NEW IN MAJOR VERSION $epiUpdateVersion"
+			fi
+			iUpdateDesc+=$':\n\n   ▪️ '"$(join_array $'\n\n   ▪️ ' "${epiUpdateDescMajor[@]}")"
+		fi
+		[[ "$iUpdateDesc" ]] && updateMsg+=$'\n\n'"$iUpdateDesc"
+		
+		# update buttons
 		local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
 		
 		
@@ -1329,6 +1353,18 @@ ${BASH_REMATCH[5]}}"
 		
 		# let the page know the result of this bookmarking
 		[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
+		
+		
+		# ADD FIRST-DISPLAY ONLY ARGS TO WELCOME PAGE
+		
+		# if we're updating from pre-2.3.0b10, show extra popup alert
+		if [[ "$myStatusNewApp" ]] || \
+				( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
+			myStatusWelcomeURL+='&m=1'
+		fi
+		
+		# flash first action item
+		myStatusWelcomeURL+='&fa=1'
 	fi
 	
 	

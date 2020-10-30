@@ -590,12 +590,6 @@ if [[ "$myEnginePID" && ( "$myStatusWelcomeURL" || "${argsURIs[*]}" ) ]] ; then
         [[ "$urlDesc" ]] && urlDesc+=' and '
         urlDesc+='welcome page'
         
-        # if we're updating from pre-2.3.0b10, show extra popup alert
-        if [[ "$myStatusNewApp" ]] || \
-                ( [[ "$myStatusNewVersion" ]] && vcmp "$myStatusNewVersion" '<' '2.3.0b10' ) ; then
-            myStatusWelcomeURL+='&m=1'
-        fi
-        
         # add welcome page to URIs
         argsURIs+=( "$myStatusWelcomeURL" )
         

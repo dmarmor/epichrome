@@ -48,11 +48,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
     <!-- LEFT SIDEBAR -->
 
-    <div id="left_column" class="left_column sidebar">
+    <div id="left_column" class="left column sidebar">
       <div id="left_title" class="titlebar left_title">
         <div class="contents hide"></div>
       </div>
-      <div id="left_content" class="left contents hide"></div>
+      <div id="left_content" class="contents hide">
+        
+        <!-- EPICHROME UPDATES -->
+        <div id="changes_update" class="changes_update group_pg pg_update hide">
+          
+          <div id="changes_update_lists" class="changes_update_lists">
+            
+            <div id="changes_minor" class="change_list changes_minor">
+              <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
+              <ul>
+                <li>Built-in engine updated to Brave 1.6.68</li>
+                <li>MORE...</li>
+              </ul>
+            </div>
+            
+            <div id="changes_major" class="change_list changes_major">
+              <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
+              <ul>
+                <li>Epichrome apps can now be edited by dropping them on Epichrome.app!</li>
+                <li>Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID</li>
+                <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
+                <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, <span class="folder_name">Epichrome Scan.app</span>, to do the same manually</li>
+                <li>Checking GitHub for updates is now unified across all apps and Epichrome itself, so when a new update is found, you will only receive one notification</li>
+                <li>Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)</li>
+                <li>Many other improvements and bug fixes...</li>
+              </ul>
+            </div>
+            
+          </div> <!-- #changes_update_lists -->
+          
+          <p class="changes_changelog footnote">Check out the Epichrome <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">change log</a> for more details.</p>
+          
+        </div> <!-- #changes_update -->
+      </div> <!-- #left_content -->
     </div> <!-- #left_column -->
 
     <!-- MAIN CONTENT -->
@@ -83,6 +116,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
         <!-- MAIN MESSAGE -->
 
+        <!-- APP CHANGES -->
         <div id="changes_msg" class="changes_msg hide">
           <div id="changes_user" class="changes_user change_list">
             <h3 class="group_pg pg_new">Important Information</h3>
@@ -97,37 +131,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
               <li class="ch_bookmark_add hide"><span class="change_headline">This page has been added to the <span class="folder_name">APPBUNDLENAME App Info</span> folder</span> on the bookmarks bar</li>
             </ul>
           </div> <!-- #changes_user -->
-
-          <div id="changes_update" class="changes_update group_pg pg_update hide">
-            <div id="changes_update_lists" class="changes_update_lists">
-              <div id="changes_minor" class="change_list changes_minor changes_version_zero"> <!-- add .changes_version_zero for x.x.0 -->
-                <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
-                <ul>
-                  <!-- <li>Built-in engine updated to Brave 1.X.XX</li> -->
-                  <li>Epichrome apps can now be edited by dropping them on Epichrome.app!</li>
-                  <li>Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID</li>
-                  <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
-                  <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, <span class="folder_name">Epichrome Scan.app</span>, to do the same manually</li>
-                  <li>Checking GitHub for updates is now unified across all apps and Epichrome itself, so when a new update is found, you will only receive one notification</li>
-                  <li>Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)</li>
-                  <li>Many other improvements and bug fixes...</li>
-                </ul>
-              </div>
-              <!-- begin hide for x.x.0 releases
-              <div id="changes_major" class="change_list changes_major">
-                <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
-                <ul>
-                  <li>TURNED OFF FOR .0 RELEASE</li>
-                  <li>Completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript</li>
-                  <li>Optional built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine added for more app-like behavior</li>
-                  <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
-                  <li>Many, many under-the-hood improvements, including better logging and more robust error-handling</li>
-                </ul>
-              </div>  end hide for x.x.0 releases -->
-            </div> <!-- #changes_update_lists -->
-            <p class="changes_changelog footnote">Check out the Epichrome <a href="https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md" target="_blank">change log</a> for more details.</p>
-          </div> <!-- #changes_update -->
-
         </div> <!-- #changes_msg -->
 
         <!-- ACTIONS -->
@@ -150,9 +153,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             </div> <!-- #bookmark -->
             
             <!-- EPICHROME RUNTIME -->
-            <div id="epichromeruntimestatus" class="item epichromeruntimestatus runtime_status_off">
+            <div id="epichromeruntimestatus" class="item epichromeruntimestatus">
               <div id="runtime_num" class="itemnum"></div>
-              <div class="action_container runtime_status_off">
+              <div class="action_container">
                 <div class="runtime_button_message">
                   <div class="runtime_text">
                     <h3>
@@ -163,7 +166,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                       </span>
                       Epichrome Helper Extension
                     </h3>
-                    <p><span class="group_rt rt_install">If you haven't already, please install the Epichrome Helper extension to help your app work better (including redirecting links to the default browser).</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled</span>.<span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
+                    <p><span class="group_rt rt_install">If you haven't already, please install the Epichrome Helper extension to help your app work better (including redirecting links to the default browser).</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it.</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled.</span><span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
                   </div> <!-- .runtime_text -->
                   <div class="runtime_button">
                     <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />
@@ -266,11 +269,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     </div> <!-- #main_column -->
 
     <!-- RIGHT COLUMN -->
-    <div id="right_column" class="right_column sidebar">
+    <div id="right_column" class="right column sidebar">
       <div id="right_title" class="titlebar">
         <div class="contents hide"></div>
       </div>
-      <div id="right_content" class="right_content contents hide">
+      <div id="right_content" class="contents hide">
           <!-- PATREON -->
           <div id="patreon" class="patreon">
             <div class="patreon_header">
