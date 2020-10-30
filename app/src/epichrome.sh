@@ -91,6 +91,23 @@ if [[ "$epiAction" = 'init' ]] ; then
     
     result+=$'\n   }'
     
+    # check if ExtensionIcons dir needs to be reset
+    if [[ -d "$epiDataPath/$epiDataExtIconDir" ]] ; then
+        
+        # determine if there are any info cache files
+        shoptset myShoptState nullglob
+        extInfoFiles=( "$epiDataPath/$epiDataExtIconDir/info"*'.dat' )
+        shoptrestore myShoptState
+        
+        # if no info cache files, delete the directory
+        if [[ "${#extInfoFiles[@]}" -eq 0 ]] ; then
+            saferm 'Unable to remove uncached extension icon directory.' \
+                    "$epiDataPath/$epiDataExtIconDir"
+            ok=1 ; errmsg=
+        fi
+    fi
+    
+    
     # CHECK GITHUB FOR UPDATES
     
     if [[ ! "$epiGithubFatalError" ]] ; then

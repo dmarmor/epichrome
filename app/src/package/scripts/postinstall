@@ -12,15 +12,6 @@ else
     rootdir+='/'
 fi
 
-# add apps directory
-appdir="${rootdir}$epidir/Apps"
-if [[ ! -d "$appdir" ]] ; then
-    /bin/mkdir "$appdir"
-    if [[ ( "$?" = 0 ) && ( "$rootdir" = '/' ) && "$USER" ]] ; then
-        /usr/sbin/chown "$USER" "$appdir" && /bin/chmod 700 "$appdir"
-    fi
-fi
-
 # remove empty legacy EpichromeEngines.noindex folder
 oldengdir="${rootdir}$epidir/EpichromeEngines.noindex"
 if [[ -d "$oldengdir" ]] ; then
@@ -38,7 +29,7 @@ else
 fi
 for dir in "${searchdirs[@]}" ; do
     [[ -d "$dir/Epichrome Beta.app" ]] && /bin/rm -rf "$dir/Epichrome Beta.app"
-    [[ -d "$dir/Payload.noindex" ]] && /bin/rm -rf "$dir/Payload.noindex"        
+    [[ -d "$dir/Payload.noindex" ]] && /bin/rm -rf "$dir/Payload.noindex"
 done
 
 exit 0
