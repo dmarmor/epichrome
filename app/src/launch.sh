@@ -404,17 +404,29 @@ function checkappupdate {
 		# basic update message
 		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
 		
-		# add description of this update, and possibly the major version
+		# add any description for this version
 		local iUpdateDesc="$(join_array $'\n\n   ▪️ ' "${epiUpdateDesc[@]}")"
 		[[ "$iUpdateDesc" ]] && iUpdateDesc="NEW IN VERSION $epiUpdateVersion:"$'\n\n   ▪️ '"$iUpdateDesc"
-		if [[ "${epiUpdateDescMajor[*]}" ]] && vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
-			if [[ "$iUpdateDesc" ]] ; then
-				iUpdateDesc+=$'\n\n'"🚀 NEW IN MAJOR VERSION ${epiUpdateVersion%.*}"
-			else
-				iUpdateDesc="🚀 NEW IN MAJOR VERSION $epiUpdateVersion"
+		
+		# if this is a major update, add more description
+		if [[ "$iUpdateDesc" || "${epiUpdateDescMajor[*]}" ]] && \
+				vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
+			
+			# add major update header
+			[[ "$iUpdateDesc" ]] && iUpdateDesc=$'\n\n'"$iUpdateDesc"
+			iUpdateDesc='🚀 MAJOR UPDATE!'"$iUpdateDesc"
+			
+			# add any description for the major version
+			if [[ "${epiUpdateDescMajor[*]}" ]] ; then
+				if [[ "$iUpdateDesc" ]] ; then
+					iUpdateDesc+=$'\n\n'
+				fi
+				iUpdateDesc+="NEW IN VERSION ${epiUpdateVersion%.*}"
+				iUpdateDesc+=$':\n\n   ▪️ '"$(join_array $'\n\n   ▪️ ' "${epiUpdateDescMajor[@]}")"
 			fi
-			iUpdateDesc+=$':\n\n   ▪️ '"$(join_array $'\n\n   ▪️ ' "${epiUpdateDescMajor[@]}")"
 		fi
+		
+		# add any description to update message
 		[[ "$iUpdateDesc" ]] && updateMsg+=$'\n\n'"$iUpdateDesc"
 		
 		# update buttons

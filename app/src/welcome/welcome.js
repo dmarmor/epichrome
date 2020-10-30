@@ -293,13 +293,14 @@ function buildPage() {
     if (statusUpdate || (appChanges.length > 0)) {
         setDisplay('#changes_msg');
         
-        // if major version hasn't changed, hide that element
-        if (statusUpdate && (vcmp(oldVersion, appVersion, 2) == 0)) {
-            setDisplay('#changes_major', false);
-            
-            // if neither changes are visible, hide the parent element
-            if (!getDisplay('#changes_minor')) {
-                setDisplay('#changes_update', false);
+        if (statusUpdate) {
+            if (vcmp(oldVersion, appVersion, 2) != 0) {
+                // major version has changed, so show corresponding elements
+                setDisplay('#major_update_title');
+                setDisplay('#changes_major');
+            } else if (!getDisplay('#changes_minor')) {
+               // neither change list is visible, so hide the parent element
+               setDisplay('#changes_update', false);
             }
         }
         

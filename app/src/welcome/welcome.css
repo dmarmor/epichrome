@@ -355,6 +355,11 @@ a:active {
 .change_headline {
     font-weight: bold;
 }
+
+h2#major_update_title {
+    text-align: center;
+    text-decoration: none;
+}
 .changes_update {
     flex-basis: 100%;
     min-width: 20em;
@@ -424,10 +429,6 @@ a:active {
         background-color: #b8dfff;
     }
 }
-
-
-
-
 
 .itemnum {
     padding: 0;
