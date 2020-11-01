@@ -313,8 +313,8 @@ elif [[ "$epiAction" = 'read' ]] ; then
             ok= ; errmsg='Updating of Chromium-engine apps not yet implemented.'
             errlog "$errmsg"
             abort
-            #SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
-            # $$$ appBrowserInfo_com_brave_Browser ??
+            # $$$ if we add Chromium back:
+            # SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
         elif [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
             SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"
         fi

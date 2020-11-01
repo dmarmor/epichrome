@@ -214,12 +214,10 @@ function finalprogressmsg {
     # build final status message
     if [[ "${#appRestoreSuccessList[@]}" -gt 0 ]] ; then
         iFinalStatus+=" Restored: ${#appRestoreSuccessList[@]}"
-        # [[ "${#appRestoreSuccessList[@]}" -gt 1 ]] && iFinalStatus+='s' $$$$
     fi
     if [[ "${#appRestoreErrorList[@]}" -gt 0 ]] ; then
         [[ "$iFinalStatus" ]] && iFinalStatus+=','
         iFinalStatus+=" Failed: ${#appRestoreErrorList[@]}"
-        # [[ "${#appRestoreErrorList[@]}" -gt 1 ]] && iFinalStatus+='s'  $$$
     fi
     [[ "$iFinalStatus" ]] && iFinalStatus+='.'
     

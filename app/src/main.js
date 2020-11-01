@@ -900,21 +900,6 @@ function readProperties() {
 	if (myYesNoRegex.test(myProperties["doCustomIcon"])) {
         gAppInfoDefault.icon = (myProperties["doCustomIcon"] != 'No');
     }
-
-	// appEngineType  $$$ would need to be fixed
-	// if (myProperties["appEngineType"]) {
-    //     gAppInfoDefault.engineTypeID = myProperties["appEngineType"];
-    //     if (gAppInfoDefault.engineTypeID.startsWith("external") {
-    //         gAppInfoDefault.engineTypeID = kEngineInfo.external.id;
-    //     } else {
-    //         gAppInfoDefault.engineTypeID = kEngineInfo.internal.id;
-	// 	}
-    // }
-
-    // updateAction
-	// if (new RegExp('^(' + Object.keys(kUpdateActions).join('|') + ')$').test(myProperties['updateAction'])) {
-    //     gAppInfoDefault.updateAction = myProperties['updateAction'];
-    // }
 }
 
 
@@ -3219,9 +3204,6 @@ function createAppID(aInfo) {
 
     let myResult;
 
-    // flag that this app has an auto ID  $$$$ DELETE?
-    // aInfo.stepInfo.isCustomID = false;
-
     if (aInfo.stepInfo.autoID) {
 
         // we already created an auto ID, so just use that
@@ -3475,7 +3457,7 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
 }
 
 
-// DIALOGBUTTONMAP: set up a button map for a step dialog
+// DIALOGBUTTONMAP: set up a button map for a step dialog  $$$ COMBINE THIS & DIALOGINFO FN?
 function dialogButtonMap(aInfo, aKey, aButtonInfo) {
     
     // ensure we have a button-to-value map
@@ -3523,7 +3505,7 @@ function dialogButtonMap(aInfo, aKey, aButtonInfo) {
 }
 
 
-// DIALOGINFO: set up button map and other info for a step dialog  $$$ DEPRECATED -- GET RID OF THIS
+// DIALOGINFO: set up button map and other info for a step dialog  $$$ COMBINE THIS & DIALOGBUTTONMAP FN?
 function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
 
     let myResult = {

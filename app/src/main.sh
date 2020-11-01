@@ -94,9 +94,6 @@ trap '' INT
 # CLEANUP -- clean up from any failed update & deactivate any active engine
 function cleanup {
     
-    # clean up from any aborted update  $$$ MOVE THIS INTO PROGRESS APP?
-    #[[ "$(type -t updatecleanup)" = 'function' ]] && updatecleanup
-    
     if [[ "$myEnginePID" ]] ; then
         
         # if engine is still running, kill it now
@@ -116,8 +113,7 @@ function cleanup {
         fi
         
         # attempt to alert the user if the app was not left in a runnable state
-        # $$$$ PROBABLY FALL BACK TO TRYING TO REPLACE APP WITH BACKUP?
-        [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $errmsg"$'\n\nThis app has most likely been damaged and will not run again. Please restore from backup.' 'Error' '|stop'
+        [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $errmsg"$'\n\nThis app may be damaged. Please run Epichrome Scan.app to attempt to repair it.' 'Error' '|stop'
     fi
 }
 
@@ -523,7 +519,7 @@ export SSBVersion SSBIdentifier CFBundleName CFBundleDisplayName \
         myLogID myLogFile SSBAppPath
 
 # launch engine
-launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs  # $$$ REGISTER?
+launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs
 
 
 # CHECK FOR A SUCCESSFUL LAUNCH

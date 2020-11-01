@@ -1533,8 +1533,7 @@ function getextensioninfo {
 	
 	# GET ALL EXTENSION IDS EXCEPT WEIRD INTERNAL CHROME ONES
 	
-	# $$$ add beta ID??
-	local iAllExcept="!(Temp|EPIEXTIDRELEASE|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)"
+	local iAllExcept="!(Temp|EPIEXTIDRELEASE|EPIEXTIDBETA|coobgpohoikkiipiblmjeljniedjpjpf|nmmhkkegccagdldgiimedpiccmgmieda|pkedcjkdefgpdelpbcmbmeomcjbeemfm)"
 	
 	# find all valid extensions in each path
 	local iExtensions=
@@ -1594,11 +1593,10 @@ function getextensioninfo {
 		fi
 	done
 
-	# ensure extension icons directory exists  $$$$
+	# ensure extension icons directory exists
 	if [[ "${#iExtensions[@]}" != 0 ]] ; then
 		
-		try /bin/mkdir -p "$iExtIconPath" \
-				'Unable to create extension icon directory.'
+		try /bin/mkdir -p "$iExtIconPath" 'Unable to create extension icon directory.'
 		if [[ ! "$ok" ]] ; then
 			ok=1
 			return 1
@@ -1616,7 +1614,7 @@ function getextensioninfo {
 		# parse cached names
 		eval "${iExtInfoList[*]}"
 		
-		# transform iExtInfoList into list of cached IDs  $$$$ CLEAN UP ERRLOGS
+		# transform iExtInfoList into list of cached IDs
 		local curExtName i=0
 		for ((i=0; i<${#iExtInfoList[@]}; i++)) ; do
 			curExtName="${iExtInfoList[$i]#local iExtInfo_}"
@@ -2871,13 +2869,13 @@ function readconfig { # ( myConfigFile )
 			
 			# array value
 			
-			eval "config$varname=(\"\${$varname[@]}\")" # $$$$ ; export config$varname"
+			eval "config$varname=(\"\${$varname[@]}\")"
 			[[ "$debug" ]] && eval "errlog DEBUG \"$varname=( \${config$varname[*]} )\""
 		else
 			
 			# scalar value
 			
-			eval "config$varname=\"\${$varname}\"" # $$$$ ; export config$varname"
+			eval "config$varname=\"\${$varname}\""
 			[[ "$debug" ]] && eval "errlog DEBUG \"$varname='\$config$varname'\""
 		fi
 	done
@@ -3069,7 +3067,6 @@ function launchapp {
 	# return result code
 	[[ "$ok" ]] && return 0 || return 1
 }
-# $$$$ export -f launchapp
 
 
 # LAUNCHURLS: launch URLs in a running app engine
@@ -3104,4 +3101,3 @@ function launchurls {
 	
 	[[ "$ok" ]] && return 0 || return 1
 }
-# $$$$ export -f launchurls

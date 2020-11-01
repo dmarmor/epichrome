@@ -28,7 +28,6 @@
 # VERSION
 
 coreVersion='EPIVERSION'
-# $$$$ export coreVersion
 
 
 # BUILD FLAGS
@@ -101,26 +100,20 @@ while [[ "$#" -gt 0 ]] ; do
     fi
 done
 
-# set variable with remaining command-line  $$$ UNUSED
-coreCommandLine=( "$@" )
-
 
 # CONSTANTS
 
 # icon names
 CFBundleIconFile="app.icns"
 CFBundleTypeIconFile="document.icns"
-# $$$$ export CFBundleIconFile CFBundleTypeIconFile
 
 # bundle IDs
 appIDRoot='org.epichrome'
 appIDBase="$appIDRoot.app"
-# $$$$ export appIDRoot appIDBase
 
 # monitor app info
 epiMonitorAppName='EpichromeMonitor.app'
 epiMonitorAppVersionFile="Resources/v${coreVersion}.dat"
-# $$$$ export epiMonitorAppName epiMonitorAppVersionFile
 
 # app internal paths
 appMonitorPath="Resources/$epiMonitorAppName"
@@ -131,18 +124,12 @@ appWelcomePage='welcome.html'
 appMasterPrefsPath='Resources/Profile/prefs.json'
 appBookmarksFile='Bookmarks'
 appBookmarksPath="Resources/Profile/$appBookmarksFile"
-# $$$$ export appMonitorPath appEnginePath \
-        # appNMHFileBase \
-        # appWelcomePath appWelcomePage \
-        # appMasterPrefsPath \
-        # appBookmarksFile appBookmarksPath
 
 # payload paths
 epiPayloadPathBase='Payload.noindex'
 epiPayloadLauncherDir='Launcher'
 epiPayloadEngineDir='Engine'
 epiOldEngineBase='EpichromeEngines.noindex'
-# $$$$ export epiPayloadPathBase epiPayloadLauncherDir epiPayloadEngineDir epiOldEngineBase
 
 # data paths
 userSupportPath="${HOME}/Library/Application Support"
@@ -167,15 +154,6 @@ appDataPauseFifo='pause'
 appDataBackupDir='Backups'
 appDataFailsafeFile='backup.dat'
 appDataWelcomeDir='Welcome'
-# $$$$ export userSupportPath epiDataPath \
-        # epiGithubCheckFile \
-        # appDataPathBase \
-        # appDataConfigFile \
-        # epiDataExtIconDir appDataProfileDir \
-        # epiDataLogDir epiDataLogDirEpichrome epiDataLogDirScan epiDataLogDirLogin \
-        # appDataLogFilePrefix epiDataLogFilePrefix epiDataLogFilePrefixScan epiDataLogFilePrefixLogin \
-        # appDataStderrFile appDataStdoutFile appDataPauseFifo appDataBackupDir appDataFailsafeFile \
-        # appDataWelcomeDir
 
 # indices for SSBEngineSourceInfo
 iID=0
@@ -190,8 +168,6 @@ iLibraryPath=8
 iMasterPrefsFile=9
 iNoNMHLink=10
 iArgs=11
-# $$$$ export iID iExecutable iName iDisplayName iVersion iAppIconPath iDocIconPath iPath \
-       # iLibraryPath iMasterPrefsFile iNoNMHLink iArgs
 
 # info on allowed Epichrome engine browsers
 appBrowserInfo_com_microsoft_edgemac=( 'com.microsoft.edgemac' \
@@ -227,14 +203,7 @@ appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
         'Google Chrome Master Preferences' \
         '' \
         '--enable-features=PasswordImport' )
-
-# $$$$ exportarray appBrowserInfo_com_microsoft_edgemac \
-        # appBrowserInfo_com_vivaldi_Vivaldi \
-        # appBrowserInfo_com_operasoftware_Opera \
-        # appBrowserInfo_com_brave_Browser \
-        # appBrowserInfo_org_chromium_Chromium \
-        # appBrowserInfo_com_google_Chrome
-
+        
 
 # CORE CONFIG VARIABLES
 
@@ -247,7 +216,6 @@ appConfigVars=( SSBAppPath \
         SSBPayloadPath \
         SSBLastErrorGithubFatal \
         SSBLastErrorNMHInstall )
-# $$$$ export "${appConfigVars[@]}"
 
 
 # SET UP CORE INFO
@@ -268,7 +236,6 @@ else
     myScriptPathEpichrome=
     myEpichromePath=
 fi
-# $$$$ export myScriptPath myScriptPathEpichrome myEpichromePath
 
 if [[ "$coreContext" = 'app' ]] ; then
     
@@ -295,9 +262,6 @@ if [[ "$coreContext" = 'app' ]] ; then
     
     # by default show alert on abort
     coreShowAlertOnAbort=1
-    
-    # export all to helper
-    # $$$$ export myConfigFile myProfilePath
 
 else
     
@@ -397,15 +361,8 @@ if [[ ! "$myRunTimestamp" ]] ; then
     [[ "$?" = 0 ]] || myRunTimestamp=
 fi
 
-# export all
-# $$$$ export myDataPath myBackupDir \
-        # myPauseFifo \
-        # myLogID myLogFile myLogFilePrefix myLogDir myLogTempVar logNoStderr logNoFile \
-        # stderrTempFile stdoutTempFile \
-        # myRunTimestamp
 
-
-# FUNCTION DEFINITIONS
+# --- FUNCTION DEFINITIONS ---
 
 
 # LOGGING -- log to stderr & a log file
@@ -516,7 +473,6 @@ function debuglog_raw {
 function debuglog {
     [[ "$debug" ]] && errlog DEBUG "$@"
 }
-# $$$$ export -f errlog_raw errlog debuglog_raw debuglog
 
 
 # INITLOGFILE: initialize log file
@@ -567,7 +523,6 @@ function initlogfile {
         return 1
     fi
 }
-# $$$$ export -f initlogfile
 
 
 # JOIN_ARRAY -- join a bash array into a string with an arbitrary delimiter
@@ -586,7 +541,6 @@ function join_array {
     
     printf "$result"
 }
-# $$$$ export -f join_array
 
 
 # SPLIT_ARRAY -- split a string in a variable into an array with a delimiter
@@ -628,7 +582,6 @@ function split_array {
 #
 ok=1
 errmsg=
-# $$$$ export ok errmsg
 function try {
     
     # only run if no prior error
@@ -890,7 +843,6 @@ function try {
     
     return 0
 }
-# $$$$ export -f try
 
 
 # RUNALWAYS -- run a command even if there's already been an error
@@ -918,14 +870,12 @@ function runalways {
     
     return "$result"
 }
-# $$$$ export -f runalways
 
 
 # TRYALWAYS -- try a command even if there's already been an error
 function tryalways {
     runalways try "$@"
 }
-# $$$$ export -f tryalways
 
 
 # SAFESOURCE -- safely source a script
@@ -974,7 +924,6 @@ function safesource {
     [[ "$ok" ]] && return 0 || return 1
     
 }
-# $$$$ export -f safesource
 
 
 # CLEANEXIT -- call any defined cleanup function and exit
@@ -1009,7 +958,6 @@ function cleanexit {
         exit "$myCode"
     fi
 }
-# $$$$ export -f cleanexit
 
 
 # ABORT -- display an error alert and abort
@@ -1066,7 +1014,6 @@ function abort {
     # quit with error code
     cleanexit "$myCode"
 }
-# $$$$ export -f abort
 
 
 # HANDLEEXITSIGNAL -- handle an exit signal, cleaning up if needed
@@ -1103,7 +1050,6 @@ function handleexitsignal {
         cleanexit 'SIGEXIT'
     fi
 }
-# $$$$ export -f handleexitsignal
 
 # set SIGEXIT handler
 trap handleexitsignal EXIT
@@ -1113,7 +1059,6 @@ trap handleexitsignal EXIT
 # 7 groups as follows: 0A.0B.0Cb0D[00E]
 #  1: A, 2: B, 3: C, 4: b0D, 5: D, 6: [00E], 7: E
 epiVersionRe='0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?'
-# $$$$ export epiVersionRe
 
 
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
@@ -1163,7 +1108,6 @@ function vcmp {
         eval "[[ \"\${vstr[0]}\" $op \"\${vstr[1]}\" ]]"
     fi
 }
-# $$$$ export -f vcmp
 
 
 # PAUSE -- sleep for the specified number of seconds (without spawning /bin/sleep processes)
@@ -1192,7 +1136,6 @@ function pause {
         return 1
     fi
 }
-# $$$$ export -f pause
 
 
 # WAITFORCONDITION -- wait for a given condition to become true, or timeout
@@ -1238,7 +1181,6 @@ function waitforcondition {
     # if we got here the condition never occurred
     return 1
 }
-# $$$$ export -f waitforcondition
 
 
 # SHOPTSET -- set shell options that can then be restored with shoptrestore
@@ -1261,7 +1203,6 @@ function shoptset {
     
     return 0
 }
-# $$$$ export -f shoptset
 
 # SHOPTRESTORE -- restore shell options set with shoptset
 #   shoptrestore(saveVar)
@@ -1281,7 +1222,6 @@ function shoptrestore {
     
     return 0
 }
-# $$$$ export -f shoptrestore
 
 
 # ISSAMEDEVICE -- check that two paths are on the same device
@@ -1316,8 +1256,6 @@ function issamedevice {
         paths[$i]="$curPath"
     done
     
-    # $$$ debuglog "Comparing devices for '${paths[0]}' and '${paths[1]}'."
-    
     # get path devices
     local device1=
     local device2=
@@ -1335,7 +1273,6 @@ function issamedevice {
     # compare devices
     [[ "$device1" = "$device2" ]] && return 0 || return 1
 }
-# $$$$ export -f issamedevice
 
 
 # SAFERM: rm -rf with safety checks for known paths
@@ -1366,7 +1303,6 @@ function saferm {
     [[ "$myTry" ]] && iTry="$myTry"
     "$iTry" /bin/rm -rf "$@" "$aErrMsg"
 }
-# $$$$ export -f saferm
 
 
 # TEMPNAME: internal version of mktemp
@@ -1381,7 +1317,6 @@ function tempname {
     
     echo "$result"
 }
-# $$$$ export -f tempname
 
 
 # PERMANENT: move temporary file or directory to permanent location safely
@@ -1434,7 +1369,6 @@ function permanent {
     
     [[ "$ok" ]] && return 0 || return 1
 }
-# $$$$ export -f permanent
 
 
 # RMTEMP: remove a temporary file or directory (whether $ok or not)
@@ -1452,7 +1386,6 @@ function rmtemp {
     
     return "$result"
 }
-# $$$$ export -f rmtemp
 
 
 # SAFECOPY: safely copy a file or directory to a new location
@@ -1498,7 +1431,6 @@ function safecopy {
     [[ "$ok" ]] && return 0 || return 1
     
 }
-# $$$$ export -f safecopy
 
 
 # TRIMSAVES -- trim a saved file directory to its maximum
@@ -1547,7 +1479,6 @@ function trimsaves {
     # return code
     [[ "$ok" ]] && return 0 || return 1
 }
-# $$$$ export -f trimsaves
 
 
 # ISARRAY -- return 0 if a named variable is an array, or 1 otherwise
@@ -1558,12 +1489,10 @@ function isarray {
         return 1
     fi
 }
-# $$$$ export -f isarray
 
 
 # EPIWHITESPACE: utility variable holding whitespace for regexes
 epiWhitespace=$' \t\n'
-# $$$$ export epiWhitespace
 
 # ESCAPE: backslash-escape \ & optional other characters
 #  escape(str, [chars, var])
@@ -1593,7 +1522,6 @@ function escape {
         echo "$iEscResult"
     fi
 }
-# $$$$ export -f escape
 
 
 # UNESCAPE: remove escapes from a string
@@ -1624,7 +1552,6 @@ function unescape {
         echo "$iUnescResult"
     fi
 }
-# $$$$ export -f unescape
 
 
 # ESCAPEJSON: escape \, ", \n & \t for a JSON string
@@ -1650,7 +1577,6 @@ function escapejson {
         echo "$iEscJsonResult"
     fi
 }
-# $$$$ export -f escapejson
 
 
 # UNESCAPEJSON: remove escapes from a JSON string
@@ -1678,7 +1604,6 @@ function unescapejson {
         echo "$iUnescJsonResult"
     fi
 }
-# $$$$ export -f unescapejson
 
 
 # JSONARRAY: convert an array to a JSON array
@@ -1697,7 +1622,6 @@ function jsonarray {
     # output joined array
     join_array "$aJoinStr" "${iResult[@]}"
 }
-# $$$$ export -f jsonarray
 
 
 # FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval
@@ -1718,7 +1642,6 @@ function formatscalar {
     [[ "$noQuotes" ]] && echo "$result" || echo "'$result'"
     
 }
-# $$$$ export -f formatscalar
 
 
 # FORMATARRAY -- utility function to format an array for variable assignment or eval
@@ -1744,7 +1667,6 @@ function formatarray {
     
     echo "$value"
 }
-# $$$$ export -f formatarray
 
 
 # WRITEVARS: write out a set of arbitrary bash variables to a file
@@ -1820,7 +1742,6 @@ function writevars {
     [[ "$ok" ]] && return 0 || return 1
     
 }
-# $$$$ export -f writevars
 
 
 # ARRAY IMPORT/EXPORT
@@ -1834,7 +1755,6 @@ function exportarray {
 		eval "${curVar}_array=\"$curVar=\$(formatarray \"\${$curVar[@]}\")\" ; export ${curVar}_array"
 	done
 }
-# $$$$ export -f exportarray
 
 
 # IMPORTARRAY -- import array variables from a parent environment
@@ -1845,7 +1765,6 @@ function importarray {
 		eval "eval \"\$${curVar}_array\""
 	done
 }
-# $$$$ export -f importarray
 
 
 # DIALOG -- display a dialog and return the button pressed
@@ -1971,7 +1890,6 @@ function dialog {
     [[ "$ok" ]] && return 0
     return 1
 }
-# $$$$ export -f dialog
 
 
 # ALERT -- display a simple alert dialog box (whether ok or not)
@@ -1984,7 +1902,6 @@ function alert {
     dialog '' "$1" "$2" "$3"
     return "$?"
 }
-# $$$$ export -f alert
 
 
 # INITIALIZE SCRIPT

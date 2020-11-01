@@ -25,14 +25,13 @@
 
 # step calibration
 stepStart=0
-step01=246
-step02=338
-step03=224
-step04=604
-step05=738
-step06=936
-step07=1179
-step08=1732
+step01=500
+step02=224
+step03=604
+step04=738
+step05=936
+step06=1179
+step07=1732
 stepIconA1=850
 stepIconA2=20000
 stepIconA3=1164
@@ -42,14 +41,14 @@ stepIconB3=1230
 stepIconB4=269
 stepIconB5=782
 stepIconB6=221
-step09=1100
-step10=750
-step11=450
+step08=1100
+step09=750
+step10=450
 stepIEng1=835
 stepIEng2=863
 stepIEng3=860
 stepIEng4=15000
-step12=400
+step11=400
 
 # set up progress total based on what we're doing in this update
 progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 + $step11 + $step12 ))
@@ -118,13 +117,9 @@ function cleanup {
 
 # --- MAIN BODY ---
 
-# $$$
-progress 'stepStart'  # $$$
+progress 'stepStart'
 
-# $$$
-#sleep 30
-
-# check for app path  $$$ FIX
+# check for app path
 if [[ ! "$updateAppPath" ]] ; then
     ok= ; errmsg='No app path.'
     abort
@@ -132,9 +127,6 @@ fi
 
 # import app array variables
 importarray SSBCommandLine myStatusEngineChange
-
-# make sure we're logging $$$ NOT NECESSARY?
-#[[ "$myLogFile" ]] || initlogfile
 
 # on engine change, restore last-run engine for update purposes
 if [[ "${myStatusEngineChange[0]}" ]] ; then
@@ -144,9 +136,7 @@ fi
 # get current info for the engine
 getbrowserinfo SSBEngineSourceInfo
 
-progress 'step01'  # $$$
-
-progress 'step02'  # $$$  GET RID OF THIS STEP & RENUMBER ALL
+progress 'step01'
 
 
 # SET APP BUNDLE ID
@@ -199,7 +189,7 @@ if [[ "$epiAction" != 'build' ]] ; then
     fi
 fi
 
-progress 'step03'  # $$$
+progress 'step02'
 
 
 # SET APP VERSION
@@ -218,14 +208,14 @@ try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$updateContentsTmp" \
         'Unable to populate app bundle.'
 [[ "$ok" ]] || abort
 
-progress 'step04'  # $$$
+progress 'step03'
 
 # copy executable into place
 safecopy "$updateEpichromeRuntime/Exec/Epichrome" \
         "$updateContentsTmp/MacOS/Epichrome" \
         'app executable.'
 
-progress 'step05'  # $$$
+progress 'step04'
 
 
 # FILTER APP INFO.PLIST INTO PLACE
@@ -245,7 +235,7 @@ filterplist "$updateEpichromeRuntime/Filter/Info.plist" \
         "app Info.plist" \
         "${filterCommands[@]}"
 
-progress 'step06'  # $$$
+progress 'step05'
 
 
 # FILTER APPEXEC & MAIN.SH INTO PLACE
@@ -268,7 +258,7 @@ filterfile "$updateEpichromeRuntime/Filter/AppExec" \
         'app bootstrap script' \
         APPID "$(formatscalar "$SSBIdentifier")"
     
-progress 'step07'  # $$$
+progress 'step06'
 
 # filter main.sh & make executable
 iMainScript="$resourcesTmp/Scripts/main.sh"
@@ -288,7 +278,7 @@ filterfile "$updateEpichromeRuntime/Filter/main.sh" \
 try /bin/chmod 755 "$iMainScript" 'Unable to set permissions for main app script.'
 [[ "$ok" ]] || abort
 
-progress '!step08'  # $$$
+progress '!step07'
 
 
 # COPY OR CREATE CUSTOM APP ICONS
@@ -307,7 +297,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
                 "Unable to parse icon source file."
         [[ "$ok" ]] || abort
         
-        progress '!stepIconA1'  # $$$
+        progress '!stepIconA1'
         
         # find makeicon.sh
         makeIconScript="$updateEpichromeResources/Scripts/makeicon.sh"
@@ -329,7 +319,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         makeIconErr=
         try 'makeIconErr&=' "$makeIconScript" -f -o "$resourcesTmp/$CFBundleIconFile" "${docArgs[@]}" ''
         
-        progress 'stepIconA2'  # $$$
+        progress 'stepIconA2'
         
         # handle errors
         if [[ ! "$ok" ]] ; then
@@ -352,7 +342,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         # error is nonfatal, we'll just use the default from boilerplate
         if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
         
-        progress 'stepIconA3'  # $$$
+        progress 'stepIconA3'
         
     else
         
@@ -365,12 +355,12 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         safecopy "$iconSourcePath/$CFBundleIconFile" \
                 "$resourcesTmp/$CFBundleIconFile" "app icon"
         
-        progress 'stepIconB1'  # $$$
+        progress 'stepIconB1'
 
         safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
                 "$resourcesTmp/$CFBundleTypeIconFile" "document icon"
         
-        progress 'stepIconB2'  # $$$
+        progress 'stepIconB2'
         
         [[ "$ok" ]] || abort
         
@@ -396,7 +386,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
                     "$iconSourcePath/$CFBundleIconFile" \
                     'Unable to convert app icon to iconset.'
             
-            progress 'stepIconB3'  # $$$
+            progress 'stepIconB3'
             
             if [[ "$ok" ]] ; then
                 
@@ -434,7 +424,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
             debuglog 'Found existing icon image for welcome page.'
         fi
         
-        progress 'stepIconB4'  # $$$
+        progress 'stepIconB4'
         
         # copy welcome icon
         if [[ "$welcomeIconSourcePath" ]] ; then
@@ -443,7 +433,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
                     'Unable to add app icon to welcome page.'
         fi
         
-        progress 'stepIconB5'  # $$$
+        progress 'stepIconB5'
         
         # get rid of any temp iconset we created
         [[ "$tempIconset" && -e "$tempIconset" ]] && \
@@ -453,7 +443,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         # welcome page icon error is nonfatal, just log it
         if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
         
-        progress 'stepIconB6'  # $$$
+        progress 'stepIconB6'
     fi
 
 fi
@@ -468,7 +458,7 @@ filterfile "$updateEpichromeRuntime/Filter/$appWelcomePage" \
         APPBUNDLENAME "$(escapehtml "$CFBundleName")" \
         APPDISPLAYNAME "$(escapehtml "$CFBundleDisplayName")"
 
-progress 'step09'  # $$$
+progress 'step08'
 
 
 # SELECT MASTER PREFS
@@ -484,7 +474,7 @@ safecopy "$updateEpichromeRuntime/Filter/Prefs/prefs${nourl}_${engineID//./_}.js
         'Unable to create app master prefs.'
 
 
-progress 'step10'  # $$$
+progress 'step09'
 
 
 # FILTER PROFILE BOOKMARKS FILE INTO PLACE
@@ -495,7 +485,7 @@ filterfile "$updateEpichromeRuntime/Filter/$appBookmarksFile" \
         APPBUNDLENAME "$(escapejson "$CFBundleName")"
 [[ "$ok" ]] || abort
 
-progress 'step11'  # $$$
+progress 'step10'
 
 
 # POPULATE INTERNAL ENGINE DIRECTORY
@@ -510,14 +500,14 @@ if [[ "${SSBEngineType%%|*}" = internal ]] ; then
             "$updateEnginePath" \
             'Unable to populate app engine payload.'
     
-    progress 'stepIEng1'  # $$$
+    progress 'stepIEng1'
     
     # copy payload executable into place
     safecopy "$updateEpichromeRuntime/Engine/Exec/${SSBEngineSourceInfo[$iExecutable]}" \
             "$updateEnginePath/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
             'app engine payload executable'
     
-    progress 'stepIEng2'  # $$$
+    progress 'stepIEng2'
     
     # filter payload Info.plist into place
     filterplist "$updateEpichromeRuntime/Engine/Filter/Info.plist" \
@@ -527,7 +517,7 @@ if [[ "${SSBEngineType%%|*}" = internal ]] ; then
             "Set :CFBundleName $(escape "$CFBundleName" "\"'")" \
             "Set :CFBundleIdentifier $myAppBundleID"
     
-    progress 'stepIEng3'  # $$$
+    progress 'stepIEng3'
     
     # filter localization strings in place
     filterlproj "$updateEnginePath/Resources" 'app engine' \
@@ -555,7 +545,7 @@ else
     abort
 fi
 
-progress 'step12'  # $$$
+progress 'step11'
 
 
 # CREATE FAILSAFE BACKUP OF APP
@@ -580,4 +570,4 @@ else
     ok=1 ; errmsg=
 fi
 
-progress 'end'  # $$$
+progress 'end'

@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b4
-epiBuildNum=59
+epiBuildNum=60
 epiDesc='   ▪️ Progress bars now appear when creating and updating apps and their engines, as well as while parsing browser extensions
    ▪️ The login scan can now be enabled and disabled from within Epichrome
    

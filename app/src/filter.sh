@@ -115,7 +115,6 @@ function filterplist {
     [[ "$ok" ]] && return 0 || return 1
     
 }
-# $$$$ export -f filterplist
 
 
 # FILTERLPROJ: destructively filter all InfoPlist.strings files in a set of .lproj directories

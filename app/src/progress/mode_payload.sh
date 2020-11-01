@@ -63,10 +63,7 @@ function cleanup {
 # --- MAIN BODY ---
 
 # start progress bar
-progress 'stepStart'  # $$$
-
-# $$$
-# sleep 10
+progress 'stepStart'
 
 # import app array variables
 importarray SSBEngineSourceInfo
@@ -76,7 +73,7 @@ importarray SSBEngineSourceInfo
 
 deletepayload MUSTSUCCEED
 
-progress 'step1'  # $$$
+progress 'step1'
 
 
 # CREATE NEW ENGINE PAYLOAD
@@ -151,7 +148,7 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     shoptState=
     shoptset shoptState extglob
     
-    progress 'stepEEng1'  # $$$
+    progress 'stepEEng1'
 
     # copy all of the external browser except Framework and Resources
     allExcept='!(Frameworks|Resources)'
@@ -159,7 +156,7 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 			"$myPayloadEnginePath" \
             "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
 	
-    progress 'stepEEng2'  # $$$
+    progress 'stepEEng2'
 
 	# copy Resources, except icons
     allExcept='!(*.icns)'
@@ -167,7 +164,7 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 			"$myPayloadEnginePath/Resources" \
             "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine resources to payload."
 	
-    progress 'stepEEng3'  # $$$
+    progress 'stepEEng3'
 
     # restore extended glob
     shoptrestore shoptState
@@ -176,7 +173,7 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
     linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myPayloadEnginePath" \
 			"${SSBEngineSourceInfo[$iDisplayName]} app engine" 'payload' 'Frameworks'
 	
-    progress 'stepEEng4'  # $$$
+    progress 'stepEEng4'
 
 	# filter localization files
     filterlproj "$myPayloadEnginePath/Resources" \
@@ -190,7 +187,7 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 			"$myPayloadEnginePath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
             "Unable to copy document icon file to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
 
-    progress 'stepEEng6'  # $$$
+    progress 'stepEEng6'
 
 else
     
@@ -218,7 +215,7 @@ else
 			"$SSBPayloadPath" \
             'Unable to copy app engine payload.'
 	
-    progress 'stepIEng1'  # $$$
+    progress 'stepIEng1'
 
 	# copy icons to payload
     safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
@@ -228,13 +225,13 @@ else
 			"$myPayloadEnginePath/Resources/$CFBundleTypeIconFile" \
             "engine document icon"
 	
-    progress 'stepIEng2'  # $$$
+    progress 'stepIEng2'
     
     # hard link large payload items from Epichrome
     linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
 			"$myPayloadEnginePath" 'app engine' 'payload'
 
-    progress 'stepIEng3'  # $$$
+    progress 'stepIEng3'
 fi
 
 [[ "$ok" ]] || abort
@@ -246,7 +243,7 @@ if [[ "$ok" ]] ; then
     ok=1 ; errmsg=
 fi
 
-progress 'end'  # $$$
+progress 'end'
 
 # signal that we're done to cleanup function
 payloadComplete=1

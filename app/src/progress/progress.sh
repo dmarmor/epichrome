@@ -123,14 +123,11 @@ function progress {
     # decide whether to show this message (if forced, if status changes, or every 1/4 sec)
     if [[ "$iForce" || ( "$iStatus" != "$progressPrevStatus" ) || \
             ( $(( $iCurTime - $progressPrevTime )) -ge 15 ) ]] ; then
-#        errlog FATAL "showing message $aStepId$iPercent:  iForce=$iForce  status=($iStatus/$progressPrevStatus)  timediff=$(( $iCurTime - $progressPrevTime ))"  # $$$$
         echo "$iDetail$progressAction$iPercent$iStatus"
         
         # update status for next run
         progressPrevTime="$iCurTime"
         progressPrevStatus="$iStatus"
-#    else
-#        errlog FATAL "NOT showing message $aStepId$iPercent: iForce=$iForce  status=($iStatus/$progressPrevStatus)  timediff=$(( $iCurTime - $progressPrevTime ))"  # $$$$
     fi
 }
 
