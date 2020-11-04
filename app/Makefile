@@ -639,50 +639,6 @@ $(PROGRESS_CT)/Resources/Scripts/%.sh: src/progress/%.sh
 	cp $< $@
 
 
-# # CREATE-PAYLOAD APP  $$$ DELETE
-#
-# $(PAYLOAD_APP): $(PAYLOAD_CT)/MacOS/EpichromePayload \
-# 		$(PAYLOAD_CT)/Resources/MainMenu.nib \
-# 		$(PAYLOAD_CT)/Resources/AppSettings.plist \
-# 		\
-# 		$(PAYLOAD_CT)/Info.plist \
-# 		$(PAYLOAD_CT)/Resources/script \
-# 		$(PAYLOAD_CT)/Resources/app.icns
-#
-# $(PAYLOAD_CT)/MacOS/EpichromePayload \
-# 	$(PAYLOAD_CT)/Resources/MainMenu.nib \
-# 	$(PAYLOAD_CT)/Resources/AppSettings.plist: payload-core
-#
-# payload-core:
-# 	@rm -rf $(PAYLOAD_APP)
-# 	@touch build/fake.icns build/fake.sh
-# 	platypus --name 'EpichromePayload' \
-# 		--interface-type 'Progress Bar' \
-# 		--app-icon build/fake.icns \
-# 		--interpreter /bin/bash \
-# 		--app-version $(VERSION) \
-# 		--author 'David Marmor' \
-# 		--bundle-identifier org.epichrome.Update \
-# 		--background \
-# 		--quit-after-execution \
-# 		--optimize-nib \
-# 		build/fake.sh $(PAYLOAD_APP)
-# 	@rm $(PAYLOAD_CT)/Info.plist $(PAYLOAD_CT)/Resources/*.icns $(PAYLOAD_CT)/Resources/script
-#
-# $(PAYLOAD_CT)/Info.plist: src/payload/Info.plist src/version.sh
-# 	@mkdir -p '$(dir $@)'
-# 	sed 's/EPIVERSIONCODE/$(VERSIONCODE)/g; s/EPIVERSION/$(VERSION)/g; s/THISYEAR/$(THISYEAR)/g' '$<' > '$@'
-#
-# $(PAYLOAD_CT)/Resources/script: src/payload/PayloadExec src/version.sh
-# 	@mkdir -p $(dir $@)
-# 	sed -e 's/EPIVERSION/$(VERSION)/g' $< > $@
-# 	chmod 755 $@
-#
-# $(PAYLOAD_CT)/Resources/app.icns: build/icons/app$(BETA).icns src/version.sh
-# 	@mkdir -p $(dir $@)
-# 	cp $< $@
-#
-
 # *** RUNTIME CORE ***
 
 # RUNTIME CORE

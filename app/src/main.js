@@ -185,6 +185,8 @@ let gAppInfoDefault = {
     updateAction: 'prompt'
 };
 
+let gFirstDialogOptMsg = '\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)';
+
 
 // --- FUNCTIONS ---
 
@@ -330,14 +332,17 @@ function main(aApps=[]) {
 
             while (true) {
                 // no dropped files, so ask user for run mode
-                let myDlgResult = dialog('Would you like to create a new app or edit existing apps?\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)', {
+                let myDlgResult = dialog('Would you like to create a new app or edit existing apps?' + gFirstDialogOptMsg, {
                     withTitle: 'Select Action | Epichrome EPIVERSION',
                     withIcon: kEpiIcon,
                     buttons: ['Create', 'Edit', 'Quit'],
                     defaultButton: 1,
                     cancelButton: 3
                 }).buttonIndex;
-
+                
+                // don't show this again
+                gFirstDialogOptMsg = '';
+                
                 if (myDlgResult == 0) {
 
                     // Create button
@@ -668,33 +673,24 @@ function runEdit(aApps) {
     myDlgButtons.push('Quit');
 
     while (true) {
-        try {
-            // set up dialog options
-            let myDlgOptions = {
-                withTitle: myDlgTitle + ' | Epichrome EPIVERSION',
-                withIcon: myDlgIcon,
-                buttons: myDlgButtons,
-                defaultButton: 1
-            };
-            if (myDlgButtons.length > 1) { myDlgOptions.cancelButton = myDlgButtons.length; }
-
-            // display dialog
-            myDlgResult = kApp.displayDialog(myDlgMessage, myDlgOptions).buttonReturned;
-
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                if (confirmQuit()) { return; }
-                continue;
-            } else {
-                // some other dialog error
-                throw myErr;
-            }
-        }
-
-        // special case: only a quit button
+        // set up dialog options
+        let myDlgOptions = {
+            withTitle: myDlgTitle + ' | Epichrome EPIVERSION',
+            withIcon: myDlgIcon,
+            buttons: myDlgButtons,
+            defaultButton: 1
+        };
+        if (myDlgButtons.length > 1) { myDlgOptions.cancelButton = myDlgButtons.length; }
+        
+        // display dialog
+        myDlgResult = dialog(myDlgMessage + gFirstDialogOptMsg, myDlgOptions).buttonReturned;
+        
+        // only show preferences notification once
+        gFirstDialogOptMsg = '';
+        
         if (myDlgResult == 'Quit') {
-            // quit immediately
-            return;
+            if ((myDlgOptions.buttons.length == 1) || confirmQuit()) { return; }
+            continue;
         } else if (myDlgResult == myBtnUpdate) {
             // updates only, no app editing
             myDoEdit = false;
@@ -702,7 +698,7 @@ function runEdit(aApps) {
 
         break;
     }
-
+    
     // build text to represent will be done (editing and/or updating)
     let myActionText = [];
     if (myDoEdit) { myActionText.push('edited'); }
@@ -1802,7 +1798,6 @@ function stepWinStyle(aInfo) {
 	let myErr;
 
     // set up dialog message
-
     let myDlgMessage = "App Style:\n\nAPP WINDOW - The app will display an app-style window with the given URL. (This is ordinarily what you'll want.)\n\nBROWSER TABS - The app will display a full browser window with the given tabs.";
 
     if (aInfo.stepInfo.action == kActionCREATE) {
@@ -1811,24 +1806,20 @@ function stepWinStyle(aInfo) {
         myDlgMessage = 'Edit ' +  myDlgMessage;
     }
 
-    // set up dialog info
-    let myDlgInfo = dialogInfo(aInfo, 'windowStyle', [kWinStyleApp, kWinStyleBrowser]);
-
-    try {
-
-        // display dialog
-        updateAppInfo(aInfo, 'windowStyle',
-            myDlgInfo.buttonMap[kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned]);
-
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
+    // display dialog
+    let myDlgResult = stepDialog(aInfo, myDlgMessage, {
+            key: 'windowStyle',
+            buttons: [kWinStyleApp, kWinStyleBrowser]
+        });
+    
+    if (myDlgResult.canceled) {
             // Back button
             return -1;
-        } else {
-            throw myErr;
-        }
     }
-
+    
+    // update window style
+    updateAppInfo(aInfo, 'windowStyle', myDlgResult.buttonValue);
+    
     // update URLs too for next step
     updateAppInfo(aInfo, 'urls');
 
@@ -2087,27 +2078,23 @@ function stepBrowser(aInfo) {
     // status variables
 	let myErr;
 
-    // set up dialog message
-
-    let myDlgMessage = 'Register app as a browser?';
-
-    let myDlgInfo = dialogInfo(aInfo, 'registerBrowser', ['Yes', 'No'], [true, false]);
-    let myDlgResult;
-
-    try {
-        // display dialog
-        updateAppInfo(aInfo, 'registerBrowser',
-            myDlgInfo.buttonMap[kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned]);
-
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
+    // display dialog
+    let myDlgResult = stepDialog(aInfo, 'Register app as a browser?', {
+        key: 'registerBrowser',
+        buttons: {
+            'Yes': true,
+            'No': false
+        }
+    });
+    
+    if (myDlgResult.canceled) {
             // Back button
             return -1;
-        } else {
-            throw myErr;
-        }
     }
-
+    
+    // update browser selection
+    updateAppInfo(aInfo, 'registerBrowser', myDlgResult.buttonValue);
+    
     // move on
     return 1;
 }
@@ -2121,70 +2108,53 @@ function stepIcon(aInfo) {
 
     // set up dialog message
 
-    let myDlgMessage = 'Do you want to provide a custom icon?';
-    let myDlgResult;
-
-    let myDlgInfo = dialogInfo(aInfo, 'icon', ['Yes', 'No'], [aInfo.appInfo.icon ? aInfo.appInfo.icon : true, false]);
-
-    try {
-
-        // display step dialog
-        myDlgResult = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.icon.stepSummary,
-            myDlgInfo.options).buttonReturned;
-
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
-            // Back button
-            return -1;
-        } else {
-            throw myErr;
+    let myDlgResult = stepDialog(aInfo, 'Do you want to provide a custom icon?', {
+        key: 'icon',
+        buttons: {
+            'Yes': (aInfo.appInfo.icon ? aInfo.appInfo.icon : true),
+            'No':  false
         }
+    });
+    
+    if (myDlgResult.canceled) {
+        // Back button
+        return -1;
     }
-
+    
     // if editing & icon choice changed from custom to default, confirm whether to remove icon
     if ((aInfo.stepInfo.action == kActionEDIT) &&
         (aInfo.appInfo.icon && aInfo.oldAppInfo.icon) &&
-        !myDlgInfo.buttonMap[myDlgResult]) {
+        !myDlgResult.buttonValue) {
 
-        let myDlgResult;
-
-        try {
-            myDlgResult = kApp.displayDialog("Are you sure you want to remove this app's custom icon and replace it with the default Epichrome icon?", {
-                withTitle: 'Confirm Icon Change',
-                withIcon: 'caution',
-                buttons: ['Cancel', 'OK'],
-                defaultButton: 1
-            }).buttonReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                myDlgResult = 'Cancel';
-            } else {
-                throw myErr;
-            }
-        }
-
-        if (myDlgResult != 'OK') {
+        let myConfirmResult = dialog("Are you sure you want to remove this app's custom icon and replace it with the default Epichrome icon?", {
+            withTitle: 'Confirm Icon Change',
+            withIcon: 'caution',
+            buttons: ['Cancel', 'OK'],
+            defaultButton: 1
+        }).buttonReturned;
+        
+        if (myConfirmResult != 'OK') {
             // repeat this step
             return 0;
         }
     }
-
-    if (myDlgInfo.buttonMap[myDlgResult]) {
+    
+    if (myDlgResult.buttonValue) {
 
         let myChooseIcon = true;
-
+        
         // if we haven't changed the check if user wants to change current custom icon
         if ((aInfo.stepInfo.action == kActionEDIT) && aInfo.oldAppInfo.icon &&
             (!(aInfo.appInfo.icon instanceof Object))) {
 
-            myChooseIcon = (kApp.displayDialog("Do you want to replace the app's current icon" + (aInfo.stepInfo.dlgIcon != kEpiIcon ? ' (shown in this dialog box)' : '') + '?', {
+            myChooseIcon = (dialog("Do you want to replace the app's current icon" + (aInfo.stepInfo.dlgIcon != kEpiIcon ? ' (shown in this dialog box)' : '') + '?', {
                 withTitle: aInfo.stepInfo.dlgTitle,
                 withIcon: aInfo.stepInfo.dlgIcon,
                 buttons: ['Keep', 'Replace'],
                 defaultButton: 1
-            }).buttonReturned == 'Replace');
+            }).buttonIndex == 1);
         }
-
+        
         if (myChooseIcon) {
 
             // CHOOSE AN APP ICON
@@ -2238,13 +2208,7 @@ function stepEngine(aInfo) {
 
     // dialog message
     let myDlgMessage;
-
-    // initialize engine choice buttons
-    let myDefaultButton = 1;
-
-    // name buttons based on which engine app is selected
-    let myDlgInfo = dialogInfo(aInfo, 'engine', kEngines.map(x => x.button), kEngines);
-
+    
     if (aInfo.stepInfo.action == kActionCREATE) {
 
         myDlgMessage = "Use built-in app engine, or external browser engine?\n\n";
@@ -2268,53 +2232,34 @@ function stepEngine(aInfo) {
         myDlgMessage += "The main advantage of the external engine is if your app must run on a signed browser (mainly needed for extensions like the 1Password desktop extension--it is not needed for the 1PasswordX extension).";
     }
 
-    let myDlgResult;
-
-    try {
-
-        // display dialog
-        myDlgResult = kApp.displayDialog(myDlgMessage, myDlgInfo.options).buttonReturned;
-
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
-            // Back button
-            return -1;
-        } else {
-            throw myErr;
-        }
+    let myDlgResult = stepDialog(aInfo, myDlgMessage, {
+        key: 'engine',
+        buttons: kEngines.reduce(function(acc, cur) { acc[cur.button] = cur; return acc; }, {})
+    });
+    
+    if (myDlgResult.canceled) {
+        // Back button
+        return -1;
     }
-
+    
     // if engine change chosen during editing, confirm
     if ((aInfo.stepInfo.action == kActionEDIT) &&
         objEquals(aInfo.appInfo.engine, aInfo.oldAppInfo.engine) &&
-        !objEquals(myDlgInfo.buttonMap[myDlgResult], aInfo.oldAppInfo.engine)) {
-
-        let myConfResult;
-
-        try {
-            myConfResult = kApp.displayDialog("Are you sure you want to switch engines?\n\nIMPORTANT: You will be logged out of all existing sessions, lose all saved passwords, and will need to reinstall all extensions. If you want to save or export anything, you must do it BEFORE continuing with this change.", {
+        !objEquals(myDlgResult.buttonValue, aInfo.oldAppInfo.engine)) {
+        
+        if (dialog("Are you sure you want to switch engines?\n\nIMPORTANT: You will be logged out of all existing sessions, lose all saved passwords, and will need to reinstall all extensions. If you want to save or export anything, you must do it BEFORE continuing with this change.", {
                 withTitle: 'Confirm Engine Change',
                 withIcon: 'caution',
                 buttons: ['Cancel', 'OK'],
                 defaultButton: 1
-            }).buttonReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                myConfResult = 'Cancel';
-            } else {
-                throw myErr;
-            }
-        }
-
-        if (myConfResult != 'OK') {
-
+            }).canceled) {
             // repeat this step
             return 0;
         }
     }
-
+    
     // set app engine
-    updateAppInfo(aInfo, 'engine', myDlgInfo.buttonMap[myDlgResult]);
+    updateAppInfo(aInfo, 'engine', myDlgResult.buttonValue);
 
     // move on
     return 1;
@@ -2323,8 +2268,6 @@ function stepEngine(aInfo) {
 
 // STEPUPDATE: step function to set updating options
 function stepUpdate(aInfo) {
-    
-    //    function stepDialog(aInfo, aMessage, aDlgOptions) {
     
     // status variables
 	let myErr;
@@ -3280,7 +3223,7 @@ function dialog(aMessage, aDlgOptions={}, aButtonMap=null) {
     } catch(myErr) {
         if (myErr.errorNumber == -128) {
 
-            // back button -- create faux object
+            // cancel button -- create faux object
             if (aDlgOptions.buttons && aDlgOptions.cancelButton) {
                 myResult = {
                     buttonReturned: aDlgOptions.buttons[aDlgOptions.cancelButton - 1],
@@ -3457,7 +3400,7 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
 }
 
 
-// DIALOGBUTTONMAP: set up a button map for a step dialog  $$$ COMBINE THIS & DIALOGINFO FN?
+// DIALOGBUTTONMAP: set up a button map for a step dialog
 function dialogButtonMap(aInfo, aKey, aButtonInfo) {
     
     // ensure we have a button-to-value map
@@ -3502,49 +3445,6 @@ function dialogButtonMap(aInfo, aKey, aButtonInfo) {
         map: myButtonMap,
         defaultButton: myDefaultButton
     };
-}
-
-
-// DIALOGINFO: set up button map and other info for a step dialog  $$$ COMBINE THIS & DIALOGBUTTONMAP FN?
-function dialogInfo(aInfo, aKey, aButtonBases, aValues) {
-
-    let myResult = {
-        options: {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: aInfo.stepInfo.dlgIcon,
-            buttons: [],
-            defaultButton: 1
-        },
-        buttonMap: {}
-    };
-
-    if (!aValues) { aValues = aButtonBases; }
-
-    for (let i = 0; i < aValues.length; i++) {
-
-        let curButton = aButtonBases[i];
-
-        // put a dot on the selected button
-        if (objEquals(aValues[i], aInfo.appInfo[aKey])) {
-            let curDot = ((aInfo.stepInfo.action == kActionCREATE) ? kDotSelected :
-                            ((objEquals(aInfo.appInfo[aKey], aInfo.oldAppInfo[aKey])) ?
-                            kDotCurrent : kDotChanged));
-            curButton = curDot + ' ' + curButton;
-            myResult.options.defaultButton = i + 1;
-        }
-
-        // build custom button map with these button names
-        myResult.options.buttons.push(curButton);
-        myResult.buttonMap[curButton] = aValues[i];
-    }
-
-    // add back button
-    if (aInfo.stepInfo.backButton) {
-        myResult.options.buttons.push(aInfo.stepInfo.backButton);
-        myResult.options.cancelButton = myResult.options.buttons.length;
-    }
-
-    return myResult;
 }
 
 

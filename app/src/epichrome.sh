@@ -499,8 +499,9 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     
     # ACTION: EDIT (AND POSSIBLY UPDATE) EXISTING APP
     
-    # load update.sh
+    # load update.sh & launch.sh
     loadscript 'update.sh'
+    loadscript 'launch.sh'
     
     # CLEANUP -- clean up any half-finished edit
     function cleanup {

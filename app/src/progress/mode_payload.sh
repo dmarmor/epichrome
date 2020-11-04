@@ -236,9 +236,9 @@ fi
 
 [[ "$ok" ]] || abort
 
-# link to engine  $$$$ GET RID OF THIS?
+# link to payload
 if [[ "$ok" ]] ; then
-    try /bin/ln -s "$SSBPayloadPath" "$myDataPath/Engine" \
+    try /bin/ln -s "$SSBPayloadPath" "$myDataPath/Payload" \
 			'Unable create to link to engine in data directory.'
     ok=1 ; errmsg=
 fi

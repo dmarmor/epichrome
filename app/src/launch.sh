@@ -997,7 +997,8 @@ function setwelcomepage {
 	
 	# if we're already showing a page, check for extensions
 	if [[ "$myStatusWelcomeURL" && \
-			( ! -d "$myProfilePath/Default/Extensions" ) ]] ; then
+			( ( ! -d "$myProfilePath/Default/Extensions" ) || \
+			"$myStatusNewApp" ) ]] ; then
 		
 		# no extensions, so give the option to install them
 		debuglog 'App has no extensions, so offering browser extensions.'
@@ -1488,6 +1489,9 @@ function getextensioninfo {
 						split_array iFailedExtensions
 						ok=1 ; errmsg=
 					fi
+				else
+					# unable to load progress bar script
+					return 1
 				fi
 			fi
 		fi
@@ -2667,7 +2671,7 @@ function deletepayload {
 		fi
 	fi
 	
-	# clean up parent directory & link to engine  $$$ MAYBE GET RID OF THIS LINK EVENTUALLY
+	# clean up parent directory & link to engine
 	if [[ ! -d "$SSBPayloadPath" ]] ; then
 		
 		# save state
@@ -2681,8 +2685,8 @@ function deletepayload {
 		fi
 		
 		# delete link to the engine directory
-		tryalways /bin/rm -f "$myDataPath/Engine" \
-				"Unable to remove link to old engine in data directory."
+		tryalways /bin/rm -f "$myDataPath/Engine" "$myDataPath/Payload" \
+				"Unable to remove link to old engine payload in data directory."
 		
 		# restore state
 		ok="$cleanOK"

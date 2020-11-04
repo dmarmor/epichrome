@@ -30,19 +30,6 @@ progressAction='Searching for installed extensions...'
 progressTotal=10000
 
 
-# FUNCTION DEFINITIONS
-
-# CLEANUP: clean up any incomplete cache prior to exit
-extcacheComplete=
-function cleanup {
-    
-    if [[ ! "$extcacheComplete" ]] ; then
-        debuglog "Cleaning up..."
-        # $$$$ TBD
-    fi
-}
-
-
 # --- MAIN BODY ---
 
 # import search paths
@@ -55,6 +42,3 @@ progress 'stepStart'
 getextensioninfo '' "${iSearchPaths[@]}"
 
 progress 'end'
-
-# signal that we're done to cleanup function
-extcacheComplete=1

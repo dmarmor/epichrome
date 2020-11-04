@@ -19,17 +19,4 @@ if [[ -d "$oldengdir" ]] ; then
     /usr/bin/find "$oldengdir" -d -type d -exec /bin/rmdir '{}' ';' > /dev/null 2>&1
 fi
 
-# $$$ 2.4.0 BETA 2 ONLY -- remove Epichrome Beta stuff from */Applications/Epichrome
-releasedir='Applications/Epichrome'
-if [[ "$rootdir" = '/' ]] ; then
-    searchdirs=( "/$releasedir" )
-    [[ "$HOME" ]] && searchdirs+=( "$HOME/$releasedir" )
-else
-    searchdirs=( "${rootdir}$releasedir" )
-fi
-for dir in "${searchdirs[@]}" ; do
-    [[ -d "$dir/Epichrome Beta.app" ]] && /bin/rm -rf "$dir/Epichrome Beta.app"
-    [[ -d "$dir/Payload.noindex" ]] && /bin/rm -rf "$dir/Payload.noindex"
-done
-
 exit 0

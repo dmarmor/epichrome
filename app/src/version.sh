@@ -1,23 +1,10 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b4
-epiBuildNum=60
-epiDesc='   ▪️ Progress bars now appear when creating and updating apps and their engines, as well as while parsing browser extensions
-   ▪️ The login scan can now be enabled and disabled from within Epichrome
-   
-   ▪️ Improved reliability of launching newly-created and updated apps
-
-   ▪️ Reorganized and cleaned up the app welcome page
-
-   ▪️ Improved browser extension parsing and added a cache to improve startup time for new apps
-
-   ▪️ Added a button to open an issue on GitHub when an app or Epichrome aborts due to error
-
-   ▪️ Fixed a problem where Chrome-engine apps would show "Chrome" as their menubar name
-
-   ▪️ Updated built-in engine to Brave 1.16.68
-
-   ▪️ And many more small fixes and improvements...'
+epiVersion=2.4.0b5
+epiBuildNum=5
+epiDesc=( \
+        'Fixed a problem with the app build/update progress bar percentages' \
+        'Renamed the data directory engine payload link to "Payload"' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
