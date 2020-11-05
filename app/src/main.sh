@@ -84,11 +84,6 @@ source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 [[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
 
 
-# DON'T TRAP SIGINT
-
-trap '' INT
-
-
 # --- FUNCTION DEFINITIONS ---
 
 # CLEANUP -- clean up from any failed update & deactivate any active engine

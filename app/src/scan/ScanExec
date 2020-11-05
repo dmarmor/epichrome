@@ -54,11 +54,6 @@ if [[ "$scanMode" != 'login' ]] ; then
 fi
 
 
-# DON'T TRAP SIGINT
-
-trap '' INT
-
-
 # --- FUNCTION DEFINITIONS ---
 
 # CLEANUP -- clean up from an interrupted scan
