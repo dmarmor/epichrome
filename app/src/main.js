@@ -1498,51 +1498,38 @@ function stepEditDisplayName(aInfo) {
 
     let myDlgMessage = 'Edit the name of the app.';
     
-    try {
-        myDlgResult = kApp.displayDialog(myDlgMessage + aInfo.appInfoStatus.displayName.stepSummary, {
-            withTitle: aInfo.stepInfo.dlgTitle,
-            withIcon: aInfo.stepInfo.dlgIcon,
-            defaultAnswer: aInfo.appInfo.displayName,
-            buttons: ['OK', aInfo.stepInfo.backButton],
-            defaultButton: 1,
-            cancelButton: 2
-        }).textReturned;
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
-            // Back button
-            return -1;
-        } else {
-            throw myErr;
-        }
+    myDlgResult = dialog(myDlgMessage + aInfo.appInfoStatus.displayName.stepSummary, {
+        withTitle: aInfo.stepInfo.dlgTitle,
+        withIcon: aInfo.stepInfo.dlgIcon,
+        defaultAnswer: aInfo.appInfo.displayName,
+        buttons: ['OK', aInfo.stepInfo.backButton],
+        defaultButton: 1,
+        cancelButton: 2
+    });
+    
+    if (myDlgResult.canceled) {
+        // Back button
+        return -1;
     }
-
+    
+    // we only need the text now
+    myDlgResult = myDlgResult.textReturned;
+    
     // if display name changed and this would result in renaming the app, confirm
     if (aInfo.stepInfo.isOrigFilename &&
         (aInfo.appInfo.displayName == aInfo.oldAppInfo.displayName) &&
         (myDlgResult != aInfo.oldAppInfo.displayName)) {
-
-        let myConfResult;
-
-        try {
-            myConfResult = kApp.displayDialog("Are you sure you want to change the app's name? This will rename the app file:\n\n" + kIndent + kDotUnselected + " Old name: " + aInfo.oldAppInfo.file.name + "\n" + kIndent + kDotSelected + " New name: " + myDlgResult + ".app", {
-                withTitle: 'Confirm Rename App',
-                withIcon: 'caution',
-                buttons: ['Cancel', 'OK'],
-                defaultButton: 1
-            }).buttonReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                myConfResult = 'Cancel';
-            } else {
-                throw myErr;
-            }
-        }
-
-        if (myConfResult != 'OK') {
+        
+        if (dialog("Are you sure you want to change the app's name? This will rename the app file:\n\n" + kIndent + kDotUnselected + " Old name: " + aInfo.oldAppInfo.file.name + "\n" + kIndent + kDotSelected + " New name: " + myDlgResult + ".app", {
+            withTitle: 'Confirm Rename App',
+            withIcon: 'caution',
+            buttons: ['Cancel', 'OK'],
+            defaultButton: 1
+        }).canceled) {
             // repeat this step
             return 0;
         }
-
+        
         // update path for new display name
         aInfo.appInfo.file.base = myDlgResult;
         aInfo.appInfo.file.name = myDlgResult + '.app';
@@ -2589,29 +2576,19 @@ function stepBuild(aInfo) {
             myDlgMessage = 'Updated ' + myDlgMessage;
         }
 
-        try {
-            // reset dialog icon as app may have moved
-            let myDlgIcon = setDlgIcon(aInfo.appInfo);
-
-            myDlgResult = false;
-            myDlgResult = kApp.displayDialog(myDlgMessage, {
-                withTitle: "Success!",
-                withIcon: myDlgIcon,
-                buttons: ["Launch Now", "Reveal in Finder", "Quit"],
-                defaultButton: 1,
-                cancelButton: 3
-            }).buttonReturned;
-        } catch(myErr) {
-            if (myErr.errorNumber == -128) {
-                // Back button
-                return false; // quit
-            } else {
-                throw myErr;
-            }
-        }
-
-        // launch
-        if (myDlgResult == "Launch Now") {
+        // reset dialog icon as app may have moved
+        let myDlgIcon = setDlgIcon(aInfo.appInfo);
+        
+        myDlgResult = dialog(myDlgMessage, {
+            withTitle: "Success!",
+            withIcon: myDlgIcon,
+            buttons: ["Launch Now", "Reveal in Finder", "Quit"],
+            defaultButton: 1,
+            cancelButton: 3
+        }).buttonIndex;
+        
+        // Launch Now
+        if (myDlgResult == 0) {
             delay(1);
             try {
                 launchApp(aInfo.appInfo.file.path);
@@ -2622,17 +2599,57 @@ function stepBuild(aInfo) {
                     buttons: ['OK'],
                     defaultButton: 1
                 });
-                myDlgResult = "Reveal in Finder";
+                myDlgResult = 1;
             }
         }
-
-        // reveal
-        if (myDlgResult == "Reveal in Finder") {
-            kFinder.select(Path(aInfo.appInfo.file.path));
-            kFinder.activate();
+        
+        // Reveal in Finder
+        if (myDlgResult == 1) {
+            let myActivateFinder = true;
+            try {
+                kFinder.select(Path(aInfo.appInfo.file.path));
+            } catch(myErr) {
+                
+                let myFinderErrMsg = 'Unable to reveal "' + aInfo.appInfo.file.name + '" in the Finder: ';
+                
+                // bad path
+                if (myErr.errorNumber == -10010) { myErr.message = 'Not found.'; }
+                
+                myFinderErrMsg += myErr.message;
+                
+                errlog(myFinderErrMsg);
+                
+                try {
+                    kFinder.select(Path(aInfo.appInfo.file.dir));
+                } catch(myErr) {
+                    
+                    myFinderErrMsg += ' Also unable to reveal enclosing folder: ';
+                    
+                    // bad path
+                    if (myErr.errorNumber == -10010) { myErr.message = 'Not found.'; }
+                    
+                    myFinderErrMsg += myErr.message;
+                    
+                    errlog(myFinderErrMsg);
+                    
+                    // if no enclosing folder, don't bother activating the Finder
+                    myActivateFinder = false;
+                }
+                
+                // show an error dialog
+                dialog(myFinderErrMsg, {
+                    withTitle: 'Unable to Reveal in Finder',
+                    withIcon: 'caution',
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+            }
+            
+            // activate Finder if we opened a window
+            if (myActivateFinder) { kFinder.activate(); }
         }
     }
-
+    
     // we're finished! quit
     return false;
 }
@@ -3333,31 +3350,17 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
 
 // CONFIRMQUIT: confirm quit
 function confirmQuit(aMessage='') {
-
-    try {
-
-        let myPrefix = (aMessage ? aMessage + ' ' : '');
-
-        // confirm quit
-        kApp.displayDialog(myPrefix + 'Are you sure you want to quit?', {
-            withTitle: "Confirm",
-            withIcon: kEpiIcon,
-            buttons: ["No", "Yes"],
-            defaultButton: 2,
-            cancelButton: 1
-        });
-
-        return true;  // QUIT
-
-    } catch(myErr) {
-        if (myErr.errorNumber == -128) {
-            // quit not confirmed, so show welcome dialog again
-            return false;
-        } else {
-            // some other dialog error
-            throw myErr;
-        }
-    }
+    
+    let myPrefix = (aMessage ? aMessage + ' ' : '');
+    
+    // confirm quit
+    return !dialog(myPrefix + 'Are you sure you want to quit?', {
+        withTitle: "Confirm",
+        withIcon: kEpiIcon,
+        buttons: ["No", "Yes"],
+        defaultButton: 2,
+        cancelButton: 1
+    }).canceled;
 }
 
 
