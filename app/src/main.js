@@ -828,6 +828,7 @@ function readProperties() {
             myProperties = kSysEvents.propertyListFiles.byName(gCoreInfo.settingsFile).contents.value();
         } catch(myErr) {
             // ignore
+            errlog('Unable to read properties: ' + myErr.message);
         }
     }
     
@@ -948,6 +949,7 @@ function handleGithubUpdate(aGithubInfo) {
                         });
                     } catch(myErr) {
                         // ignore errors with this dialog
+                        errlog('Unable to display GitHub error dialog: ' + myErr.message);
                     }
                 }
                 
@@ -1133,6 +1135,7 @@ function writeProperties() {
         // );
     } catch(myErr) {
         // ignore errors, we just won't have persistent properties
+        errlog('Unable to write properties: ' + myErr.message);
     }
 }
 

@@ -1,10 +1,11 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b5
-epiBuildNum=7
+epiVersion=2.4.0b6
+epiBuildNum=3
 epiDesc=( \
         'Fixed a problem with the app build/update progress bar percentages' \
-        'Renamed the data directory engine payload link to "Payload"' )
+        'Renamed the data directory engine payload link to "Payload"' \
+        'Updated built-in engine to Brave 1.16.72' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
