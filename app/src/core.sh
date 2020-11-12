@@ -943,7 +943,7 @@ function cleanexit {
     fi
     
     # delete any pause fifo
-    [[ -p "$myPauseFifo" ]] && tryalways /bin/rm -f "$myPauseFifo" \
+    [[ -e "$myPauseFifo" ]] && tryalways /bin/rm -f "$myPauseFifo" \
             'Unable to delete pause FIFO.'
     
     # let EXIT signal handler know we're clean
@@ -1055,7 +1055,7 @@ function handleexitsignal {
 trap handleexitsignal EXIT
 
 
-# EPIVERSIONRE -- regex to match & parse any legal Epichrome version number
+# epiVersionRe -- regex to match & parse any legal Epichrome version number
 # 7 groups as follows: 0A.0B.0Cb0D[00E]
 #  1: A, 2: B, 3: C, 4: b0D, 5: D, 6: [00E], 7: E
 epiVersionRe='0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?'
@@ -1118,10 +1118,11 @@ function pause {
     if [[ ! -p "$myPauseFifo" ]] ; then
         
         # try to create fifo, and on failure just sleep
+        local oldOk="$ok" oldErrmsg="$errmsg"
+        ok=1 ; errmsg=
+        try /bin/rm -f "$myPauseFifo" 'Unable to delete old pause FIFO.'
         try /usr/bin/mkfifo "$myPauseFifo" 'Unable to create pause FIFO.'
-        if [[ ! "$ok" ]] ; then
-            ok=1 ; errmsg=
-        fi
+        ok="$oldOk" ; errmsg="$oldErrmsg"
     fi
     
     if [[ -p "$myPauseFifo" ]] ; then
