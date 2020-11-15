@@ -194,189 +194,31 @@ let gFirstDialogOptMsg = '\n\n(' + kDotGear + ' To edit Epichrome preferences, h
 
 // RUN: handler for when app is run without dropped files
 function run() {
-    main();
+    mainWrapper();
 }
 
 
 // OPENDOCUMENTS: handler function for files dropped on the app
 function openDocuments(aApps) {
-    main(aApps);
-}
-
-
-// QUIT: handler for when app quits
-function quit() {
-    // write properties before quitting
-    writeProperties();
+    mainWrapper(aApps);
 }
 
 
 // --- MAIN FUNCTION ---
 
-function main(aApps=[]) {
-
+function mainWrapper(aApps=[]) {
+    
     let myErr;
     
     // wrap everything in a try to catch all errors
     try {
         
-        // collect modifier keys for bringing up preferences
-        // https://apple.stackexchange.com/questions/352236/detect-if-ctrl-key-is-pressed
-        ObjC.import('Cocoa');
-        let iDoPrefs = Boolean($.NSEvent.modifierFlags & $.NSEventModifierFlagOption);
+        // run main app
+        main(aApps);
         
-        // bring app to the front
-        kApp.activate();
+        // write out persistent properties
+        writeProperties();
         
-        
-        // APP INIT
-        
-        // set up data path & settings file
-        gCoreInfo = {};
-        try {
-            ObjC.import('stdlib');
-            gCoreInfo.dataPath = $.getenv('HOME') + '/Library/Application Support/Epichrome';
-            gCoreInfo.settingsFile = gCoreInfo.dataPath + "/epichrome.plist";
-        } catch (myErr) {
-            gCoreInfo.dataPath = '';
-            gCoreInfo.settingsFile = '';
-        }
-        
-        // read in persistent properties
-        readProperties();
-        
-        // initialize core, optionally check github for updates
-        let myInitInfo = JSON.parse(shell(
-            'coreDoInit=1',
-            'epiAction=init',
-            'epiGithubFatalError=' + (gEpiGithubFatalError ? '1' : '')
-        ));
-        
-        // check for core errors
-        if (myInitInfo.core.error) {
-            throw Error(myInitInfo.core.error);
-        }
-        
-        // make sure data path matches
-        if (myInitInfo.core.dataPath != gCoreInfo.dataPath) {
-            throw Error('Got unexpected Epichrome data path.');
-        }
-        
-        // replace old core info with init info
-        myInitInfo.core.settingsFile = gCoreInfo.settingsFile;
-        gCoreInfo = myInitInfo.core;
-        
-        // init engine list
-        for (let curEng of kEngines) {
-            curEng.button = engineName(curEng);
-        }
-        
-        // handle any GitHub updates found during init
-        if (myInitInfo.github) {
-            handleGithubUpdate(myInitInfo.github);
-        }
-        
-        
-        // OFFER TO INSTALL LOGIN ITEM IF NOT PREVIOUSLY SET
-        
-        let iLoginScanIsEnabled = loginScanGetState();
-        
-        if ((gEpiLoginScanEnabled === true) && !iLoginScanIsEnabled) {
-            loginScanSetState(true);
-        } else if (gEpiLoginScanEnabled == 'unset') {
-            if (iLoginScanIsEnabled) {
-                gEpiLoginScanEnabled = true;
-                dialog('The Epichrome login scan was found already enabled.\n\n' +
-                'If you wish to disable it, you can do so by holding down the Option key while starting Epichrome.', {
-                    withTitle: 'Login Scan Enabled',
-                    withIcon: kEpiScanIcon,
-                    buttons: ['OK'],
-                    defaultButton: 1
-                });
-            } else {
-                while (true) {
-                    if (dialog("By default, Epichrome runs a brief scan at login to ensure your apps are ready to use. It is strongly recommended you enable this.\n\n" +
-                    
-                    "You can change your setting later by holding down the Option key while starting Epichrome.\n\n" +
-                    
-                    kDotInfo + " Epichrome 2.4 apps \"hot-swap\" their engine into the app at launch. In most respects, this is an improvement over 2.3, but if your computer crashes with apps running, they can be left in an unusable state. This scan silently fixes any apps left in this state.", {
-                        withTitle: 'Login Scan',
-                        withIcon: kEpiScanIcon,
-                        buttons: ['Enable', 'Disable'],
-                        defaultButton: 1
-                    }).buttonIndex == 0) {
-                        
-                        // enable login item
-                        loginScanSetState(true);
-                        break;
-                    } else if (confirmDisableLoginScan()) {
-                        gEpiLoginScanEnabled = false;
-                        break;
-                    } else {
-                        continue;
-                    }
-                }
-            }
-        }
-        
-        
-        // RUN PREFS IF REQUESTED
-        if (iDoPrefs) {
-            editPreferences();
-        }
-        
-        
-        // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
-        
-        if (aApps.length == 0) {
-
-            while (true) {
-                // no dropped files, so ask user for run mode
-                let myDlgResult = dialog('Would you like to create a new app or edit existing apps?' + gFirstDialogOptMsg, {
-                    withTitle: 'Select Action | Epichrome EPIVERSION',
-                    withIcon: kEpiIcon,
-                    buttons: ['Create', 'Edit', 'Quit'],
-                    defaultButton: 1,
-                    cancelButton: 3
-                }).buttonIndex;
-                
-                // don't show this again
-                gFirstDialogOptMsg = '';
-                
-                if (myDlgResult == 0) {
-
-                    // Create button
-
-                    return runCreate();
-
-                } else if (myDlgResult == 1) {
-
-                    // Edit/Update button
-
-                    // show file selection dialog
-                    let aApps = fileDialog('open', gEpiLastDir, 'edit', {
-                        withPrompt: 'Select any apps you want to edit or update.',
-                        ofType: ["com.apple.application"],
-                        multipleSelectionsAllowed: true,
-                        invisibles: false
-                    });
-                    if (!aApps) {
-                        // canceled: ask user to select action again
-                        continue;
-                    }
-
-                    // if we got here, the user chose files
-                    return runEdit(aApps);
-
-                } else {
-                    if (confirmQuit()) { return; }
-                }
-            }
-        } else {
-            
-            // we have dropped apps, so go straight to edit
-            return runEdit(aApps);
-        }
     } catch(myErr) {
         errlog(myErr.message, 'FATAL');
         if (dialog("Fatal error: " + myErr.message, {
@@ -388,6 +230,169 @@ function main(aApps=[]) {
         }).buttonIndex == 0) {
             reportError('Epichrome reports fatal error: "' + myErr.message + '"');
         }
+    }
+    
+    debuglog('Exiting Epichrome ' + kVersion + '.');
+}
+
+function main(aApps=[]) {
+    
+    // collect modifier keys for bringing up preferences
+    // https://apple.stackexchange.com/questions/352236/detect-if-ctrl-key-is-pressed
+    ObjC.import('Cocoa');
+    let iDoPrefs = Boolean($.NSEvent.modifierFlags & $.NSEventModifierFlagOption);
+    
+    // bring app to the front
+    kApp.activate();
+    
+    
+    // APP INIT
+    
+    // set up data path & settings file
+    gCoreInfo = {};
+    try {
+        ObjC.import('stdlib');
+        gCoreInfo.dataPath = $.getenv('HOME') + '/Library/Application Support/Epichrome';
+        gCoreInfo.settingsFile = gCoreInfo.dataPath + "/epichrome.plist";
+    } catch (myErr) {
+        gCoreInfo.dataPath = '';
+        gCoreInfo.settingsFile = '';
+    }
+    
+    // read in persistent properties
+    readProperties();
+    
+    // initialize core, optionally check github for updates
+    let myInitInfo = JSON.parse(shell(
+        'coreDoInit=1',
+        'epiAction=init',
+        'epiGithubFatalError=' + (gEpiGithubFatalError ? '1' : '')
+    ));
+    
+    // check for core errors
+    if (myInitInfo.core.error) {
+        throw Error(myInitInfo.core.error);
+    }
+    
+    // make sure data path matches
+    if (myInitInfo.core.dataPath != gCoreInfo.dataPath) {
+        throw Error('Got unexpected Epichrome data path.');
+    }
+    
+    // replace old core info with init info
+    myInitInfo.core.settingsFile = gCoreInfo.settingsFile;
+    gCoreInfo = myInitInfo.core;
+    
+    // init engine list
+    for (let curEng of kEngines) {
+        curEng.button = engineName(curEng);
+    }
+    
+    // handle any GitHub updates found during init
+    if (myInitInfo.github) {
+        handleGithubUpdate(myInitInfo.github);
+    }
+    
+    
+    // OFFER TO INSTALL LOGIN ITEM IF NOT PREVIOUSLY SET
+    
+    let iLoginScanIsEnabled = loginScanGetState();
+    
+    if ((gEpiLoginScanEnabled === true) && !iLoginScanIsEnabled) {
+        loginScanSetState(true);
+    } else if (gEpiLoginScanEnabled == 'unset') {
+        if (iLoginScanIsEnabled) {
+            gEpiLoginScanEnabled = true;
+            dialog('The Epichrome login scan was found already enabled.\n\n' +
+            'If you wish to disable it, you can do so by holding down the Option key while starting Epichrome.', {
+                withTitle: 'Login Scan Enabled',
+                withIcon: kEpiScanIcon,
+                buttons: ['OK'],
+                defaultButton: 1
+            });
+        } else {
+            while (true) {
+                if (dialog("By default, Epichrome runs a brief scan at login to ensure your apps are ready to use. It is strongly recommended you enable this.\n\n" +
+                
+                "You can change your setting later by holding down the Option key while starting Epichrome.\n\n" +
+                
+                kDotInfo + " Epichrome 2.4 apps \"hot-swap\" their engine into the app at launch. In most respects, this is an improvement over 2.3, but if your computer crashes with apps running, they can be left in an unusable state. This scan silently fixes any apps left in this state.", {
+                    withTitle: 'Login Scan',
+                    withIcon: kEpiScanIcon,
+                    buttons: ['Enable', 'Disable'],
+                    defaultButton: 1
+                }).buttonIndex == 0) {
+                    
+                    // enable login item
+                    loginScanSetState(true);
+                    break;
+                } else if (confirmDisableLoginScan()) {
+                    gEpiLoginScanEnabled = false;
+                    break;
+                } else {
+                    continue;
+                }
+            }
+        }
+    }
+    
+    
+    // RUN PREFS IF REQUESTED
+    if (iDoPrefs) {
+        editPreferences();
+    }
+    
+    
+    // HANDLE RUN BOTH WITH AND WITHOUT DROPPED APPS
+    
+    if (aApps.length == 0) {
+        
+        while (true) {
+            // no dropped files, so ask user for run mode
+            let myDlgResult = dialog('Would you like to create a new app or edit existing apps?' + gFirstDialogOptMsg, {
+                withTitle: 'Select Action | Epichrome EPIVERSION',
+                withIcon: kEpiIcon,
+                buttons: ['Create', 'Edit', 'Quit'],
+                defaultButton: 1,
+                cancelButton: 3
+            }).buttonIndex;
+            
+            // don't show this again
+            gFirstDialogOptMsg = '';
+            
+            if (myDlgResult == 0) {
+                
+                // Create button
+                
+                return runCreate();
+                
+            } else if (myDlgResult == 1) {
+                
+                // Edit/Update button
+                
+                // show file selection dialog
+                let aApps = fileDialog('open', gEpiLastDir, 'edit', {
+                    withPrompt: 'Select any apps you want to edit or update.',
+                    ofType: ["com.apple.application"],
+                    multipleSelectionsAllowed: true,
+                    invisibles: false
+                });
+                if (!aApps) {
+                    // canceled: ask user to select action again
+                    continue;
+                }
+                
+                // if we got here, the user chose files
+                return runEdit(aApps);
+                
+            } else {
+                if (confirmQuit()) { return; }
+            }
+        }
+    } else {
+        
+        // we have dropped apps, so go straight to edit
+        return runEdit(aApps);
     }
 }
 
@@ -1026,6 +1031,7 @@ function writeProperties() {
             name: gCoreInfo.settingsFile
         }).make();
         
+        
         // EPICHROME STATE
         
         // our version of Epichrome is now the last to run
@@ -1126,6 +1132,7 @@ function writeProperties() {
                 value:gAppInfoDefault.engine.id
             })
         );
+        
         // myProperties.propertyListItems.push(
         //     kSysEvents.PropertyListItem({
         //         kind: "string",
@@ -1346,7 +1353,8 @@ function stepCreateDisplayName(aInfo) {
 
     // status variable
 	let myErr;
-
+    
+    
     // CHOOSE WHERE TO SAVE THE APP
 
     let myDlgOptions = {
@@ -3152,13 +3160,60 @@ function engineName(aEngine, aCapType=true) {
 // --- APP ID FUNCTIONS ---
 
 // APPIDISUNIQUE: check if an app ID is unique on the system
+gAppDataIds = null;
 function appIDIsUnique(aID) {
-    let myErr;
+    
+    let iAppIDNotFound, iCheckingDataIds, iErr;
+    
+    iCheckingDataIds = false;
+    
     try {
-        return findAppByID(kBundleIDBase + aID).length == 0;
-    } catch (myErr) {
-        return myErr;
+        iAppIDNotFound = (findAppByID(kBundleIDBase + aID).length == 0);
+        
+        // if app with ID not found, check data directories
+        if (iAppIDNotFound) {
+            
+            // get list of data directories if needed
+            if (!(gAppDataIds instanceof Array)) {
+                
+                // if we already tried this and got an error, just return that
+                if (gAppDataIds instanceof Error) { throw gAppDataIds; }
+                
+                // flag that we're checking data dir IDs for catch
+                iCheckingDataIds = true;
+                
+                // set up variables
+                gAppDataIds = [];
+                let iFileManager = $.NSFileManager.defaultManager;
+                let iAppDataDir = $(gCoreInfo.appDataPath);
+                let iAppsDirContents = iFileManager.contentsOfDirectoryAtPathError(iAppDataDir, null).js;
+                let iIsDir = Ref();
+                
+                // build list of app data directory IDs
+                for (let curItem of iAppsDirContents) {
+                	iFileManager.fileExistsAtPathIsDirectory(iAppDataDir.stringByAppendingPathComponent(curItem), iIsDir);
+                	if (iIsDir[0]) {
+                		gAppDataIds.push(curItem.js.toLowerCase());
+                	}
+                }
+            } else {
+                // flag that we're checking data dir IDs for catch
+                iCheckingDataIds = true;
+            }
+            
+            // check for ID in list of data directories
+            if (gAppDataIds.includes(aID.toLowerCase())) {
+                iAppIDNotFound = false;
+            }
+        }
+    } catch (iErr) {
+        // if this happened while checking app data dir, IDs, save the error
+        if (iCheckingDataIds) { gAppDataIds = iErr; }
+        
+        return iErr;
     }
+    
+    return iAppIDNotFound;
 }
 
 

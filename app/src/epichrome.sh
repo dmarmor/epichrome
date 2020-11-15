@@ -81,6 +81,7 @@ if [[ "$epiAction" = 'init' ]] ; then
     result="{
    \"core\": {
       \"dataPath\": \"$(escapejson "$myDataPath")\",
+      \"appDataPath\": \"$(escapejson "$appDataPathBase")\",
       \"logFile\": \"$(escapejson "$myLogFile")\",
       \"epiPath\": \"$(escapejson "$myEpichromePath")\""
     

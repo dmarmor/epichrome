@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b6
-epiBuildNum=4
+epiBuildNum=7
 epiDesc=( \
         'Fixed a problem with the app build/update progress bar percentages' \
         'Renamed the data directory engine payload link to "Payload"' \
