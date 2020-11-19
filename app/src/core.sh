@@ -215,7 +215,8 @@ appConfigVars=( SSBAppPath \
         SSBUpdateIgnoreVersions \
         SSBPayloadPath \
         SSBLastErrorGithubFatal \
-        SSBLastErrorNMHInstall )
+        SSBLastErrorNMHInstall \
+        SSBLastErrorFailsafe )
 
 
 # SET UP CORE INFO

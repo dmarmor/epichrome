@@ -1624,10 +1624,9 @@ function stepID(aInfo) {
     // SET UP DIALOG
 
     // ID warnings & limits
-    const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, which can cause many problems including data corruption and inability to run.";
-    function myIDCheckErrorWarning(aErr) {
-        return 'THIS ID MAY NOT BE UNIQUE. There was an error checking for other apps on the system with the same ID. (' + aErr + ') ' + myIDWarning;
-    }
+    const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, resulting in possible data corruption and inability to run.";
+    const myActionWarningGeneral = 'Unless you are SURE you know what you are doing, you should not continue.';
+
     const myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
     
     // start building dialog message & buttons
@@ -1662,14 +1661,7 @@ function stepID(aInfo) {
         myDlgMessage += ', or click "' + myDlgOptions.buttons[1] + '" to let Epichrome create one.';
     }
 
-    // if (aInfo.stepInfo.autoIDError) {
-    //     myDlgMessage += '\n\n' +
-    //         kDotWarning + ' ' + myIDCheckErrorWarning(aInfo.stepInfo.autoIDError.message) +
-    //         '\n\nUnless you know what you are doing, you should click "Choose Custom ID" and create an ID you know to be unique.';
-    //     myDlgOptions.defaultButton = 2;
-    // }
-    
-    
+
     // LOOP TILL WE HAVE AN ACCEPTABLE ID
     
     while (true) {
@@ -1720,54 +1712,76 @@ function stepID(aInfo) {
                 break;
             }
 
-            // this is a new ID, so check for uniqueness
-            let myIsUnique = appIDIsUnique(myDlgResult.textReturned);
-            let myConfirmMessage = null;
-
-            if (myIsUnique instanceof Object) {
-
-                // we got an error checking for uniqueness
-                myConfirmMessage = myIDCheckErrorWarning(myIsUnique.message) +
-                    '\n\nUnless you know this ID is in fact unique, you should select another one.';
-                myIsUnique = false;
+            // this is a new ID, so separately check for a unique app & data directory
+            let myAppExists = appIDAppExists(myDlgResult.textReturned);
+            let myDataDirExists = appIDDataDirExists(myDlgResult.textReturned);
+            
+            // if nothing found, we are all set
+            if ((myAppExists === false) && (myDataDirExists === false)) { break; }
+            
+            let myConfirmMessage = '';
+            let myActionWarning = myActionWarningGeneral;
+            
+            // another app found, or error checking
+            if (myAppExists === true) {
+                
+                // if an app exists with this ID, we only need this confirmation message
+                myConfirmMessage = 'THAT ID IS NOT UNIQUE. There is already an app with ID "' +
+                    myDlgResult.textReturned + '" on the system.\n\n' +
+                    myIDWarning;
+                
+            } else if (myAppExists instanceof Error) {
+                
+                // we got an error checking for an app already on the system
+                myConfirmMessage = 'THAT ID MAY NOT BE UNIQUE. There was an error checking the system for apps with the same ID. (' +
+                    myAppExists.message + ')\n\n' + myIDWarning;
+                
+                // if no data dir found, override general action warning
+                if (myDataDirExists === false) {
+                    myActionWarning = 'Unless you are SURE this ID is in fact unique, you should select another.';
+                }
             }
-
-            if (myIsUnique) {
-
-                // unique ID -- moving on
-                break;
-
+            
+            // data directory found, or error checking
+            if (myDataDirExists !== false) {
+                if (myDataDirExists === true) {
+                    
+                    myConfirmMessage += (myConfirmMessage ? '\n\nThere is also ' : 'There is ') +
+                        'already a data directory for ' +
+                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
+                        '.\n\nIf you use this ID, ';
+                    
+                } else if (myDataDirExists instanceof Error) {
+                    
+                    myConfirmMessage += (myConfirmMessage ? '\n\nThere was also ' : 'There was ') +
+                        'an error checking for a data directory for ' +
+                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
+                        '. (' + myDataDirExists.message +
+                        ')\n\nIf you use this ID and the directory already exists, ';
+                }
+                myConfirmMessage += 'the app will switch to using that directory, and will NOT migrate its existing data.';
+            }
+            
+            // finish confirm message
+            myConfirmMessage += '\n\n' + myActionWarning + '\n\nDo you want to use this ID anyway?';
+            
+            // display confirm dialog
+            if (dialog(myConfirmMessage, {
+                withTitle: 'Duplicate ID',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1,
+                cancelButton: 1
+            }).buttonIndex == 0) {
+                // Cancel -- try again
+                myDlgMessage = 'Enter a new app ID (' + myIDLimits + ')';
+                myDlgOptions.defaultAnswer = myDlgResult.textReturned;
+                continue;
             } else {
-
-                // ID is not unique (or we had an error while checking)
-
-                // if not unique, build message prefix
-                if (!myConfirmMessage) {
-                    myConfirmMessage = 'THAT ID IS NOT UNIQUE. There is already an app with ID "' + myDlgResult.textReturned + '" on the system.\n\n' + myIDWarning +
-                        '\n\nUnless you know what you are doing, you should select another one.';
-                }
-
-                // finish confirm message
-                myConfirmMessage += ' Do you want to use this ID anyway?';
-
-                // display confirm dialog
-                if (dialog(myConfirmMessage, {
-                    withTitle: 'Duplicate ID',
-                    withIcon: 'caution',
-                    buttons: ['Cancel', 'OK'],
-                    defaultButton: 1,
-                    cancelButton: 1
-                }).buttonIndex == 0) {
-                    // Cancel -- try again
-                    myDlgMessage = 'Enter a new app ID (' + myIDLimits + ')';
-                    myDlgOptions.defaultAnswer = myDlgResult.textReturned;
-                    continue;
-                } else {
-                    // OK
-                    break;
-                }
+                // OK
+                break;
             }
-
+        
         } else if (myDlgResult.buttonIndex == 1) {
             // DEFAULT ID button
             createAppID(aInfo);
@@ -1776,14 +1790,14 @@ function stepID(aInfo) {
             // Back
             return -1;
         }
-
+        
         // we should never get here
         return 0;
     }
     
     // if we got here, we have chosen an ID
     updateAppInfo(aInfo, 'id', myDlgResult.textReturned);
-
+    
     // move on
     return 1;
 }
@@ -2550,7 +2564,7 @@ function stepBuild(aInfo) {
             
             let myWarningMsg = myBuildMessage[1] + ' succeeded, but with the following warning';
             if (myWarnings.length == 1) {
-                myWarningMsg += ': ' + myWarnings[0];
+                myWarningMsg += ':\n\n' + myWarnings[0];
             } else {
                 myWarningMsg += 's:\n\n' + kIndent + kDotSelected + ' ' +
                     myWarnings.join('\n' + kIndent + kDotSelected + ' ');
@@ -3160,60 +3174,88 @@ function engineName(aEngine, aCapType=true) {
 // --- APP ID FUNCTIONS ---
 
 // APPIDISUNIQUE: check if an app ID is unique on the system
-gAppDataIds = null;
 function appIDIsUnique(aID) {
     
-    let iAppIDNotFound, iCheckingDataIds, iErr;
+    let iAppFound;
     
-    iCheckingDataIds = false;
+    // first see if there's already an app with this ID
+    iAppFound = appIDAppExists(aID);
+    
+    if (iAppFound === true) {
+        // app found, so this ID is not unique
+        return false;
+    } else {
+        
+        // no existing app found, or error while checking, so fall back to looking for a data dir
+        let iDataDirFound = appIDDataDirExists(aID);
+        
+        if (iDataDirFound === true) {
+            // ID found in data dir, so ID is not unique
+            return false;
+        } else if (iAppFound instanceof Error) {
+            // return error from original app search
+            return iAppFound;
+        } else if (iDataDirFound instanceof Error) {
+            // return error from data directory search
+            return iDataDirFound;
+        } else {
+            // if we got here, ID was not found in either an app or a data directory
+            return true;
+        }
+    }
+}
+
+
+// APPIDAPPEXISTS: check if an app exists with a given ID (cache result)
+function appIDAppExists(aID) {
+    
+    let iErr;
     
     try {
-        iAppIDNotFound = (findAppByID(kBundleIDBase + aID).length == 0);
-        
-        // if app with ID not found, check data directories
-        if (iAppIDNotFound) {
-            
-            // get list of data directories if needed
-            if (!(gAppDataIds instanceof Array)) {
-                
-                // if we already tried this and got an error, just return that
-                if (gAppDataIds instanceof Error) { throw gAppDataIds; }
-                
-                // flag that we're checking data dir IDs for catch
-                iCheckingDataIds = true;
-                
-                // set up variables
-                gAppDataIds = [];
-                let iFileManager = $.NSFileManager.defaultManager;
-                let iAppDataDir = $(gCoreInfo.appDataPath);
-                let iAppsDirContents = iFileManager.contentsOfDirectoryAtPathError(iAppDataDir, null).js;
-                let iIsDir = Ref();
-                
-                // build list of app data directory IDs
-                for (let curItem of iAppsDirContents) {
-                	iFileManager.fileExistsAtPathIsDirectory(iAppDataDir.stringByAppendingPathComponent(curItem), iIsDir);
-                	if (iIsDir[0]) {
-                		gAppDataIds.push(curItem.js.toLowerCase());
-                	}
-                }
-            } else {
-                // flag that we're checking data dir IDs for catch
-                iCheckingDataIds = true;
-            }
-            
-            // check for ID in list of data directories
-            if (gAppDataIds.includes(aID.toLowerCase())) {
-                iAppIDNotFound = false;
-            }
-        }
+        // see if there's already an app with this ID
+        return (findAppByID(kBundleIDBase + aID).length > 0);
     } catch (iErr) {
-        // if this happened while checking app data dir, IDs, save the error
-        if (iCheckingDataIds) { gAppDataIds = iErr; }
-        
+        // error trying to find the app ID
         return iErr;
     }
+}
+
+
+// APPIDDATADIREXISTS: check if a data directory exists for a given ID
+gAppDataIds = null;
+function appIDDataDirExists(aID) {
     
-    return iAppIDNotFound;
+    // build list of data directories if not already done
+    if (gAppDataIds === null) {
+        
+        let iAppDataDirErr;
+        
+        try {
+            // set up variables
+            gAppDataIds = [];
+            let iFileManager = $.NSFileManager.defaultManager;
+            let iAppDataDir = $(gCoreInfo.appDataPath);
+            let iAppsDirContents = iFileManager.contentsOfDirectoryAtPathError(iAppDataDir, null).js;
+            let iIsDir = Ref();
+            
+            // build list of app data directory IDs
+            for (let curItem of iAppsDirContents) {
+                iFileManager.fileExistsAtPathIsDirectory(iAppDataDir.stringByAppendingPathComponent(curItem), iIsDir);
+                if (iIsDir[0]) {
+                    gAppDataIds.push(curItem.js.toLowerCase());
+                }
+            }
+        } catch(iAppDataDirErr) {
+            // store the error
+            gAppDataIds = iAppDataDirErr;
+        }
+    }
+    
+    // if we got an error searching the app data dir, just return that
+    if (gAppDataIds instanceof Error) { return gAppDataIds; }
+    
+    // return true if ID found in list of data directories, false if not
+    return (gAppDataIds.includes(aID.toLowerCase()));
 }
 
 
@@ -3247,13 +3289,14 @@ function createAppID(aInfo) {
             myIsUnique = appIDIsUnique(myResult);
 
             // if ID checks failing, we'll tack on the first random ending we try
-            if (myIsUnique instanceof Object) { myIsUnique = false; }
+            if (myIsUnique instanceof Error) { myIsUnique = false; }
 
             // if necessary, trim ID again to accommodate 3-digit random ending
             if (!myIsUnique) { myBase = myResult.slice(0, kAppIDMaxLength - 3); }
         }
 
         // if ID is not unique, try to uniquify it
+        // (if myIsUnique is an Error object, that will evaluate to true & end loop)
         while (!myIsUnique) {
 
             // add a random 3-digit extension to the base
@@ -3265,7 +3308,7 @@ function createAppID(aInfo) {
 
         // update step info about this ID
         aInfo.stepInfo.autoID = myResult;
-        aInfo.stepInfo.autoIDError = ((myIsUnique instanceof Object) ? myIsUnique : false);
+        aInfo.stepInfo.autoIDError = ((myIsUnique instanceof Error) ? myIsUnique : false);
     }
 
     // update app info with new ID

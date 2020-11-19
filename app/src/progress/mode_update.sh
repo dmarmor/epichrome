@@ -48,10 +48,10 @@ stepIEng1=835
 stepIEng2=863
 stepIEng3=860
 stepIEng4=15000
-step11=400
+#step11=400  # $$$$ delete
 
 # set up progress total based on what we're doing in this update
-progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 + $step11 ))
+progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 ))
  
 # custom icon progress
 if [[ "$SSBCustomIcon" = Yes ]] ; then
@@ -157,6 +157,9 @@ if [[ "$epiAction" != 'build' ]] ; then
         myAction='edit-update'
         myActionText='edit & update'
     fi
+    
+    # if ID is changing, put backups in old directory
+    [[ "$epiOldIdentifier" ]] && myBackupDir="$appDataPathBase/$epiOldIdentifier/$appDataBackupDir"
     
     # make sure backup directory exists
     if [[ -d "$myBackupDir" ]] ; then
@@ -543,31 +546,6 @@ if [[ "$ok" ]] ; then
     [[ "$ok" ]] || abort
 else
     abort
-fi
-
-progress 'step11'
-
-
-# CREATE FAILSAFE BACKUP OF APP
-
-# ensure backup directory exists
-[[ -d "$myBackupDir" ]] || \
-    try /bin/mkdir -p "$myBackupDir" \
-            'Unable to create app backup directory.'
-    
-# create failsafe backup
-iFailsafeFile="$myBackupDir/$appDataFailsafeFile"
-if [[ -f "$iFailsafeFile" ]] ; then
-    try /bin/rm -f "$iFailsafeFile" 'Unable to remove old failsafe file.'
-fi
-try /usr/bin/tar czf "$iFailsafeFile" --cd "$updateAppPath" 'Contents' \
-        'Unable to create failsafe backup file.'
-
-# ignore any errors
-if [[ "$ok" ]] ; then
-    debuglog "Created failsafe backup file at \"$iFailsafeFile\"."
-else
-    ok=1 ; errmsg=
 fi
 
 progress 'end'

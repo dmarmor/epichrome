@@ -51,6 +51,7 @@ function updateapp {
     # export epichrome.sh variables
     if [[ "$coreContext" = 'epichrome' ]] ; then
         export epiAction epiIconSource
+        [[ "$epiOldIdentifier" ]] && export epiOldIdentifier
     fi
     
     # run update

@@ -524,23 +524,21 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     # set up data directory path for post-update actions
     currentDataPath="$appDataPathBase/$SSBIdentifier"
     
+    
     # MOVE DATA FOLDER IF ID CHANGED
     
     if [[ "$epiOldIdentifier" && \
             ( "$epiOldIdentifier" != "$SSBIdentifier" ) && \
             (  -e "$appDataPathBase/$epiOldIdentifier" ) ]] ; then
         
-        # common warning prefix
-        warnPrefix="Unable to migrate data directory to new ID $SSBIdentifier"
-        
         if [[ -e "$currentDataPath" ]] ; then
-            warnings+=( "$warnPrefix. A directory already exists for that ID. The app will use that directory." )
+            warnings=( 'WARN' "A data directory already exists for ID \"$SSBIdentifier\". The app will use that directory." )
         else
             permanent "$appDataPathBase/$epiOldIdentifier" \
                     "$currentDataPath" "app bundle"
             if [[ ! "$ok" ]] ; then
-                warnings+=( 'WARN' \
-                        "$warnPrefix. ($errmsg) The app will create a new data directory on first run." )
+                warnings=( 'WARN' \
+                        "Unable to migrate data directory to new ID \"$SSBIdentifier\". ($errmsg) The app will create a new data directory on first run." )
                 ok=1 ; errmsg=
             fi
         fi
@@ -558,7 +556,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
         updateolddatadir "$currentDataPath" "$currentDataPath/$appDataProfileDir"
         
         if [[ ! "$ok" ]] ; then
-            [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
+            [[ "${warnings[*]}" ]] || warnings=( 'WARN' )
             warnings+=( "Unable to update old data directory structure. ($errmsg) Your data for this app may be lost." )
             ok=1 ; errmsg=
         fi
@@ -596,7 +594,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     if [[ -f "$currentConfigFile" ]] ; then
         # read in config file, ignoring errors
         safesource "$currentConfigFile" 'configuration file'
-        ok=1 ; errmsg
+        ok=1 ; errmsg=
     fi
     
     # assume we don't need to write config

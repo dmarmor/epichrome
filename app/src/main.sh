@@ -185,6 +185,7 @@ if [[ "$SSBVersion" != "$SSBLastRunVersion" ]] ; then
     
     # clear error states
     SSBLastErrorNMHInstall=
+    SSBLastErrorFailsafe=
 fi
 
 
@@ -386,12 +387,33 @@ else
             # unable to link to NMH directory -- no NMHs will work
             installNMHError="Unable to install native messaging hosts for this app. ($errmsg)"$'\n\n'"The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
         fi
-            
+        
         # show warning alert for error installing native messaging host
         alert "$installNMHError"$'\n\n'"This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
         SSBLastErrorNMHInstall="$errmsg"
+    fi
+    
+    # clear error state
+    ok=1 ; errmsg=
+fi
+
+
+# CREATE/UPDATE FAILSAFE BACKUP IF NEEDED
+
+updatefailsafe
+if [[ "$ok" ]] ; then
+    # success, so clear last error
+    SSBLastErrorFailsafe=
+else
+    if [[ "$SSBLastErrorFailsafe" != "$errmsg" ]] ; then
+            
+        # show warning alert for failsafe backup error
+        alert "Unable to update failsafe backup. ($errmsg)"$'\n\nThis error will only be reported once. All errors can be found in the app log.' 'Warning' '|caution'
+        
+        # set new error state
+        SSBLastErrorFailsafe="$errmsg"
     fi
     
     # clear error state
@@ -409,7 +431,7 @@ if [[ "$myStatusNewApp" ]] ; then
     # new app, so of course we need an engine
     doCreateEngine=1
     debuglog "Creating engine for new app."
-    createEngineAction1='Creating' ; createEngineAction2='engine'
+    createEngineAction1='Creating engine' ; createEngineAction2=''
     createEngineErrMsg="Unable to create engine for new app"
     
 elif [[ "$myStatusNewVersion" ]] ; then
@@ -417,7 +439,7 @@ elif [[ "$myStatusNewVersion" ]] ; then
     # app was updated, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for new Epichrome version $SSBVersion."
-    createEngineAction1='Updating' ; createEngineAction2="engine to version $SSBVersion"
+    createEngineAction1='Updating engine' ; createEngineAction2="to version $SSBVersion"
     createEngineErrMsg="Unable to update engine for new Epichrome version $SSBVersion"
     
 elif [[ "${myStatusEngineChange[0]}" ]] ; then
@@ -426,7 +448,7 @@ elif [[ "${myStatusEngineChange[0]}" ]] ; then
     doCreateEngine=1
     [[ "${SSBEngineType%%|*}" = 'internal' ]] && myEngTypeName='built-in' || myEngTypeName='external'
     debuglog "Switching to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine."
-    createEngineAction1='Switching' ; createEngineAction2="to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine"
+    createEngineAction1='Switching engine' ; createEngineAction2="to $myEngTypeName ${SSBEngineSourceInfo[$iName]}"
     createEngineErrMsg="Unable to switch to $myEngTypeName ${SSBEngineSourceInfo[$iName]} engine"
     
 elif [[ "$myStatusEdited" ]] ; then
@@ -434,7 +456,7 @@ elif [[ "$myStatusEdited" ]] ; then
     # this app was edited, so we need a new engine
     doCreateEngine=1
     debuglog "Updating engine for edited app."
-    createEngineAction1='Updating' ; createEngineAction2='engine'
+    createEngineAction1='Updating engine' ; createEngineAction2=''
     createEngineErrMsg="Unable to update engine for edited app"
     
 elif [[ "$myStatusEngineMoved" ]] ; then
@@ -442,7 +464,7 @@ elif [[ "$myStatusEngineMoved" ]] ; then
     # the app engine was changed, so we need a new engine (probably never reached)
     doCreateEngine=1
     debuglog "Recreating engine in new location '$SSBPayloadPath'."
-    createEngineAction1='Relocating' ; createEngineAction2='engine'
+    createEngineAction1='Relocating engine' ; createEngineAction2=''
     createEngineErrMsg="Unable to recreate engine in new location"
     
 elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
@@ -452,7 +474,7 @@ elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
     # new version of external engine
     doCreateEngine=1
     debuglog "Updating external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
-    createEngineAction1='Updating' ; createEngineAction2="external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineAction1='Updating engine' ; createEngineAction2="to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
     createEngineErrMsg="Unable to update external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
 
 elif ! checkenginepayload ; then
@@ -460,7 +482,7 @@ elif ! checkenginepayload ; then
     # engine damaged or missing
     doCreateEngine=1
     errlog "Replacing damaged or missing engine."
-    createEngineAction1='Replacing' ; createEngineAction2='engine'
+    createEngineAction1='Replacing engine' ; createEngineAction2=''
     createEngineErrMsg='Unable to replace damaged or missing engine'
 fi
 [[ "$ok" ]] || abort

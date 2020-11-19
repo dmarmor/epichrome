@@ -2354,156 +2354,41 @@ function installepichromenmh {
 }
 
 
-# # LINKEXTERNALNMHS -- link to native message hosts in central Google Chrome directory
-# function linkexternalnmhs {
-#
-# 	# only run if we're OK
-# 	[[ "$ok" ]] || return 1
-#
-# 	# paths to NMH directories for compatible browsers
-#
-# 	# get path to destination NMH manifest directory
-# 	local myHostDir="$myProfilePath/$nmhDirName"
-#
-# 	# list of NMH directories to search
-# 	local myNMHBrowsers=()
-#
-# 	# favor hosts from whichever browser our engine is using
-# 	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
-#
-# 		# see if the current engine is in the list
-# 		local curBrowser= ; local i=0
-# 		for curBrowser in "${appExtEngineBrowsers[@]}" ; do
-# 			if [[ "${SSBEngineType#*|}" = "$curBrowser" ]] ; then
-#
-# 				debuglog "Prioritizing ${SSBEngineType#*|} native messaging hosts."
-#
-# 				# engine found, so bump it to the end of the list (giving it top priority)
-# 				myNMHBrowsers=( "${appExtEngineBrowsers[@]::$i}" \
-# 						"${appExtEngineBrowsers[@]:$(($i + 1))}" \
-# 						"$curBrowser" )
-# 				break
-# 			fi
-# 			i=$(($i + 1))
-# 		done
-# 	fi
-#
-# 	# for internal engine, or if external engine not found, use vanilla list
-# 	[[ "${myNMHBrowsers[*]}" ]] || myNMHBrowsers=( "${appExtEngineBrowsers[@]}" )
-#
-# 	# navigate to our host directory (report error)
-# 	try '!1' pushd "$myHostDir" "Unable to navigate to '$myHostDir'."
-# 	if [[ ! "$ok" ]] ; then
-# 		ok=1 ; return 1
-# 	fi
-#
-# 	# turn on nullglob
-# 	local shoptState=
-# 	shoptset shoptState nullglob
-#
-# 	# get list of host files currently installed
-# 	hostFiles=( * )
-#
-# 	# collect errors
-# 	local myError=
-#
-# 	# remove dead host links
-# 	local curFile=
-# 	for curFile in "${hostFiles[@]}" ; do
-# 		if [[ -L "$curFile" && ! -e "$curFile" ]] ; then
-# 			try rm -f "$curFile" "Unable to remove dead link to $curFile."
-# 			if [[ ! "$ok" ]] ; then
-# 				[[ "$myError" ]] && myError+=' '
-# 				myError+="$errmsg"
-# 				ok=1 ; errmsg=
-# 				continue
-# 			fi
-# 		fi
-# 	done
-#
-# 	# link to hosts from both directories
-# 	local curHost=
-# 	local curHostDir=
-# 	local curError=
-# 	for curHost in "${myNMHBrowsers[@]}" ; do
-#
-# 		# get only the data directory
-# 		getbrowserinfo 'curHostDir' "$curHost"
-# 		if [[ ! "${curHostDir[$iLibraryPath]}" ]] ; then
-# 			curError="Unable to get data directory for browser $curHost."
-# 			errlog "$curError"
-# 			[[ "$myError" ]] && myError+=' '
-# 			myError+="$curError"
-# 			continue
-# 		fi
-# 		curHostDir="$userSupportPath/${curHostDir[$iLibraryPath]}/$nmhDirName"
-#
-# 		if [[ -d "$curHostDir" ]] ; then
-#
-# 			# get a list of all hosts in this directory
-# 			try '!1' pushd "$curHostDir" "Unable to navigate to ${curHostDir}"
-# 			if [[ ! "$ok" ]] ; then
-# 				[[ "$myError" ]] && myError+=' '
-# 				myError+="$errmsg"
-# 				ok=1 ; errmsg=
-# 				continue
-# 			fi
-#
-# 			hostFiles=( * )
-#
-# 			try '!1' popd "Unable to navigate away from ${curHostDir}"
-# 			if [[ ! "$ok" ]] ; then
-# 				[[ "$myError" ]] && myError+=' '
-# 				myError+="$errmsg"
-# 				ok=1 ; errmsg=
-# 				continue
-# 			fi
-#
-# 			# link to any hosts that are not already in our directory or are
-# 			# links to a different file -- this way if a given host is in
-# 			# multiple NMH directories, whichever we hit last wins
-# 			for curFile in "${hostFiles[@]}" ; do
-# 				if [[ ( ! -e "$curFile" ) || \
-# 						( -L "$curFile" && \
-# 						! "$curFile" -ef "${curHostDir}/$curFile" ) ]] ; then
-#
-# 					debuglog "Linking to native messaging host at ${curHostDir}/$curFile."
-#
-# 					# symbolic link to current native messaging host
-# 					try ln -sf "${curHostDir}/$curFile" "$curFile" \
-# 							"Unable to link to native messaging host ${curFile}."
-# 					if [[ ! "$ok" ]] ; then
-# 						[[ "$myError" ]] && myError+=' '
-# 						myError+="$errmsg"
-# 						ok=1 ; errmsg=
-# 						continue
-# 					fi
-# 				fi
-# 			done
-# 		fi
-# 	done
-#
-# 	# silently return to original directory
-# 	try '!1' popd "Unable to navigate away from '$myHostDir'."
-# 	if [[ ! "$ok" ]] ; then
-# 		[[ "$myError" ]] && myError+=' '
-# 		myError+="$errmsg"
-# 		ok=1 ; errmsg=
-# 		continue
-# 	fi
-#
-# 	# restore nullglob
-# 	shoptrestore shoptState
-#
-# 	# return success or failure
-# 	if [[ "$myError" ]] ; then
-# 		errmsg="$myError"
-# 		return 1
-# 	else
-# 		errmsg=
-# 		return 0
-# 	fi
-# }
+# UPDATEFAILSAFE -- create or update failsafe backup if necessary
+function updatefailsafe {
+	
+	# only run if we're OK
+	[[ "$ok" ]] || return 1
+	
+	# path to failsafe backup
+	local iFailsafeFile="$myBackupDir/$appDataFailsafeFile"
+	
+	# check if we already have an up-to-date failsafe backup
+	[[ "$myStatusNewApp" || "$myStatusNewVersion" || "$myStatusEdited" || \
+			! ( -f "$iFailsafeFile" ) ]] || return 0
+	
+	# ensure backup directory exists
+	[[ -d "$myBackupDir" ]] || \
+		try /bin/mkdir -p "$myBackupDir" \
+				'Unable to create backup directory.'
+	
+	# delete any old failsafe backup
+	if [[ -f "$iFailsafeFile" ]] ; then
+		try /bin/rm -f "$iFailsafeFile" 'Unable to remove old archive.'
+	fi
+	
+	# create new failsafe backup
+	try /usr/bin/tar czf "$iFailsafeFile" --cd "$SSBAppPath" 'Contents' \
+			'Unable to create archive.'
+	
+	# handle success or failure
+	if [[ "$ok" ]] ; then
+		debuglog "Created failsafe backup at \"$iFailsafeFile\"."
+		return 0
+	else
+		return 1
+	fi
+}
 
 
 # CHECKENGINEPAYLOAD -- check if the app engine payload is in a good state
@@ -2722,8 +2607,8 @@ function createenginepayload {
 	if [[ "$aMsg1" ]] ; then
 		local aMsg2="$1" ; shift
 	else
-		aMsg1='Creating'
-		aMsg2='engine'
+		aMsg1='Creating engine'
+		aMsg2=''
 	fi
 	
     # export important scalar variables
