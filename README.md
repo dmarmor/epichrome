@@ -41,12 +41,13 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <td align="center">Rob Page</td>
 </tr>
 <tr>
+<td align="center">Scott Richins</td>
 <td align="center">Matthew Scott</td>
 <td align="center">Samuel Talleux</td>
-<td align="center">Adam Tarnoff</td>
 </tr>
 <tr>
-<td align="center" colspan="3">Thorbergsson</td>
+<td align="center">Adam Tarnoff</td>
+<td align="center">Thorbergsson</td>
 </tr>
 </table>
 </b>
@@ -88,7 +89,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS Catalina 10.15.7 and Google Chrome version 86.0.4240.198.
+- Built and tested on macOS Catalina 10.15.7 and Google Chrome version 87.0.4280.67.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
