@@ -234,6 +234,10 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/document_beta.icns \
 	build/icons/epichrome.icns \
 	build/icons/epichrome_beta.icns \
+	build/icons/scan_app.icns \
+	build/icons/scan_app_beta.icns \
+	build/icons/login_app.icns \
+	build/icons/login_app_beta.icns \
 	build/icons/folder.icns \
 	build/icons/folder_beta.icns \
 	build/img/app_icon.png \
@@ -1032,11 +1036,11 @@ $(SCAN_CT)/Resources/script $(LOGIN_CT)/MacOS/EpichromeLogin: src/scan/ScanExec
 	sed -e 's/EPISCANMODE/$(SCAN_MODE)/g' '$<' > '$@'
 	chmod 755 '$@'
 
-$(SCAN_CT)/Resources/%.icns: build/icons/scan_%$(BETA).icns src/version.sh
+$(SCAN_CT)/Resources/app.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
-$(LOGIN_CT)/Resources/%.icns: build/icons/login_%$(BETA).icns src/version.sh
+$(LOGIN_CT)/Resources/app.icns: build/icons/login_app$(BETA).icns src/version.sh
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp '$<' '$@'
 
