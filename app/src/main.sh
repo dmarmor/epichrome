@@ -497,7 +497,21 @@ if [[ "$doCreateEngine" ]] ; then
     
     # (re)create engine payload
     createenginepayload "$createEngineAction1" "$createEngineAction2"
-    [[ "$ok" ]] || abort "$createEngineErrMsg: $errmsg"
+    if [[ ! "$ok" ]] ; then
+        if [[ ( "$errmsg" = 'CANCEL' ) || ( "$errmsg" = 'SELECT|'* ) ]] ; then
+            if [[ "$errmsg" = 'CANCEL' ]] ; then
+                errmsg=$'Operation canceled.\n\nTo run this app, please relaunch and allow this operation to finish.'
+            else
+                errmsg="${errmsg#SELECT|}"
+            fi
+            
+            # display stop alert and exit
+            alert "$createEngineErrMsg: $errmsg" "Unable to Run" '|stop'
+            cleanexit 1
+        else
+            abort "$createEngineErrMsg: $errmsg"
+        fi
+    fi
 fi
 
 

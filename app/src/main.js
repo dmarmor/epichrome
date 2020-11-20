@@ -2594,7 +2594,7 @@ function stepBuild(aInfo) {
 
         let myDlgMessage = 'app "' + aInfo.appInfo.displayName + '".';
         if (aInfo.stepInfo.action == kActionCREATE) {
-            myDlgMessage = 'Created Epichrome ' + myDlgMessage + '\n\nIMPORTANT NOTE: A companion extension, Epichrome Helper, will automatically install when the app is first launched, but will be DISABLED by default. The first time you run, a welcome page will show you how to enable it.';
+            myDlgMessage = 'Created Epichrome ' + myDlgMessage + '\n\nIMPORTANT NOTE: The first time you run, a welcome page will open. Please read it carefully! It will show you how to enable the companion extension and perform other important setup.';
         } else if (aInfo.stepInfo.action == kActionEDIT) {
             myDlgMessage = 'Saved changes to ' + myDlgMessage;
         } else {

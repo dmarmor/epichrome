@@ -2065,8 +2065,8 @@ function getbrowserinfo {
 }
 
 
-# GETEXTENGINESRCINFO: find external engine source app on the system & get info on it
-#                      if successful, it sets the SSBEngineSourceInfo variable
+# GETEXTENGINESRCINFO: find external engine source app on the system & get info on
+#                      it if successful, it sets the SSBEngineSourceInfo variable
 function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	
 	# only run if we're OK
@@ -2623,13 +2623,8 @@ function createenginepayload {
 	# run progress sub-app
 	runprogress "${myScriptPath%/Scripts}" 'payload' "$aMsg1 \"${SSBAppPath##*/}\" $aMsg2"
 	
-	# handle result
-	if [[ "$ok" ]] ; then
-		return 0
-	else
-		[[ "$errmsg" = 'CANCEL' ]] && errmsg='Operation canceled.'
-		return 1
-	fi
+	# return result
+	[[ "$ok" ]] && return 0 || return 1
 }
 
 

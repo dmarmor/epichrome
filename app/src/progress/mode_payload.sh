@@ -112,24 +112,49 @@ if [[ "${SSBEngineType%%|*}" != internal ]] ; then
         myExtEngineName="${myExtEngineName[$iDisplayName]}"
         [[ "$myExtEngineName" ]] || myExtEngineName="${SSBEngineType#*|}"
         
-        try 'myExtEngineSourcePath=' osascript -e \
-				"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
-                "Locate engine app dialog failed."
-		myExtEngineSourcePath="${myExtEngineSourcePath%/}"
+        try 'myExtEngineSourcePath=' osascript -l JavaScript -e "
+const kApp = Application.currentApplication();
+kApp.includeStandardAdditions = true;
+let iErr;
+try {
+    kApp.chooseApplication({
+        withTitle: 'Locate $myExtEngineName',
+        withPrompt: 'Please locate $myExtEngineName',
+        as: 'alias'
+    }).toString();
+} catch(iErr) {
+    if (iErr.errorNumber == -128) {
+        'CANCEL';
+    } else {
+        'ERROR|' + iErr.message;
+    }
+}" "Locate engine app dialog failed."
+        
+        if [[ "$ok" && ( "$myExtEngineSourcePath" = 'ERROR|'* ) ]] ; then
+            ok= ; errmsg="${myExtEngineSourcePath#ERROR|}"
+        fi
         
         if [[ ! "$ok" ]] ; then
-            
-            # we've failed to find the engine browser
+            # error in engine browser dialog
             [[ "$errmsg" ]] && errmsg=" ($errmsg)"
-            errmsg="Unable to find $myExtEngineName.$errmsg"
+            errmsg="SELECT|Error locating $myExtEngineName.$errmsg"
+        elif [[ "$myExtEngineSourcePath" = 'CANCEL' ]] ; then
+            ok= ; errmsg="SELECT|Locating of $myExtEngineName canceled."
+        fi
+        
+        if [[ ! "$ok" ]] ; then
+            errmsg+=$'\n\n'"Please locate or install $myExtEngineName and try again."
             abort
         fi
+        
+        # strip trailing slash
+        myExtEngineSourcePath="${myExtEngineSourcePath%/}"
         
         # user selected a path, so check it
         getextenginesrcinfo "$myExtEngineSourcePath"
         
         if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
-            ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
+            ok= ; errmsg="SELECT|Selected app is not a valid instance of $myExtEngineName."
             abort
         fi
     fi
