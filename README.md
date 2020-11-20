@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.18</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.19</h1>
 
 ## Overview
 
@@ -41,20 +41,21 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <td align="center">Rob Page</td>
 </tr>
 <tr>
+<td align="center">Scott Richins</td>
 <td align="center">Matthew Scott</td>
 <td align="center">Samuel Talleux</td>
-<td align="center">Adam Tarnoff</td>
 </tr>
 <tr>
-<td align="center" colspan="3">Thorbergsson</td>
+<td align="center">Adam Tarnoff</td>
+<td align="center">Thorbergsson</td>
 </tr>
 </table>
 </b>
 
 
-## New in version 2.3.18
+## New in version 2.3.19
 
-- The built-in engine has been updated to Brave 1.17.73.
+- The built-in engine has been updated to Brave 1.1X.XX.
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
