@@ -28,9 +28,9 @@ function updateoldcoreinfo {
     [[ "$ok" ]] || return 1
     
     # try to pull out SSBIdentifier from CFBundleIdentifier
-    SSBIdentifier="${CFBundleIdentifier#org.epichrome.app.}"
+    SSBIdentifier="${CFBundleIdentifier#$appIDBase.}"
     if [[ "$SSBIdentifier" = "$CFBundleIdentifier" ]] ; then
-        ok= ; errmsg="Unable to determine app ID. This app may be too old to update."
+        ok= ; errmsg="Unable to determine ID for '$epiAppPath'. This app may be too old to update."
         return 1
     fi
     
@@ -92,7 +92,7 @@ function updateolddatadir {  # ( [locDataPath locProfilePath] )
                 # try to leave even on error
                 tryalways '!1' popd 'Unable to restore working directory.'
             fi
-        fi        
+        fi
     fi
     
     [[ "$ok" ]] && return 0 || return 1

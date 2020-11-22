@@ -542,13 +542,19 @@ function runEdit(aApps) {
                 throw myErr;
             }
             
+            // see if this is an error that recommends a run of Epichrome Scan
+            if (myErr.message.startsWith('SCAN|')) {
+                myErr.message = myErr.message.slice(5);
+                curApp.recommendScan = true;
+            }
+            
             // record the error for this app
             curApp.error = myErr.message;
             curApp.appInfo = {
                 file: curAppFileInfo
             }
             myErrApps.push(curApp);
-            myErrAppList.push(kIndent + kDotError + ' ' + curApp.appInfo.file.name + ': ' + curApp.error);
+            myErrAppList.push(kIndent + (curApp.recommendScan ? kDotWarning : kDotError) + ' ' + curApp.appInfo.file.name + ': ' + curApp.error);
             continue;
         }
 
@@ -665,11 +671,18 @@ function runEdit(aApps) {
 
     // list apps with errors
     if (myErrApps.length > 0) {
+        
+        // flag whether to recommend a scan
+        let myRecommendScan = myErrApps.reduce((acc, cur) => Boolean(acc || cur.recommendScan), false);
+
         if (myApps.length == 0) {
             myDlgTitle = 'Error';
             myDlgIcon = 'stop';
             if (myErrApps.length == 1) {
-                myDlgMessage = 'Error reading ' + myErrApps[0].appInfo.file.name + ': ' + myErrApps[0].error;
+                myDlgMessage = 'Error reading ' + myErrApps[0].appInfo.file.name + ': ' + myErrApps[0].error + '.';
+                if (myRecommendScan) {
+                    myDlgMessage += '\n\n' + kDotInfo + ' If the app is running, please quit it. If it is not running, run Epichrome Scan.app to deactivate its engine. Then try again.';
+                }
             }
         }
 
@@ -681,6 +694,11 @@ function runEdit(aApps) {
                 myDlgMessage += 'There were errors reading the following apps and they cannot be edited:\n\n';
             }
             myDlgMessage += myErrAppList.join('\n');
+            
+            // possibly recommend scan
+            if (myRecommendScan) {
+                myDlgMessage += '\n\n' + kDotInfo + ' At least one of these apps may be running. If so, please quit them. If none of them are running, run Epichrome Scan.app to reset them. Then try again.';
+            }
         }
     }
 

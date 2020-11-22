@@ -2038,24 +2038,6 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
 }
 
 
-# GETBROWSERINFO: try to return info on known browsers
-#   getbrowserinfo(var [id])
-function getbrowserinfo {
-	
-	# arguments
-	local var="$1" ; shift
-	local id="$1" ; shift
-	
-	[[ "$id" ]] || id="${SSBEngineType#*|}"
-	
-	if [[ "$id" ]] ; then
-		eval "${var}=( \"\${appBrowserInfo_${id//./_}[@]}\" )"
-	else
-		eval "${var}="
-	fi
-}
-
-
 # GETEXTENGINESRCINFO: find external engine source app on the system & get info on
 #                      it if successful, it sets the SSBEngineSourceInfo variable
 function getextenginesrcinfo { # ( [myExtEngineSrcPath] )

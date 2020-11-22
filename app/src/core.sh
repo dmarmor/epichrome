@@ -197,7 +197,7 @@ appBrowserInfo_org_chromium_Chromium=( 'org.chromium.Chromium' \
         'Chromium' \
         '' )
 appBrowserInfo_com_google_Chrome=( 'com.google.Chrome' \
-        '' 'Chrome' 'Google Chrome' \
+        'Google Chrome' 'Chrome' 'Google Chrome' \
         '' '' '' '' \
         'Google/Chrome' \
         'Google Chrome Master Preferences' \
@@ -2005,6 +2005,26 @@ function alert {
     # show the alert
     dialog '' "$1" "$2" "$3"
     return "$?"
+}
+
+
+# --- BROWSER INFO FUNCTIONS ---
+
+# GETBROWSERINFO: try to return info on known browsers
+#   getbrowserinfo(var [id])
+function getbrowserinfo {
+	
+	# arguments
+	local var="$1" ; shift
+	local id="$1" ; shift
+	
+	[[ "$id" ]] || id="${SSBEngineType#*|}"
+	
+	if [[ "$id" ]] ; then
+		eval "${var}=( \"\${appBrowserInfo_${id//./_}[@]}\" )"
+	else
+		eval "${var}="
+	fi
 }
 
 

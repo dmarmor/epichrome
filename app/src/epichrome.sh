@@ -279,8 +279,8 @@ elif [[ "$epiAction" = 'read' ]] ; then
         
         # read in app config
         myConfigScript=
-        try 'myConfigScript=' /bin/cat "$myConfigPath" "Unable to read app data"
-        [[ "$ok" ]] || abort
+        try 'myConfigScript=' /bin/cat "$myConfigPath" "Unable to read app data for '$epiAppPath'."
+        [[ "$ok" ]] || abort 'Unable to read app data'
         
         # pull config from current flavor of app
         myBadConfig=
@@ -300,20 +300,22 @@ elif [[ "$epiAction" = 'read' ]] ; then
         
         # if either delimiter string wasn't found, that's an error
         if [[ "$myBadConfig" ]] ; then
-            abort "Unexpected app configuration"
+            errmsg='Unexpected app configuration'
+            errlog "$errmsg for '$epiAppPath'."
+            abort
         fi
         
         # remove any trailing export statement
         # myConfig="${myConfig%%$'\n'export*}"
         
         # read in config variables
-        try eval "$myConfig" "Unable to parse app configuration"
-        [[ "$ok" ]] || abort
+        try eval "$myConfig" "Unable to parse app configuration for '$epiAppPath'."
+        [[ "$ok" ]] || abort 'Unable to parse app configuration'
         
         # update engine type for beta versions 2.3.0b1-2.3.0b6
         if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-            ok= ; errmsg='Updating of Chromium-engine apps not yet implemented.'
-            errlog "$errmsg"
+            ok= ; errmsg='Cannot yet update Chromium-engine app'
+            errlog "$errmsg '$epiAppPath'."
             abort
             # $$$ if we add Chromium back:
             # SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
@@ -329,19 +331,90 @@ elif [[ "$epiAction" = 'read' ]] ; then
         loadscript 'legacy.sh'
         
         # read in app config
-        safesource "$myOldConfigPath" 'app configuration'
-        [[ "$ok" ]] || abort
+        safesource "$myOldConfigPath" "app configuration for '$epiAppPath'"
+        [[ "$ok" ]] || abort 'Unable to read app configuration'
         
         # make sure this is a recent enough app to be edited
-        vcmp "$SSBVersion" '<' '2.1.0' && \
-            abort 'Cannot edit apps older than version 2.1.0.'
+        if vcmp "$SSBVersion" '<' '2.1.0' ; then
+            errmsg='Cannot edit pre-2.1.0 app'
+            errlog "$errmsg '$epiAppPath'."
+            abort
+        fi
         
         # update necessary variables (SSBIdentifier & SSBEngineType)
         updateoldcoreinfo
-        [[ "$ok" ]] || abort
+        [[ "$ok" ]] || abort 'Unable to update old core info'
         
     else
-        abort "This does not appear to be an Epichrome app"
+        
+        # check if this is an active app engine
+        myIsActiveEngine=
+            
+        # see if the bundle ID is ours (internal engine)
+        myActiveEngineID=
+        try 'myActiveEngineID=' /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+                "$epiAppPath/Contents/Info.plist" "Unable to get ID of '$epiAppPath'."
+        
+        if [[ "$myActiveEngineID" = "${appIDBase}."* ]] ; then
+            
+            # this looks like an active internal engine!
+            myIsActiveEngine='yes'
+            
+        elif [[ ! "$ok" ]] ; then
+            
+            # couldn't get ID so we don't know what this app is
+            myIsActiveEngine='unknown'
+        
+        else
+            
+            # this could be an external engine, so let's find out
+            
+            myActiveEngineInfo=()
+            getbrowserinfo myActiveEngineInfo "$myActiveEngineID"
+            
+            # see if this looks like an external engine app
+            if [[ "${myActiveEngineInfo[$iName]}" ]] ; then
+                
+                # make sure there's an English InfoPlist.strings file
+                myEnStringsFile="$epiAppPath/Contents/Resources/en.lproj/InfoPlist.strings"
+                
+                if [[ -f "$myEnStringsFile" ]] ; then
+
+                    # read in English localized strings
+                    myEnStrings=
+                    try 'myEnStrings=' /bin/cat "$myEnStringsFile" \
+                            'Unable to read localized strings for '$epiAppPath'.'
+                    
+                    if [[ "$myEnStrings" ]] ; then
+                        
+                        # pull out localized bundle name
+                        myBundleNameRe='CFBundleName *= *"([^"]+)"'
+                        if [[ "$myEnStrings" =~ $myBundleNameRe ]] ; then
+                            if [[ "${BASH_REMATCH[1]}" != "${myActiveEngineInfo[$iName]}" ]] ; then
+                                
+                                # CFBundleName is not the browser's name, so this
+                                # looks like an active external engine!
+                                myIsActiveEngine='yes'
+                            fi
+                        fi
+                        
+                    elif [[ ! "$ok" ]] ; then
+                        
+                        # couldn't read in InfoPlist.strings, so we don't know what this app is
+                        myIsActiveEngine='unknown'
+                    fi
+                fi
+            fi
+        fi
+        
+        if [[ "$myIsActiveEngine" = 'unknown' ]] ; then
+            abort 'SCAN|Unable to determine if this is a running Epichrome app'
+        elif [[ "$myIsActiveEngine" ]] ; then
+            abort 'SCAN|This app appears to be running'
+        else
+            # unknown app
+            abort 'This does not appear to be an Epichrome app'
+        fi
     fi
     
     
