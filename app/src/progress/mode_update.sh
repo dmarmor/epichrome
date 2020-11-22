@@ -48,7 +48,6 @@ stepIEng1=835
 stepIEng2=863
 stepIEng3=860
 stepIEng4=15000
-#step11=400  # $$$$ delete
 
 # set up progress total based on what we're doing in this update
 progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 ))

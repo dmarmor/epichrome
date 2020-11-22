@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.4.0] - 2020-XX-XX
 ### Changed
+- Fully compatible with macOS 11 Big Sur
 - New unified app engine architecture for better compatibility with the dock, notifications, and other system services
 - Added ability to edit existing Epichrome apps
 - Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, "Epichrome Scan.app" to do the same manually
@@ -13,12 +14,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Unified GitHub update-checking across apps and Epichrome itself, so when a new update is found, you will only receive one notification (issue #???)
 - The GitHub update-found dialog now shows info about changes in the new version
 - The app update prompt now shows info about changes in the new version
-- Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)
 - Added button to open an issue on GitHub when an app or Epichrome aborts due to error
+- Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)
 - Minor improvements to logging
+- Reorganized and cleaned up the app welcome page
 - Improved browser extension parsing, and added cache to improve startup time for new apps
 - Improved retention of extension state across engine changes (extensions like Session Buddy with databases won't lose them any more)
-- Reorganized and cleaned up the app welcome page
 - Updated built-in engine to Brave 1.1X.XX
 ### Fixed
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)

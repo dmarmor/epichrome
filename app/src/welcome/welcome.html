@@ -64,14 +64,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <div id="changes_minor" class="change_list changes_minor">
               <h3>New in Version <span id="update_version_minor">EPIVERSION</span></h3>
               <ul>
-                <li>Progress bars now appear when creating and updating apps and their engines, as well as while parsing browser extensions</li>
-                <li>The login scan can now be enabled and disabled from within Epichrome</li>
-                <li>Improved reliability of launching newly-created and updated apps</li>
-                <li>Reorganized and cleaned up the app welcome page</li>
-                <li>Improved browser extension parsing and added a cache to improve startup time for new apps</li>
-                <li>Added a button to open an issue on GitHub when an app or Epichrome aborts due to error</li>
-                <li>Fixed a problem where Chrome-engine apps would show "Chrome" as their menubar name</li>
-                <li>Updated built-in engine to Brave 1.16.68</li>
+                <li>Improved compatibility with macOS 11 Big Sur</li>
+                <li>Fixed and improved editing of app IDs</li>
+                <li>Epichrome now gracefully handles attempts to edit a running app</li>
+                <li>Improved error handling and reporting to GitHub</li>
+                <li>Updated built-in engine to Brave 1.17.73</li>
                 <li>And many more small fixes and improvements...</li>
               </ul>
             </div>
@@ -79,12 +76,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <div id="changes_major" class="change_list changes_major hide">
               <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
               <ul>
+                <li>Fully compatible with macOS 11 Big Sur</li>
                 <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
                 <li>Epichrome apps can now be edited by dropping them on Epichrome.app!</li>
                 <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, <span class="folder_name">Epichrome Scan.app</span>, to do the same manually</li>
                 <li>Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID</li>
+                <li>Progress bars now appear when creating and updating apps and their engines, as well as while parsing browser extensions</li>
+                <li>Update dialogs now show info about changes in the new version being offered</li>
                 <li>Checking GitHub for updates is now unified across all apps and Epichrome itself, so when a new update is found, you will only receive one notification</li>
+                <li>Added a button to open an issue on GitHub when an app or Epichrome aborts due to error</li>
                 <li>Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)</li>
+                <li>Reorganized and cleaned up the app welcome page</li>
+                <li>Improved browser extension parsing and added a cache to improve startup time for new apps</li>
                 <li>Many other improvements and bug fixes...</li>
               </ul>
             </div>

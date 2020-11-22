@@ -1,11 +1,13 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b6
-epiBuildNum=26
+epiBuildNum=28
 epiDesc=( \
-        'Fixed a problem with the app build/update progress bar percentages' \
-        'Renamed the data directory engine payload link to "Payload"' \
-        'Updated built-in engine to Brave 1.16.72' )
+        'Improved compatibility with macOS 11 Big Sur' \
+        'Fixed and improved editing of app IDs' \
+        'Epichrome now detects attempts to edit a running app' \
+        'Improved error handling and reporting to GitHub' \
+        'Updated built-in engine to Brave 1.17.73' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
