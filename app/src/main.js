@@ -220,6 +220,9 @@ function mainWrapper(aApps=[]) {
         writeProperties();
         
     } catch(myErr) {
+        if (myErr.message.startsWith('REPORT|')) {
+            myErr.message = myErr.message.slice(7);
+        }
         errlog(myErr.message, 'FATAL');
         if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
@@ -533,6 +536,13 @@ function runEdit(aApps) {
             ));
 
         } catch(myErr) {
+            
+            // if this was a fatal error or bug, throw it
+            if (myErr.message.startsWith('REPORT|')) {
+                throw myErr;
+            }
+            
+            // record the error for this app
             curApp.error = myErr.message;
             curApp.appInfo = {
                 file: curAppFileInfo

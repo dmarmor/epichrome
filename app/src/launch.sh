@@ -51,15 +51,6 @@ myPreferencesFile="$myProfilePath/Default/Preferences"
 myWelcomePath="$myDataPath/$appDataWelcomeDir"
 
 
-# EPICHROME VERSION-CHECKING FUNCTIONS
-
-# VISBETA -- if version is a beta, return 0, else return 1
-function visbeta { # ( version )
-    [[ "$1" =~ [bB] ]] && return 0
-    return 1
-}
-
-
 # ENCODEURL -- encode a string for URL
 function encodeurl {  # ( input [safe] )
 	
@@ -227,9 +218,9 @@ function getepichromeinfo {
 	# add all remaining spotlight paths
 	instances+=( "${spotlight[@]}" )
 	
-	# determine if we are running a beta version
+	# determine if we are running a final release version
 	local myVersionIsRelease=1
-	visbeta "$myVersion" && myVersionIsRelease=
+	visrelease "$myVersion" || myVersionIsRelease=
 	
 	if [[ "$coreContext" = 'epichrome' ]] ; then
 		# current path should always be ours
@@ -259,7 +250,7 @@ function getepichromeinfo {
 			[[ "$epiVersion" ]] || epiVersion=0.0.0
 			
 			# if we are a release version, only look at release versions
-			if [[ "$myVersionIsRelease" ]] && visbeta "$epiVersion" ; then
+			if [[ "$myVersionIsRelease" ]] && ! visrelease "$epiVersion" ; then
 				debuglog "Ignoring '$curInstance' (beta version $epiVersion)."
 				
 			elif vcmp "$epiVersion" '>=' "$myVersion" ; then
@@ -434,7 +425,7 @@ function checkappupdate {
 		
 		
 		# update dialog info if the new version is beta
-		if visbeta "$epiUpdateVersion" ; then
+		if ! visrelease "$epiUpdateVersion" ; then
 			updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
 			# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
 		fi
@@ -481,7 +472,7 @@ function checkappupdate {
 			# alert the user to any error, but don't throw an exception
 			ok=1
 			if [[ "$errmsg" != 'CANCEL' ]] ; then
-				[[ "$errmsg" ]] && errmsg=" ($errmsg)"
+				[[ "$errmsg" ]] && errmsg=" (${errmsg#REPORT|})"
 				errmsg="Unable to complete update.$errmsg"
 			fi
 			result=1
@@ -2413,7 +2404,7 @@ function checkenginepayload {
 				debuglog 'Engine payload appears valid.'
 				return 0
 			else
-				errlog 'Engine payload is appears corrupt.'
+				errlog 'Engine payload appears corrupt.'
 				return 1
 			fi
 		else

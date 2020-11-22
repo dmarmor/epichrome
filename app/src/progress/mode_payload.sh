@@ -87,7 +87,7 @@ if [[ ! -d "$SSBPayloadPath" ]] ; then
     
     # create the payload path
     try /bin/mkdir -p "$SSBPayloadPath" 'Unable to create payload path.'
-    [[ "$ok" ]] || abort
+    [[ "$ok" ]] || abortreport
     
     # make user dir accessible only by the user (fail silently)
     if [[ "$myStatusPayloadUserDir" ]] ; then
@@ -137,24 +137,26 @@ try {
         if [[ ! "$ok" ]] ; then
             # error in engine browser dialog
             [[ "$errmsg" ]] && errmsg=" ($errmsg)"
-            errmsg="SELECT|Error locating $myExtEngineName.$errmsg"
+            errmsg="Error locating $myExtEngineName.$errmsg"
         elif [[ "$myExtEngineSourcePath" = 'CANCEL' ]] ; then
-            ok= ; errmsg="SELECT|Locating of $myExtEngineName canceled."
+            ok= ; errmsg="Locating of $myExtEngineName canceled."
+        fi
+        
+        if [[ "$ok" ]] ; then
+            
+            # strip trailing slash
+            myExtEngineSourcePath="${myExtEngineSourcePath%/}"
+            
+            # user selected a path, so check it
+            getextenginesrcinfo "$myExtEngineSourcePath"
+            
+            if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
+                ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
+            fi
         fi
         
         if [[ ! "$ok" ]] ; then
             errmsg+=$'\n\n'"Please locate or install $myExtEngineName and try again."
-            abort
-        fi
-        
-        # strip trailing slash
-        myExtEngineSourcePath="${myExtEngineSourcePath%/}"
-        
-        # user selected a path, so check it
-        getextenginesrcinfo "$myExtEngineSourcePath"
-        
-        if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
-            ok= ; errmsg="SELECT|Selected app is not a valid instance of $myExtEngineName."
             abort
         fi
     fi
@@ -259,7 +261,7 @@ else
     progress 'stepIEng3'
 fi
 
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # link to payload
 if [[ "$ok" ]] ; then

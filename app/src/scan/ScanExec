@@ -44,13 +44,13 @@ scanComplete=
 # LOAD CORE SCRIPT
 
 source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' "coreContext=$scanMode" || exit 1
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # SET UP PROGRESS SCRIPT
 if [[ "$scanMode" != 'login' ]] ; then
     progressAction='Scanning apps'
     safesource "$myScriptPath/progress.sh"
-    [[ "$ok" ]] || abort
+    [[ "$ok" ]] || abortreport
 fi
 
 
@@ -240,14 +240,14 @@ pgrepResult="$?"
 if [[ "$pgrepResult" = 0 ]] ; then
     abort 'Another scan is already running.'
 elif [[ "$pgrepResult" != 1 ]] ; then
-    abort 'Unable to get list of running scans.'
+    abortreport 'Unable to get list of running scans.'
 fi
 
 
 # LOAD LAUNCH FUNCTIONS
 
 safesource "$myScriptPath/launch.sh"
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 
 # SCAN FOR ZOMBIE ENGINES

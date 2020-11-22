@@ -25,7 +25,7 @@
 
 source "${BASH_SOURCE[0]%/Scripts/epichrome.sh}/Runtime/Contents/Resources/Scripts/core.sh" \
         'coreContext=epichrome' "epiLogPID=$PPID" "$@" || exit 1
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 
 # LOADSCRIPT: load a given script
@@ -40,14 +40,14 @@ function loadscript {
         if [[ ! -f "$iScript" ]] ; then
             ok= ; errmsg="Unable to find \"$1\"."
             errlog "$errmsg"
-            abort
+            abortreport
         fi
     fi
     
     if ! source "$iScript" ; then
         ok= ; errmsg="Unable to load ${iScript##*/}."
         errlog "$errmsg"
-        abort
+        abortreport
     fi
 }
 
@@ -55,7 +55,7 @@ function loadscript {
 # DETERMINE REQUESTED ACTION
 
 # abort if no action sent
-[[ "$epiAction" ]] || abort "No action found."
+[[ "$epiAction" ]] || abortreport "No action found."
 
 if [[ "$epiAction" = 'init' ]] ; then
     
@@ -223,6 +223,7 @@ elif [[ "$epiAction" = 'githubresult' ]] ; then
     
     
 elif [[ "$epiAction" = 'checkpath' ]] ; then
+    
     
     # ACTION: CHECK AN APP DIR & PATH FOR PROBLEMS
     
@@ -493,7 +494,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     
     # move new app to permanent location (overwriting any old app)
     permanent "$appTmp" "$epiAppPath" "app bundle"
-    [[ "$ok" ]] || abort
+    [[ "$ok" ]] || abortreport
     
     
 elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
@@ -626,7 +627,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     [[ "${warnings[*]}" ]] && abort "$(join_array $'\n' "${warnings[@]}")"
     
 else
-    abort "Unable to perform action '$epiAction'."
+    abortreport "Unknown action '$epiAction'."
 fi
 
 cleanexit

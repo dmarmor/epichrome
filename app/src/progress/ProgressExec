@@ -38,25 +38,25 @@ progressScripts="${BASH_SOURCE[0]%/script}/Scripts"
 if ! source "${BASH_SOURCE[0]%/EpichromeProgress.app/Contents/Resources/script}/Scripts/core.sh" \
 'coreDoInit=1' "logIDExt=$progressMode" "$@" ; then
     ok= ; errmsg="Unable to load core $progressVersion."
-    abort
+    abortreport
     echo "$errmsg" 1>&2 ; exit 1  # in case abort is not set
 fi
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # load launch.sh
 safesource "$myScriptPath/launch.sh"
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # load progress.sh
 safesource "$progressScripts/progress.sh"
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 
 # IF PROGRESS.SH RETURNED, IT LOADED SUCCESSFULLY, SO RUN REQUESTED MODE
 
 if ! source "$progressScripts/mode_${progressMode}.sh" ; then
     ok= ; errmsg="Error loading $progressMode mode."
-    abort
+    abortreport
 fi
 
 cleanexit

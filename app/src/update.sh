@@ -84,9 +84,14 @@ function updateapp {
         # aborted or canceled
         
         # fallback cancel message for old versions
-        if [[ ( "$errmsg" = 'CANCEL' ) && ( "$coreContext" != 'epichrome' ) ]] && \
+        if [[ "$errmsg" = 'CANCEL' ]] ; then
+            if [[ "$coreContext" != 'epichrome' ]] && \
                 vcmp "$SSBVersion" '<' '2.4.0b4[004]' ; then
-            errmsg='Update canceled.'
+                errmsg='Update canceled.'
+            fi
+        else
+            # offer to report all non-cancel errors
+            errmsg="REPORT|$errmsg"
         fi
         
         return 1
@@ -107,12 +112,12 @@ function updaterelaunch {
     # bootstrap updated core.sh & launch.sh
     if ! source "$aEpiScripts/core.sh" ; then
         ok= ; errmsg="Unable to load updated core."
-        abort
+        abortreport
     fi
     if [[ "$ok" ]] ; then
         if ! source "$aEpiScripts/launch.sh" ; then
             ok= ; errmsg="Unable to load updated launch.sh."
-            abort
+            abortreport
         fi
     fi
     

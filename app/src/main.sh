@@ -78,10 +78,10 @@ done
 
 myLogID=   # reset log ID
 source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # ensure we have a data directory
-[[ -d "$myDataPath" ]] || abort 'Unable to create data directory.'
+[[ -d "$myDataPath" ]] || abortreport 'Unable to create data directory.'
 
 
 # --- FUNCTION DEFINITIONS ---
@@ -122,7 +122,7 @@ initlogfile
 # LOAD LAUNCH FUNCTIONS
 
 safesource "$myAppPath/Contents/Resources/Scripts/launch.sh"
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 
 # READ CURRENT APP SETTINGS
@@ -139,7 +139,7 @@ if [[ -f "$myConfigFile" ]] ; then
     
     # read config file
     readconfig "$myConfigFile"
-    [[ "$ok" ]] || abort
+    [[ "$ok" ]] || abortreport
     
     # restore SSBEngineSourceInfo if needed
     if [[ "${tempEngInfo[*]}" ]] ; then
@@ -242,7 +242,7 @@ if [[ "$myStatusCannotCreatePayload" || \
     if [[ "$?" != 0 ]] ; then
         
         # abort on fatal error
-        [[ "$ok" ]] || abort
+        [[ "$ok" ]] || abortreport
         
         # display warning on non-fatal error
         if [[ "$errmsg" = 'CANCEL' ]] ; then
@@ -332,7 +332,7 @@ if [[ -d "$myPayloadPath" ]] ; then
     fi
 elif [[ ! "$SSBPayloadPath" ]] ; then
     # no current or latest Epichrome & no payload path found
-    abort 'No payload path found.'
+    abort 'Epichrome not installed and no payload path found.'
 elif ! issamedevice "$SSBAppPath" "$SSBPayloadPath" ; then
     # no current or latest Epichrome & app is not on same volume as payload
     abort 'App is not on the same physical volume as its engine payload.'
@@ -361,7 +361,7 @@ fi
 if ! updatedatadir ; then
     [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
 fi
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # set any welcome page
 setwelcomepage
@@ -370,7 +370,7 @@ setwelcomepage
 if ! updateprofiledir ; then
     [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
 fi
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # install/update native messaging host manifests (including ours), reporting non-fatal errors
 installnmhs ; installNMHError="$?"
@@ -485,7 +485,7 @@ elif ! checkenginepayload ; then
     createEngineAction1='Replacing engine' ; createEngineAction2=''
     createEngineErrMsg='Unable to replace damaged or missing engine'
 fi
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # create engine payload if necessary
 if [[ "$doCreateEngine" ]] ; then
@@ -498,19 +498,12 @@ if [[ "$doCreateEngine" ]] ; then
     # (re)create engine payload
     createenginepayload "$createEngineAction1" "$createEngineAction2"
     if [[ ! "$ok" ]] ; then
-        if [[ ( "$errmsg" = 'CANCEL' ) || ( "$errmsg" = 'SELECT|'* ) ]] ; then
-            if [[ "$errmsg" = 'CANCEL' ]] ; then
-                errmsg=$'Operation canceled.\n\nTo run this app, please relaunch and allow this operation to finish.'
-            else
-                errmsg="${errmsg#SELECT|}"
-            fi
-            
-            # display stop alert and exit
-            alert "$createEngineErrMsg: $errmsg" "Unable to Run" '|stop'
-            cleanexit 1
-        else
-            abort "$createEngineErrMsg: $errmsg"
+        if [[ "$errmsg" = 'CANCEL' ]] ; then
+            errmsg=$'Operation canceled.\n\nTo run this app, please relaunch and allow this operation to finish.'
         fi
+        
+        [[ "$errmsg" = 'REPORT|'* ]] && doReport='REPORT|' || doReport=
+        abort "$doReport$createEngineErrMsg: ${errmsg#REPORT|}"
     fi
 fi
 
@@ -540,7 +533,7 @@ fi
 
 # activate engine
 setenginestate ON
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 # set illegal PID to trigger engine deactivation on exit
 myEnginePID='LAUNCHFAILED'
@@ -670,7 +663,7 @@ fi
 # REPORT ANY POST-LAUNCH ERRORS
 
 if [[ "$myEnginePID" = 'LAUNCHFAILED' ]] ; then
-    abort "$errPostLaunch"
+    abortreport "$errPostLaunch"
 elif [[ "$errPostLaunch" ]] ; then
     alert "$errPostLaunch" 'Warning' '|caution'
 fi

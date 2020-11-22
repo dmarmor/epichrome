@@ -429,32 +429,17 @@ function errlog {
     esac
     
     # make sure we have some logID
-    local logID="$myLogID"
-    [[ "$logID" ]] || logID='EpichromeCore'
+    local iLogID="$myLogID"
+    [[ "$iLogID" ]] || iLogID='EpichromeCore'
     
     # build function trace
-    local trace=() ; [[ "$logName" ]] && trace=( "{$logName}" )
-    local i=1
-    local curfunc=
-    while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
-        curfunc="${FUNCNAME[$i]}"
-        if [[ ( "$curfunc" = source ) || ( "$curfunc" = main ) ]] ; then
-            trace=( "$logID(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
-            break
-        elif [[ ( "$curfunc" = errlog ) || ( "$curfunc" = debuglog ) || \
-                ( "$curfunc" = try ) || ( "$curfunc" = tryalways ) || \
-                ( "$curfunc" = runalways ) ]] ; then
-            : # skip these functions
-        else
-            trace=( "$curfunc(${BASH_LINENO[$(($i - 1))]})" "${trace[@]}" )
-        fi
-        i=$(( $i + 1 ))
-    done
+    local iTrace=()
+    errlog_trace "$iLogID" iTrace
     
     # output prefix & message
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
-    local iPrologue="$logType[$logPID]$(join_array '/' "${trace[@]}"):"
+    local iPrologue="$logType[$logPID]$(join_array '/' "${iTrace[@]}"):"
     local iLogLines="$*"
     split_array iLogLines
     if [[ "${#iLogLines[@]}" -lt 2 ]] ; then
@@ -473,6 +458,56 @@ function debuglog_raw {
 }
 function debuglog {
     [[ "$debug" ]] && errlog DEBUG "$@"
+}
+
+
+# TRACE: build errlog trace
+#  errlog_trace(aMain [aVar [ignore...]])
+#    aVar: optional array variable for output
+#    ignore...: additional functions to ignore
+function errlog_trace {
+    
+    # arguments
+    local aMain="$1" ; shift
+    local aVar="$1" ; shift
+    
+    # functions to ignore (include extras passed to this function)
+    local iIgnoreFuncs=( errlog_trace errlog debuglog try tryalways runalways "$@" )
+    
+    # build function trace
+    local iResult=()
+    local i=1
+    local curFunc=
+    while [[ "$i" -lt "${#FUNCNAME[@]}" ]] ; do
+        curFunc="${FUNCNAME[$i]}"
+        if [[ ( "$curFunc" = source ) || ( "$curFunc" = main ) ]] ; then
+            iResult=( "$aMain(${BASH_LINENO[$(($i - 1))]})" "${iResult[@]}" )
+            break
+        else
+            # check if this should be ignored
+            local curIgnoreFunc iTraceThis=1
+            for curIgnoreFunc in "${iIgnoreFuncs[@]}" ; do
+                if [[ "$curFunc" = "$curIgnoreFunc" ]] ; then
+                    iTraceThis=
+                    break
+                fi
+            done
+            
+            # trace if not in ignore list
+            if [[ "$iTraceThis" ]] ; then
+                iResult=( "$curFunc(${BASH_LINENO[$(($i - 1))]})" "${iResult[@]}" )
+            fi
+        fi
+        i=$(( $i + 1 ))
+    done
+    
+    # handle result
+    if [[ "$aVar" ]] ; then
+        eval "$aVar=( \"\${iResult[@]}\" )"
+    else
+        # echo joined array
+        join_array '/' "${iResult[@]}"
+    fi
 }
 
 
@@ -962,7 +997,7 @@ function cleanexit {
 
 
 # ABORT -- display an error alert and abort
-#  abort([myErrMsg [myCode]])
+#  abort([[REPORT|]myErrMsg [myCode]])
 coreAborted=
 function abort {
     
@@ -975,6 +1010,19 @@ function abort {
         initlogfile
     fi
     
+    # determine whether to offer to report (and add trace for non-release versions)
+    local iReport=
+    local iTrace=
+    local iTraceMsg=
+    if [[ ( "$myErrMsg" = 'REPORT|'* ) || ( "$myCode" = 'SIGEXIT' ) ]] ; then
+        myErrMsg="${myErrMsg#REPORT|}"
+        iReport='REPORT|'
+        iTrace="$(errlog_trace main '' handleexitsignal abort )"
+        if ! visrelease "$coreVersion" ; then
+            iTraceMsg=$'\n\n'"ℹ️ Trace: $iTrace"
+        fi
+    fi
+    
     # log error message
     local myAbortLog="Aborting"
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'
@@ -984,12 +1032,25 @@ function abort {
         
         # show dialog & offer to open log
         if [[ "$( type -t dialog )" = function ]] ; then
-            local buttons=( '+Report Error & Quit' '-Quit' )
+            local buttons
             local choice=
-            dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
-            if [[ "$choice" = "${buttons[0]:1}" ]] ; then
+
+            # set up buttons & message for simple quit vs offering to report
+            if [[ "$iReport" ]] ; then
+                buttons=( '+Report Error & Quit' '-Quit' )
+            else
+                buttons=( 'Quit' )
+            fi
+            
+            # show dialog
+            dialog choice "$myErrMsg$iTraceMsg" "Unable to Run" '|stop' "${buttons[@]}"
+            
+            if [[ "$iReport" && ( "$choice" = "${buttons[0]:1}" ) ]] ; then
                 
-                local iReportErrArgs=( "App aborted with error: \"$myErrMsg\"" )
+                # prepare for report
+                local iReportErrArgs=( "App aborted with error" )
+                [[ "$myErrMsg" ]] && iReportErrArgs[0]+=": \"$myErrMsg\""
+                [[ "$iTrace" ]] && iReportErrArgs[0]+=" [$iTrace]"
                 [[ -f "$myLogFile" ]] && iReportErrArgs+=( "$myLogFile" )
                 local iReportErrMsg=
                 
@@ -1006,14 +1067,29 @@ function abort {
         fi
     fi
     
-    # set abort message for final handling
-    errmsg="$myErrMsg"
+    # set abort message for final handling (put report back on it for passing along
+    errmsg="$iReport$myErrMsg"
     
     # flag that we aborted
     coreAborted=1
     
     # quit with error code
     cleanexit "$myCode"
+}
+
+
+# ABORTREPORT: abort and force the Report to GitHub option
+function abortreport {
+    
+    # arguments
+    local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
+    local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
+    
+    # force reporting
+    [[ "$myErrMsg" = 'REPORT|'* ]] || myErrMsg="REPORT|$myErrMsg"
+    
+    # abort
+    abort "$myErrMsg" "$myCode"
 }
 
 
@@ -1044,11 +1120,12 @@ function handleexitsignal {
         [[ "$errmsg" ]] && echo "$errmsg" 1>&2
     fi
     
-    # if we didn't get here through cleanexit, call it now
+    # if we didn't get here through cleanexit (or cleanexit via abort), call abort now
     if [[ ! "$readyToExit" ]] ; then
         local exitMsg='Unexpected termination.'
+        [[ "$errmsg" ]] && exitMsg+=" ($errmsg)"
         errlog FATAL "$exitMsg"
-        cleanexit 'SIGEXIT'
+        abort "$exitMsg" 'SIGEXIT'
     fi
 }
 
@@ -1056,10 +1133,35 @@ function handleexitsignal {
 trap handleexitsignal EXIT
 
 
+# EPICHROME VERSION-CHECKING FUNCTIONS
+
 # epiVersionRe -- regex to match & parse any legal Epichrome version number
 # 7 groups as follows: 0A.0B.0Cb0D[00E]
 #  1: A, 2: B, 3: C, 4: b0D, 5: D, 6: [00E], 7: E
 epiVersionRe='0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)(b0*([0-9]+))?(\[0*([0-9]+)])?'
+
+
+# VISBETA -- if version is a beta, return 0, else return 1
+function visbeta { # ( version )
+    [[ "$1" =~ [bB] ]] && return 0
+    return 1
+}
+
+
+# VISRELEASE -- if version is final release (not beta, not internal), return 0, else return 1
+function visrelease { # ( version )
+    if [[ "$1" =~ $epiVersionRe ]] ; then
+        if [[ "${BASH_REMATCH[4]}" || "${BASH_REMATCH[6]}" ]] ; then
+            # not release
+            return 1
+        else
+            return 0
+        fi
+    else
+        # unreadable version
+        return 1
+    fi
+}
 
 
 # VCMP -- if V1 OP V2 is true, return 0, else return 1
@@ -1951,5 +2053,5 @@ fi
 # REPORT ANY ERRORS TO EPICHROME
 
 if [[ ( "$coreContext" = 'epichrome' ) && ( ! "$ok" ) ]] ; then
-    abort
+    abortreport
 fi
