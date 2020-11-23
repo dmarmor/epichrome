@@ -37,7 +37,7 @@ const kFinder = Application('Finder');
 const kBundleIDBase = 'org.epichrome.app.';
 const kAppIDMaxLength = 30 - kBundleIDBase.length;
 const kAppIDMinLength = 3;
-const kAppIDLegalCharsRe = /[^-a-zA-Z0-9_]/g;
+const kAppIDIllegalCharsRe = /[^-a-zA-Z0-9_]/g;
 
 // status dots
 const kDotSelected = '▪️'; //❇️
@@ -1710,10 +1710,10 @@ function stepID(aInfo) {
                 myDlgMessage.push('is empty');
                 myIDDefault = aInfo.appInfo.id;
             } else {
-                if (kAppIDLegalCharsRe.test(myDlgResult.textReturned)) {
+                if (kAppIDIllegalCharsRe.test(myDlgResult.textReturned)) {
                     myHasErrors = true;
                     myDlgMessage.push('contains illegal characters');
-                    myIDDefault = myIDDefault.replace(kAppIDLegalCharsRe, '');
+                    myIDDefault = myIDDefault.replace(kAppIDIllegalCharsRe, '');
                 }
                 if (myDlgResult.textReturned.length > kAppIDMaxLength) {
                     myHasErrors = true;
@@ -3300,7 +3300,7 @@ function createAppID(aInfo) {
     } else {
 
         // first attempt: use the short name with illegal characters removed
-        myResult = aInfo.appInfo.shortName.replace(kAppIDLegalCharsRe,'');
+        myResult = aInfo.appInfo.shortName.replace(kAppIDIllegalCharsRe,'');
         let myBase, myIsUnique;
 
         // if too many characters trimmed away, start with a generic ID

@@ -2034,7 +2034,7 @@ if [[ "$coreDoInit" ]] ; then
     
     # make sure data directory exists
     try '-12' /bin/mkdir -p "$myDataPath" \
-            'Unable to create data directory!'
+            'Unable to create data directory.'
     
     # check if the try function can save stderr output, or if we need to disable it
     if [[ "$ok" ]] ; then

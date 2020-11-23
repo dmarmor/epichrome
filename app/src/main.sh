@@ -80,9 +80,6 @@ myLogID=   # reset log ID
 source "$myAppPath/Contents/Resources/Scripts/core.sh" 'coreDoInit=1' || exit 1
 [[ "$ok" ]] || abortreport
 
-# ensure we have a data directory
-[[ -d "$myDataPath" ]] || abortreport 'Unable to create data directory.'
-
 
 # --- FUNCTION DEFINITIONS ---
 
