@@ -43,9 +43,10 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <tr>
 <td align="center">Scott Richins</td>
 <td align="center">Matthew Scott</td>
-<td align="center">Samuel Talleux</td>
+<td align="center">André Srinivasan</td>
 </tr>
 <tr>
+<td align="center">Samuel Talleux</td>
 <td align="center">Adam Tarnoff</td>
 <td align="center">Thorbergsson</td>
 </tr>
