@@ -31,22 +31,26 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 <td align="center">Eric Henderson</td>
 </tr>		
 <tr>
+<td align="center">Scott Irwin</td>
 <td align="center">Ben Johnson</td>
 <td align="center">David Mankin</td>
-<td align="center">Gregory Morse</td>
 </tr>
 <tr>
+<td align="center">Gregory Morse</td>
 <td align="center">Alex Nauda</td>
 <td align="center">Alan Ogilvie</td>
-<td align="center">Rob Page</td>
 </tr>
 <tr>
+<td align="center">Rob Page</td>
+<td align="center">Jeff Poulton</td>
 <td align="center">Scott Richins</td>
+</tr>
+<tr>
 <td align="center">Matthew Scott</td>
 <td align="center">André Srinivasan</td>
+<td align="center">Samuel Talleux</td>
 </tr>
 <tr>
-<td align="center">Samuel Talleux</td>
 <td align="center">Adam Tarnoff</td>
 <td align="center">Thorbergsson</td>
 </tr>
