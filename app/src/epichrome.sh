@@ -166,21 +166,22 @@ elif [[ "$epiAction" = 'defaultappdir' ]] ; then
     fi
     
     # if the directory doesn't exist, create it
-    if [[ ! -d "$appDir" ]] ; then
+    if [[ -d "$appDir" ]] ; then
+        echo "EXISTS|$appDir"
+    else
         try /bin/mkdir -p "$appDir" "Error creating directory."
         if [[ "$ok" && "$appDirIsPerUser" ]] ; then
             try /bin/chmod 700 "$appDir" 'Unable to set permissions for Apps folder.'
             ok=1 ; errmsg=
         fi
+        
+        # echo path or error message
+        if [[ "$ok" ]] ; then
+            echo "$appDir"
+        else
+            echo "ERROR|$errmsg"
+        fi
     fi
-    
-    # echo path or error message
-    if [[ "$ok" ]] ; then
-        echo "$appDir"
-    else
-        echo "ERROR|$errmsg"
-    fi
-    
     
 elif [[ "$epiAction" = 'log' ]] ; then
     

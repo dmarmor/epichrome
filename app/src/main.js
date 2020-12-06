@@ -446,6 +446,13 @@ function runCreate() {
                 });
             } else {
                 
+                // flag if we found an already-existing app dir
+                let myDirExists = false;
+                if (myDefaultAppDir.startsWith('EXISTS|')) {
+                    myDirExists = true;
+                    myDefaultAppDir = myDefaultAppDir.slice(7);
+                }
+                
                 // set default directories
                 gEpiLastDir.create = myDefaultAppDir;
                 if (!gEpiLastDir.edit) {
@@ -453,12 +460,18 @@ function runCreate() {
                 }
                 
                 // notify user of apps folder
-                let myDlgMessage = 'A folder called "' + myDefaultAppDir.match('[^/]*$')[0] + '" has been created in the location where Epichrome is installed.';
+                let myDlgMessage;
+                
+                if (myDirExists) {
+                    myDlgMessage = 'A folder called "' + myDefaultAppDir.match('[^/]*$')[0] + '" was found in the location where Epichrome is installed.';
+                } else {
+                    myDlgMessage = 'A folder called "' + myDefaultAppDir.match('[^/]*$')[0] + '" has been created in the location where Epichrome is installed.';
+                }
                 
                 // add warnings based on location of Epichrome
                 if (gCoreInfo.epiPath.startsWith('/Applications/')) {
                     // Epichrome.app is somewhere under /Applications
-                    myDlgMessage += ' While you do not have to keep your apps there, it is strongly recommended you do.';
+                    myDlgMessage += '\n\nWhile you do not have to keep your apps there, it is strongly recommended you do.';
                 } else if (!gCoreInfo.wrongDevice) {
                     // Epichrome.app is not in /Applications but on same volume
                     myDlgMessage += '\n\n' + kDotWarning + ' Because it is not a subfolder of /Applications, apps you put there will not be able to use extensions like 1Password that require a validated browser. If you want to create apps for use with 1Password, they must use the external engine and be put in a subfolder of /Applications.';
@@ -469,7 +482,7 @@ function runCreate() {
                 
                 // show warning
                 dialog(myDlgMessage, {
-                    withTitle: 'App Folder Created',
+                    withTitle: 'App Folder ' + (myDirExists ? 'Found' : 'Created'),
                     withIcon: kEpiIcon,
                     buttons: ['OK'],
                     defaultButton: 1
