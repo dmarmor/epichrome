@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b8
-epiBuildNum=1
+epiBuildNum=2
 epiDesc=( \
         'Fixed a bug that could cause apps not to launch if an app with a similar ID was already running' )
 # epiDescMajor=( \

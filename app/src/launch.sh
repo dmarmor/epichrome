@@ -2832,7 +2832,9 @@ function writeconfig {  # ( myConfigFile force )
 
 
 # LAUNCHAPP: launch an app by directly running its executable
-#   launchapp(aPath aDoRegister [aAppDesc aResultPIDVar aArgsVar])
+#   launchapp(aPath aDoRegister [aAppDesc aArgsVar aResultPIDVar])
+#     if aResultPIDVar not set, ignore PID result from Launch Services & don't
+#     check that the app is running
 function launchapp {
     
     # only run if we're OK
@@ -2842,35 +2844,33 @@ function launchapp {
     local aPath="$1" ; shift
 	local aDoRegister="$1" ; shift ; [[ "$aDoRegister" ]] && aDoRegister='true' || aDoRegister='false'
     local aAppDesc="$1" ; shift ; [[ "$aAppDesc" ]] || aAppDesc="${aPath##*/}"
-	local aResultPIDVar="$1" ; shift
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
+	local aResultPIDVar="$1" ; shift
 	
-	if [[ "$aDoRegister" ]] ; then
-		
-		# register app before launching it
-		debuglog "Registering '${aPath##*/}' with Launch Services."
-		local iAppUtilErr=
-		try 'iAppUtilErr&=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
-   \"action\": \"register\",
-   \"path\": \"$(escapejson "$aPath")\"
-}" ''
-		
-		# error is non-fatal, so just report it
-		if [[ ! "$ok" ]] ; then
-			errlog "Unable to register '${aPath##*/}' with Launch Services: $iAppUtilErr"
-			ok=1 ; errmsg=
-		fi
-	fi
+	# launch the app
+	local iResultPID=
+	try 'iResultPID&=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
+   \"action\": \"launch\",
+   \"path\": \"$(escapejson "$aPath")\",
+   \"args\": [ $(jsonarray ', ' "${aArgs[@]}" ) ],
+   \"options\": {
+      \"registerFirst\": $aDoRegister
+   }
+}" "Error launching $aAppDesc: $iResultPID"
+	[[ "$ok" ]] || return 1
 	
-	# find app executable
-	local iExec="$(echo "$aPath/Contents/MacOS/"*)"
-	if [[ -f "$iExec" ]] ; then
-		if [[ -x "$iExec" ]] ; then
-			
-			# launch the app
-			"$iExec" "${aArgs[@]}" &
-			local iResultPID="$!"
-			local iExitCode=
+	# IF WE'RE SAVING THE PID, MAKE SURE IT'S ACTIVE
+	
+	if [[ "$aResultPIDVar" ]] ; then
+		
+		local iExitCode=
+		
+		if [[ "$iResultPID" = '-1' ]] ; then
+			# app immediately quit
+			ok=
+			errmsg="Error launching $aAppDesc: app launched, but immediately quit."
+			errlog "$errmsg"
+		else
 			
 			# check that PID is active
 			sleep 1
@@ -2885,7 +2885,7 @@ function launchapp {
 				# interpret result code
 				if [[ "$iExitCode" = 127 ]] ; then
 					# process not found
-					errmsg="Error launching $aAppDesc: process not found."
+					errmsg="Error launching $aAppDesc: process $iResultPID not found."
 					errlog "$errmsg"
 				elif [[ "$iExitCode" = 126 ]] ; then
 					# executable not found
@@ -2901,28 +2901,19 @@ function launchapp {
 					ok=1 ; errmsg=
 				fi
 			fi
-			
-			# either assign PID result to variable, or echo it
-			if [[ "$ok" ]] ; then
-				if [[ "$aResultPIDVar" ]] ; then
-					eval "$aResultPIDVar=\"\$iResultPID\""
-				else
-					echo "$iResultPID"
-				fi
-			fi
-		else
-			# app executable is not executable
-			ok= ; errmsg="Not allowed to run executable for $aAppDesc."
-			errlog "$errmsg"
 		fi
-	else
-		# app executable not found
-		ok= ; errmsg="Unable to find executable for $aAppDesc."
-		errlog "$errmsg"
+		
+		# assign PID result to variable
+		if [[ "$ok" ]] ; then
+			eval "$aResultPIDVar=\"\$iResultPID\""
+		fi
+		
+		# return result code
+		[[ "$ok" ]] && return 0 || return 1
 	fi
 	
-	# return result code
-	[[ "$ok" ]] && return 0 || return 1
+	# if we got here, all is good
+	return 0
 }
 
 

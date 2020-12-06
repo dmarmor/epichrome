@@ -127,6 +127,11 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
 
         // set up open configuration
         let myConfig = $.NSWorkspaceOpenConfiguration.configuration;
+        
+        // make sure engine doesn't fail to launch due to another similar engine
+        myConfig.allowsRunningApplicationSubstitution = false;
+        
+        // add any args
         if (aArgs.length > 0) { myConfig.arguments = $(aArgs); }
 
         // launch
@@ -168,10 +173,10 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
         // launch (error arg causes a crash, so ignore it)
         if (aUrls) {
             myApp = $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLOptionsConfigurationError(
-                aUrls, aSpec, $.NSWorkspaceLaunchDefault, myConfig, null);
+                aUrls, aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null);
         } else {
             myApp = $.NSWorkspace.sharedWorkspace.launchApplicationAtURLOptionsConfigurationError(
-                aSpec, $.NSWorkspaceLaunchDefault, myConfig, null);
+                aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null);
         }
 
         // create generic error

@@ -540,7 +540,7 @@ export SSBVersion SSBIdentifier CFBundleName CFBundleDisplayName \
         myLogID myLogFile SSBAppPath
 
 # launch engine
-launchapp "$SSBAppPath" REGISTER 'engine' myEnginePID myEngineArgs
+launchapp "$SSBAppPath" REGISTER 'engine' myEngineArgs myEnginePID
 
 
 # CHECK FOR A SUCCESSFUL LAUNCH

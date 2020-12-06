@@ -130,7 +130,8 @@ function updaterelaunch {
     debuglog "Parent app has quit. Relaunching..."
     
     # relaunch
-    launchapp "$SSBAppPath" REGISTER 'updated app' myRelaunchPID argsOptions
+    local iArgs=( '--relaunch' )
+    launchapp "$SSBAppPath" REGISTER 'updated app' iArgs
     
     # report result
     if [[ "$ok" ]] ; then
