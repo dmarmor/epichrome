@@ -325,7 +325,7 @@ function getepichromeinfo {
 	return 2
     else
 	return 1
-    fi	
+    fi
 }
 
 
@@ -1052,7 +1052,7 @@ ${BASH_REMATCH[5]}}"
 	    myErrBookmarks=
 	fi
 	
-	# let the page know the result of this bookmarking	
+	# let the page know the result of this bookmarking
 	[[ "$bookmarkResult" ]] && myStatusWelcomeURL+="&b=$bookmarkResult"
     fi
     
@@ -1423,7 +1423,7 @@ function getextensioninfo {  # ( resultVar [dir dir ...] )
 	
 	# report success
 	mySuccessfulExtensions+=( "$curExtID" )
-    done	    
+    done
     
     # restore nullglob and extended glob
     shoptrestore myShoptState
@@ -1507,7 +1507,7 @@ function linktree { # ( sourceDir destDir sourceErrID destErrID items ... )
     shoptrestore shoptState
     
     # loop through items creating hard links
-    for curFile in "${items[@]}" ; do	
+    for curFile in "${items[@]}" ; do
 	try /bin/pax -rwlpp "$curFile" "$destDir" \
 	    "Unable to link $sourceErrID $curFile to $destErrID."
     done
@@ -1664,7 +1664,7 @@ function getextenginesrcinfo { # ( [myExtEngineSrcPath] )
 	
 	debuglog "External engine ${SSBEngineSourceInfo[$iDisplayName]} ${SSBEngineSourceInfo[$iVersion]} found at '${SSBEngineSourceInfo[$iPath]}'."
 	
-	break	
+	break
     done
 }
 
@@ -1676,7 +1676,7 @@ function installnmh {
     [[ "$ok" ]] || return 1
     
     # paths to host manifests with new and old IDs
-    local nmhManifestDestPath="$myProfilePath/$nmhDirName"    
+    local nmhManifestDestPath="$myProfilePath/$nmhDirName"
     local nmhManifestNewDest="$nmhManifestDestPath/$nmhManifestNewFile"
     local nmhManifestOldDest="$nmhManifestDestPath/$nmhManifestOldFile"
 
@@ -2110,7 +2110,7 @@ function createengine {
 	    if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
 		ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
 		return 1
-	    fi	    
+	    fi
 	fi
 	
 	# make sure external browser is on the same volume as the engine
@@ -2502,7 +2502,7 @@ function clearmasterprefs {
 	fi
 		
 	# clear state
-	myMasterPrefsState=	
+	myMasterPrefsState=
     fi
 
     # return error state
@@ -2708,7 +2708,7 @@ function importarray { # ( var1 [var2 ...] )
     local curVar=
     for curVar in "$@" ; do
 	eval "eval \"\$${curVar}_array\""
-    done    
+    done
 }
 export -f importarray
 
@@ -2740,8 +2740,8 @@ function launchapp {  # ( appPath execName appDesc openArgs ... )
     function launchapp_attempt {  # ( openArgs )
 	
 	# try launching
-	local openErr=	
-	try 'openErr&=' /usr/bin/open -a "$appPath" "$@" ''
+	local openErr=
+	try 'openErr&=' /usr/bin/open -n -a "$appPath" "$@" ''
 	[[ "$ok" ]] && return 0
 	
 	# launch failed due to missing executable, so try again
@@ -2794,7 +2794,7 @@ function launchhelper { # ( mode )
     fi
     
     # launch helper (args are just for identification in jobs listings)
-    try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
+    try /usr/bin/open -n "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
 	'Got error launching Epichrome helper app.'
 
     # open error state is unreliable, so ignore it

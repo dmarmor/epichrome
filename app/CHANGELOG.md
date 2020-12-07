@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [2.3.20] - 2020-12-XX
 ### Changed
 - Updated built-in engine to Brave 1.1X.XX
+### Fixed
+- Fixed a problem with Big Sur that prevented apps from opening when other apps were already running ([issue #275](https://github.com/dmarmor/epichrome/issues/275 "issue #275")
 
 
 ## [2.3.19] - 2020-12-04
@@ -41,7 +43,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Updated built-in engine to Brave 1.15.72
 ### Fixed
-- Restored app name to menubar for Chrome-engine apps, fixing problem introduced in Chrome 86.0.4240.80 ([issue #267](https://github.com/dmarmor/epichrome/issues/276 "issue #267")
+- Restored app name to menubar for Chrome-engine apps, fixing problem introduced in Chrome 86.0.4240.80 ([issue #267](https://github.com/dmarmor/epichrome/issues/267 "issue #267")
 
 ## [2.3.12] - 2020-09-24
 ### Changed
