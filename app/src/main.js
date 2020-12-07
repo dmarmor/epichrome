@@ -2767,9 +2767,14 @@ const kLoginScanID = 'org.epichrome.Login';
 // LOGINSCANGETSTATE: return true if login item is installed or false if not
 function loginScanGetState() {
     
-    let iLoginItems = $.SMCopyAllJobDictionaries($.kSMDomainUserLaunchd).toNS().js;
+    // get all startup jobs
+    let iLoginItems = $.SMCopyAllJobDictionaries($.kSMDomainUserLaunchd);
     
-    for (let curItem of iLoginItems) {
+    // in at least Catalina and later, SMCopyAllJobDictionaries returns a Ref
+    if (iLoginItems.toNS) { iLoginItems = iLoginItems.toNS(); }
+    
+    // look for our login scanner
+    for (let curItem of iLoginItems.js) {
         if (curItem.js.Label.js == kLoginScanID) {
             return true;
         }

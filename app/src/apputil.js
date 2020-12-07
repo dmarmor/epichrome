@@ -28,8 +28,6 @@ const kVersion = "EPIVERSION";
 // JXA SETUP
 const kApp = Application.currentApplication();
 kApp.includeStandardAdditions = true;
-// const kSysEvents = Application('System Events');
-// const kFinder = Application('Finder');
 
 
 // OBJECTIVE-C SETUP
