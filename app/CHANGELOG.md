@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.3.21] - 2020-12-XX
+### Changed
+- Updated built-in engine to Brave 1.1X.XX
+
+
 ## [2.3.20] - 2020-12-08
 ### Fixed
 - Fixed a problem with Big Sur that prevented apps from opening when other apps were already running ([issue #275](https://github.com/dmarmor/epichrome/issues/275 "issue #275")
