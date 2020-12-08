@@ -2478,7 +2478,7 @@ function clearmasterprefs {
     # only run if we have actually set the master prefs
     if [[ "$myMasterPrefsState" ]] ; then
 
-	if ! waitforcondition 'app prefs to appear' 10 .5 \
+	if ! waitforcondition 'app prefs to appear' 15 .5 \
 	     test -e "$myPreferencesFile" ; then
 	    ok=
 	    errmsg="Timed out waiting for app prefs to appear."
