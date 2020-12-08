@@ -2436,6 +2436,10 @@ function setmasterprefs {
 	    
 	    try /bin/mv -f "$myEngineMasterPrefsFile" "$mySavedMasterPrefsFile" \
 		'Unable to back up browser master prefs.'
+	else
+		try /bin/mkdir -p "$userSupportPath/${SSBEngineSourceInfo[$iLibraryPath]}" \
+				'Unable to create master prefs directory.'
+		ok=1 ; errmsg=
 	fi
 	
 	# install master prefs
@@ -2474,7 +2478,7 @@ function clearmasterprefs {
     # only run if we have actually set the master prefs
     if [[ "$myMasterPrefsState" ]] ; then
 
-	if ! waitforcondition 'app prefs to appear' 5 .5 \
+	if ! waitforcondition 'app prefs to appear' 10 .5 \
 	     test -e "$myPreferencesFile" ; then
 	    ok=
 	    errmsg="Timed out waiting for app prefs to appear."
@@ -2794,7 +2798,7 @@ function launchhelper { # ( mode )
     fi
     
     # launch helper (args are just for identification in jobs listings)
-    try /usr/bin/open -n "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
+    try /usr/bin/open "$SSBAppPath/Contents/$appHelperPath" --args "$mode" \
 	'Got error launching Epichrome helper app.'
 
     # open error state is unreliable, so ignore it

@@ -80,7 +80,7 @@ function updateapp { # ( updateAppPath [NORELAUNCH] )
     [[ "$myLogFile" ]] || initlogfile
     
     # on engine change, restore last-run engine for update purposes
-    if [[ "${myStatusEngineChange[0]}" ]] ; then	
+    if [[ "${myStatusEngineChange[0]}" ]] ; then
 	SSBLastRunEngineType="${myStatusEngineChange[0]}"
     fi
     
@@ -123,7 +123,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
 		    SSBEngineType='external|com.google.Chrome'
 		else
 		    SSBEngineType="internal|${epiEngineSource[$iID]}"
-		    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )		    
+		    SSBEngineSourceInfo=( "${epiEngineSource[@]}" )
 		fi
 	    fi
 	else
@@ -290,7 +290,7 @@ The main advantage of the external Google Chrome engine is if your app must run 
 	
 	# MAIN ICONS
 	
-	local iconSourcePath="$updateAppPath/Contents/Resources"	
+	local iconSourcePath="$updateAppPath/Contents/Resources"
 	safecopy "$iconSourcePath/$CFBundleIconFile" \
 		 "$contentsTmp/Resources/$CFBundleIconFile" "app icon"
 	safecopy "$iconSourcePath/$CFBundleTypeIconFile" \
@@ -553,8 +553,8 @@ function updaterelaunch {
     
     # if relaunch failed, report it
     if [[ ! "$ok" ]] ; then
-	[[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but'
-	myCleanupErr+="$myCleanupErr the updated app didn't launch. ($errmsg)"
+	[[ "$myCleanupErr" ]] && myCleanupErr+=' Also, ' || myCleanupErr='Update succeeded, but '
+	myCleanupErr+="the updated app didn't launch. ($errmsg)"
     fi
     
     # show alert with any errors

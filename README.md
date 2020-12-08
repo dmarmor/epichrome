@@ -62,8 +62,6 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 - Fixed a problem with Big Sur that prevented apps from opening when other apps were already running.
 
-- The built-in engine has been updated to Brave 1.1X.XX.
-
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 
