@@ -2628,10 +2628,12 @@ function setmasterprefs {
 			
 			try /bin/mv -f "$myEngineMasterPrefsFile" "$mySavedMasterPrefsFile" \
 					'Unable to back up browser master prefs.'
-		else
+			
+		elif [[ ! -d "$myEngineMasterPrefsDir" ]] ; then
 			
 			# make sure master prefs directory exists
-			try /bin/mkdir -p "$myEngineMasterPrefsDir" 'Unable to create browser master prefs directory.'
+			try /bin/mkdir -p "$myEngineMasterPrefsDir" \
+					'Unable to create browser master prefs directory.'
 		fi
 		
 		# install master prefs
