@@ -1017,7 +1017,7 @@ function abort {
     if [[ ( "$myErrMsg" = 'REPORT|'* ) || ( "$myCode" = 'SIGEXIT' ) ]] ; then
         myErrMsg="${myErrMsg#REPORT|}"
         iReport='REPORT|'
-        iTrace="$(errlog_trace main '' handleexitsignal abort )"
+        iTrace="$(errlog_trace main '' handleexitsignal abort abortreport )"
         if ! visrelease "$coreVersion" ; then
             iTraceMsg=$'\n\n'"ℹ️ Trace: $iTrace"
         fi

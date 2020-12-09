@@ -69,7 +69,9 @@ function run(aArgv) {
         }
 
     } catch(myErr) {
-        print(myErr.message, true);
+        let myErrMsg = myErr.message;
+        if (!myErrMsg) { myErrMsg = JSON.stringify(myErr); }
+        print(myErrMsg, true);
         $.exit(1);
     }
 }

@@ -609,7 +609,7 @@ function runEdit(aApps) {
         if (vcmp(curApp.appInfo.version, kVersion) < 0) {
             myHasUpdates = true;
             curApp.update = true;
-            curAppText = kIndent + kDotNeedsUpdate + ' ' + curAppText + '(' + curApp.appInfo.version + ')';
+            curAppText = kIndent + kDotNeedsUpdate + ' ' + curAppText + ' (' + curApp.appInfo.version + ')';
         } else {
             curApp.update = false;
             curAppText = kIndent + kDotCurrent + ' ' + curAppText;
