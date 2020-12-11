@@ -315,9 +315,16 @@ for curApp in "${appDataDirItemList[@]}" ; do
    \"action\": \"find\",
    \"id\": \"$appIDBase.$curApp\"
 }" \
-                "Error finding app $curApp by ID."
+                "Unknown error finding app $curApp by ID."
+        
+        # handle error output
+        if [[ "${SSBAppPath[*]}" = 'ERROR|'* ]] ; then
+            SSBAppPath="$(join_array $'\n' "${SSBAppPath[@]}")"
+            ok= ; errmsg="Error finding app $curApp by ID: ${SSBAppPath#ERROR|}"
+            errlog "$errmsg"
+        fi
         [[ "$ok" ]] || continue
-            
+        
         # make sure we found exactly one path
         if [[ "${#SSBAppPath[@]}" -lt 1 ]] ; then
             

@@ -71,7 +71,6 @@ function run(aArgv) {
     } catch(myErr) {
         let myErrMsg = myErr.message;
         if (!myErrMsg) { myErrMsg = JSON.stringify(myErr); }
-        print(myErrMsg, true);
-        $.exit(1);
+        print('ERROR|' + myErrMsg);
     }
 }

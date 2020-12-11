@@ -2849,17 +2849,29 @@ function launchapp {
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
 	local aResultPIDVar="$1" ; shift
 	
-	# launch the app
+	# launch the app  $$$ DEBUG OPTION BELOW
 	local iResultPID=
-	try 'iResultPID&=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
+	try 'iResultPID=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
    \"action\": \"launch\",
    \"path\": \"$(escapejson "$aPath")\",
    \"args\": [ $(jsonarray ', ' "${aArgs[@]}" ) ],
    \"options\": {
-      \"registerFirst\": $aDoRegister
+      \"registerFirst\": $aDoRegister,
+	  \"debug\": true
    }
-}" "Error launching $aAppDesc: $iResultPID"
+}" "Unknown error launching $aAppDesc."
 	[[ "$ok" ]] || return 1
+	
+	# $$$$$ DEBUGGING
+	errlog FATAL $'DEBUGGING OUTPUT FROM LAUNCHAPP:\n'"$iResultPID"
+	iResultPID="${iResultPID##*$'\n'}"
+	
+	# check for known errors
+	if [[ "$iResultPID" = 'ERROR|'* ]] ; then
+		ok= ; errmsg="Error launching $aAppDesc: ${iResultPID#ERROR|}"
+		errlog "$errmsg"
+		return 1
+	fi
 	
 	# IF WE'RE SAVING THE PID, MAKE SURE IT'S ACTIVE
 	
