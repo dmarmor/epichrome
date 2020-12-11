@@ -25,6 +25,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
 
 
+## [2.3.21] - 2020-12-11
+### Changed
+- Updated built-in engine to Brave 1.18.70
+
+
 ## [2.3.20] - 2020-12-08
 ### Fixed
 - Fixed a problem with Big Sur that prevented apps from opening when other apps were already running ([issue #275](https://github.com/dmarmor/epichrome/issues/275 "issue #275")
