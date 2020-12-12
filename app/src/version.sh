@@ -1,8 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b9
-epiBuildNum=8
+epiBuildNum=9
 epiDesc=( \
+        'Increased launch timeout to accommodate slower systems' \
         'Improved logging for new launch code' \
         'Updated built-in engine to Brave 1.18.70' )
 # epiDescMajor=( \
