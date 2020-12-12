@@ -1,10 +1,10 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b9
-epiBuildNum=8
+epiVersion=2.4.0b10
+epiBuildNum=1
 epiDesc=( \
-        'Improved logging for new launch code' \
-        'Updated built-in engine to Brave 1.18.70' )
+        'Increased launch timeout to accommodate slower systems' \
+        'Updated built-in engine to Brave 1.1X.XX' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
