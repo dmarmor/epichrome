@@ -194,7 +194,7 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
 
         // wait for completion handler
         let myWait = 0.0;
-        while ((myErr === undefined) && (myWait < 15.0)) {
+        while ((myErr === undefined) && (myWait < 5.0)) {
             delay(0.1);
             myWait += 0.1;
         }
