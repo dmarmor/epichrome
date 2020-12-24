@@ -538,7 +538,7 @@ function initlogfile {
         if [[ "$myLogTempVar" ]] ; then
             
             # add collected logs to file
-            try "${myLogFile}<<" printf "$myLogTempVar" \
+            try "${myLogFile}<<" echo -n "$myLogTempVar" \
                     'Unable to add collected logs to file.'
             myLogTempVar=
             
@@ -575,7 +575,7 @@ function join_array {
         result+="$aDelimiter$item"
     done
     
-    printf "$result"
+    echo -n "$result"
 }
 
 
