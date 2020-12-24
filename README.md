@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.22</h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome 2.3.23</h1>
 
 ## Overview
 
@@ -58,7 +58,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 </b>
 
 
-## New in version 2.3.22
+## New in version 2.3.23
 
 - The built-in engine has been updated to Brave 1.1X.XX.
 
