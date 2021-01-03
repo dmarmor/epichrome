@@ -1,5 +1,4 @@
 .#.*
-*.dmg
 *.pkg
 *.orig
 *.pyc
@@ -27,8 +26,11 @@
 /app/src/welcome/img/scan_icon.png
 /app/test/icons/*.png
 /builder/**
-/dmg/images/*.png
-/dmg/images/*.icns
+/images/icons/*.png
+/images/package/*.png
+/images/readme/*.ai
+/images/icons/source/**
+/images/icons/*-assets
 /runtime/build/**
 /runtime/images/icons/current
 /runtime/node/**
@@ -36,8 +38,4 @@
 /runtime/src/*.gif
 /runtime/store/**
 /runtime/zip/**
-/images/icons/*.png
-/images/package/*.png
-/images/readme/*.ai
-/images/icons/source/**
 /tests/**
