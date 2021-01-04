@@ -231,8 +231,16 @@ clean-all: clean clean-package clean-engine
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
-	@read -p "Hit Enter when Photoshop has finished converting $@: " -r
-
+	@printf 'Waiting for Photoshop to finish converting $@...'
+	@while [[ ( ! -e $@ ) || ( $@ -ot $< ) ]] ; do sleep 1 ; done
+	@mtime=$$(stat -f '%m' $@) ; \
+	while [[ "$$oldmtime" != "$$mtime" ]] ; do \
+		sleep 1 ; \
+		oldmtime="$$mtime" ; \
+		mtime=$$(stat -f '%m' $@) ; \
+	done
+	@echo 'done!'
+	
 
 # PACKAGE BUILD
 # (adapted from http://thegreyblog.blogspot.com/2014/06/os-x-creating-packages-from-command_2.html)
