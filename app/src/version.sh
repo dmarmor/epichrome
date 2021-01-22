@@ -3,7 +3,7 @@
 epiVersion=2.4.0b10
 epiBuildNum=1
 epiDesc=( \
-        'Fixed a crash caused by URLs with % symbols in them' \
+        'Fixed a crash caused by URLs with percent symbols in them' \
         'Updated built-in engine to Brave 1.19.86' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
