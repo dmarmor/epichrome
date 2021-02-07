@@ -749,9 +749,11 @@ build/engine_tmp/brave_recodesign.sh:
 				if /usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$$entfile" > /dev/null ; then \
 					pbcmds+=( -c 'Set :com.apple.application-identifier $(CODESIGN_IDENTITY).org.epichrome.engine.brave' ) ; \
 				fi ; \
-				if /usr/libexec/PlistBuddy -c 'Print :keychain-access-groups' "$$entfile" > /dev/null ; then \
-					pbcmds+=( -c 'Delete :keychain-access-groups' ) ; \
-				fi ; \
+				for badkey in keychain-access-groups com.apple.developer.associated-domains.applinks.read-write ; do \
+					if /usr/libexec/PlistBuddy -c "Print :$$badkey" "$$entfile" > /dev/null ; then \
+						pbcmds+=( -c "Delete :$$badkey" ) ; \
+						fi ; \
+				done ; \
 				if [[ "$${pbcmds[*]}" ]] ; then \
 					/usr/libexec/PlistBuddy "$${pbcmds[@]}" "$$entfile" ; \
 				fi ; \
