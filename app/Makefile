@@ -222,7 +222,10 @@ PRECIOUS_INTERMEDIATES:=\
 	../images/icons/scan_app_beta.png \
 	../images/icons/login_app.png \
 	../images/icons/login_app_beta.png \
-	../images/icons/docbg.png \
+	../images/icons/apptemplate_bg.png \
+	../images/icons/apptemplate_shadow.png \
+	../images/icons/doctemplate_bg.png \
+	../images/icons/doctemplate_fg.png \
 	../images/icons/document.png \
 	../images/icons/document_beta.png \
 	../images/icons/epichrome.png \
