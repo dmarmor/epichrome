@@ -2,7 +2,7 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.4.0] - 2020-XX-XX
+## [2.4.0] - 2021-XX-XX
 ### Changed
 - Fully compatible with macOS 11 Big Sur
 - New unified app engine architecture for better compatibility with the dock, notifications, and other system services

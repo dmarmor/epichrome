@@ -1,7 +1,7 @@
 #
 #  Makefile: Build rules for the Epichrome.
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -302,7 +302,20 @@ clean-all: clean clean-package clean-engine
 
 build/icons/%.icns: ../images/icons/%.png
 	@mkdir -p '$(dir $@)'
-	src/makeicon.sh -f $< $@
+	rm -rf '$(basename $@).iconset'
+	mkdir -p '$(basename $@).iconset'
+	/usr/bin/php src/makeicon.php '[ \
+		{ \
+			"action": "read", \
+			"path": "$<" \
+		}, \
+		{ \
+			"action": "write_iconset", \
+			"path": "$(basename $@).iconset" \
+		} \
+	]'
+	iconutil -c icns -o '$@' '$(basename $@).iconset'
+	rm -rf '$(basename $@).iconset'
 
 %.png: %.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -483,7 +496,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
 	$(APP_CT)/Resources/Scripts/legacy.sh \
-	$(APP_CT)/Resources/Scripts/makeicon.sh \
+	$(APP_CT)/Resources/Scripts/makeicon.php \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
 	\
@@ -592,6 +605,10 @@ $(APP_CT)/Resources/Scripts/update.sh: src/update.sh src/version.sh
 	sed -e 's/EPIVERSION/$(VERSION)/g' '$<' > '$@'
 
 $(APP_CT)/Resources/Scripts/%.sh: src/%.sh
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+
+$(APP_CT)/Resources/Scripts/%.php: src/%.php
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 

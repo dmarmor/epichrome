@@ -2,7 +2,7 @@
 #
 #  launch.sh: utility functions for building and launching an Epichrome engine
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

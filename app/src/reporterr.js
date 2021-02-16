@@ -2,7 +2,7 @@
 //
 //  reporterr.js: Script to report errors to GitHub from core.sh.
 //
-//  Copyright (C) 2020  David Marmor
+//  Copyright (C) 2021  David Marmor
 //
 //  https://github.com/dmarmor/epichrome
 //

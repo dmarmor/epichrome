@@ -2,7 +2,7 @@
 #
 #  epichrome.sh: interface script for Epichrome main.js
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

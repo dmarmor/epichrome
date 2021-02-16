@@ -2,7 +2,7 @@
 
  welcome.js: first-run page Javascript for Epichrome apps
 
- Copyright (C) 2020 David Marmor.
+ Copyright (C) 2021 David Marmor.
 
  https://github.com/dmarmor/epichrome
 

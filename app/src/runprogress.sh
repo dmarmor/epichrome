@@ -2,7 +2,7 @@
 #
 #  runprogress.sh: functions/data for running Epichrome sub-apps
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -57,7 +57,7 @@ function runprogress {
         ok=
         
         # try to retrieve error message from subapp
-        if [[ "$iUpdateResult" = 143 ]] ; then            
+        if [[ "$iUpdateResult" = 143 ]] ; then
             # TERM signal: CANCEL button
             errmsg='CANCEL'
         else

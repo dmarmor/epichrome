@@ -2,7 +2,7 @@
 #
 #  mode_payload.sh: mode script for creating engine payload
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

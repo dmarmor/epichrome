@@ -3,7 +3,7 @@
 #
 #  epichromeruntimehost.py: native messaging host for Epichrome Runtime
 #
-#  Copyright (C) 2020  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -39,7 +39,7 @@ debug = bool(os.environ['debug'])
 # CORE APP INFO
 
 # filled in by Makefile
-nmhVersion     = "EPIVERSION" 
+nmhVersion     = "EPIVERSION"
 
 appVersion     = os.environ['SSBVersion']
 appID          = os.environ['SSBIdentifier']
