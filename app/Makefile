@@ -222,7 +222,9 @@ PRECIOUS_INTERMEDIATES:=\
 	../images/icons/scan_app_beta.png \
 	../images/icons/login_app.png \
 	../images/icons/login_app_beta.png \
-	../images/icons/apptemplate_bg.png \
+	../images/icons/apptemplate_bg_white.png \
+	../images/icons/apptemplate_bg_gray.png \
+	../images/icons/apptemplate_bg_black.png \
 	../images/icons/apptemplate_shadow.png \
 	../images/icons/doctemplate_bg.png \
 	../images/icons/doctemplate_fg.png \
@@ -471,7 +473,12 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(LOGIN_APP) \
 	\
 	$(APP_CT)/Resources/droplet.icns \
-	$(APP_CT)/Resources/docbg.png \
+	$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
+	$(APP_CT)/Resources/Icons/apptemplate_bg_gray.png \
+	$(APP_CT)/Resources/Icons/apptemplate_bg_black.png \
+	$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
+	$(APP_CT)/Resources/Icons/doctemplate_fg.png \
+	$(APP_CT)/Resources/Icons/doctemplate_bg.png \
 	$(APP_CT)/Resources/scan.icns \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
@@ -568,7 +575,7 @@ $(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-$(APP_CT)/Resources/docbg.png: ../images/icons/docbg.png
+$(APP_CT)/Resources/Icons/%.png: ../images/icons/%.png
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
