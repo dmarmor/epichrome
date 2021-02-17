@@ -299,50 +299,197 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
                 "Unable to parse icon source file."
         [[ "$ok" ]] || abort
         
+        # $$$$ CONVERT TO A FORMAT MAKEICON.PHP CAN READ IF NECESSARY
+        
         progress '!stepIconA1'
         
-        # find makeicon.sh
-        makeIconScript="$updateEpichromeResources/Scripts/makeicon.sh"
+        # find makeicon.php
+        makeIconScript="$updateEpichromeResources/Scripts/makeicon.php"
         if [[ ! -e "$makeIconScript" ]] ; then
             ok= ; errmsg="Unable to locate icon creation script."
             errlog "$errmsg"
             abort
-        elif [[ ! -x "$makeIconScript" ]] ; then
-            ok= ; errmsg="Unable to run icon creation script."
-            errlog "$errmsg"
-            abort
         fi
         
-        # build command-line
-        docArgs=(-c "$updateEpichromeResources/docbg.png" \
-                256 286 512 "$epiIconSource" "$resourcesTmp/$CFBundleTypeIconFile")
+        # path to icon templates
+        myIconTemplatePath="$updateEpichromeResources/Icons"
         
-        # run script to convert image into an ICNS
+        # path to iconset directories
+        myAppIconset="$resourcesTmp/${CFBundleIconFile%.icns}.iconset"
+        myDocIconset="$resourcesTmp/${CFBundleTypeIconFile%.icns}.iconset"
+        
+        # create iconset directories
+        try /bin/mkdir -p "$myAppIconset" "$myDocIconset" \
+            'Unable to create temporary iconset directories.'
+        [[ "$ok" ]] || abort
+        
+        # determine whether to crop icon source or fit to frame
+        [[ "$epiIconCrop" ]] && myIconCrop='true' || myIconCrop='false'
+        
+        # set up Big Sur icon comp commands
+        if [[ "$epiIconCompSize" ]] ; then
+            
+            # pre-set comp sizes
+            myAppIconCompSmall=0.5859375   # 824x824
+            myAppIconCompMedium=0.69921875 # 716x716
+            myAppIconCompLarge=0.8046875   # 600x600
+            
+            # set comp size
+            eval "myAppIconCompSize=\"\$myAppIconComp$epiIconCompSize\""
+            [[ "$myAppIconCompSize" ]] || myAppIconCompSize="$myAppIconCompMedium"
+            
+            # set comp background
+            myAppIconCompBGPrefix="$myIconTemplatePath/apptemplate_bg_"
+            eval "myAppIconCompBG=\"\${myAppIconCompBGPrefix}\${epiIconCompBG}.png\""
+            if [[ ! -f "$myAppIconCompBG" ]] ; then
+                myAppIconCompBG="${myAppIconCompBGPrefix}white.png"
+                if [[ ! -f "$myAppIconCompBG" ]] ; then
+                    ok= ; errmsg="Unable to find Big Sur icon background ${myAppIconCompBG##*/}."
+                    errlog "$errmsg"
+                fi
+            fi
+            
+            # create comp commands
+            myAppIconCompCmd='
+                {
+                    "action": "composite",
+                    "options": {
+                        "crop": '"$myIconCrop"',
+                        "size": '"$myAppIconCompSize"',
+                        "clip": true,
+                        "with": [ {
+                            "action": "read",
+                            "path": "'"$myAppIconCompBG"'"
+                        } ]
+                    }
+                },
+                {
+                    "action": "composite",
+                    "options": {
+                        "with": [ {
+                            "action": "read",
+                            "path": "'"$myIconTemplatePath/apptemplate_shadow.png"'"
+                        } ]
+                    }
+                },'
+        else
+            # don't comp this in any way, just use the straight image
+            myAppIconCompCmd='
+                {
+                    "action": "composite",
+                    "options": {
+                        "crop": '"$myIconCrop"'
+                    }
+                },'
+        fi
+        
+        # build final makeicon.php command
+        myMakeiconCmd='
+            [
+                {
+                    "action": "read",
+                    "path": "'"$epiIconSource"'"
+                },
+                ['"$myAppIconCompCmd"'
+                    {
+                        "action": "write_iconset",
+                        "path": "'"$myAppIconset"'"
+                    }
+                ],
+            [
+                {
+                    "action": "composite",
+                    "options": {
+                        "crop": '"$myIconCrop"',
+                        "size": 0.5,
+                        "ctrY": 0.48828125,
+                        "with": [
+                            {
+                                "action": "read",
+                                "path": "'"$myIconTemplatePath/doctemplate_bg.png"'"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "action": "composite",
+                    "options": {
+                        "compUnder": true,
+                        "with": [
+                            {
+                                "action": "read",
+                                "path": "'"$myIconTemplatePath/doctemplate_fg.png"'"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "action": "write_iconset",
+                    "path": "'"$myDocIconset"'"
+                }
+            ]
+        ]'
+        
+        # run PHP script to convert image into an ICNS
         makeIconErr=
-        try 'makeIconErr&=' "$makeIconScript" -f -o "$resourcesTmp/$CFBundleIconFile" "${docArgs[@]}" ''
+        try 'makeIconErr&=' /usr/bin/php "$makeIconScript" "$myMakeiconCmd" ''
         
-        progress 'stepIconA2'
-        
-        # handle errors
-        if [[ ! "$ok" ]] ; then
+        if [[ "$ok" ]] ; then
+            # convert iconsets to ICNS
+            try /usr/bin/iconutil -c icns -o "$resourcesTmp/$CFBundleIconFile" "$myAppIconset" \
+                'Unable to create app icon from temporary iconset.'
+            try /usr/bin/iconutil -c icns -o "$resourcesTmp/$CFBundleTypeIconFile" "$myDocIconset" \
+                'Unable to create app icon from temporary iconset.'
+        else
+            # handle messaging for makeicon.php errors
             errmsg="Unable to create icon"
             makeIconErr="${makeIconErr#*Error: }"
             makeIconErr="${makeIconErr%.*}"
             [[ "$makeIconErr" ]] && errmsg+=" ($makeIconErr)"
             errmsg+='.'
             errlog "$errmsg"
-            abort
         fi
         
+        progress 'stepIconA2'
         
-        # CREATE WELCOME PAGE ICON
+        if [[ "$ok" ]] ; then
+            
+            # CREATE WELCOME PAGE ICON
+            
+            # try copying 128x128 icon first
+            myWelcomeIconSrc="$myAppIconset/icon_128x128.png"
+            
+            if [[ -f "$myWelcomeIconSrc" ]] ; then
+                permanent "$myWelcomeIconSrc" "$updateContentsTmp/$welcomeIconBase" \
+                    'welcome page icon'
+            else
+                # 128x128 not found, so scale progressively smaller ones
+                for curSize in 512 256 64 32 16 ; do
+                    myWelcomeIconSrc="$myAppIconset/icon_${curSize}x${curSize}.png"
+                    if [[ -f "$myWelcomeIconSrc" ]] ; then
+                        try '!1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
+                            "$myWelcomeIconSrc" --out "$updateContentsTmp/$welcomeIconBase" \
+                            'Unable to create welcome page icon.'
+                        break
+                    fi
+                    myWelcomeIconSrc=
+                done
+                if [[ ! "$myWelcomeIconSrc" ]] ; then
+                    # no size found!
+                    ok= ; errmsg='Unable to find image to create welcome page icon.'
+                    errlog
+                fi
+            fi
+            
+            # error is nonfatal, we'll just use the default from boilerplate
+            if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
+        fi
         
-        try '!1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
-                "$epiIconSource" --out "$updateContentsTmp/$welcomeIconBase" \
-                'Unable to create welcome page icon.'
+        # destroy iconset directories
+        tryalways /bin/rm -rf "$myAppIconset" "$myDocIconset" \
+            'Unable to remove temporary iconset directories.'
         
-        # error is nonfatal, we'll just use the default from boilerplate
-        if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
+        [[ "$ok" ]] || abort
         
         progress 'stepIconA3'
         

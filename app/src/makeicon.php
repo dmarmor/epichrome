@@ -66,6 +66,13 @@ function runActions($aAction, $aInput = null) {
             actionWriteIconset($curInput, $curAction->path);
             $nextInput = null;
             
+        } elseif ($curAction->action == 'write_png') {
+            
+            // ACTION: WRITE OUT PNG
+            
+            actionWritePNG($curInput, $curAction->path, $curAction->resolution, $curAction->options);
+            $nextInput = null;
+            
         } else {
             
             // UNKNOWN ACTION
@@ -333,11 +340,21 @@ function actionComposite($aInput, $aOptions) {
 
 
 // ACTIONWRITEICONSET -- save out iconset directory
-function actionWriteIconset($aInput, $aPath) {
+function actionWritePNG($aInput, $aPath, $aResolution, $aOptions) {
     
-    // $$$ TESTBED ALL THIS WITH SINGLE OUTPUT???
-    // savePNG($aInput, $aPath . '.png');
-    // return;
+    // scale icon to requested resolution
+    $iResult = clone $aInput;
+    if ($aResolution) {
+        $iResult->refSize = $aResolution;
+    }
+    $iResult = actionComposite($iResult, $aOptions);
+    
+    savePNG($iResult, $aPath);
+}
+
+    
+// ACTIONWRITEICONSET -- save out iconset directory
+function actionWriteIconset($aInput, $aPath) {
     
     // clone input for savePNG
     $iInput = clone $aInput;
@@ -401,8 +418,8 @@ function compositeImage($aTopInput, $aCanvasInput, $aCanvasSize, $aClipToCanvas,
     if (!$aCanvasInput) {
         // no canvas layer, so create an empty one based on top layer
         $iResult = clone $aTopInput;
-        unset($iResult->preserve);
         $iResult->image = null;
+        unset($iResult->preserve);
     } else {
         // copy canvas layer to result
         $iResult = clone $aCanvasInput;
@@ -579,5 +596,6 @@ try {
                         '" in ' . basename($gErr->getFile()) .
                         ' on line ' . $gErr->getLine() . "\n");
     }
+    exit(1);
 }
 ?>

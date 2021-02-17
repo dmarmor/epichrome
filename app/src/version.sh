@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b11
-epiBuildNum=1
+epiBuildNum=2
 epiDesc=( \
         'Updated icons for compatibility with Big Sur' \
         'Updated built-in engine to Brave 1.19.88' )
