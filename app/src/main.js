@@ -173,6 +173,13 @@ let gEpiGithubFatalError = '';
 // info from core.sh
 let gCoreInfo = null;
 
+// icon compositing settings
+let gIconSettings = {
+    crop: false,
+    compSize: null,
+    bgColor: 'white'
+}
+
 // new app defaults
 let gAppInfoDefault = {
     displayName: 'My Epichrome App',
@@ -925,7 +932,19 @@ function readProperties() {
         gEpiGithubFatalError = myProperties["githubFatalError"];
     }
 
-    // APP SETTINGS
+    // icon compositting setting
+    if (typeof myProperties["iconCrop"] === 'boolean') {
+        gIconSettings.crop = myProperties["iconCrop"];
+    }
+    if (typeof myProperties["iconCompSize"] === 'string') {
+        gIconSettings.compSize = myProperties["iconCompSize"];
+    }
+    if (typeof myProperties["iconBGColor"] === 'string') {
+        gIconSettings.bgColor = myProperties["iconBGColor"];
+    }
+
+
+    // APP PREFERENCES
 
     // appStyle (DON'T STORE FOR NOW)
     // if (myProperties["appStyle"]) {
@@ -1133,8 +1152,30 @@ function writeProperties() {
             })
         );
         
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"boolean",
+                name:"iconCrop",
+                value:gIconSettings.crop
+            })
+        );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"string",
+                name:"iconCompSize",
+                value:(gIconSettings.compSize ? gIconSettings.compSize : '')
+            })
+        );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind:"string",
+                name:"iconBGColor",
+                value:gIconSettings.bgColor
+            })
+        );
+
         
-        // APP STATE
+        // APP PREFERENCES
         
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
