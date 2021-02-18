@@ -1467,11 +1467,16 @@ function stepCreateDisplayName(aInfo) {
             if (!myPathCheck.canWriteApp) {
                 myWarnMessageList[0] += 'Please choose another location or name for your app.';
                 myWarnOverride = false;
-            } else {
+            } else if (myAppPath.extAdded) {
                 myWarnReplace = true;
                 if (!(myPathCheck.rightDevice && myPathCheck.inApplicationsFolder)) {
                     myWarnMessageList[0] += ' If you continue, it will be overwritten.';
                 }
+            } else {
+                
+                // the path returned by the dialog was already identical to the existing
+                // app, so the dialog already warned us about replacing it
+                myWarnMessageList.pop();
             }
         }
         
