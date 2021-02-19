@@ -2566,8 +2566,18 @@ function stepBuild(aInfo) {
     // add icon source if necessary
     if (aInfo.appInfo.icon instanceof Object) {
         myScriptArgs.push('epiIconSource=' + aInfo.appInfo.icon.path);
+        
+        // add icon compositing options
+        myScriptArgs.push('epiIconCrop=' + (gIconSettings.crop ? '1' : ''));
+        if (gIconSettings.compSize) {
+            myScriptArgs.push(
+                'epiIconCompSize=' + gIconSettings.compSize,
+                'epiIconCompBG=' + gIconSettings.bgColor);
+        } else {
+            myScriptArgs.push('epiIconCompSize=');
+        }
     }
-
+    
     // action-specific arguments
     if (aInfo.stepInfo.action == kActionCREATE) {
         

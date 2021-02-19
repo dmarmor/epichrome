@@ -330,19 +330,19 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         if [[ "$epiIconCompSize" ]] ; then
             
             # pre-set comp sizes
-            myAppIconCompSmall=0.5859375   # 824x824
-            myAppIconCompMedium=0.69921875 # 716x716
-            myAppIconCompLarge=0.8046875   # 600x600
+            myAppIconComp_small=0.5859375   # 824x824
+            myAppIconComp_medium=0.69921875 # 716x716
+            myAppIconComp_large=0.8046875   # 600x600
             
             # set comp size
-            eval "myAppIconCompSize=\"\$myAppIconComp$epiIconCompSize\""
-            [[ "$myAppIconCompSize" ]] || myAppIconCompSize="$myAppIconCompMedium"
+            eval "myAppIconCompSize=\"\$myAppIconComp_$epiIconCompSize\""
+            [[ "$myAppIconCompSize" ]] || myAppIconCompSize="$myAppIconComp_medium"
             
             # set comp background
-            myAppIconCompBGPrefix="$myIconTemplatePath/apptemplate_bg_"
-            eval "myAppIconCompBG=\"\${myAppIconCompBGPrefix}\${epiIconCompBG}.png\""
+            myAppIconCompBGPrefix="$myIconTemplatePath/apptemplate_bg"
+            eval "myAppIconCompBG=\"\${myAppIconCompBGPrefix}_\${epiIconCompBG}.png\""
             if [[ ! -f "$myAppIconCompBG" ]] ; then
-                myAppIconCompBG="${myAppIconCompBGPrefix}white.png"
+                myAppIconCompBG="${myAppIconCompBGPrefix}_white.png"
                 if [[ ! -f "$myAppIconCompBG" ]] ; then
                     ok= ; errmsg="Unable to find Big Sur icon background ${myAppIconCompBG##*/}."
                     errlog "$errmsg"

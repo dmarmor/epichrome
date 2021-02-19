@@ -50,7 +50,7 @@ function updateapp {
     
     # export epichrome.sh variables
     if [[ "$coreContext" = 'epichrome' ]] ; then
-        export epiAction epiIconSource
+        export epiAction epiIconSource epiIconCrop epiIconCompSize epiIconCompBG
         [[ "$epiOldIdentifier" ]] && export epiOldIdentifier
     fi
     
