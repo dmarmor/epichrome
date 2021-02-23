@@ -80,7 +80,7 @@ updateBackupFile=
 # FUNCTION DEFINITIONS
 
 # MAKEICONS: use makeicon.php to build icons
-#  makeicons(aIconSource aAppIcon aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress)
+#  makeicons(aIconSource aAppIcon aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress aMaxSize aMinSize)
 # MAKEICONS_START
 function makeicons {
     
@@ -96,7 +96,9 @@ function makeicons {
     local aCompSize="$1" ; shift
     local aCompBG="$1" ; shift
     local aDoProgress="$1" ; shift
-        
+    local aMaxSize="$1" ; shift
+    local aMinSize="$1" ; shift
+    
     [[ "$aDoProgress" ]] && progress '!stepIconA1'
     
     # makeicon script location
@@ -193,6 +195,19 @@ function makeicons {
         },'
     fi
     
+    # build options for icon max & min sizes
+    local iSizeLimitCmd=
+    if [[ "$aMaxSize" || "$aMinSize" ]] ; then
+        local iLimitOpts=()
+        [[ "$aMaxSize" ]] && iLimitOpts+=( '"maxSize": '"$aMaxSize" )
+        [[ "$aMinSize" ]] && iLimitOpts+=( '"minSize": '"$aMinSize" )
+        iSizeLimitCmd=',
+                "options": {
+                    '"$(join_array ",
+                    " "${iLimitOpts[@]}")"'
+                }'
+    fi
+    
     # build doc icon command
     local iDocIconCmd=
     if [[ "$aDocIcon" ]] ; then
@@ -226,7 +241,7 @@ function makeicons {
             },
             {
                 "action": "write_iconset",
-                "path": "'"$iDocIconset"'"
+                "path": "'"$iDocIconset"'"'"$iSizeLimitCmd"'
             }
         ]'
     fi
@@ -241,7 +256,7 @@ function makeicons {
     ['"$iAppIconCompCmd"'
         {
             "action": "write_iconset",
-            "path": "'"$iAppIconset"'"
+            "path": "'"$iAppIconset"'"'"$iSizeLimitCmd"'
         }
     ]'"$iDocIconCmd"'
 ]'

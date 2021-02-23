@@ -360,8 +360,11 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
     $iInput = clone $aInput;
     $iInputErrName = 'icon "' . basename($aPath) . '"';
     
+    // make sure we have a reference size for this icon
+    $iRefSize = ($aInput->refSize ? $aInput->refSize : ICON_SIZE_MAX);
+    
     // get biggest size for this icon
-    $iBiggestSize = ($aInput->refSize ? $aInput->refSize : ICON_SIZE_MAX);
+    $iBiggestSize = $iRefSize;
     if ($aOptions->maxSize) { $iBiggestSize = min($aOptions->maxSize, $iBiggestSize); }
     
     // get smallest size for this icon
@@ -380,7 +383,7 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
         $iInput->errName = "$iInputErrName ($curSize" . "px)";
         
         $curResult = compositeImage($iInput, null, $curSize, false,
-                                    0, 0, $iBiggestSize, $iBiggestSize,
+                                    0, 0, $iRefSize, $iRefSize,
                                     0, 0, $curSize, $curSize);
         
         // output as nextSize x2
@@ -393,8 +396,8 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
             savePNG($curResult, sprintf("%s/icon_%dx%d.png", $aPath, $curSize, $curSize));
         }
         
-        // destroy smaller images
-        if ($curSize != $iBiggestSize) {
+        // destroy any shrunk images
+        if ($curSize != $iRefSize) {
             imagedestroy($curResult->image);
         }
         
@@ -590,6 +593,7 @@ try {
     // decode JSON arguments
     $gActions = json_decode($argv[1]);
     if ($gActions === null) {
+        print("\n\n\n$argv[1]\n\n\n");
         throw new EpiException('Unable to decode arguments.');
     }
     

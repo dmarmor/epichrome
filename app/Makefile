@@ -21,6 +21,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+SHELL = /bin/bash
 
 # BASIC INFO
 
@@ -329,7 +330,7 @@ build/icons/%.icns: build/icons/%.png src/core.sh src/progress/mode_update.sh sr
 	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
 	eval "$$makeicons_fn" ; \
 	makeicons '$<' '$@' ; \
-	cleanexit
+	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
 
 build/icons/%.png: ../images/icons/%.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -632,10 +633,10 @@ $(APP_CT)/Resources/Icons/Samples/sample_%.icns: build/icons/samples/sample_%.ic
 	cp '$<' '$@'
 	
 build/icons/samples/sample_%.icns: build/icons/iconsample.png \
-	$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
-		$(APP_CT)/Resources/Icons/apptemplate_bg_gray.png \
-		$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
-		$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
+	build/icons/apptemplate_bg_white.png \
+		build/icons/apptemplate_bg_gray.png \
+		build/icons/apptemplate_bg_white.png \
+		build/icons/apptemplate_shadow.png \
 		src/core.sh src/progress/mode_update.sh \
 		src/makeicon.php
 	@mkdir -p '$(dir $@)'
@@ -648,14 +649,14 @@ build/icons/samples/sample_%.icns: build/icons/iconsample.png \
 		bg='$*' ; bg="$${bg##*_}" ; \
 	fi ; \
 	iMakeIconScript='src/makeicon.php' ; \
-	iIconTemplatePath='$(APP_CT)/Resources/Icons' ; \
+	iIconTemplatePath='build/icons' ; \
 	source src/core.sh ; \
 	makeicons_fn="$$(cat src/progress/mode_update.sh)" ; \
 	makeicons_fn="$${makeicons_fn#*MAKEICONS_START}" ; \
 	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
 	eval "$$makeicons_fn" ; \
-	makeicons '$<' '$@' '' '' "$$crop" "$$size" "$$bg" ; \
-	cleanexit
+	makeicons '$<' '$@' '' '' "$$crop" "$$size" "$$bg" '' 256 64 ; \
+	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
 	
 $(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
@@ -716,6 +717,7 @@ progress-core:
 		--quit-after-execution \
 		--optimize-nib \
 		build/fake.sh $(PROGRESS_APP)
+	@rm build/fake.icns build/fake.sh
 	@rm $(PROGRESS_CT)/Info.plist $(PROGRESS_CT)/Resources/*.icns $(PROGRESS_CT)/Resources/script
 
 $(PROGRESS_CT)/Info.plist: src/progress/Info.plist src/version.sh
@@ -746,8 +748,7 @@ $(APP_RNTM)/Contents/Resources/AppSettings.plist: runtime
 
 runtime:
 	@rm -rf build/runtime.app build/runtime
-	@echo > build/fake.icns
-	@echo > build/fake.sh
+	@touch build/fake.icns build/fake.sh
 	platypus --name Epichrome \
 		 --interface-type None \
 		 --app-icon build/fake.icns \
@@ -1109,6 +1110,7 @@ scan-core:
 		--bundle-identifier org.epichrome.Scan \
 		--optimize-nib \
 		build/fake.sh $(SCAN_APP)
+	@rm build/fake.icns build/fake.sh
 	@rm $(SCAN_CT)/Info.plist $(SCAN_CT)/Resources/*.icns $(SCAN_CT)/Resources/script
 
 
