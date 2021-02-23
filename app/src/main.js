@@ -125,6 +125,12 @@ const kUpdateActions = {
     }
 };
 
+// legal icon comp sizes & backgrounds
+const kEpiIconCompStyles = {
+    size: ['medium', 'large', 'small'],
+    bg: ['white', 'gray', 'black']
+};
+
 // script paths
 const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
     inDirectory:"Scripts" }).toString();
@@ -176,8 +182,9 @@ let gCoreInfo = null;
 // icon compositing settings
 let gIconSettings = {
     crop: false,
-    compSize: null,
-    bgColor: 'white'
+    compBigSur: false,
+    compSize: kEpiIconCompStyles.size[0],
+    compBg: kEpiIconCompStyles.bg[0]
 }
 
 // new app defaults
@@ -936,11 +943,14 @@ function readProperties() {
     if (typeof myProperties["iconCrop"] === 'boolean') {
         gIconSettings.crop = myProperties["iconCrop"];
     }
+    if (typeof myProperties["iconCompBigSur"] === 'boolean') {
+        gIconSettings.compBigSur = myProperties["iconCompBigSur"];
+    }
     if (typeof myProperties["iconCompSize"] === 'string') {
         gIconSettings.compSize = myProperties["iconCompSize"];
     }
-    if (typeof myProperties["iconBGColor"] === 'string') {
-        gIconSettings.bgColor = myProperties["iconBGColor"];
+    if (typeof myProperties["iconBackground"] === 'string') {
+        gIconSettings.compBg = myProperties["iconBackground"];
     }
 
 
@@ -1161,6 +1171,13 @@ function writeProperties() {
         );
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
+                kind:"boolean",
+                name:"iconCompBigSur",
+                value:gIconSettings.compBigSur
+            })
+        );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
                 kind:"string",
                 name:"iconCompSize",
                 value:(gIconSettings.compSize ? gIconSettings.compSize : '')
@@ -1169,8 +1186,8 @@ function writeProperties() {
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
-                name:"iconBGColor",
-                value:gIconSettings.bgColor
+                name:"iconBackground",
+                value:gIconSettings.compBg
             })
         );
 
@@ -2255,7 +2272,58 @@ function stepIcon(aInfo) {
         }
         
         if (myChooseIcon) {
-
+            
+            // save step number text
+            let myStepNumText = aInfo.stepInfo.numText;
+            
+            
+            // OFFER TO UPDATE ICON COMPOSITING SETTINGS
+            
+            myDlgResult = 1;
+            while (myDlgResult != 0) {
+                
+                // create message with current comp settings
+                let myIconStyleMsg = '\n\n' + kDotSelected + ' ';
+                if (gIconSettings.compBigSur) {
+                    myIconStyleMsg += 'Big Sur Style\n' + kDotSelected + ' ' +
+                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to ' +
+                        gIconSettings.compSize.capitalized() +
+                        ' Square on ' +
+                        gIconSettings.compBg.capitalized() +
+                        ' BG';
+                } else {
+                    myIconStyleMsg += 'Image Only\n' + kDotSelected + ' ' +
+                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to Square';
+                }
+                
+                // show comp settings dialog
+                myDlgResult = dialog('The icon at left shows how your image might look with the currently-selected conversion options:' + myIconStyleMsg, {
+                    withTitle: 'Icon Conversion Options',
+                    withIcon: aInfo.stepInfo.dlgIcon,
+                    buttons: ['Confirm', 'Change', 'Back'],
+                    defaultButton: 1,
+                    cancelButton: 3
+                }).buttonIndex;
+                
+                if (myDlgResult == 1) {
+                    doSteps([
+                        stepIconStyle,
+                        stepIconCrop
+                    ], aInfo, {
+                        abortSilent: true,
+                        abortBackButton: 'Back',
+                        stepTitle: 'Icon Style'
+                    });
+                } else if (myDlgResult == 2) {
+                    
+                    // Back button -- do icon step again
+                    return 0;
+                }
+            }
+            
+            // $$$ MAKE SURE THIS HASN'T MESSED UP AINFO IN ANY WAY
+            
+            
             // CHOOSE AN APP ICON
 
             let myIconSourcePath;
@@ -2269,7 +2337,7 @@ function stepIcon(aInfo) {
 
             // show file selection dialog
             myIconSourcePath = fileDialog('open', gEpiLastDir, 'icon', {
-                withPrompt: aInfo.stepInfo.numText + ': Select an image to use as an icon.',
+                withPrompt: myStepNumText + ': Select an image to use as an icon.',
                 ofType: ["public.jpeg", "public.png", "public.tiff", "com.apple.icns"],
                 invisibles: false
             });
@@ -2294,6 +2362,102 @@ function stepIcon(aInfo) {
     // update summaries
     updateAppInfo(aInfo, 'icon');
 
+    // move on
+    return 1;
+}
+
+
+// STEPICON: step function to determine custom icon compositing style
+function stepIconStyle(aInfo) {
+    
+    // show step dialog
+    let iDlgResult = stepDialog(aInfo, 'Please select whether to use only your image to create the icon, or to create a Big Sur-style icon.', {
+        mapObject: gIconSettings,
+        key: 'compBigSur',
+        buttons: {
+            'Image Only': false,
+            'Big Sur':  true
+        }
+    });
+    
+    // handle Back button
+    if (iDlgResult.canceled) {
+        return -1;
+    }
+    
+    // update icon comp settings
+    gIconSettings.compBigSur = iDlgResult.buttonValue;
+    
+    // if Big Sur-style, set size & background color
+    if (gIconSettings.compBigSur) {
+        
+        // build and cache selection list
+        if (!kEpiIconCompStyles.map) {
+            
+            // initialize maps
+            kEpiIconCompStyles.map = {};
+            kEpiIconCompStyles.reverseMap = {};
+            
+            for (const iSize of kEpiIconCompStyles.size) {
+                for (const iBg of kEpiIconCompStyles.bg) {
+                    
+                    // text to display in selection list
+                    let iText = iSize.capitalized() + ' Image on ' + iBg.capitalized() + ' Background';
+                    
+                    // create map and reverse map
+                    kEpiIconCompStyles.map[iSize + ',' + iBg] = iText;
+                    kEpiIconCompStyles.reverseMap[iText] = {
+                        size: iSize,
+                        bg: iBg
+                    }
+                }
+            }
+        }
+        
+        // display selection list
+        let iSelectedStyle = kApp.chooseFromList(Object.values(kEpiIconCompStyles.map), {
+            withTitle: 'Big Sur Icon Settings',
+            withPrompt: 'Please select the size of your image and the background color.',
+            defaultItems: [kEpiIconCompStyles.map[gIconSettings.compSize + ',' + gIconSettings.compBg]],
+            okButtonName: 'Select',
+            multipleSelectionsAllowed: false,
+            emptySelectionAllowed: false
+        });
+        
+        // handle Cancel button
+        if (!iSelectedStyle) { return 0; }
+        
+        // map selection to values
+        iSelectedStyle = kEpiIconCompStyles.reverseMap[iSelectedStyle];
+        gIconSettings.compSize = iSelectedStyle.size;
+        gIconSettings.compBg = iSelectedStyle.bg;
+    }
+    
+    return 1;
+}
+
+
+// STEPICONSTYLE: step function to determine custom icon cropping
+function stepIconCrop(aInfo) {
+
+    // show step dialog
+    let iDlgResult = stepDialog(aInfo, 'How to make non-square image square?', {
+        mapObject: gIconSettings,
+        key: 'crop',
+        buttons: {
+            'Fit': false,
+            'Crop':  true
+        }
+    });
+    
+    // handle Back button
+    if (iDlgResult.canceled) {
+        return -1;
+    }
+    
+    // update icon crop setting
+    gIconSettings.crop = iDlgResult.buttonValue;
+    
     // move on
     return 1;
 }
@@ -2569,10 +2733,10 @@ function stepBuild(aInfo) {
         
         // add icon compositing options
         myScriptArgs.push('epiIconCrop=' + (gIconSettings.crop ? '1' : ''));
-        if (gIconSettings.compSize) {
+        if (gIconSettings.compBigSur) {
             myScriptArgs.push(
                 'epiIconCompSize=' + gIconSettings.compSize,
-                'epiIconCompBG=' + gIconSettings.bgColor);
+                'epiIconCompBG=' + gIconSettings.compBg);
         } else {
             myScriptArgs.push('epiIconCompSize=');
         }
@@ -2853,7 +3017,7 @@ function loginScanSetState(aNewState) {
         // error alert
         let iNewStateVerb = (aNewState ? 'enable' : 'disable');
         if (dialog('Unable to ' + iNewStateVerb + ' Epichrome login item.' + ((gEpiLoginScanEnabled == 'unset') ? ' You can try again to ' + iNewStateVerb + ' it by holding down the Option key next time you run Epichrome.' : '') + '\n\nIf the problem persists, please report it on GitHub.', {
-            withTitle: 'Login Scan Not ' + iNewStateVerb.charAt(0).toUpperCase() + iNewStateVerb.slice(1) + 'd',
+            withTitle: 'Login Scan Not ' + iNewStateVerb.capitalized() + 'd',
             withIcon: 'caution',
             buttons: ['OK', 'Report Error'],
             defaultButton: 1
@@ -3580,8 +3744,9 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
     if (myDlgOptions.hasOwnProperty('key')) {
         
         // ensure we have a button-to-value map
-        myButtonMap = dialogButtonMap(aInfo, myDlgOptions.key, myDlgOptions.buttons);
-                
+        myButtonMap = dialogButtonMap((myDlgOptions.mapObject ? myDlgOptions.mapObject : aInfo),
+            myDlgOptions.key, myDlgOptions.buttons);
+            
         // update dialog options with button map info
         myDlgOptions.buttons = Object.keys(myButtonMap.map);
         if (!myDlgOptions.hasOwnProperty('defaultButton')) {
@@ -3615,8 +3780,11 @@ function dialogButtonMap(aInfo, aKey, aButtonInfo) {
         aButtonInfo = aButtonInfo.reduce(function (obj,val) { obj[val] = val; return obj; }, {});
     }
     
+    // is this button map for app info?
+    let iIsAppMap = aInfo.hasOwnProperty('appInfo');
+    
     // build button map
-    let myAppValue = aInfo.appInfo[aKey];
+    let iKeyValue = (iIsAppMap ? aInfo.appInfo[aKey] : aInfo[aKey]);
     let curButtonNum = 1;
     let myButtonMap = {};
     let myDefaultButton = 1;
@@ -3627,14 +3795,14 @@ function dialogButtonMap(aInfo, aKey, aButtonInfo) {
         let curButtonValueList = aButtonInfo[curButtonName];
         
         // convert single match value to an array
-        if ((! (curButtonValueList instanceof Array)) || myAppValue instanceof Array) {
+        if ((! (curButtonValueList instanceof Array)) || iKeyValue instanceof Array) {
             curButtonValueList = [curButtonValueList];
         }
         
         // put a dot on the selected button
-        if (curButtonValueList.reduce((acc, val) => (acc || objEquals(val, myAppValue)), false)) {
-            let curDot = ((aInfo.stepInfo.action == kActionCREATE) ? kDotSelected :
-                            ((objEquals(myAppValue, aInfo.oldAppInfo[aKey])) ?
+        if (curButtonValueList.reduce((acc, val) => (acc || objEquals(val, iKeyValue)), false)) {
+            let curDot = (((!iIsAppMap) || (aInfo.stepInfo.action == kActionCREATE)) ? kDotSelected :
+                            ((objEquals(iKeyValue, aInfo.oldAppInfo[aKey])) ?
                             kDotCurrent : kDotChanged));
             curButtonTitle = curDot + ' ' + curButtonName;
             myDefaultButton = curButtonNum;
@@ -3731,7 +3899,7 @@ function shellQuote(...aArgs) {
 }
 
 
-// --- OBJECT UTILITY FUNCTIONS ---
+// --- UTILITY FUNCTIONS ---
 
 // OBJCOPY: deep copy object
 function objCopy(aObj) {
@@ -3764,7 +3932,7 @@ function objEquals(aObj1, aObj2) {
 
         if (typeof(aObj1[curProp] ) !== "object" ) { return false; }
 
-        if (!objEqauls(aObj1[curProp], aObj2[curProp])) { return false; }
+        if (!objEquals(aObj1[curProp], aObj2[curProp])) { return false; }
     }
 
 	// if aObj2 has any properties aObj1 does not have, they're not equal
@@ -3775,4 +3943,10 @@ function objEquals(aObj1, aObj2) {
 	}
 
     return true;
+}
+
+
+// CAPITALIZED: extension for String object to return capitalized version
+String.prototype.capitalized = function () {
+  return this.charAt(0).toUpperCase() + this.slice(1);
 }

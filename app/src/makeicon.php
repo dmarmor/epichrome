@@ -63,7 +63,7 @@ function runActions($aAction, $aInput = null) {
             
             // ACTION: WRITE OUT ICONSET
             
-            actionWriteIconset($curInput, $curAction->path);
+            actionWriteIconset($curInput, $curAction->path, $curAction->options);
             $nextInput = null;
             
         } elseif ($curAction->action == 'write_png') {
@@ -339,7 +339,7 @@ function actionComposite($aInput, $aOptions) {
 }
 
 
-// ACTIONWRITEICONSET -- save out iconset directory
+// ACTIONWRITEPNG -- save out PNG file at a given resolution
 function actionWritePNG($aInput, $aPath, $aResolution, $aOptions) {
     
     // scale icon to requested resolution
@@ -354,19 +354,24 @@ function actionWritePNG($aInput, $aPath, $aResolution, $aOptions) {
 
     
 // ACTIONWRITEICONSET -- save out iconset directory
-function actionWriteIconset($aInput, $aPath) {
+function actionWriteIconset($aInput, $aPath, $aOptions) {
     
     // clone input for savePNG
     $iInput = clone $aInput;
     $iInputErrName = 'icon "' . basename($aPath) . '"';
     
     // get biggest size for this icon
-    $iFirstSize = ($aInput->refSize ? $aInput->refSize : ICON_SIZE_MAX);
+    $iBiggestSize = ($aInput->refSize ? $aInput->refSize : ICON_SIZE_MAX);
+    if ($aOptions->maxSize) { $iBiggestSize = min($aOptions->maxSize, $iBiggestSize); }
+    
+    // get smallest size for this icon
+    $iSmallestSize = ICON_SIZE_MIN;
+    if ($aOptions->minSize) { $iSmallestSize = max($aOptions->minSize, $iSmallestSize); }
     
     // get biggest icon size
-    $curSize = $iFirstSize;
+    $curSize = $iBiggestSize;
     
-    while ($curSize >= ICON_SIZE_MIN) {
+    while ($curSize >= $iSmallestSize) {
         
         // get next size down
         $nextSize = $curSize / 2;
@@ -375,19 +380,21 @@ function actionWriteIconset($aInput, $aPath) {
         $iInput->errName = "$iInputErrName ($curSize" . "px)";
         
         $curResult = compositeImage($iInput, null, $curSize, false,
-                                    0, 0, $iFirstSize, $iFirstSize,
+                                    0, 0, $iBiggestSize, $iBiggestSize,
                                     0, 0, $curSize, $curSize);
         
         // output as nextSize x2
-        if ($curSize != ICON_SIZE_MIN) {
+        if ($curSize != $iSmallestSize) {
             savePNG($curResult, sprintf("%s/icon_%dx%d@2x.png", $aPath, $nextSize, $nextSize));
         }
         
         // output as curSize
-        if ($curSize != $iFirstSize) {
+        if ($curSize != ICON_SIZE_MAX) {
             savePNG($curResult, sprintf("%s/icon_%dx%d.png", $aPath, $curSize, $curSize));
-            
-            // destroy the image
+        }
+        
+        // destroy smaller images
+        if ($curSize != $iBiggestSize) {
             imagedestroy($curResult->image);
         }
         

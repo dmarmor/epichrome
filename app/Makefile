@@ -215,25 +215,26 @@ INTERMEDIATES:=\
 
 
 PRECIOUS_INTERMEDIATES:=\
-	../images/icons/app.png \
-	../images/icons/app_beta.png \
-	../images/icons/app_core.png \
-	../images/icons/scan_app.png \
-	../images/icons/scan_app_beta.png \
-	../images/icons/login_app.png \
-	../images/icons/login_app_beta.png \
-	../images/icons/apptemplate_bg_white.png \
-	../images/icons/apptemplate_bg_gray.png \
-	../images/icons/apptemplate_bg_black.png \
-	../images/icons/apptemplate_shadow.png \
-	../images/icons/doctemplate_bg.png \
-	../images/icons/doctemplate_fg.png \
-	../images/icons/document.png \
-	../images/icons/document_beta.png \
-	../images/icons/epichrome.png \
-	../images/icons/epichrome_beta.png \
-	../images/icons/folder.png \
-	../images/icons/folder_beta.png \
+	build/icons/app.png \
+	build/icons/app_beta.png \
+	build/icons/app_core.png \
+	build/icons/scan_app.png \
+	build/icons/scan_app_beta.png \
+	build/icons/login_app.png \
+	build/icons/login_app_beta.png \
+	build/icons/apptemplate_bg_white.png \
+	build/icons/apptemplate_bg_gray.png \
+	build/icons/apptemplate_bg_black.png \
+	build/icons/apptemplate_shadow.png \
+	build/icons/doctemplate_bg.png \
+	build/icons/doctemplate_fg.png \
+	build/icons/iconsample.png \
+	build/icons/document.png \
+	build/icons/document_beta.png \
+	build/icons/epichrome.png \
+	build/icons/epichrome_beta.png \
+	build/icons/folder.png \
+	build/icons/folder_beta.png \
 	build/icons/app.icns \
 	build/icons/app_beta.icns \
 	build/icons/document.icns \
@@ -246,6 +247,26 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/login_app_beta.icns \
 	build/icons/folder.icns \
 	build/icons/folder_beta.icns \
+	build/icons/samples/sample_fit_none.icns \
+	build/icons/samples/sample_crop_none.icns \
+	build/icons/samples/sample_fit_small_white.icns \
+	build/icons/samples/sample_crop_small_white.icns \
+	build/icons/samples/sample_fit_small_gray.icns \
+	build/icons/samples/sample_crop_small_gray.icns \
+	build/icons/samples/sample_fit_small_black.icns \
+	build/icons/samples/sample_crop_small_black.icns \
+	build/icons/samples/sample_fit_medium_white.icns \
+	build/icons/samples/sample_crop_medium_white.icns \
+	build/icons/samples/sample_fit_medium_gray.icns \
+	build/icons/samples/sample_crop_medium_gray.icns \
+	build/icons/samples/sample_fit_medium_black.icns \
+	build/icons/samples/sample_crop_medium_black.icns \
+	build/icons/samples/sample_fit_large_white.icns \
+	build/icons/samples/sample_crop_large_white.icns \
+	build/icons/samples/sample_fit_large_gray.icns \
+	build/icons/samples/sample_crop_large_gray.icns \
+	build/icons/samples/sample_fit_large_black.icns \
+	build/icons/samples/sample_crop_large_black.icns \
 	build/img/app_icon.png \
 	build/img/app_icon_beta.png \
 	build/img/epichrome_icon.png \
@@ -297,36 +318,23 @@ clean-engine:
 clean-all: clean clean-package clean-engine
 	rm -rf build
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
-	for psd in ../images/icons/*.psd ../images/package/*.psd ; do \
-		echo rm -f "$${psd%.psd}.png" ; done
 
-build/icons/%.icns: ../images/icons/%.png
+build/icons/%.icns: build/icons/%.png src/core.sh src/progress/mode_update.sh src/makeicon.php
 	@mkdir -p '$(dir $@)'
-	rm -rf '$(basename $@).iconset'
-	mkdir -p '$(basename $@).iconset'
-	/usr/bin/php src/makeicon.php '[ \
-		{ \
-			"action": "read", \
-			"path": "$<" \
-		}, \
-		{ \
-			"action": "write_iconset", \
-			"path": "$(basename $@).iconset" \
-		} \
-	]'
-	iconutil -c icns -o '$@' '$(basename $@).iconset'
-	rm -rf '$(basename $@).iconset'
+	source src/core.sh ; source src/progress/mode_update.sh ; \
+	makeicons '$<' '$@'
 
-%.png: %.psd
+build/icons/%.png: ../images/icons/%.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
-	@printf 'Waiting for Photoshop to finish converting $@...'
-	@while [[ ( ! -e $@ ) || ( $@ -ot $< ) ]] ; do sleep 1 ; done
-	@mtime=$$(stat -f '%m' $@) ; \
+	@printf 'Waiting for Photoshop to finish converting $<...'
+	@while [[ ( ! -e $(basename $<).png ) || ( $(basename $<).png -ot $< ) ]] ; do sleep 1 ; done
+	@mtime=$$(stat -f '%m' $(basename $<).png) ; \
 	while [[ "$$oldmtime" != "$$mtime" ]] ; do \
 		sleep 1 ; \
 		oldmtime="$$mtime" ; \
-		mtime=$$(stat -f '%m' $@) ; \
+		mtime=$$(stat -f '%m' $(basename $<).png) ; \
 	done
+	mv $(basename $<).png $@
 	@echo 'done!'
 
 
@@ -492,6 +500,26 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
 	$(APP_CT)/Resources/Icons/doctemplate_fg.png \
 	$(APP_CT)/Resources/Icons/doctemplate_bg.png \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_none.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_none.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_black.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_black.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_black.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_black.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_white.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_gray.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_black.icns \
+	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_black.icns \
 	$(APP_CT)/Resources/scan.icns \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
@@ -588,10 +616,83 @@ $(APP_CT)/Resources/droplet.icns: build/icons/epichrome$(BETA).icns
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-$(APP_CT)/Resources/Icons/%.png: ../images/icons/%.png
+$(APP_CT)/Resources/Icons/%.png: build/icons/%.png
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
+$(APP_CT)/Resources/Icons/Samples/sample_%.icns: build/icons/samples/sample_%.icns
+	@mkdir -p '$(dir $@)'
+	cp '$<' '$@'
+	
+build/icons/samples/sample_%.icns: build/icons/iconsample.png \
+	$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
+		$(APP_CT)/Resources/Icons/apptemplate_bg_gray.png \
+		$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
+		$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
+		src/progress/mode_update.sh \
+		src/makeicon.php
+	@mkdir -p '$(dir $@)'
+	rm -rf '$(basename $<).iconset'
+	mkdir -p '$(basename $<).iconset'
+	@sizes="$$(cat src/progress/mode_update.sh)" ; \
+	sizes="$${sizes#*COMP_SIZE_START}" ; \
+	sizes="$${sizes%COMP_SIZE_END*}" ; \
+	eval "$$sizes" ; \
+	crop='$*' ; crop="$${crop%%_*}" ; if [[ "$$crop" = 'crop' ]] ; then crop=true ; else crop=false ; fi ; \
+	size='$*' ; size="$${size#*_}" ; \
+	if [[ "$$size" = "none" ]] ; then \
+		compcmd=' \
+		{ \
+			"action": "composite", \
+			"options": { \
+				"crop": '"$$crop"' \
+			} \
+		},' ; \
+	else \
+		size="$${size%_*}" ; \
+		eval "size=\"\$$myAppIconComp_$$size\"" ; \
+		bg='$*' ; bg="$${bg##*_}" ; \
+		compcmd=' \
+		{ \
+			"action": "composite", \
+			"options": { \
+				"crop": '"$$crop"', \
+				"size": '"$$size"', \
+				"clip": true, \
+				"with": [ { \
+					"action": "read", \
+					"path": "$(APP_CT)/Resources/Icons/apptemplate_bg_'"$$bg"'.png" \
+				} ] \
+			} \
+		}, \
+		{ \
+			"action": "composite", \
+			"options": { \
+				"with": [ { \
+					"action": "read", \
+					"path": "$(APP_CT)/Resources/Icons/apptemplate_shadow.png" \
+				} ] \
+			} \
+		},' ; \
+	fi ; \
+	echo making sample icon '$@'... ; \
+	/usr/bin/php src/makeicon.php '[ \
+		{ \
+			"action": "read", \
+			"path": "$<" \
+		},'"$$compcmd"' \
+		{ \
+			"action": "write_iconset", \
+			"path": "$(basename $<).iconset", \
+			"options" : { \
+			 	"maxSize": 256, \
+				"minSize": 64 \
+			} \
+		} \
+	]'
+	iconutil -c icns -o '$@' '$(basename $<).iconset'
+	rm -rf '$(basename $<).iconset'
+	
 $(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
@@ -823,15 +924,15 @@ $(APP_RNTM)/Contents/Resources/Welcome/img/%: src/welcome/img/%
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-build/img/app_icon$(BETA).png: ../images/icons/app$(BETA).png
+build/img/app_icon$(BETA).png: build/icons/app$(BETA).png
 	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 
-build/img/epichrome_icon.png: ../images/icons/app_core.png
+build/img/epichrome_icon.png: build/icons/app_core.png
 	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 
-build/img/scan_icon$(BETA).png: ../images/icons/scan_app$(BETA).png
+build/img/scan_icon$(BETA).png: build/icons/scan_app$(BETA).png
 	@mkdir -p '$(dir $@)'
 	sips -z 128 128 $< --out $@
 

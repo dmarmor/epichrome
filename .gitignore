@@ -27,7 +27,6 @@
 /app/test/icons/*.png
 /builder/**
 /images/icons/*.png
-/images/package/*.png
 /images/package/ref/**
 /images/package/*Logs/**
 /images/package/Adobe After Effects */**
