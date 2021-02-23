@@ -81,6 +81,7 @@ updateBackupFile=
 
 # MAKEICONS: use makeicon.php to build icons
 #  makeicons(aIconSource aAppIcon aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress)
+# MAKEICONS_START
 function makeicons {
     
     # only run if we're OK
@@ -268,7 +269,7 @@ function makeicons {
     
     [[ "$aDoProgress" ]] && progress 'stepIconA2'
     
-    if [[ "$ok" ]] ; then
+    if [[ "$ok" && "$aWelcomeIcon" ]] ; then
         
         # CREATE WELCOME PAGE ICON
         
@@ -310,6 +311,7 @@ function makeicons {
     
     [[ "$ok" ]] && return 0 || return 1
 }
+# MAKEICONS_END
 
 
 # ESCAPEHTML: escape HTML-reserved characters in a string

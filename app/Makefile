@@ -321,8 +321,15 @@ clean-all: clean clean-package clean-engine
 
 build/icons/%.icns: build/icons/%.png src/core.sh src/progress/mode_update.sh src/makeicon.php
 	@mkdir -p '$(dir $@)'
-	source src/core.sh ; source src/progress/mode_update.sh ; \
-	makeicons '$<' '$@'
+	iMakeIconScript='src/makeicon.php' ; \
+	iIconTemplatePath='$(APP_CT)/Resources/Icons' ; \
+	source src/core.sh ; \
+	makeicons_fn="$$(cat src/progress/mode_update.sh)" ; \
+	makeicons_fn="$${makeicons_fn#*MAKEICONS_START}" ; \
+	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
+	eval "$$makeicons_fn" ; \
+	makeicons '$<' '$@' ; \
+	cleanexit
 
 build/icons/%.png: ../images/icons/%.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
@@ -629,69 +636,26 @@ build/icons/samples/sample_%.icns: build/icons/iconsample.png \
 		$(APP_CT)/Resources/Icons/apptemplate_bg_gray.png \
 		$(APP_CT)/Resources/Icons/apptemplate_bg_white.png \
 		$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
-		src/progress/mode_update.sh \
+		src/core.sh src/progress/mode_update.sh \
 		src/makeicon.php
 	@mkdir -p '$(dir $@)'
-	rm -rf '$(basename $<).iconset'
-	mkdir -p '$(basename $<).iconset'
-	@sizes="$$(cat src/progress/mode_update.sh)" ; \
-	sizes="$${sizes#*COMP_SIZE_START}" ; \
-	sizes="$${sizes%COMP_SIZE_END*}" ; \
-	eval "$$sizes" ; \
-	crop='$*' ; crop="$${crop%%_*}" ; if [[ "$$crop" = 'crop' ]] ; then crop=true ; else crop=false ; fi ; \
+	crop='$*' ; crop="$${crop%%_*}" ; if [[ "$$crop" = 'crop' ]] ; then crop=1 ; else crop= ; fi ; \
 	size='$*' ; size="$${size#*_}" ; \
-	if [[ "$$size" = "none" ]] ; then \
-		compcmd=' \
-		{ \
-			"action": "composite", \
-			"options": { \
-				"crop": '"$$crop"' \
-			} \
-		},' ; \
+	if [[ "$$size" = 'none' ]] ; then \
+		size= ; bg= ; \
 	else \
 		size="$${size%_*}" ; \
-		eval "size=\"\$$myAppIconComp_$$size\"" ; \
 		bg='$*' ; bg="$${bg##*_}" ; \
-		compcmd=' \
-		{ \
-			"action": "composite", \
-			"options": { \
-				"crop": '"$$crop"', \
-				"size": '"$$size"', \
-				"clip": true, \
-				"with": [ { \
-					"action": "read", \
-					"path": "$(APP_CT)/Resources/Icons/apptemplate_bg_'"$$bg"'.png" \
-				} ] \
-			} \
-		}, \
-		{ \
-			"action": "composite", \
-			"options": { \
-				"with": [ { \
-					"action": "read", \
-					"path": "$(APP_CT)/Resources/Icons/apptemplate_shadow.png" \
-				} ] \
-			} \
-		},' ; \
 	fi ; \
-	echo making sample icon '$@'... ; \
-	/usr/bin/php src/makeicon.php '[ \
-		{ \
-			"action": "read", \
-			"path": "$<" \
-		},'"$$compcmd"' \
-		{ \
-			"action": "write_iconset", \
-			"path": "$(basename $<).iconset", \
-			"options" : { \
-			 	"maxSize": 256, \
-				"minSize": 64 \
-			} \
-		} \
-	]'
-	iconutil -c icns -o '$@' '$(basename $<).iconset'
-	rm -rf '$(basename $<).iconset'
+	iMakeIconScript='src/makeicon.php' ; \
+	iIconTemplatePath='$(APP_CT)/Resources/Icons' ; \
+	source src/core.sh ; \
+	makeicons_fn="$$(cat src/progress/mode_update.sh)" ; \
+	makeicons_fn="$${makeicons_fn#*MAKEICONS_START}" ; \
+	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
+	eval "$$makeicons_fn" ; \
+	makeicons '$<' '$@' '' '' "$$crop" "$$size" "$$bg" ; \
+	cleanexit
 	
 $(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
