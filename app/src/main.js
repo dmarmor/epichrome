@@ -2299,7 +2299,7 @@ function stepIcon(aInfo) {
                 // show comp settings dialog
                 myDlgResult = dialog('The icon at left shows how your image might look with the currently-selected conversion options:' + myIconStyleMsg, {
                     withTitle: 'Icon Conversion Options',
-                    withIcon: aInfo.stepInfo.dlgIcon,
+                    withIcon: sampleIcon(),
                     buttons: ['Confirm', 'Change', 'Back'],
                     defaultButton: 1,
                     cancelButton: 3
@@ -2366,7 +2366,6 @@ function stepIcon(aInfo) {
     return 1;
 }
 
-
 // STEPICON: step function to determine custom icon compositing style
 function stepIconStyle(aInfo) {
     
@@ -2377,7 +2376,8 @@ function stepIconStyle(aInfo) {
         buttons: {
             'Image Only': false,
             'Big Sur':  true
-        }
+        },
+        withIcon: sampleIcon()
     });
     
     // handle Back button
@@ -2447,7 +2447,8 @@ function stepIconCrop(aInfo) {
         buttons: {
             'Fit': false,
             'Crop':  true
-        }
+        },
+        withIcon: sampleIcon()
     });
     
     // handle Back button
@@ -3437,6 +3438,15 @@ function engineName(aEngine, aCapType=true) {
 }
 
 
+// SAMPLEICON: retrieve a sample icon for the current settings
+function sampleIcon() {
+    return kApp.pathToResource('Icons/Samples/sample_' +
+        (gIconSettings.crop ? 'crop_' : 'fit_') +
+        (gIconSettings.compBigSur ? gIconSettings.compSize + '_' + gIconSettings.compBg : 'none') +
+        '.icns');
+}
+
+
 // --- APP ID FUNCTIONS ---
 
 // APPIDISUNIQUE: check if an app ID is unique on the system
@@ -3591,8 +3601,9 @@ function dialog(aMessage, aDlgOptions={}, aButtonMap=null) {
     let myResult, myErr;
     
     if (typeof(aMessage) != 'string') { aMessage = JSON.stringify(aMessage, null, 3); }
-    
+
     try {
+
         // display dialog
         myResult = kApp.displayDialog(aMessage, aDlgOptions);
 
@@ -3737,8 +3748,11 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
     let myButtonMap = null;
     let myErr;
     
-    // copy dialog options object
+    // copy dialog options object (including icon path if any)
     let myDlgOptions = objCopy(aDlgOptions);
+    if (aDlgOptions.withIcon instanceof Path) {
+        myDlgOptions.withIcon = Path(aDlgOptions.withIcon.toString());
+    }
     
     // if aDlgOptions is a button map, build options from that
     if (myDlgOptions.hasOwnProperty('key')) {
@@ -3757,7 +3771,7 @@ function stepDialog(aInfo, aMessage, aDlgOptions) {
         // we're done with everything except the map
         myButtonMap = myButtonMap.map;
     }
-    
+
     // fill in boilerplate
     if (!myDlgOptions.withTitle) { myDlgOptions.withTitle = aInfo.stepInfo.dlgTitle; }
     if (!myDlgOptions.withIcon) { myDlgOptions.withIcon = aInfo.stepInfo.dlgIcon; }
