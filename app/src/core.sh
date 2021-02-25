@@ -369,8 +369,11 @@ fi
 # LOGGING -- log to stderr & a log file
 function errlog_raw {
     
+    # strip any report header from arguments
+    local aMsg="$(msg "$*")"
+    
     # if we're logging to stderr, do it
-    [[ "$logNoStderr" ]] || echo "$@" 1>&2
+    [[ "$logNoStderr" ]] || echo "$aMsg" 1>&2
     
     # logging to file
     if [[ ! "$logNoFile" ]] ; then
@@ -382,16 +385,16 @@ function errlog_raw {
             # or if it doesn't exist but parent directory is writeable
             if [[ ( ( ( -f "$myLogFile" ) && ( -w "$myLogFile" ) ) || \
                     ( ( ! -e "$myLogFile" ) && ( -w "${myLogFile%/*}" ) ) ) ]] ; then
-                echo "$@" >> "$myLogFile"
+                echo "$aMsg" >> "$myLogFile"
             fi
         else
             
             # no log file specified yet, so collect logs in a variable
-            myLogTempVar+="$*"$'\n'
+            myLogTempVar+="$aMsg"$'\n'
         fi
     fi
 }
-# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] msg...)
+# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] [msg] ($errmsg by default)...)
 function errlog {
     
     # prefix format: *[PID]LogID(line)/function(line)/...:
@@ -428,6 +431,9 @@ function errlog {
             ;;
     esac
     
+    # override DEBUG & ERROR logtypes with FATAL if this is a reportable message
+    [[ "$logType" != [12] ]] && isreportable "$@" && logType='!'
+    
     # make sure we have some logID
     local iLogID="$myLogID"
     [[ "$iLogID" ]] || iLogID='EpichromeCore'
@@ -440,7 +446,7 @@ function errlog {
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
     local iPrologue="$logType[$logPID]$(join_array '/' "${iTrace[@]}"):"
-    local iLogLines="$*"
+    local iLogLines="$(msg "$@")"
     split_array iLogLines
     if [[ "${#iLogLines[@]}" -lt 2 ]] ; then
         errlog_raw "$iPrologue ${iLogLines[*]}"
@@ -872,7 +878,7 @@ function try {
             errlog "ERROR|${args[0]##*/}" "Returned code $result with no logged output."
         if [[ "$myerrmsg" ]] ; then
             errmsg="$myerrmsg"
-            errlog "$errmsg"
+            errlog
         fi
         return "$result"
     fi
@@ -888,21 +894,28 @@ function runalways {
     
     # save old try state
     local oldok="$ok" ; ok=1
-    local olderrmsg="$errmsg" ; errmsg=
+    local iDoReport= ; isreportable && iDoReport=1
+    local olderrmsg="$(msg)" ; errmsg=
     
     # run the command
     "$@"
     local result="$?"
+    
+    # report if either error message is reportable
+    isreportable && iDoReport=1
     
     # restore OK state
     [[ ! "$oldok" ]] && ok=
     
     # combine error messages
     if [[ "$errmsg" && "$olderrmsg" ]] ; then
-        errmsg="$olderrmsg Also: $errmsg"
+        errmsg="$olderrmsg Also: $(msg)"
     elif [[ "$olderrmsg" ]] ; then
         errmsg="$olderrmsg"
     fi
+    
+    # restore reportable status
+    [[ "$iDoReport" ]] && reportmsg
     
     return "$result"
 }
@@ -951,8 +964,9 @@ function safesource {
         # try to source the file
         try source "$script" "$@" ''
         if [[ ! "$ok" ]] ; then
-            [[ "$errmsg" ]] && errmsg=" ($errmsg)"
+            [[ "$errmsg" ]] && errmsg=" ($(msg))"
             errmsg="Unable to load $fileinfo.$errmsg"
+            reportmsg  # failure to load is always reportable
         fi
     fi
     
@@ -1011,12 +1025,12 @@ function abort {
     fi
     
     # determine whether to offer to report (and add trace for non-release versions)
-    local iReport=
+    local iDoReport=
     local iTrace=
     local iTraceMsg=
-    if [[ ( "$myErrMsg" = 'REPORT|'* ) || ( "$myCode" = 'SIGEXIT' ) ]] ; then
-        myErrMsg="${myErrMsg#REPORT|}"
-        iReport='REPORT|'
+    if isreportable "$myErrMsg" || [[ "$myCode" = 'SIGEXIT' ]] ; then
+        myErrMsg="$(msg "$myErrMsg")"
+        iDoReport=1
         iTrace="$(errlog_trace main '' handleexitsignal abort abortreport )"
         if ! visrelease "$coreVersion" ; then
             iTraceMsg=$'\n\n'"ℹ️ Trace: $iTrace"
@@ -1036,7 +1050,7 @@ function abort {
             local choice=
 
             # set up buttons & message for simple quit vs offering to report
-            if [[ "$iReport" ]] ; then
+            if [[ "$iDoReport" ]] ; then
                 buttons=( '+Report Error & Quit' '-Quit' )
             else
                 buttons=( 'Quit' )
@@ -1045,7 +1059,7 @@ function abort {
             # show dialog
             dialog choice "$myErrMsg$iTraceMsg" "Unable to Run" '|stop' "${buttons[@]}"
             
-            if [[ "$iReport" && ( "$choice" = "${buttons[0]:1}" ) ]] ; then
+            if [[ "$iDoReport" && ( "$choice" = "${buttons[0]:1}" ) ]] ; then
                 
                 # prepare for report
                 local iReportErrArgs=( "App aborted with error" )
@@ -1068,7 +1082,8 @@ function abort {
     fi
     
     # set abort message for final handling (put report back on it for passing along
-    errmsg="$iReport$myErrMsg"
+    errmsg="$myErrMsg"
+    [[ "$iDoReport" ]] && reportmsg
     
     # flag that we aborted
     coreAborted=1
@@ -1085,11 +1100,64 @@ function abortreport {
     local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
     
-    # force reporting
-    [[ "$myErrMsg" = 'REPORT|'* ]] || myErrMsg="REPORT|$myErrMsg"
-    
-    # abort
+    # abort with forced reporting
+    reportmsg myErrMsg
     abort "$myErrMsg" "$myCode"
+}
+
+
+# ISREPORTABLE -- return 0 if a message (errmsg by default) has REPORT| headers, 1 if not
+#   isreportable([aMsg])
+function isreportable {
+
+    # arguments
+    local aMsg="$1" ; shift ; [[ "$aMsg" ]] || aMsg="$errmsg"
+    
+    # return result
+    [[ "$aMsg" = 'REPORT|'* ]] && return 0 || return 1
+}
+
+
+# REPORTHEADER -- echo 'REPORT|' if a message (errmsg by default) has REPORT| headers, nothing if not
+#   reportheader([aMsg])
+function reportheader {
+    
+    isreportable "$@" && echo -n 'REPORT|'
+}
+
+
+# MSG -- strip any REPORT| header(s) from a message (errmsg by default)
+#   msg([aMsg ...])
+function msg {
+
+    # arguments
+    local aMsg=
+    if [[ "$#" = 0 ]] ; then
+        aMsg="$errmsg"
+    else
+        aMsg="$*"
+    fi
+    
+    while [[ "$aMsg" = 'REPORT|'* ]] ; do
+        aMsg="${aMsg#REPORT|}"
+    done
+    
+    # return stripped message
+    echo -n "$aMsg"
+}
+
+
+# REPORTMSG -- make a message (errmsg by default) reportable
+#   reportmsg([aMsgVar])
+function reportmsg {
+    
+    # arguments
+    local aMsgVar="$1" ; shift ; [[ "$aMsgVar" ]] || aMsgVar='errmsg'
+    eval "local aMsg=\"\$$aMsgVar\""
+    
+    if [[ "$aMsg" != 'REPORT|'* ]] ; then
+        eval "$aMsgVar=\"REPORT|\$aMsg\""
+    fi
 }
 
 
@@ -1112,18 +1180,19 @@ function handleexitsignal {
         
         # log just the error message to errmsg file
         ok=1 ; errmsg=
-        try "$coreErrFile<" echo "$iErrMsg" 'Unable to write to error message file.'
+        try "$coreErrFile<" echo "$(msg "$iErrMsg")" 'Unable to write to error message file.'
         
     elif [[ "$coreContext" = 'epichrome' ]] ; then
         
-        # log final error message to stderr
+        # log final error message to stderr -- with any REPORT| header
         [[ "$errmsg" ]] && echo "$errmsg" 1>&2
     fi
     
     # if we didn't get here through cleanexit (or cleanexit via abort), call abort now
     if [[ ! "$readyToExit" ]] ; then
         local exitMsg='Unexpected termination.'
-        [[ "$errmsg" ]] && exitMsg+=" ($errmsg)"
+        [[ "$errmsg" ]] && exitMsg+=" ($(msg))"
+        reportmsg exitMsg  # unexpected termination is always reportable
         errlog FATAL "$exitMsg"
         abort "$exitMsg" 'SIGEXIT'
     fi
@@ -1397,7 +1466,7 @@ function saferm {
                 ( "$curPath" != */"$epiPayloadPathBase"/* ) && \
                 ( "$curPath" != */"$epiOldEngineBase"/* ) ]] ; then
             ok= ; errmsg="Path '$curPath' is not in a known location."
-            errlog "$errmsg"
+            errlog
             return 1
         fi
     done
@@ -1983,7 +2052,9 @@ function dialog {
     
     # add new error message or restore old one
     if [[ "$olderrmsg" && "$errmsg" ]] ; then
-        errmsg="$olderrmsg Also: ${errmsg}."
+        local iDoReport= ; ( isreportable || isreportable "$olderrmsg" ) && iDoReport=1
+        errmsg="$olderrmsg Also: $(msg)."
+        [[ "$iDoReport" ]] && reportmsg
     elif [[ "$olderrmsg" ]] ; then
         errmsg="$olderrmsg"
     fi

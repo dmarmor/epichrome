@@ -67,7 +67,7 @@ function updateapp {
             if [[ ! "$ok" ]] ; then
                 tryalways /bin/rm -f "$myConfigFile" \
                         'Unable to delete old config file.'
-                alert "Update succeeded, but unable to update settings. ($errmsg) The welcome page will not have accurate info about the update." \
+                alert "Update succeeded, but unable to update settings. ($(msg)) The welcome page will not have accurate info about the update." \
                         'Warning' '|caution'
                 ok=1 ; errmsg=
             fi
@@ -89,9 +89,6 @@ function updateapp {
                 vcmp "$SSBVersion" '<' '2.4.0b4[004]' ; then
                 errmsg='Update canceled.'
             fi
-        else
-            # offer to report all non-cancel errors
-            errmsg="REPORT|$errmsg"
         fi
         
         return 1
@@ -138,7 +135,7 @@ function updaterelaunch {
         debuglog "Parent app relaunched successfully. Quitting."
         return 0
     else
-        alert "$errmsg You may have to launch it manually." 'Warning' '|caution'
+        alert "$(msg) You may have to launch it manually." 'Warning' '|caution'
         return 1
     fi
 }

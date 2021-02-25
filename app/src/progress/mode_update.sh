@@ -79,256 +79,6 @@ updateBackupFile=
 
 # FUNCTION DEFINITIONS
 
-# MAKEICONS: use makeicon.php to build icons
-#  makeicons(aIconSource aAppIcon aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress aMaxSize aMinSize)
-# MAKEICONS_START
-function makeicons {
-    
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-    
-    # arguments
-    local aIconSource="$1" ; shift
-    local aAppIcon="$1" ; shift
-    local aDocIcon="$1" ; shift
-    local aWelcomeIcon="$1" ; shift
-    local aCrop="$1" ; shift ; [[ "$aCrop" ]] && aCrop='true' || aCrop='false'
-    local aCompSize="$1" ; shift
-    local aCompBG="$1" ; shift
-    local aDoProgress="$1" ; shift
-    local aMaxSize="$1" ; shift
-    local aMinSize="$1" ; shift
-    
-    [[ "$aDoProgress" ]] && progress '!stepIconA1'
-    
-    # makeicon script location
-    if [[ ! "$iMakeIconScript" ]] ; then
-        local iMakeIconScript="$updateEpichromeResources/Scripts/makeicon.php"
-    fi
-    if [[ ! -e "$iMakeIconScript" ]] ; then
-        ok= ; errmsg="Unable to locate icon creation script."
-        errlog "$errmsg"
-        return 1
-    fi
-    
-    # path to icon templates
-    if [[ ! "$iIconTemplatePath" ]] ; then
-        local iIconTemplatePath="$updateEpichromeResources/Icons"
-    fi
-    
-    # path to iconset directories
-    local iAppIconset="${aAppIcon%.icns}.iconset"
-    [[ "$aDocIcon" ]] && local iDocIconset="${aDocIcon%.icns}.iconset"
-    
-    # delete existing iconsets
-    local iExistingIconsets=()
-    [[ -e "$iAppIconset" ]] && iExistingIconsets+=( "$iAppIconset" )
-    [[ "$aDocIcon" && -d "$iAppIconset" ]] && iExistingIconsets+=( "$iDocIconset" )
-    if [[ "${iExistingIconsets[*]}" ]] ; then
-        try /bin/rm -rf "${iExistingIconsets[@]}" \
-            'Unable to delete existing iconset directories.'
-    fi
-    
-    # create empty iconset directories
-    local iNewIconsets=( "$iAppIconset" )
-    [[ "$aDocIcon" ]] && iNewIconsets+=( "$iDocIconset" )
-    try /bin/mkdir -p "${iNewIconsets[@]}" \
-        'Unable to create temporary iconset directories.'
-    
-    [[ "$ok" ]] || return 1
-        
-    # set up Big Sur icon comp commands
-    if [[ "$aCompSize" ]] ; then
-        
-        # pre-set comp sizes
-        local iAppIconComp_small=0.556640625 # 570x570
-        local iAppIconComp_medium=0.69921875 # 716x716
-        local iAppIconComp_large=0.8046875   # 824x824
-        
-        # set comp size
-        eval "local iAppIconCompSize=\"\$iAppIconComp_$aCompSize\""
-        [[ "$iAppIconCompSize" ]] || iAppIconCompSize="$iAppIconComp_medium"
-        
-        # set comp background
-        local iAppIconCompBGPrefix="$iIconTemplatePath/apptemplate_bg"
-        eval "local iAppIconCompBG=\"\${iAppIconCompBGPrefix}_\${aCompBG}.png\""
-        if [[ ! -f "$iAppIconCompBG" ]] ; then
-            iAppIconCompBG="${iAppIconCompBGPrefix}_white.png"
-            if [[ ! -f "$iAppIconCompBG" ]] ; then
-                ok= ; errmsg="Unable to find Big Sur icon background ${iAppIconCompBG##*/}."
-                errlog "$errmsg"
-            fi
-        fi
-        
-        # create comp commands
-        local iAppIconCompCmd='
-        {
-            "action": "composite",
-            "options": {
-                "crop": '"$aCrop"',
-                "size": '"$iAppIconCompSize"',
-                "clip": true,
-                "with": [ {
-                    "action": "read",
-                    "path": "'"$iAppIconCompBG"'"
-                } ]
-            }
-        },
-        {
-            "action": "composite",
-            "options": {
-                "with": [ {
-                    "action": "read",
-                    "path": "'"$iIconTemplatePath/apptemplate_shadow.png"'"
-                } ]
-            }
-        },'
-    else
-        
-        # don't comp this in any way, just use the straight image
-        local iAppIconCompCmd='
-        {
-            "action": "composite",
-            "options": {
-                "crop": '"$aCrop"'
-            }
-        },'
-    fi
-    
-    # build options for icon max & min sizes
-    local iSizeLimitCmd=
-    if [[ "$aMaxSize" || "$aMinSize" ]] ; then
-        local iLimitOpts=()
-        [[ "$aMaxSize" ]] && iLimitOpts+=( '"maxSize": '"$aMaxSize" )
-        [[ "$aMinSize" ]] && iLimitOpts+=( '"minSize": '"$aMinSize" )
-        iSizeLimitCmd=',
-                "options": {
-                    '"$(join_array ",
-                    " "${iLimitOpts[@]}")"'
-                }'
-    fi
-    
-    # build doc icon command
-    local iDocIconCmd=
-    if [[ "$aDocIcon" ]] ; then
-        iDocIconCmd=',
-        [
-            {
-                "action": "composite",
-                "options": {
-                    "crop": '"$aCrop"',
-                    "size": 0.5,
-                    "ctrY": 0.48828125,
-                    "with": [
-                        {
-                            "action": "read",
-                            "path": "'"$iIconTemplatePath/doctemplate_bg.png"'"
-                        }
-                    ]
-                }
-            },
-            {
-                "action": "composite",
-                "options": {
-                    "compUnder": true,
-                    "with": [
-                        {
-                            "action": "read",
-                            "path": "'"$iIconTemplatePath/doctemplate_fg.png"'"
-                        }
-                    ]
-                }
-            },
-            {
-                "action": "write_iconset",
-                "path": "'"$iDocIconset"'"'"$iSizeLimitCmd"'
-            }
-        ]'
-    fi
-    
-    # build final makeicon.php command
-    local iMakeIconCmd='
-[
-    {
-        "action": "read",
-        "path": "'"$aIconSource"'"
-    },
-    ['"$iAppIconCompCmd"'
-        {
-            "action": "write_iconset",
-            "path": "'"$iAppIconset"'"'"$iSizeLimitCmd"'
-        }
-    ]'"$iDocIconCmd"'
-]'
-    
-    # run PHP script to convert image into app (and maybe doc icons)
-    local iMakeIconErr=
-    try 'iMakeIconErr&=' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
-    
-    if [[ "$ok" ]] ; then
-        # convert iconsets to ICNS
-        try /usr/bin/iconutil -c icns -o "$aAppIcon" "$iAppIconset" \
-            'Unable to create app icon from temporary iconset.'
-        [[ "$aDocIcon" ]] &&
-            try /usr/bin/iconutil -c icns -o "$aDocIcon" "$iDocIconset" \
-                'Unable to create app icon from temporary iconset.'
-    else
-        # handle messaging for makeicon.php errors
-        errmsg="Unable to create icon"
-        iMakeIconErr="${iMakeIconErr#*Error: }"
-        iMakeIconErr="${iMakeIconErr%.*}"
-        [[ "$iMakeIconErr" ]] && errmsg+=" ($iMakeIconErr)"
-        errmsg+='.'
-        errlog "$errmsg"
-    fi
-    
-    [[ "$aDoProgress" ]] && progress 'stepIconA2'
-    
-    if [[ "$ok" && "$aWelcomeIcon" ]] ; then
-        
-        # CREATE WELCOME PAGE ICON
-        
-        # try copying 128x128 icon first
-        local iWelcomeIconSrc="$iAppIconset/icon_128x128.png"
-        
-        if [[ -f "$iWelcomeIconSrc" ]] ; then
-            permanent "$iWelcomeIconSrc" "$aWelcomeIcon" \
-                'welcome page icon'
-        else
-            # 128x128 not found, so scale progressively smaller ones
-            local curSize
-            for curSize in 512 256 64 32 16 ; do
-                iWelcomeIconSrc="$iAppIconset/icon_${curSize}x${curSize}.png"
-                if [[ -f "$iWelcomeIconSrc" ]] ; then
-                    try '!1' /usr/bin/sips --setProperty format png --resampleHeightWidthMax 128 \
-                        "$iWelcomeIconSrc" --out "$aWelcomeIcon" \
-                        'Unable to create welcome page icon.'
-                    break
-                fi
-                iWelcomeIconSrc=
-            done
-            if [[ ! "$iWelcomeIconSrc" ]] ; then
-                # no size found!
-                ok= ; errmsg='Unable to find image to create welcome page icon.'
-                errlog
-            fi
-        fi
-        
-        # error is nonfatal, we'll just use the default from boilerplate
-        if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
-    fi
-    
-    # destroy iconset directories
-    tryalways /bin/rm -rf "${iNewIconsets[@]}" \
-        'Unable to remove temporary iconset directories.'
-    
-    [[ "$aDoProgress" ]] && progress 'stepIconA3'
-    
-    [[ "$ok" ]] && return 0 || return 1
-}
-# MAKEICONS_END
-
-
 # ESCAPEHTML: escape HTML-reserved characters in a string
 function escapehtml {  # ( str )
 
@@ -371,7 +121,7 @@ progress 'stepStart'
 # check for app path
 if [[ ! "$updateAppPath" ]] ; then
     ok= ; errmsg='No app path.'
-    abort
+    abortreport
 fi
 
 # import app array variables
@@ -458,7 +208,7 @@ resourcesTmp="$updateContentsTmp/Resources"
 # copy in the boilerplate for the app
 try /bin/cp -PR "$updateEpichromeRuntime/Contents" "$updateContentsTmp" \
         'Unable to populate app bundle.'
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 progress 'step03'
 
@@ -528,7 +278,7 @@ filterfile "$updateEpichromeRuntime/Filter/main.sh" \
         APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
         APPEDITED "$(formatscalar "$editedTimestamp")"
 try /bin/chmod 755 "$iMainScript" 'Unable to set permissions for main app script.'
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 progress '!step07'
 
@@ -544,14 +294,18 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         
         # CREATE NEW CUSTOM ICONS
         
-        # ensure a valid source image file
-        try '!1' /usr/bin/sips --getProperty format "$epiIconSource" \
-                "Unable to parse icon source file."
-        [[ "$ok" ]] || abort
-        
         # $$$$ CONVERT TO A FORMAT MAKEICON.PHP CAN READ IF NECESSARY
         
-        makeicons "$epiIconSource" \
+        # # ensure a valid source image file
+        # try '!1' /usr/bin/sips --getProperty format "$epiIconSource" \
+        #         "Unable to parse icon source file."
+        # [[ "$ok" ]] || abort
+        
+        # load makeicon.sh
+        safesource "$myScriptPathEpichrome/makeicon.sh"
+        [[ "$ok" ]] || abortreport
+        
+        makeicon "$epiIconSource" \
             "$resourcesTmp/$CFBundleIconFile" \
             "$resourcesTmp/$CFBundleTypeIconFile" \
             "$updateContentsTmp/$welcomeIconBase" \
@@ -576,7 +330,7 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         
         progress 'stepIconB2'
         
-        [[ "$ok" ]] || abort
+        [[ "$ok" ]] || abortreport
         
         
         # WELCOME PAGE ICON
@@ -697,7 +451,7 @@ filterfile "$updateEpichromeRuntime/Filter/$appBookmarksFile" \
         "$updateContentsTmp/$appBookmarksPath" \
         'bookmarks template' \
         APPBUNDLENAME "$(escapejson "$CFBundleName")"
-[[ "$ok" ]] || abort
+[[ "$ok" ]] || abortreport
 
 progress 'step10'
 
@@ -754,9 +508,9 @@ if [[ "$ok" ]] ; then
     permanent "$updateContentsTmp" "$updateAppPath/Contents" 'app bundle Contents directory'
     updateBackupFile=
     updateContentsTmp=
-    [[ "$ok" ]] || abort
+    [[ "$ok" ]] || abortreport
 else
-    abort
+    abortreport
 fi
 
 progress 'end'

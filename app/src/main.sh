@@ -105,7 +105,7 @@ function cleanup {
         fi
         
         # attempt to alert the user if the app was not left in a runnable state
-        [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $errmsg"$'\n\nThis app may be damaged. Please run Epichrome Scan.app to attempt to repair it.' 'Error' '|stop'
+        [[ "$ok" ]] || alert "FATAL ERROR attempting to deactive app engine: $(msg)"$'\n\nThis app may be damaged. Please run Epichrome Scan.app to attempt to repair it.' 'Error' '|stop'
     fi
 }
 
@@ -245,7 +245,7 @@ if [[ "$myStatusCannotCreatePayload" || \
         if [[ "$errmsg" = 'CANCEL' ]] ; then
             alert "Update canceled. The app has not been updated." 'Update Canceled' '|caution'
         else
-            alert "$errmsg Please try update again later." 'Unable to Update' '|caution'
+            alert "$(msg) Please try update again later." 'Unable to Update' '|caution'
         fi
         errmsg=
     fi
@@ -356,7 +356,7 @@ fi
 
 # update the data directory
 if ! updatedatadir ; then
-    [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
+    [[ "$ok" ]] && alert "$(msg)" 'Warning' '|caution'
 fi
 [[ "$ok" ]] || abortreport
 
@@ -365,7 +365,7 @@ setwelcomepage
 
 # update the profile directory
 if ! updateprofiledir ; then
-    [[ "$ok" ]] && alert "$errmsg" 'Warning' '|caution'
+    [[ "$ok" ]] && alert "$(msg)" 'Warning' '|caution'
 fi
 [[ "$ok" ]] || abortreport
 
@@ -375,21 +375,21 @@ if [[ "$ok" ]] ; then
     # success, so clear last error
     SSBLastErrorNMHInstall=
 else
-    if [[ "$SSBLastErrorNMHInstall" != "$errmsg" ]] ; then
+    if [[ "$SSBLastErrorNMHInstall" != "$(msg)" ]] ; then
         
         if [[ "$installNMHError" = 2 ]] ; then
             # unable to install NMH manifests for Epichrome extension
-            installNMHError="Unable to install Epichrome extension native messaging host. ($errmsg)"$'\n\n'"The Epichrome extension will not work, but other extensions (such as 1Password) should work properly."
+            installNMHError="Unable to install Epichrome extension native messaging host. ($(msg))"$'\n\n'"The Epichrome extension will not work, but other extensions (such as 1Password) should work properly."
         else
             # unable to link to NMH directory -- no NMHs will work
-            installNMHError="Unable to install native messaging hosts for this app. ($errmsg)"$'\n\n'"The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
+            installNMHError="Unable to install native messaging hosts for this app. ($(msg))"$'\n\n'"The Epichrome extension will not work, and other extensions (such as 1Password) may not either."
         fi
         
         # show warning alert for error installing native messaging host
         alert "$installNMHError"$'\n\n'"This error will only be reported once. All errors can be found in the app log." 'Warning' '|caution'
         
         # set new error state
-        SSBLastErrorNMHInstall="$errmsg"
+        SSBLastErrorNMHInstall="$(msg)"
     fi
     
     # clear error state
@@ -404,13 +404,13 @@ if [[ "$ok" ]] ; then
     # success, so clear last error
     SSBLastErrorFailsafe=
 else
-    if [[ "$SSBLastErrorFailsafe" != "$errmsg" ]] ; then
+    if [[ "$SSBLastErrorFailsafe" != "$(msg)" ]] ; then
             
         # show warning alert for failsafe backup error
-        alert "Unable to update failsafe backup. ($errmsg)"$'\n\nThis error will only be reported once. All errors can be found in the app log.' 'Warning' '|caution'
+        alert "Unable to update failsafe backup. ($(msg))"$'\n\nThis error will only be reported once. All errors can be found in the app log.' 'Warning' '|caution'
         
         # set new error state
-        SSBLastErrorFailsafe="$errmsg"
+        SSBLastErrorFailsafe="$(msg)"
     fi
     
     # clear error state
@@ -499,8 +499,10 @@ if [[ "$doCreateEngine" ]] ; then
             errmsg=$'Operation canceled.\n\nTo run this app, please relaunch and allow this operation to finish.'
         fi
         
-        [[ "$errmsg" = 'REPORT|'* ]] && doReport='REPORT|' || doReport=
-        abort "$doReport$createEngineErrMsg: ${errmsg#REPORT|}"
+        isreportable && doReport=1 || doReport=
+        errmsg="$createEngineErrMsg: $(msg)"
+        [[ "$doReport" ]] && reportmsg
+        abort
     fi
 fi
 
@@ -520,7 +522,7 @@ setmasterprefs
 if [[ "$ok" ]] ; then
     masterPrefsSet=1
 else
-    alert "Unable to initialize app settings. ($errmsg) Some app settings may need to be adjusted." \
+    alert "Unable to initialize app settings. ($(msg)) Some app settings may need to be adjusted." \
             'Warning' '|caution'
     ok=1 ; errmsg=
 fi
@@ -559,7 +561,7 @@ if [[ "$ok" ]] ; then
 else
     
     # launch failed
-    [[ "$errmsg" ]] && errPostLaunch="$errmsg "
+    [[ "$errmsg" ]] && errPostLaunch="$(msg) "
     errPostLaunch+="The app may not have launched properly. If it did, the engine will not be properly cleaned up upon quitting."
     myEnginePID='LAUNCHFAILED'
 fi
@@ -583,9 +585,9 @@ fi
 writeconfig "$myConfigFile"
 if [[ ! "$ok" ]] ; then
     if [[ "$errPostLaunch" ]] ; then
-        errPostLaunch="$errmsg Also: $errPostLaunch"
+        errPostLaunch="$(msg) Also: $errPostLaunch"
     else
-        errPostLaunch="$errmsg"
+        errPostLaunch="$(msg)"
     fi
     ok=1 ; errmsg=
 fi
@@ -619,7 +621,7 @@ if [[ "$myEnginePID" && ( "$myStatusWelcomeURL" || "${argsURIs[*]}" ) ]] ; then
     # save any error
     if [[ ! "$ok" ]] ; then
         [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-        errPostLaunch+="Unable to open ${urlDesc} ($errmsg)"
+        errPostLaunch+="Unable to open ${urlDesc} ($(msg))"
         [[ "$myStatusWelcomeURL" ]] && errPostLaunch +=" You should be able to access the welcome page in the app's bookmarks. Please open it for important information about setting up the app."
         ok=1 ; errmsg=
     fi
@@ -643,7 +645,7 @@ if [[ "${myStatusFixRuntime[0]}" ]] ; then
                 'Unable to restore Epichrome Helper settings.'
         if [[ ! "$ok" ]] ; then
             [[ "$errPostLaunch" ]] && errPostLaunch+=' Also: '
-            errPostLaunch+="$errmsg After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
+            errPostLaunch+="$(msg) After reinstalling Epichrome Helper, you will probably need to restore its settings from a backup or re-enter them."
             ok=1 ; errmsg=
         fi
     else

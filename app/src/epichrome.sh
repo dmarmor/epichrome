@@ -39,14 +39,14 @@ function loadscript {
         [[ -f "$iScript" ]] || iScript="$myScriptPathEpichrome/$1"
         if [[ ! -f "$iScript" ]] ; then
             ok= ; errmsg="Unable to find \"$1\"."
-            errlog "$errmsg"
+            errlog
             abortreport
         fi
     fi
     
     if ! source "$iScript" ; then
         ok= ; errmsg="Unable to load ${iScript##*/}."
-        errlog "$errmsg"
+        errlog
         abortreport
     fi
 }
@@ -67,7 +67,7 @@ if [[ "$epiAction" = 'init' ]] ; then
     # check for fatal errors
     if [[ ! "$myLogFile" ]] ; then
         ok= ; errmsg='Unable to initialize Epichrome log file.'
-        errlog "$errmsg"
+        errlog
     elif [[ ! -w "$myDataPath" ]] ; then
         ok= ; errmsg='Epichrome data folder is not writeable.'
     fi
@@ -179,7 +179,7 @@ elif [[ "$epiAction" = 'defaultappdir' ]] ; then
         if [[ "$ok" ]] ; then
             echo "$appDir"
         else
-            echo "ERROR|$errmsg"
+            echo "ERROR|$(msg)"
         fi
     fi
     
@@ -523,6 +523,19 @@ elif [[ "$epiAction" = 'read' ]] ; then
 }"
 
 
+elif [[ "$epiAction" = 'sampleicon' ]] ; then
+    
+    # ACTION: CREATE SAMPLE ICON
+    
+    # load makeicon.sh
+    loadscript 'makeicon.sh'
+    
+    # build icon
+    makeicon "$epiIconSource" "$myDataPath/sample.icns" '' '' \
+        "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" '' 256 256
+    [[ "$ok" ]] || abort
+    
+    
 elif [[ "$epiAction" = 'build' ]] ; then
     
     # ACTION: BUILD NEW APP
@@ -541,8 +554,9 @@ elif [[ "$epiAction" = 'build' ]] ; then
                 rmtemp "$appTmp" 'temporary app bundle'
             else
                 if ! /bin/rm -rf "$appTmp" 2> /dev/null ; then
-                    errmsg='Unable to remove temporary app bundle.'
-                    errlog "$errmsg"
+                    [[ "$errmsg" ]] && errmsg+=' Also: '
+                    errmsg+='Unable to remove temporary app bundle.'
+                    errlog
                     echo "$errmsg" 1>&2
                 fi
             fi
@@ -613,7 +627,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
                     "$currentDataPath" "app bundle"
             if [[ ! "$ok" ]] ; then
                 warnings=( 'WARN' \
-                        "Unable to migrate data directory to new ID \"$SSBIdentifier\". ($errmsg) The app will create a new data directory on first run." )
+                        "Unable to migrate data directory to new ID \"$SSBIdentifier\". ($(msg)) The app will create a new data directory on first run." )
                 ok=1 ; errmsg=
             fi
         fi
@@ -632,7 +646,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
         
         if [[ ! "$ok" ]] ; then
             [[ "${warnings[*]}" ]] || warnings=( 'WARN' )
-            warnings+=( "Unable to update old data directory structure. ($errmsg) Your data for this app may be lost." )
+            warnings+=( "Unable to update old data directory structure. ($(msg)) Your data for this app may be lost." )
             ok=1 ; errmsg=
         fi
     fi
@@ -653,7 +667,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
             permanent "$epiAppPath" "$epiNewAppPath" "app bundle"
             if [[ ! "$ok" ]] ; then
                 [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
-                warnings+=( "$warnPrefix. ($errmsg) $warnPostfix" )
+                warnings+=( "$warnPrefix. ($(msg)) $warnPostfix" )
                 ok=1 ; errmsg=
             fi
         fi
@@ -691,7 +705,7 @@ elif [[ ("$epiAction" = 'edit') || ("$epiAction" = 'update') ]] ; then
     
     if [[ ! "$ok" ]] ; then
         [[ "${warnings[*]}" ]] || warnings+=( 'WARN' )
-        warnings+=( "Unable to update app configuration. ($errmsg) The welcome page may show inaccurate information." )
+        warnings+=( "Unable to update app configuration. ($(msg)) The welcome page may show inaccurate information." )
         ok=1 ; errmsg=
     fi
     

@@ -1,11 +1,10 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b11
-epiBuildNum=6
+epiVersion=2.4.0b12
+epiBuildNum=2
 epiDesc=( \
-        'Updated all icons for compatibility with Big Sur' \
-        'Added the option of creating Big Sur-compatible icons during app creation and editing' \
-        'Updated built-in engine to Brave 1.20.108' )
+        'Improved icon creation interface to show preview of icon' \
+        'Updated built-in engine to Brave 1.X' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \

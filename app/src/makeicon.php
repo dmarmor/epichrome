@@ -387,7 +387,7 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
                                     0, 0, $curSize, $curSize);
         
         // output as nextSize x2
-        if ($curSize != $iSmallestSize) {
+        if ($curSize != ICON_SIZE_MIN) {
             savePNG($curResult, sprintf("%s/icon_%dx%d@2x.png", $aPath, $nextSize, $nextSize));
         }
         

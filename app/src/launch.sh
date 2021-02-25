@@ -444,7 +444,7 @@ function checkappupdate {
 				"${updateButtonList[@]}"
 		
 		if [[ ! "$ok" ]] ; then
-			alert "Epichrome version $epiUpdateVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($errmsg) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
+			alert "Epichrome version $epiUpdateVersion was found (this app is using version $SSBVersion) but the update dialog failed. ($(msg)) If you don't want to update the app, you'll need to use Activity Monitor to quit now." 'Update' '|caution'
 			doUpdate="Update"
 			ok=1 ; errmsg=
 		fi
@@ -469,11 +469,16 @@ function checkappupdate {
 			
 			# IF WE GET HERE, UPDATE FAILED
 			
-			# alert the user to any error, but don't throw an exception
+			# alert the user to any error
 			ok=1
 			if [[ "$errmsg" != 'CANCEL' ]] ; then
-				[[ "$errmsg" ]] && errmsg=" (${errmsg#REPORT|})"
+				local iDoReport=
+				if [[ "$errmsg" ]] ; then
+					isreportable && iDoReport=1
+					errmsg=" ($(msg))"
+				fi
 				errmsg="Unable to complete update.$errmsg"
+				[[ "$iDoReport" ]] && reportmsg
 			fi
 			result=1
 			;;
@@ -528,7 +533,7 @@ function checkgithubupdate {
 		# ensure we can write back to the info file
 		if [[ ! -w "$epiGithubCheckFile" ]] ; then
 			ok= ; errmsg='Unable to write to update check info file.'
-			errlog "$errmsg"
+			errlog
 		fi
 		
 		if [[ "$ok" ]] ; then
@@ -659,7 +664,7 @@ function checkgithubupdate {
 				else
 					
 					ok= ; errmsg='No Epichrome release found on GitHub.'
-					errlog  "$errmsg"
+					errlog
 				fi
 			fi
 		else
@@ -739,7 +744,7 @@ $tab}\""
 				else
 					# error showing dialog
 					errmsg='Unable to display update dialog.'
-					errlog "$errmsg"
+					errlog
 					iResultVersion="$iGithubCurVersion"
 				fi
 			fi
@@ -755,7 +760,7 @@ $tab}\""
 			local iUpdateError="$errmsg" ; errmsg=
 			
 			# write out info file
-			if ! checkgithubinfowrite "$iCurDate" "$iResultVersion" "$iUpdateError" ; then
+			if ! checkgithubinfowrite "$iCurDate" "$iResultVersion" "$(msg "$iUpdateError")" ; then
 				iInfoFileError="$errmsg"
 			else
 				# restore error state
@@ -773,7 +778,7 @@ $tab}\""
 	
 	# if we ran into any errors, handle them
 	if [[ ! "$ok" ]] ; then
-		checkgithubhandleerr "$iGithubLastError" "$iInfoFileError" "$aJsonVar"
+		checkgithubhandleerr "$iGithubLastError" "$(msg "$iInfoFileError")" "$aJsonVar"
 		return 1
 	fi
 	
@@ -822,7 +827,7 @@ function checkgithubhandleerr {
 	local aJsonVar="$1" ; shift ; [[ "$aJsonVar" ]] && eval "$aJsonVar="
 	
 	# if the current non-fatal error is a repeat of the last one, don't report it
-	[[ "$aLastError" && ( "$aLastError" = "$errmsg" ) ]] && errmsg=
+	[[ "$aLastError" && ( "$aLastError" = "$(msg)" ) ]] && errmsg=
 	
 	# create error message
 	local iErrWarning=
@@ -834,13 +839,13 @@ function checkgithubhandleerr {
 		iErrWarning="Warning: A serious error occurred while checking GitHub for new versions of Epichrome. ($aFatalError)"
 		
 		if [[ "$errmsg" ]] ; then
-			iErrWarning+=$'\n\n'"A less serious error also occurred. ($errmsg)"
+			iErrWarning+=$'\n\n'"A less serious error also occurred. ($(msg))"
 		fi
 		
 		iErrWarning+=$'\n\nGitHub checks must be disabled. Epichrome and your apps will not be able to notify you of future versions.'
 	else
 		if [[ "$errmsg" ]] ; then
-			iErrWarning+="Warning: An error occurred while checking GitHub for a new version of Epichrome. ($errmsg)"$'\n\nThis alert will only be shown once. All errors can be found in the app log.'
+			iErrWarning+="Warning: An error occurred while checking GitHub for a new version of Epichrome. ($(msg))"$'\n\nThis alert will only be shown once. All errors can be found in the app log.'
 		fi
 	fi
 	
@@ -1103,7 +1108,7 @@ function updateprofiledir {
 		local iAllExcept='!(Default)'
 		saferm 'Error deleting top-level files.' "$myProfilePath/"$iAllExcept
 		if [[ ! "$ok" ]] ; then
-			myErrDelete="$errmsg"
+			myErrDelete="$(msg)"
 			ok=1 ; errmsg=
 		fi
 		
@@ -1120,7 +1125,7 @@ function updateprofiledir {
 			if [[ "$?" = 1 ]] ; then
 				local myErrAllExtensions=1
 			elif [[ "$?" = 2 ]] ; then
-				local myErrSomeExtensions="$errmsg"
+				local myErrSomeExtensions="$(msg)"
 			fi
 			
 			# add to welcome page
@@ -1133,7 +1138,7 @@ function updateprofiledir {
 					"$myProfilePath/Default/"$iAllExcept
 			
 			if [[ ! "$ok" ]] ; then
-				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
+				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$(msg)"
 				ok=1 ; errmsg=
 			fi
 			
@@ -1153,7 +1158,7 @@ function updateprofiledir {
 			try /bin/rm -f "$myProfilePath/Default/Login Data"* \
 					'Error deleting login data.'
 			if [[ ! "$ok" ]] ; then
-				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
+				[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$(msg)"
 				ok=1 ; errmsg=
 			fi
 		fi
@@ -1173,7 +1178,7 @@ function updateprofiledir {
 		try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
 				'Error deleting first-run files.'
 		if [[ ! "$ok" ]] ; then
-			[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
+			[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$(msg)"
 			ok=1 ; errmsg=
 		fi
 	fi
@@ -1327,7 +1332,7 @@ ${BASH_REMATCH[5]}}"
 					try "${myBookmarksFile}<" echo "$bookmarksJson" \
 							'Error writing out app bookmarks file.'
 					if [[ ! "$ok" ]] ; then
-						myErrBookmarks="$errmsg"  # error writing bookmarks file
+						myErrBookmarks="$(msg)"  # error writing bookmarks file
 						ok=1 ; errmsg=
 					fi
 				fi
@@ -1476,7 +1481,7 @@ function getextensioninfo {
 						return 1
 					elif [[ "$iCacheResult" = 2 ]] ; then
 						# some extensions failed, so record them
-						iFailedExtensions="$errmsg"
+						iFailedExtensions="$(msg)"
 						split_array iFailedExtensions
 						ok=1 ; errmsg=
 					fi
@@ -2189,7 +2194,7 @@ function installnmhs {
 	installepichromenmh "$iCentralNMHPath"
 	local iEpichromeNMHError=
 	if [[ ! "$ok" ]] ; then
-		[[ "$errmsg" ]] && iEpichromeNMHError="$errmsg" || iEpichromeNMHError='Unknown error.'
+		[[ "$errmsg" ]] && iEpichromeNMHError="$(msg)" || iEpichromeNMHError='Unknown error.'
 		ok=1 ; errmsg=
 	fi
 	
@@ -2282,7 +2287,7 @@ function installepichromenmh {
 	# abort if we're supposed to update but there's no current version of Epichrome
 	if [[ "$doUpdate" && ( ! "$epiCurrentPath" ) ]] ; then
 		ok= ; errmsg='Current Epichrome not found.'
-		errlog "$errmsg"
+		errlog
 		return 1
 	fi
 	
@@ -2299,10 +2304,10 @@ function installepichromenmh {
 		# make sure source NMH exists and is executable
 		if [[ ! -f "$nmhScript" ]] ; then
 			ok= ; errmsg="Native messaging host $SSBVersion not found where expected."
-			errlog "$errmsg"
+			errlog
 		elif [[ ! -x "$nmhScript" ]] ; then
 			ok= ; errmsg="Native messaging host $SSBVersion is not executable."
-			errlog "$errmsg"
+			errlog
 		fi
 		
 		# make sure directory exists
@@ -2439,7 +2444,7 @@ function setenginestate {
 	# move the old payload out
 	if [[ -d "$newInactivePath" ]] ; then
 		ok= ; errmsg="${myAppErrID}Engine already ${newStateName}d."
-		errlog "$errmsg"
+		errlog
 	fi
 	try /bin/mv "$myContents" "$newInactivePath" \
 			"${myAppErrID}Unable to $newStateName engine."
@@ -2448,7 +2453,7 @@ function setenginestate {
 	# make double sure old payload is gone
 	if [[ -d "$myContents" ]] ; then
 		ok= ; errmsg="${myAppErrID}Unknown error moving old payload out of app."
-		errlog "$errmsg"
+		errlog
 		return 1
 	fi
 	
@@ -2506,7 +2511,7 @@ function deletepayload {
 				( -e "$myPayloadLauncherPath" ) && \
 				(! -e "$myPayloadEnginePath" ) ]] ; then
 			errmsg="Cannot delete payload while engine is active."
-			errlog "$errmsg"
+			errlog
 			ok=
 		else
 			debuglog "${myAppID}Deleting payload at '$SSBPayloadPath'"
@@ -2522,7 +2527,7 @@ function deletepayload {
 				if ! waitforcondition "${myAppIDWait}payload to delete" 5 .5 \
 				test '!' -d "$SSBPayloadPath" ; then
 					errmsg="${myAppID}Removal of payload failed."
-					errlog "$errmsg"
+					errlog
 					ok=
 				fi
 			fi
@@ -2534,7 +2539,7 @@ function deletepayload {
 		
 		# save state
 		local cleanOK="$ok"
-		local cleanErrmgs="$errmsg"
+		local cleanErrmsg="$errmsg"
 		
 		# try to remove parent user directory in case it's empty
 		local myPayloadParent="${SSBPayloadPath%/*}"
@@ -2548,7 +2553,7 @@ function deletepayload {
 		
 		# restore state
 		ok="$cleanOK"
-		errmsg="$cleanErrmgs"
+		errmsg="$cleanErrmsg"
 	fi
 	
 	# handle errors
@@ -2676,7 +2681,7 @@ function clearmasterprefs {
 				test -e "$myPreferencesFile" ; then
 			ok=
 			errmsg="Timed out waiting for app prefs to appear."
-			errlog "$errmsg"
+			errlog
 		fi
 		
 		if [[ -e "${myMasterPrefsState[1]}" ]] ; then
@@ -2869,7 +2874,7 @@ function launchapp {
 	# check for known errors
 	if [[ "$iResultPID" = 'ERROR|'* ]] ; then
 		ok= ; errmsg="Error launching $aAppDesc: ${iResultPID#ERROR|}"
-		errlog "$errmsg"
+		errlog
 		return 1
 	fi
 	
@@ -2883,7 +2888,7 @@ function launchapp {
 			# app immediately quit
 			ok=
 			errmsg="Error launching $aAppDesc: app launched, but immediately quit."
-			errlog "$errmsg"
+			errlog
 		else
 			
 			# check that PID is active
@@ -2900,15 +2905,15 @@ function launchapp {
 				if [[ "$iExitCode" = 127 ]] ; then
 					# process not found
 					errmsg="Error launching $aAppDesc: process $iResultPID not found."
-					errlog "$errmsg"
+					errlog
 				elif [[ "$iExitCode" = 126 ]] ; then
 					# executable not found
 					errmsg="Error launching $aAppDesc: could not run executable."
-					errlog "$errmsg"
+					errlog
 				elif [[ "$iExitCode" != 0 ]] ; then
 					# launched but immediately quit with an error
 					errmsg="Launched $aAppDesc but it quit with code $iExitCode."
-					errlog "$errmsg"
+					errlog
 				else
 					# launched and immediately quit successfully
 					debuglog "Launched $aAppDesc and it finished with exit code 0."
@@ -2958,7 +2963,7 @@ function launchurls {
             	"Error sending $aUrlDesc to app engine."
     else
 		ok= ; errmsg='App engine does not appear to be running.'
-		errlog "$errmsg"
+		errlog
 	fi
 	
 	[[ "$ok" ]] && return 0 || return 1

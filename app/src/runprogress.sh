@@ -68,7 +68,7 @@ function runprogress {
                 try 'myErrMsg=' /bin/cat "$subappErrFile" 'Unable to read error message file.'
             else
                 ok= ; errmsg='No error message found.'
-                errlog "$errmsg"
+                errlog
             fi
             if [[ "$ok" ]] ; then
                 errmsg="$myErrMsg"

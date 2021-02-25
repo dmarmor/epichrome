@@ -320,16 +320,12 @@ clean-all: clean clean-package clean-engine
 	rm -rf build
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 
-build/icons/%.icns: build/icons/%.png src/core.sh src/progress/mode_update.sh src/makeicon.php
+build/icons/%.icns: build/icons/%.png src/core.sh src/makeicon.sh src/makeicon.php
 	@mkdir -p '$(dir $@)'
 	iMakeIconScript='src/makeicon.php' ; \
 	iIconTemplatePath='$(APP_CT)/Resources/Icons' ; \
-	source src/core.sh ; \
-	makeicons_fn="$$(cat src/progress/mode_update.sh)" ; \
-	makeicons_fn="$${makeicons_fn#*MAKEICONS_START}" ; \
-	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
-	eval "$$makeicons_fn" ; \
-	makeicons '$<' '$@' ; \
+	source 'src/makeicon.sh' ; \
+	makeicon '$<' '$@' ; \
 	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
 
 build/icons/%.png: ../images/icons/%.psd
@@ -532,6 +528,7 @@ $(APP):	$(APP_CT)/PkgInfo \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
 	$(APP_CT)/Resources/Scripts/legacy.sh \
+	$(APP_CT)/Resources/Scripts/makeicon.sh \
 	$(APP_CT)/Resources/Scripts/makeicon.php \
 	$(APP_CT)/Resources/Scripts/update.sh \
 	$(APP_CT)/Resources/Scripts/version.sh \
@@ -637,8 +634,7 @@ build/icons/samples/sample_%.icns: build/icons/iconsample.png \
 		build/icons/apptemplate_bg_gray.png \
 		build/icons/apptemplate_bg_white.png \
 		build/icons/apptemplate_shadow.png \
-		src/core.sh src/progress/mode_update.sh \
-		src/makeicon.php
+		src/core.sh src/makeicon.sh src/makeicon.php
 	@mkdir -p '$(dir $@)'
 	crop='$*' ; crop="$${crop%%_*}" ; if [[ "$$crop" = 'crop' ]] ; then crop=1 ; else crop= ; fi ; \
 	size='$*' ; size="$${size#*_}" ; \
@@ -650,12 +646,8 @@ build/icons/samples/sample_%.icns: build/icons/iconsample.png \
 	fi ; \
 	iMakeIconScript='src/makeicon.php' ; \
 	iIconTemplatePath='build/icons' ; \
-	source src/core.sh ; \
-	makeicons_fn="$$(cat src/progress/mode_update.sh)" ; \
-	makeicons_fn="$${makeicons_fn#*MAKEICONS_START}" ; \
-	makeicons_fn="$${makeicons_fn%MAKEICONS_END*}" ; \
-	eval "$$makeicons_fn" ; \
-	makeicons '$<' '$@' '' '' "$$crop" "$$size" "$$bg" '' 256 64 ; \
+	source 'src/makeicon.sh' ; \
+	makeicon '$<' '$@' '' '' "$$crop" "$$size" "$$bg" '' 256 256 ; \
 	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
 	
 $(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh

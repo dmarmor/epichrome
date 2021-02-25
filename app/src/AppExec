@@ -60,7 +60,7 @@ else
         errmsg='Cannot launch. Another instance of this app is already running'
         [[ "${runningPID[0]}" ]] && errmsg+=" at PID ${runningPID[0]}"
         errmsg+='.'
-        errlog FATAL "$errmsg"
+        errlog FATAL
         
         cleanexit
     fi

@@ -151,8 +151,9 @@ const kActionUPDATE = 3;
 // step results
 const kStepResultSUCCESS = 1;
 const kStepResultERROR = 2;
-const kStepResultQUIT = 3;
-const kStepResultSKIP = 4;
+const kStepResultREPORTERROR = 3;
+const kStepResultQUIT = 4;
+const kStepResultSKIP = 5;
 
 
 // --- GLOBAL VARIABLES ---
@@ -234,10 +235,11 @@ function mainWrapper(aApps=[]) {
         writeProperties();
         
     } catch(myErr) {
-        if (myErr.message.startsWith('REPORT|')) {
-            myErr.message = myErr.message.slice(7);
-        }
+        
+        // all errors caught here should be reported
+        [undefined, myErr.message] = errIsReportable(myErr.message);
         errlog(myErr.message, 'FATAL');
+        
         if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
@@ -253,7 +255,7 @@ function mainWrapper(aApps=[]) {
 }
 
 function main(aApps=[]) {
-    
+        
     // collect modifier keys for bringing up preferences
     // https://apple.stackexchange.com/questions/352236/detect-if-ctrl-key-is-pressed
     ObjC.import('Cocoa');
@@ -813,6 +815,7 @@ function runEdit(aApps) {
 
         let mySuccessText = [], myHasSuccess = false;
         let myErrorText = [], myHasError = false;
+        let myReportErrors = false;
         let myAbortText = [], myHasAbort = false;
 
         for (let curApp of myApps) {
@@ -822,6 +825,10 @@ function runEdit(aApps) {
             } else if (curApp.result == kStepResultERROR) {
                 myErrorText.push(kIndent + kDotError + ' ' + curApp.appInfo.displayName);
                 myHasError = true;
+            } else if (curApp.result == kStepResultREPORTERROR) {
+                myErrorText.push(kIndent + kDotError + ' ' + curApp.appInfo.displayName);
+                myHasError = true;
+                myReportErrors = true;
             } else if ((curApp.result == kStepResultSKIP) || (curApp.result == kStepResultQUIT)) {
                 myAbortText.push(kIndent + kDotSkip + ' ' + curApp.appInfo.displayName);
                 myHasAbort = true;
@@ -845,10 +852,14 @@ function runEdit(aApps) {
             }
         } else {
 
-            // if errors encountered, add report error button
-            if (myHasError) {
+            // if reportable errors encountered, add report error button
+            if (myReportErrors) {
                 // this is now default, & Quit button is cancel
-                myDlgButtons.unshift('Report Error & Quit');
+                if (myErrorText.length > 1) {
+                    myDlgButtons.unshift('Report Errors & Quit');
+                } else {
+                    myDlgButtons.unshift('Report Error & Quit');
+                }
                 myDlgOptions.cancelButton = 2;
             }
             
@@ -1384,13 +1395,17 @@ function doSteps(aSteps, aInfo, aOptions={}) {
             
             errlog(myStepResult.message, myStepResult.backStep ? 'ERROR' : 'FATAL');
             
-            myResult = kStepResultERROR;
+            myResult = (myStepResult.reportError ? kStepResultREPORTERROR : kStepResultERROR);
             
             let myDlgButtons, myDlgOptions, myDlgResult;
             
             // set up buttons
             if (aInfo.stepInfo.isOnlyApp) {
-                myDlgButtons = ['Report Error & Quit', 'Quit'];
+                if (myStepResult.reportError) {
+                    myDlgButtons = ['Report Error & Quit', 'Quit'];
+                } else {
+                    myDlgButtons = ['Quit'];
+                }
             } else {
                 myDlgButtons = ['Skip'];
             }
@@ -1430,7 +1445,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 myDlgResult = dialog(myStepResult.message, myDlgOptions).buttonIndex;
             }
             
-            if (aInfo.stepInfo.isOnlyApp && (myDlgResult == 0)) {
+            if (aInfo.stepInfo.isOnlyApp && myStepResult.reportError && (myDlgResult == 0)) {
                 // user clicked 'Report Error & Quit'
                 reportError('Epichrome reports an error ' +
                     ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
@@ -2788,11 +2803,14 @@ function stepBuild(aInfo) {
         myBuildMessage = ['Updating', 'Update', 'Updated'];
     }
     
+    let myDoReport = true;
     try {
         myScriptArgs.push('epiUpdateMessage=' + myBuildMessage[0] + ' "' + aInfo.appInfo.displayName + '.app"');
         
-        // run the build/update script
+        // run the build/update script, and don't automatically report any errors it returns
+        myDoReport = false;
         shell.apply(null, myScriptArgs);
+        myDoReport = true;
         
         // bring Epichrome to the front
         kApp.activate();
@@ -2839,10 +2857,16 @@ function stepBuild(aInfo) {
             });
         } else {
             
+            // determine if error is reportable
+            if (!myDoReport) {
+                [myDoReport, myErr.message] = errIsReportable(myErr.message);
+            }
+            
             // show error dialog & quit or go back
             return {
                 message: myBuildMessage[1] + (aInfo.stepInfo.isOnlyApp ? '' : ' of app "' + aInfo.appInfo.displayName + '"') + ' failed: ' + myErr.message,
                 error: myErr,
+                reportError: myDoReport,
                 title: 'Application Not ' + myBuildMessage[2],
                 backStep: 0,
             };
@@ -3884,6 +3908,16 @@ function errlog(aMsg, aType='ERROR') {
 // DEBUGLOG -- log a debugging message
 function debuglog(aMsg) {
     errlog(aMsg, 'DEBUG');
+}
+
+
+// ERRISREPORTABLE -- determine if an error starts with REPORT| & strip off
+function errIsReportable(aMsg) {
+    if (aMsg.startsWith('REPORT|')) {
+        return [true, aMsg.slice(7)];
+    } else {
+        return [false, aMsg];
+    }
 }
 
 

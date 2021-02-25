@@ -136,8 +136,10 @@ try {
         
         if [[ ! "$ok" ]] ; then
             # error in engine browser dialog
-            [[ "$errmsg" ]] && errmsg=" ($errmsg)"
+            local iDoReport= ; isreportable && iDoReport=1
+            [[ "$errmsg" ]] && errmsg=" ($(msg))"
             errmsg="Error locating $myExtEngineName.$errmsg"
+            [[ "$iDoReport" ]] && reportmsg
         elif [[ "$myExtEngineSourcePath" = 'CANCEL' ]] ; then
             ok= ; errmsg="Locating of $myExtEngineName canceled."
         fi
