@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b12
-epiBuildNum=2
+epiBuildNum=3
 epiDesc=( \
         'Improved icon creation interface to show preview of icon' \
         'Updated built-in engine to Brave 1.X' )

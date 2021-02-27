@@ -523,7 +523,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
 }"
 
 
-elif [[ "$epiAction" = 'sampleicon' ]] ; then
+elif [[ "$epiAction" = 'iconpreview' ]] ; then
     
     # ACTION: CREATE SAMPLE ICON
     
@@ -531,7 +531,7 @@ elif [[ "$epiAction" = 'sampleicon' ]] ; then
     loadscript 'makeicon.sh'
     
     # build icon
-    makeicon "$epiIconSource" "$myDataPath/sample.icns" '' '' \
+    makeicon "$epiIconSource" "$epiIconPreviewPath" '' '' \
         "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" '' 256 256
     [[ "$ok" ]] || abort
     

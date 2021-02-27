@@ -302,6 +302,9 @@ function main(aApps=[]) {
     myInitInfo.core.settingsFile = gCoreInfo.settingsFile;
     gCoreInfo = myInitInfo.core;
     
+    // set up preview icon path
+    gCoreInfo.previewIcon = gCoreInfo.dataPath + '/preview.icns';
+    
     // init engine list
     for (let curEng of kEngines) {
         curEng.button = engineName(curEng);
@@ -2288,82 +2291,89 @@ function stepIcon(aInfo) {
         
         if (myChooseIcon) {
             
-            // save step number text
-            let myStepNumText = aInfo.stepInfo.numText;
-            
-            
-            // OFFER TO UPDATE ICON COMPOSITING SETTINGS
-            
-            myDlgResult = 1;
-            while (myDlgResult != 0) {
-                
-                // create message with current comp settings
-                let myIconStyleMsg = '\n\n' + kDotSelected + ' ';
-                if (gIconSettings.compBigSur) {
-                    myIconStyleMsg += 'Big Sur Style\n' + kDotSelected + ' ' +
-                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to ' +
-                        gIconSettings.compSize.capitalized() +
-                        ' Square on ' +
-                        gIconSettings.compBg.capitalized() +
-                        ' BG';
-                } else {
-                    myIconStyleMsg += 'Image Only\n' + kDotSelected + ' ' +
-                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to Square';
-                }
-                
-                // show comp settings dialog
-                myDlgResult = dialog('The icon at left shows how your image might look with the currently-selected conversion options:' + myIconStyleMsg, {
-                    withTitle: 'Icon Conversion Options',
-                    withIcon: sampleIcon(),
-                    buttons: ['Confirm', 'Change', 'Back'],
-                    defaultButton: 1,
-                    cancelButton: 3
-                }).buttonIndex;
-                
-                if (myDlgResult == 1) {
-                    doSteps([
-                        stepIconStyle,
-                        stepIconCrop
-                    ], aInfo, {
-                        abortSilent: true,
-                        abortBackButton: 'Back',
-                        stepTitle: 'Icon Style'
-                    });
-                } else if (myDlgResult == 2) {
-                    
-                    // Back button -- do icon step again
-                    return 0;
-                }
-            }
-            
-            // $$$ MAKE SURE THIS HASN'T MESSED UP AINFO IN ANY WAY
-            
-            
             // CHOOSE AN APP ICON
 
             let myIconSourcePath;
 
             // set up file selection dialog options
             let myDlgOptions = {
-                withPrompt: 'Select an image to use as an icon.',
-                ofType: ["public.jpeg", "public.png", "public.tiff", "com.apple.icns"],
+                withPrompt: aInfo.stepInfo.numText + ': Select an image to use as an icon.',
+                ofType: ["public.jpeg",
+                    "public.png",
+                    "com.compuserve.gif",
+                    "com.microsoft.bmp",
+                    "org.webmproject.webp",
+                    "com.apple.icns"],
                 invisibles: false
             };
+            
+            let myTryAgain = true;
+            while (myTryAgain) {
+                
+                // assume success
+                myTryAgain = false;
 
-            // show file selection dialog
-            myIconSourcePath = fileDialog('open', gEpiLastDir, 'icon', {
-                withPrompt: myStepNumText + ': Select an image to use as an icon.',
-                ofType: ["public.jpeg", "public.png", "public.tiff", "com.apple.icns"],
-                invisibles: false
-            });
-            if (!myIconSourcePath) {
-                // canceled: ask about a custom icon again
-                return 0;
+                // show file selection dialog
+                myIconSourcePath = fileDialog('open', gEpiLastDir, 'icon', myDlgOptions);
+                if (!myIconSourcePath) {
+                    // canceled: ask about a custom icon again
+                    return 0;
+                }
+                
+                // update custom icon info
+                aInfo.appInfo.icon = myIconSourcePath;
+                
+                
+                // OFFER TO UPDATE ICON COMPOSITING SETTINGS
+                
+                while (true) {
+                    
+                    // create message with current comp settings
+                    let myIconStyleMsg = '\n\n' + kDotSelected + ' ';
+                    if (gIconSettings.compBigSur) {
+                        myIconStyleMsg += 'Big Sur Style\n' + kDotSelected + ' ' +
+                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to ' +
+                        gIconSettings.compSize.capitalized() +
+                        ' Square on ' +
+                        gIconSettings.compBg.capitalized() +
+                        ' BG';
+                    } else {
+                        myIconStyleMsg += 'Image Only\n' + kDotSelected + ' ' +
+                        (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to Square';
+                    }
+                    
+                    // show comp settings dialog
+                    myDlgResult = dialog('The image at left shows how your icon will look with the currently-selected conversion options:' + myIconStyleMsg, {
+                        withTitle: 'Icon Conversion Options',
+                        withIcon: iconPreview(aInfo.appInfo.icon.path),
+                        buttons: ['Confirm', 'Change', 'Back'],
+                        defaultButton: 1,
+                        cancelButton: 3
+                    }).buttonIndex;
+                    
+                    if (myDlgResult == 1) {
+                        doSteps([
+                            stepIconStyle,
+                            stepIconCrop
+                        ], aInfo, {
+                            abortSilent: true,
+                            abortBackButton: 'Back',
+                            stepTitle: 'Icon Style'
+                        });
+                        // and return to the confirmation dialog
+                        
+                    } else if (myDlgResult == 0) {
+                        // Confirm button, so we're done
+                        break;
+                    } else {
+                        // if we got here, it's the Back button, so go back
+                        // to file selection
+                        myTryAgain = true;
+                        break;
+                    }
+                }
             }
-
-            // update custom icon info
-            aInfo.appInfo.icon = myIconSourcePath;
-
+            
         } else {
             // don't change custom icon
             aInfo.appInfo.icon = true;
@@ -2392,7 +2402,7 @@ function stepIconStyle(aInfo) {
             'Image Only': false,
             'Big Sur':  true
         },
-        withIcon: sampleIcon()
+        withIcon: iconPreview(aInfo.appInfo.icon.path)
     });
     
     // handle Back button
@@ -2463,7 +2473,7 @@ function stepIconCrop(aInfo) {
             'Fit': false,
             'Crop':  true
         },
-        withIcon: sampleIcon()
+        withIcon: iconPreview(aInfo.appInfo.icon.path)
     });
     
     // handle Back button
@@ -3462,12 +3472,41 @@ function engineName(aEngine, aCapType=true) {
 }
 
 
-// SAMPLEICON: retrieve a sample icon for the current settings
-function sampleIcon() {
-    return kApp.pathToResource('Icons/Samples/sample_' +
-        (gIconSettings.crop ? 'crop_' : 'fit_') +
-        (gIconSettings.compBigSur ? gIconSettings.compSize + '_' + gIconSettings.compBg : 'none') +
-        '.icns');
+// ICONPREVIEW: create or retrieve a preview icon for the current settings
+function iconPreview(aIconPath) {
+    
+    if ((!iconPreview.path) || (iconPreview.source !== aIconPath) ||
+        (!objEquals(iconPreview.settings, gIconSettings))) {
+        
+        let iErr;
+        
+        try {
+            // run script
+            shell('epiAction=iconpreview',
+            'epiIconSource=' + aIconPath,
+            'epiIconPreviewPath=' + gCoreInfo.previewIcon,
+            'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
+            'epiIconCompSize=' + gIconSettings.compSize,
+            'epiIconCompBG=' + gIconSettings.compBG);
+            
+            // cache all info
+            iconPreview.path = Path(gCoreInfo.previewIcon);
+            iconPreview.source = aIconPath;
+            iconPreview.settings = objCopy(gIconSettings);
+            
+        } catch(iErr) {
+            
+            // $$$ SHOW ERROR -- i am here
+            dialog('ERROR TBD: ' + iErr.message);
+            
+            // no preview icon
+            iconPreview.path = null;
+            iconPreview.source = null;
+            iconPreview.settings = null;
+        }
+    }
+    
+    return iconPreview.path;
 }
 
 
