@@ -3486,8 +3486,8 @@ function iconPreview(aIconPath) {
             'epiIconSource=' + aIconPath,
             'epiIconPreviewPath=' + gCoreInfo.previewIcon,
             'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
-            'epiIconCompSize=' + gIconSettings.compSize,
-            'epiIconCompBG=' + gIconSettings.compBG);
+            'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
+            'epiIconCompBG=' + (gIconSettings.compBigSur ? gIconSettings.compBG : ''));
             
             // cache all info
             iconPreview.path = Path(gCoreInfo.previewIcon);

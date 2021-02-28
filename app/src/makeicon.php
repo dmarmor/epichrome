@@ -600,6 +600,7 @@ try {
     // run actions
     runActions($gActions);
 } catch (Exception $gErr) {
+    fwrite(STDERR, 'PHPERR|');
     if ($gErr instanceof EpiException) {
         fwrite(STDERR, $gErr->getMessage() . "\n");
     } else {

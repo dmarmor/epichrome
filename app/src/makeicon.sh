@@ -224,8 +224,8 @@ function makeicon {
     else
         # handle messaging for makeicon.php errors
         errmsg="Unable to create icon"
-        iMakeIconErr="${iMakeIconErr#*Error: }"
-        iMakeIconErr="${iMakeIconErr%.*}"
+        iMakeIconErr="${iMakeIconErr#*PHPERR|}"
+        # iMakeIconErr="${iMakeIconErr%.*}"  $$$
         [[ "$iMakeIconErr" ]] && errmsg+=" ($iMakeIconErr)"
         errmsg+='.'
         errlog
