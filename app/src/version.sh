@@ -3,8 +3,9 @@
 epiVersion=2.4.0b12
 epiBuildNum=4
 epiDesc=( \
-        'Improved icon creation interface to show preview of icon' \
-        'Updated built-in engine to Brave 1.X' )
+        'Improved icon creation interface to show preview of actual icon' \
+        'Greatly increased the variety of image formats that can be used to create icons' \
+        'Updated built-in engine to Brave 1.20.110' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
