@@ -294,13 +294,6 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
         
         # CREATE NEW CUSTOM ICONS
         
-        # $$$$ CONVERT TO A FORMAT MAKEICON.PHP CAN READ IF NECESSARY
-        
-        # # ensure a valid source image file
-        # try '!1' /usr/bin/sips --getProperty format "$epiIconSource" \
-        #         "Unable to parse icon source file."
-        # [[ "$ok" ]] || abort
-        
         # load makeicon.sh
         safesource "$myScriptPathEpichrome/makeicon.sh"
         [[ "$ok" ]] || abortreport

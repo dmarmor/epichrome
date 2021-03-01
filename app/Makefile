@@ -305,7 +305,7 @@ build/icons/%.icns: build/icons/%.png src/core.sh src/makeicon.sh src/makeicon.p
 	iIconTemplatePath='$(APP_CT)/Resources/Icons' ; \
 	source 'src/makeicon.sh' ; \
 	makeicon '$<' '$@' ; \
-	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
+	if [[ "$$ok" ]] ; then cleanexit ; else exit 1 ; fi
 
 build/icons/%.png: ../images/icons/%.psd
 	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'

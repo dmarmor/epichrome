@@ -78,39 +78,83 @@ function makeicon {
             'Unable to delete existing iconset directories.'
     fi
     
+    # IF NECESSARY, CONVERT TO A FORMAT MAKEICON.PHP CAN READ
+    
+    # JSON for original source path (if necessary)
+    local iOrigSourcePath=
+    
+    # list of formats PHP can read without conversion
+    local iFormatRe='^(jpeg|png|gif|bmp)$'
+    
+    # source for PHP script (assume just the original source)
+    local iPHPSource="$aIconSource"
+    local iPHPSourceFormat=
+    
+    # check format of icon source
+    local iSourceFormat=
+    try 'iSourceFormat=' /usr/bin/sips --getProperty format "$aIconSource" \
+        "File \"${aIconSource##*/}\" is not a known image type."
+    [[ "$ok" ]] || return 1
+    
+    # if imagecreatefromwebp is ever implemented in PHP:
+    # if [[ "$aIconSource" = *'.'[wW][eE][bB][pP] ]] ; then
+    #     iPHPSourceFormat='webp'
+    
+    if [[ "${iSourceFormat##*format: }" =~ $iFormatRe ]] ; then
+        
+        # set source format
+        iPHPSourceFormat="${iSourceFormat##*format: }"
+    else
+        
+        # image is not in a format PHP can understand, so convert
+        
+        # temporary PNG file
+        iPHPSource="$(tempname "${aAppIcon%.icns}" ".png")"
+        iPHPSourceFormat='png'
+        
+        # convert input source
+        try '!1' /usr/bin/sips --setProperty format png --out "$iPHPSource" "$aIconSource" \
+            'Unable to create temporary PNG for processing.'
+        [[ "$ok" ]] || return 1
+        
+        # add origPath argument to PHP
+        iOrigSourcePath=',
+        "origPath": "'"$aIconSource"'"'
+    fi
+    
     # create empty iconset directories
     local iNewIconsets=( "$iAppIconset" )
     [[ "$aDocIcon" ]] && iNewIconsets+=( "$iDocIconset" )
     try /bin/mkdir -p "${iNewIconsets[@]}" \
         'Unable to create temporary iconset directories.'
     
-    [[ "$ok" ]] || return 1
+    if [[ "$ok" ]] ; then
         
-    # set up Big Sur icon comp commands
-    if [[ "$aCompSize" ]] ; then
-        
-        # pre-set comp sizes
-        local iAppIconComp_small=0.556640625 # 570x570
-        local iAppIconComp_medium=0.69921875 # 716x716
-        local iAppIconComp_large=0.8046875   # 824x824
-        
-        # set comp size
-        eval "local iAppIconCompSize=\"\$iAppIconComp_$aCompSize\""
-        [[ "$iAppIconCompSize" ]] || iAppIconCompSize="$iAppIconComp_medium"
-        
-        # set comp background
-        local iAppIconCompBGPrefix="$iIconTemplatePath/apptemplate_bg"
-        eval "local iAppIconCompBG=\"\${iAppIconCompBGPrefix}_\${aCompBG}.png\""
-        if [[ ! -f "$iAppIconCompBG" ]] ; then
-            iAppIconCompBG="${iAppIconCompBGPrefix}_white.png"
+        # set up Big Sur icon comp commands
+        if [[ "$aCompSize" ]] ; then
+            
+            # pre-set comp sizes
+            local iAppIconComp_small=0.556640625 # 570x570
+            local iAppIconComp_medium=0.69921875 # 716x716
+            local iAppIconComp_large=0.8046875   # 824x824
+            
+            # set comp size
+            eval "local iAppIconCompSize=\"\$iAppIconComp_$aCompSize\""
+            [[ "$iAppIconCompSize" ]] || iAppIconCompSize="$iAppIconComp_medium"
+            
+            # set comp background
+            local iAppIconCompBGPrefix="$iIconTemplatePath/apptemplate_bg"
+            eval "local iAppIconCompBG=\"\${iAppIconCompBGPrefix}_\${aCompBG}.png\""
             if [[ ! -f "$iAppIconCompBG" ]] ; then
-                ok= ; errmsg="Unable to find Big Sur icon background ${iAppIconCompBG##*/}."
-                errlog
+                iAppIconCompBG="${iAppIconCompBGPrefix}_white.png"
+                if [[ ! -f "$iAppIconCompBG" ]] ; then
+                    ok= ; errmsg="Unable to find Big Sur icon background ${iAppIconCompBG##*/}."
+                    errlog
+                fi
             fi
-        fi
-        
-        # create comp commands
-        local iAppIconCompCmd='
+            
+            # create comp commands
+            local iAppIconCompCmd='
         {
             "action": "composite",
             "options": {
@@ -119,7 +163,10 @@ function makeicon {
                 "clip": true,
                 "with": [ {
                     "action": "read",
-                    "path": "'"$iAppIconCompBG"'"
+                    "options": {
+                        "format": "png",
+                        "path": "'"$iAppIconCompBG"'"
+                    }
                 } ]
             }
         },
@@ -128,39 +175,42 @@ function makeicon {
             "options": {
                 "with": [ {
                     "action": "read",
-                    "path": "'"$iIconTemplatePath/apptemplate_shadow.png"'"
+                    "options": {
+                        "format": "png",
+                        "path": "'"$iIconTemplatePath/apptemplate_shadow.png"'"
+                    }
                 } ]
             }
         },'
-    else
-        
-        # don't comp this in any way, just use the straight image
-        local iAppIconCompCmd='
+        else
+            
+            # don't comp this in any way, just use the straight image
+            local iAppIconCompCmd='
         {
             "action": "composite",
             "options": {
                 "crop": '"$aCrop"'
             }
         },'
-    fi
-    
-    # build options for icon max & min sizes
-    local iSizeLimitCmd=
-    if [[ "$aMaxSize" || "$aMinSize" ]] ; then
-        local iLimitOpts=()
-        [[ "$aMaxSize" ]] && iLimitOpts+=( '"maxSize": '"$aMaxSize" )
-        [[ "$aMinSize" ]] && iLimitOpts+=( '"minSize": '"$aMinSize" )
-        iSizeLimitCmd=',
+        fi
+        
+        # build options for icon max & min sizes
+        local iSizeLimitCmd=
+        if [[ "$aMaxSize" || "$aMinSize" ]] ; then
+            local iLimitOpts=()
+            [[ "$aMaxSize" ]] && iLimitOpts+=( '"maxSize": '"$aMaxSize" )
+            [[ "$aMinSize" ]] && iLimitOpts+=( '"minSize": '"$aMinSize" )
+            iSizeLimitCmd=',
                 "options": {
                     '"$(join_array ",
                     " "${iLimitOpts[@]}")"'
                 }'
-    fi
-    
-    # build doc icon command
-    local iDocIconCmd=
-    if [[ "$aDocIcon" ]] ; then
-        iDocIconCmd=',
+        fi
+        
+        # build doc icon command
+        local iDocIconCmd=
+        if [[ "$aDocIcon" ]] ; then
+            iDocIconCmd=',
         [
             {
                 "action": "composite",
@@ -171,7 +221,10 @@ function makeicon {
                     "with": [
                         {
                             "action": "read",
-                            "path": "'"$iIconTemplatePath/doctemplate_bg.png"'"
+                            "options": {
+                                "format": "png",
+                                "path": "'"$iIconTemplatePath/doctemplate_bg.png"'"
+                            }
                         }
                     ]
                 }
@@ -183,7 +236,10 @@ function makeicon {
                     "with": [
                         {
                             "action": "read",
-                            "path": "'"$iIconTemplatePath/doctemplate_fg.png"'"
+                            "options": {
+                                "format": "png",
+                                "path": "'"$iIconTemplatePath/doctemplate_fg.png"'"
+                            }
                         }
                     ]
                 }
@@ -193,14 +249,17 @@ function makeicon {
                 "path": "'"$iDocIconset"'"'"$iSizeLimitCmd"'
             }
         ]'
-    fi
+        fi
     
-    # build final makeicon.php command
-    local iMakeIconCmd='
+        # build final makeicon.php command
+        local iMakeIconCmd='
 [
     {
         "action": "read",
-        "path": "'"$aIconSource"'"
+        "options": {
+            "format": "'"$iPHPSourceFormat"'",
+            "path": "'"$iPHPSource"'"'"$iOrigSourcePath"'
+        }
     },
     ['"$iAppIconCompCmd"'
         {
@@ -210,21 +269,26 @@ function makeicon {
     ]'"$iDocIconCmd"'
 ]'
     
-    # run PHP script to convert image into app (and maybe doc icons)
-    local iMakeIconErr=
-    try 'iMakeIconErr&=' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
-    
-    if [[ "$ok" ]] ; then
-        # convert iconsets to ICNS
-        try /usr/bin/iconutil -c icns -o "$aAppIcon" "$iAppIconset" \
-            'Unable to create app icon from temporary iconset.'
-        [[ "$aDocIcon" ]] &&
-            try /usr/bin/iconutil -c icns -o "$aDocIcon" "$iDocIconset" \
+        # run PHP script to convert image into app (and maybe doc icons)
+        local iMakeIconErr=
+        try 'iMakeIconErr&=' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
+        
+        # log any stderr output
+        local iMakeIconOutput="${iMakeIconErr%PHPERR|*}"
+        [[ "$iMakeIconOutput" ]] && errlog STDERR "$iMakeIconOutput"
+        
+        if [[ "$ok" ]] ; then
+            # convert iconsets to ICNS
+            try /usr/bin/iconutil -c icns -o "$aAppIcon" "$iAppIconset" \
                 'Unable to create app icon from temporary iconset.'
-    else
-        # handle messaging for makeicon.php errors
-        errmsg="${iMakeIconErr#*PHPERR|}"
-        errlog
+            [[ "$aDocIcon" ]] && \
+                try /usr/bin/iconutil -c icns -o "$aDocIcon" "$iDocIconset" \
+                    'Unable to create app icon from temporary iconset.'
+        else
+            # handle messaging for makeicon.php errors
+            errmsg="${iMakeIconErr#*PHPERR|}"
+            errlog
+        fi
     fi
     
     [[ "$aDoProgress" ]] && progress 'stepIconA2'
@@ -266,6 +330,9 @@ function makeicon {
     # destroy iconset directories
     tryalways /bin/rm -rf "${iNewIconsets[@]}" \
         'Unable to remove temporary iconset directories.'
+    [[ "$iOrigSourcePath" ]] && \
+        tryalways /bin/rm -f "$iPHPSource" \
+            'Unable to remove temporary PNG.'
     
     [[ "$aDoProgress" ]] && progress 'stepIconA3'
     

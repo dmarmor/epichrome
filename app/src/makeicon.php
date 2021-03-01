@@ -50,7 +50,7 @@ function runActions($aAction, $aInput = null) {
             
             // ACTION: READ IN FILE
             
-            $nextInput = actionReadFile($curInput, $curAction->path);
+            $nextInput = actionReadFile($curInput, $curAction->options);
             
         } elseif ($curAction->action == 'composite') {
             
@@ -98,13 +98,16 @@ function runActions($aAction, $aInput = null) {
 
 
 // ACTIONREADFILE -- read in & resize an image file
-function actionReadFile($aInput, $aPath) {
+function actionReadFile($aInput, $aOptions) {
     
-    // get file extension to determine image type
-    $iExt = strtolower(end(explode(".", $aPath)));
+    // determine image type (try passed format first, then file extension)
+    $iExt = $aOptions->format;
+    if (!$iExt) {
+        $iExt = strtolower(end(explode(".", $aOptions->path)));
+    }
     
     // create image object
-    $iResult = newInput(null, $aPath);
+    $iResult = newInput(null, $aOptions->path, $aOptions->origPath);
     
     // use correct function to open image
     if (($iExt == 'jpg') || $iExt == 'jpeg') {
@@ -115,8 +118,8 @@ function actionReadFile($aInput, $aPath) {
         $iResult->image = imagecreatefromgif($iResult->path);
     } elseif ($iExt == 'bmp') {
         $iResult->image = imagecreatefrombmp($iResult->path);
-    } elseif ($iExt == 'webp') {
-        $iResult->image = imagecreatefromwebp($iResult->path);
+    // } elseif ($iExt == 'webp') {
+    //     $iResult->image = imagecreatefromwebp($iResult->path);
     } elseif ($iExt) {
         throw new EpiException('File "' . basename($iResult->path) . '" is not a known image type.');
     } else {
@@ -573,11 +576,18 @@ function savePNG($aInput, $aPath) {
 
 
 // NEWINPUT -- create a new input object
-function newInput($aImage = null, $aPath = null) {
+function newInput($aImage = null, $aPath = null, $aOrigPath = null) {
+    
+    // create input
     $iResult = new stdClass();
     $iResult->image = $aImage;
     $iResult->path = $aPath;
-    $iResult->errName = ($aPath ? 'image "' . basename($aPath) . '"' : 'unnamed image');
+    
+    // set error name
+    if (!$aOrigPath) { $aOrigPath = $aPath; }
+    $iResult->errName = ($aOrigPath ? 'image "' . basename($aOrigPath) . '"' : 'unnamed image');
+    
+    // return result
     return $iResult;
 }
 
@@ -593,12 +603,13 @@ try {
     // decode JSON arguments
     $gActions = json_decode($argv[1]);
     if ($gActions === null) {
-        print("\n\n\n$argv[1]\n\n\n");
+        fwrite(STDERR, "Bad arguments:\n$argv[1]\n");
         throw new EpiException('Unable to decode arguments.');
     }
     
     // run actions
     runActions($gActions);
+    
 } catch (Exception $gErr) {
     fwrite(STDERR, 'PHPERR|');
     if ($gErr instanceof EpiException) {
