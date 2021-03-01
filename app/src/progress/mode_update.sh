@@ -310,6 +310,10 @@ if [[ "$SSBCustomIcon" = Yes ]] ; then
             "$resourcesTmp/$CFBundleTypeIconFile" \
             "$updateContentsTmp/$welcomeIconBase" \
             "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" DOPROGRESS
+        isreportable && doReport=1 || doReport=
+        [[ "$(msg)" ]] && errmsg=" ($(msg))"
+        errmsg="Unable to create icon.$(msg)"
+        [[ "$doReport" ]] && reportmsg
         [[ "$ok" ]] || abort
         
     else

@@ -223,11 +223,7 @@ function makeicon {
                 'Unable to create app icon from temporary iconset.'
     else
         # handle messaging for makeicon.php errors
-        errmsg="Unable to create icon"
-        iMakeIconErr="${iMakeIconErr#*PHPERR|}"
-        # iMakeIconErr="${iMakeIconErr%.*}"  $$$
-        [[ "$iMakeIconErr" ]] && errmsg+=" ($iMakeIconErr)"
-        errmsg+='.'
+        errmsg="${iMakeIconErr#*PHPERR|}"
         errlog
     fi
     

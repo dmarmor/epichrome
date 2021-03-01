@@ -136,7 +136,8 @@ const kEpichromeScript = kApp.pathToResource("epichrome.sh", {
     inDirectory:"Scripts" }).toString();
 
 // app resources
-const kEpiIcon = kApp.pathToResource("droplet.icns");
+const kEpichromeIcon = kApp.pathToResource("droplet.icns");
+const kEpiAppIcon = kApp.pathToResource('Runtime/Contents/Resources/app.icns');
 const kEpiScanIcon = kApp.pathToResource("scan.icns");
 
 // general utility
@@ -185,7 +186,7 @@ let gIconSettings = {
     crop: false,
     compBigSur: false,
     compSize: kEpiIconCompStyles.size[0],
-    compBg: kEpiIconCompStyles.bg[0]
+    compBG: kEpiIconCompStyles.bg[0]
 }
 
 // new app defaults
@@ -373,7 +374,7 @@ function main(aApps=[]) {
             // no dropped files, so ask user for run mode
             let myDlgResult = dialog('Would you like to create a new app or edit existing apps?' + gFirstDialogOptMsg, {
                 withTitle: 'Select Action | Epichrome EPIVERSION',
-                withIcon: kEpiIcon,
+                withIcon: kEpichromeIcon,
                 buttons: ['Create', 'Edit', 'Quit'],
                 defaultButton: 1,
                 cancelButton: 3
@@ -502,7 +503,7 @@ function runCreate() {
                 // show warning
                 dialog(myDlgMessage, {
                     withTitle: 'App Folder ' + (myDirExists ? 'Found' : 'Created'),
-                    withIcon: kEpiIcon,
+                    withIcon: $(msg),
                     buttons: ['OK'],
                     defaultButton: 1
                 });
@@ -515,7 +516,8 @@ function runCreate() {
         stepInfo: {
             action: kActionCREATE,
             titlePrefix: 'Create App',
-            dlgIcon: kEpiIcon,
+            dlgIcon: kEpiAppIcon,
+            origIcon: kEpiAppIcon,
             isOnlyApp: true,
         },
         appInfo: gAppInfoDefault
@@ -615,6 +617,7 @@ function runEdit(aApps) {
             action: kActionEDIT,
             titlePrefix: 'Editing "' + curApp.appInfo.displayName + '"',
             dlgIcon: myDlgIcon,
+            origIcon: myDlgIcon,
             isOnlyApp: false,
             isLastApp: false,
         };
@@ -651,7 +654,7 @@ function runEdit(aApps) {
 
     // set up dialog text & buttons depending if one or multiple apps
     let myDlgMessage, myDlgTitle, myBtnEdit, myBtnUpdate;
-    let myDlgIcon = kEpiIcon;
+    let myDlgIcon = kEpiAppIcon;
     let myDlgButtons = [];
 
     // if any apps need updating, give option to only update
@@ -842,7 +845,7 @@ function runEdit(aApps) {
         let myDlgButtons = ['Quit'];
         let myDlgOptions = {
             withTitle: 'Summary',
-            withIcon: kEpiIcon,
+            withIcon: kEpichromeIcon,
             buttons: myDlgButtons,
             defaultButton: 1
         };
@@ -964,7 +967,7 @@ function readProperties() {
         gIconSettings.compSize = myProperties["iconCompSize"];
     }
     if (typeof myProperties["iconBackground"] === 'string') {
-        gIconSettings.compBg = myProperties["iconBackground"];
+        gIconSettings.compBG = myProperties["iconBackground"];
     }
 
 
@@ -1008,7 +1011,7 @@ function handleGithubUpdate(aGithubInfo) {
             try {
                 myDlgResult = dialog(aGithubInfo.message, {
                     withTitle: 'Update Available',
-                    withIcon: kEpiIcon,
+                    withIcon: kEpichromeIcon,
                     buttons:['Download', 'Remind Me Later', 'Ignore This Version'],
                     defaultButton: 1,
                     cancelButton: 2
@@ -1201,7 +1204,7 @@ function writeProperties() {
             kSysEvents.PropertyListItem({
                 kind:"string",
                 name:"iconBackground",
-                value:gIconSettings.compBg
+                value:gIconSettings.compBG
             })
         );
 
@@ -1453,7 +1456,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
                 reportError('Epichrome reports an error ' +
                     ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
                         ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
-                    ' an app: "' + myStepResult.error.message + '"');
+                    ' an app: "' + errIsReportable(myStepResult.error.message)[1] + '"');
             }
         }
         
@@ -2237,9 +2240,6 @@ function stepBrowser(aInfo) {
 // STEPICON: step function to determine custom icon
 function stepIcon(aInfo) {
 
-    // status variables
-	let myErr;
-
     // set up dialog message
 
     let myDlgResult = stepDialog(aInfo, 'Do you want to provide a custom icon?', {
@@ -2278,14 +2278,24 @@ function stepIcon(aInfo) {
         let myChooseIcon = true;
         
         // if we haven't changed the check if user wants to change current custom icon
-        if ((aInfo.stepInfo.action == kActionEDIT) && aInfo.oldAppInfo.icon &&
-            (!(aInfo.appInfo.icon instanceof Object))) {
-
-            myChooseIcon = (dialog("Do you want to replace the app's current icon" + (aInfo.stepInfo.dlgIcon != kEpiIcon ? ' (shown in this dialog box)' : '') + '?', {
+        if ((aInfo.stepInfo.action == kActionEDIT) && aInfo.oldAppInfo.icon) {
+            
+            // set button text depending on whether selected icon is still same as old
+            let iKeepBtn = 'Keep';
+            let iReplaceBtn = 'Replace';
+            let iDefaultBtn = 1;
+            if (typeof(aInfo.appInfo.icon) !== 'object') {
+                iKeepBtn = kDotCurrent + ' ' + iKeepBtn;
+            } else {
+                iReplaceBtn = kDotChanged + ' ' + iReplaceBtn;
+                iDefaultBtn = 2;
+            }
+            
+            myChooseIcon = (dialog("Do you want to replace the app's current icon?", {
                 withTitle: aInfo.stepInfo.dlgTitle,
                 withIcon: aInfo.stepInfo.dlgIcon,
-                buttons: ['Keep', 'Replace'],
-                defaultButton: 1
+                buttons: [iKeepBtn, iReplaceBtn],
+                defaultButton: iDefaultBtn
             }).buttonIndex == 1);
         }
         
@@ -2307,6 +2317,9 @@ function stepIcon(aInfo) {
                 invisibles: false
             };
             
+            // store icon preview for setting dialog icon
+            let iIconPreview;
+
             let myTryAgain = true;
             while (myTryAgain) {
                 
@@ -2326,6 +2339,9 @@ function stepIcon(aInfo) {
                 
                 // OFFER TO UPDATE ICON COMPOSITING SETTINGS
                 
+                // exception variable
+                let iErr;
+                
                 while (true) {
                     
                     // create message with current comp settings
@@ -2335,31 +2351,45 @@ function stepIcon(aInfo) {
                         (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to ' +
                         gIconSettings.compSize.capitalized() +
                         ' Square on ' +
-                        gIconSettings.compBg.capitalized() +
+                        gIconSettings.compBG.capitalized() +
                         ' BG';
                     } else {
                         myIconStyleMsg += 'Image Only\n' + kDotSelected + ' ' +
                         (gIconSettings.crop ? 'Crop' : 'Fit') + ' Image to Square';
                     }
                     
+                    // get preview icon
+                    try {
+                        iIconPreview = iconPreview(aInfo.appInfo.icon.path);
+                    } catch (iErr) {
+                        myTryAgain = iErr;
+                        break;
+                    }
+                    
                     // show comp settings dialog
                     myDlgResult = dialog('The image at left shows how your icon will look with the currently-selected conversion options:' + myIconStyleMsg, {
                         withTitle: 'Icon Conversion Options',
-                        withIcon: iconPreview(aInfo.appInfo.icon.path),
+                        withIcon: iIconPreview,
                         buttons: ['Confirm', 'Change', 'Back'],
                         defaultButton: 1,
                         cancelButton: 3
                     }).buttonIndex;
                     
                     if (myDlgResult == 1) {
-                        doSteps([
-                            stepIconStyle,
-                            stepIconCrop
-                        ], aInfo, {
-                            abortSilent: true,
-                            abortBackButton: 'Back',
-                            stepTitle: 'Icon Style'
-                        });
+                        try {
+                            doSteps([
+                                stepIconStyle,
+                                stepIconCrop
+                            ], aInfo, {
+                                abortSilent: true,
+                                abortBackButton: 'Back',
+                                stepTitle: 'Icon Style'
+                            });
+                        } catch(iErr) {
+                            // send error out of loop for processing
+                            myTryAgain = iErr;
+                            break;
+                        }
                         // and return to the confirmation dialog
                         
                     } else if (myDlgResult == 0) {
@@ -2372,16 +2402,46 @@ function stepIcon(aInfo) {
                         break;
                     }
                 }
+                
+                // check for fatal error
+                if (myTryAgain instanceof Error) {
+                    
+                    if (errIsReportable(myTryAgain.message)[0]) {
+
+                        // fatal error in icon creation code
+                        return {
+                            message: errIsReportable(myTryAgain.message)[1],
+                            title: 'Icon Creation Error',
+                            error: myTryAgain,
+                            reportError: true,
+                            backStep: 0
+                        }
+                    }
+                    
+                    // show error & try a new image file
+                    dialog(myTryAgain.message + ' Please try a different file.', {
+                        withTitle: 'Icon Creation Error',
+                        withIcon: 'caution',
+                        buttons: ['OK'],
+                        defaultButton: 1
+                    });
+                    myTryAgain = true;
+                }
             }
+            
+            // update dialog icon to use preview icon
+            aInfo.stepInfo.dlgIcon = iIconPreview;
             
         } else {
             // don't change custom icon
             aInfo.appInfo.icon = true;
+            aInfo.stepInfo.dlgIcon = aInfo.stepInfo.origIcon;
         }
     } else {
 
         // default icon
         aInfo.appInfo.icon = false;
+        aInfo.stepInfo.dlgIcon = kEpiAppIcon;
     }
 
     // update summaries
@@ -2443,7 +2503,7 @@ function stepIconStyle(aInfo) {
         let iSelectedStyle = kApp.chooseFromList(Object.values(kEpiIconCompStyles.map), {
             withTitle: 'Big Sur Icon Settings',
             withPrompt: 'Please select the size of your image and the background color.',
-            defaultItems: [kEpiIconCompStyles.map[gIconSettings.compSize + ',' + gIconSettings.compBg]],
+            defaultItems: [kEpiIconCompStyles.map[gIconSettings.compSize + ',' + gIconSettings.compBG]],
             okButtonName: 'Select',
             multipleSelectionsAllowed: false,
             emptySelectionAllowed: false
@@ -2455,14 +2515,14 @@ function stepIconStyle(aInfo) {
         // map selection to values
         iSelectedStyle = kEpiIconCompStyles.reverseMap[iSelectedStyle];
         gIconSettings.compSize = iSelectedStyle.size;
-        gIconSettings.compBg = iSelectedStyle.bg;
+        gIconSettings.compBG = iSelectedStyle.bg;
     }
     
     return 1;
 }
 
 
-// STEPICONSTYLE: step function to determine custom icon cropping
+// STEPICONCROP: step function to determine custom icon cropping
 function stepIconCrop(aInfo) {
 
     // show step dialog
@@ -2491,9 +2551,6 @@ function stepIconCrop(aInfo) {
 
 // STEPENGINE: step function to set app engine
 function stepEngine(aInfo) {
-
-    // status variables
-	let myErr;
 
     // dialog message
     let myDlgMessage;
@@ -2558,9 +2615,6 @@ function stepEngine(aInfo) {
 // STEPUPDATE: step function to set updating options
 function stepUpdate(aInfo) {
     
-    // status variables
-	let myErr;
-
     // set up dialog message
     let myCurAction = kUpdateActions[aInfo.appInfo.updateAction];
     let myDlgMessage = 'How should this app handle updates when a new version of Epichrome is installed?';
@@ -2602,7 +2656,7 @@ function stepUpdate(aInfo) {
         // display dialog
         myDlgResult = dialog(myDlgMessage + aInfo.appInfoStatus.updateAction.stepSummary[1], {
             withTitle: 'Advanced Update Options',
-            withIcon: kEpiIcon,
+            withIcon: aInfo.stepInfo.dlgIcon,
             buttons: myDlgButtons,
             defaultButton: myButtonMap.defaultButton,
             cancelButton: 3
@@ -2762,7 +2816,7 @@ function stepBuild(aInfo) {
         if (gIconSettings.compBigSur) {
             myScriptArgs.push(
                 'epiIconCompSize=' + gIconSettings.compSize,
-                'epiIconCompBG=' + gIconSettings.compBg);
+                'epiIconCompBG=' + gIconSettings.compBG);
         } else {
             myScriptArgs.push('epiIconCompSize=');
         }
@@ -2878,7 +2932,7 @@ function stepBuild(aInfo) {
                 error: myErr,
                 reportError: myDoReport,
                 title: 'Application Not ' + myBuildMessage[2],
-                backStep: 0,
+                backStep: 0
             };
         }
     }
@@ -2898,6 +2952,7 @@ function stepBuild(aInfo) {
         }
 
         // reset dialog icon as app may have moved
+        aInfo.appInfo.iconPath = 'Contents/Resources/app.icns';
         let myDlgIcon = setDlgIcon(aInfo.appInfo);
         
         myDlgResult = dialog(myDlgMessage, {
@@ -3478,32 +3533,18 @@ function iconPreview(aIconPath) {
     if ((!iconPreview.path) || (iconPreview.source !== aIconPath) ||
         (!objEquals(iconPreview.settings, gIconSettings))) {
         
-        let iErr;
+        // run script
+        shell('epiAction=iconpreview',
+        'epiIconSource=' + aIconPath,
+        'epiIconPreviewPath=' + gCoreInfo.previewIcon,
+        'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
+        'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
+        'epiIconCompBG=' + (gIconSettings.compBigSur ? gIconSettings.compBG : ''));
         
-        try {
-            // run script
-            shell('epiAction=iconpreview',
-            'epiIconSource=' + aIconPath,
-            'epiIconPreviewPath=' + gCoreInfo.previewIcon,
-            'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
-            'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
-            'epiIconCompBG=' + (gIconSettings.compBigSur ? gIconSettings.compBG : ''));
-            
-            // cache all info
-            iconPreview.path = Path(gCoreInfo.previewIcon);
-            iconPreview.source = aIconPath;
-            iconPreview.settings = objCopy(gIconSettings);
-            
-        } catch(iErr) {
-            
-            // $$$ SHOW ERROR -- i am here
-            dialog('ERROR TBD: ' + iErr.message);
-            
-            // no preview icon
-            iconPreview.path = null;
-            iconPreview.source = null;
-            iconPreview.settings = null;
-        }
+        // cache all info
+        iconPreview.path = Path(gCoreInfo.previewIcon);
+        iconPreview.source = aIconPath;
+        iconPreview.settings = objCopy(gIconSettings);
     }
     
     return iconPreview.path;
@@ -3797,7 +3838,7 @@ function confirmQuit(aMessage='') {
     // confirm quit
     return !dialog(myPrefix + 'Are you sure you want to quit?', {
         withTitle: "Confirm",
-        withIcon: kEpiIcon,
+        withIcon: kEpichromeIcon,
         buttons: ["No", "Yes"],
         defaultButton: 2,
         cancelButton: 1
@@ -3910,8 +3951,8 @@ function setDlgIcon(aAppInfo) {
     }
 
     // if we got here, custom icon not found
-    if (kFinder.exists(kEpiIcon)) {
-        return kEpiIcon;
+    if (kFinder.exists(kEpiAppIcon)) {
+        return kEpiAppIcon;
     } else {
         // fallback default
         return 'note';

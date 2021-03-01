@@ -229,7 +229,6 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/apptemplate_shadow.png \
 	build/icons/doctemplate_bg.png \
 	build/icons/doctemplate_fg.png \
-	build/icons/iconsample.png \
 	build/icons/document.png \
 	build/icons/document_beta.png \
 	build/icons/epichrome.png \
@@ -248,26 +247,6 @@ PRECIOUS_INTERMEDIATES:=\
 	build/icons/login_app_beta.icns \
 	build/icons/folder.icns \
 	build/icons/folder_beta.icns \
-	build/icons/samples/sample_fit_none.icns \
-	build/icons/samples/sample_crop_none.icns \
-	build/icons/samples/sample_fit_small_white.icns \
-	build/icons/samples/sample_crop_small_white.icns \
-	build/icons/samples/sample_fit_small_gray.icns \
-	build/icons/samples/sample_crop_small_gray.icns \
-	build/icons/samples/sample_fit_small_black.icns \
-	build/icons/samples/sample_crop_small_black.icns \
-	build/icons/samples/sample_fit_medium_white.icns \
-	build/icons/samples/sample_crop_medium_white.icns \
-	build/icons/samples/sample_fit_medium_gray.icns \
-	build/icons/samples/sample_crop_medium_gray.icns \
-	build/icons/samples/sample_fit_medium_black.icns \
-	build/icons/samples/sample_crop_medium_black.icns \
-	build/icons/samples/sample_fit_large_white.icns \
-	build/icons/samples/sample_crop_large_white.icns \
-	build/icons/samples/sample_fit_large_gray.icns \
-	build/icons/samples/sample_crop_large_gray.icns \
-	build/icons/samples/sample_fit_large_black.icns \
-	build/icons/samples/sample_crop_large_black.icns \
 	build/img/app_icon.png \
 	build/img/app_icon_beta.png \
 	build/img/epichrome_icon.png \
@@ -504,26 +483,6 @@ $(APP):	$(APP_CT)/PkgInfo \
 	$(APP_CT)/Resources/Icons/apptemplate_shadow.png \
 	$(APP_CT)/Resources/Icons/doctemplate_fg.png \
 	$(APP_CT)/Resources/Icons/doctemplate_bg.png \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_none.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_none.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_small_black.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_small_black.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_medium_black.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_medium_black.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_white.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_gray.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_fit_large_black.icns \
-	$(APP_CT)/Resources/Icons/Samples/sample_crop_large_black.icns \
 	$(APP_CT)/Resources/scan.icns \
 	\
 	$(APP_CT)/Resources/Scripts/epichrome.sh \
@@ -625,31 +584,6 @@ $(APP_CT)/Resources/Icons/%.png: build/icons/%.png
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
 
-$(APP_CT)/Resources/Icons/Samples/sample_%.icns: build/icons/samples/sample_%.icns
-	@mkdir -p '$(dir $@)'
-	cp '$<' '$@'
-	
-build/icons/samples/sample_%.icns: build/icons/iconsample.png \
-	build/icons/apptemplate_bg_white.png \
-		build/icons/apptemplate_bg_gray.png \
-		build/icons/apptemplate_bg_white.png \
-		build/icons/apptemplate_shadow.png \
-		src/core.sh src/makeicon.sh src/makeicon.php
-	@mkdir -p '$(dir $@)'
-	crop='$*' ; crop="$${crop%%_*}" ; if [[ "$$crop" = 'crop' ]] ; then crop=1 ; else crop= ; fi ; \
-	size='$*' ; size="$${size#*_}" ; \
-	if [[ "$$size" = 'none' ]] ; then \
-		size= ; bg= ; \
-	else \
-		size="$${size%_*}" ; \
-		bg='$*' ; bg="$${bg##*_}" ; \
-	fi ; \
-	iMakeIconScript='src/makeicon.php' ; \
-	iIconTemplatePath='build/icons' ; \
-	source 'src/makeicon.sh' ; \
-	makeicon '$<' '$@' '' '' "$$crop" "$$size" "$$bg" '' 256 256 ; \
-	if [[ "$ok" ]] ; then cleanexit ; else exit 1 ; fi
-	
 $(APP_CT)/Resources/scan.icns: build/icons/scan_app$(BETA).icns src/version.sh
 	@mkdir -p '$(dir $@)'
 	cp '$<' '$@'
