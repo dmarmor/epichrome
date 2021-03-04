@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b12
-epiBuildNum=5
+epiBuildNum=6
 epiDesc=( \
         'Improved icon creation interface to show preview of actual icon' \
         'Greatly increased the variety of image formats that can be used to create icons' \

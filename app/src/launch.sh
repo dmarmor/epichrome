@@ -45,6 +45,7 @@ nmhManifestOldFile="$nmhManifestOldID.json"
 
 # first-run files
 myFirstRunFile="$myProfilePath/First Run"
+myLocalStateFile="$myProfilePath/Local State"
 myPreferencesFile="$myProfilePath/Default/Preferences"
 
 # welcome directory
@@ -1180,6 +1181,12 @@ function updateprofiledir {
 		if [[ ! "$ok" ]] ; then
 			[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$(msg)"
 			ok=1 ; errmsg=
+		fi
+		
+		# make sure we have a Local State file to prevent Brave from showing first-run dialog
+		if [[ ! -e "$myLocalStateFile" ]] ; then
+			try "${myLocalStateFile}<" echo '{}' 'Unable to create Local State file.'
+			ok=1 ; errmsg=  # ignore errors
 		fi
 	fi
 	
@@ -2616,7 +2623,7 @@ function setmasterprefs {
 	# initialize state
 	myMasterPrefsState=
 	
-	if [[ ! ( -e "$myFirstRunFile" || -e "$myPreferencesFile" ) ]] ; then
+	if [[ "$myStatusReset" ]] ; then
 		
 		# this looks like a first run, so set master prefs
 		debuglog "Setting master prefs for new profile."
