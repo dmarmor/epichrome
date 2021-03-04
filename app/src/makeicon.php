@@ -50,7 +50,7 @@ function runActions($aAction, $aInput = null) {
             
             // ACTION: READ IN FILE
             
-            $nextInput = actionReadFile($curInput, $curAction->options);
+            $nextInput = actionReadFile($curAction->options);
             
         } elseif ($curAction->action == 'composite') {
             
@@ -98,7 +98,7 @@ function runActions($aAction, $aInput = null) {
 
 
 // ACTIONREADFILE -- read in & resize an image file
-function actionReadFile($aInput, $aOptions) {
+function actionReadFile($aOptions) {
     
     // determine image type (try passed format first, then file extension)
     $iExt = $aOptions->format;
