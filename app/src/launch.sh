@@ -47,6 +47,7 @@ nmhManifestOldFile="$nmhManifestOldID.json"
 
 # first-run files
 myFirstRunFile="$myProfilePath/First Run"
+myLocalStateFile="$myProfilePath/Local State"
 myPreferencesFile="$myProfilePath/Default/Preferences"
 
 
@@ -863,17 +864,23 @@ function updateprofiledir {
     
     # SET UP PROFILE DIRECTORY
 
-    # if this is our first-run, get Preferences and First Run file in consistent state
-    if [[ "$myStatusReset" ]] ; then
-
-	# we're missing either First Run or Prefs file, so delete both
-	try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
-	    'Error deleting first-run files.'
-	if [[ ! "$ok" ]] ; then
-	    [[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
-	    ok=1 ; errmsg=
+	# if this is our first-run, get Preferences and First Run file in consistent state
+	if [[ "$myStatusReset" ]] ; then
+		
+		# we're missing either First Run or Prefs file, so delete both
+		try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
+				'Error deleting first-run files.'
+		if [[ ! "$ok" ]] ; then
+			[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$errmsg"
+			ok=1 ; errmsg=
+		fi
+		
+		# make sure we have a Local State file to prevent Brave from showing first-run dialog
+		if [[ ! -e "$myLocalStateFile" ]] ; then
+			try "${myLocalStateFile}<" echo '{}' 'Unable to create Local State file.'
+			ok=1 ; errmsg=  # ignore errors
+		fi
 	fi
-    fi
 
 
     # WELCOME PAGE ACTIONS
