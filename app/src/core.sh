@@ -394,7 +394,7 @@ function errlog_raw {
         fi
     fi
 }
-# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] [msg] ($errmsg by default)...)
+# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] [aMsg] ($errmsg by default)...)
 function errlog {
     
     # prefix format: *[PID]LogID(line)/function(line)/...:
@@ -1312,28 +1312,28 @@ function pause {
 
 
 # WAITFORCONDITION -- wait for a given condition to become true, or timeout
-#   waitforcondition(msg waitTime increment command [args ...])
+#   waitforcondition(aMsg aWaitTime aIncrement command [args ...])
 #     returns 0 if condition is met in the timeout, or 1 if not
 function waitforcondition {
     
     # arguments
-    local msg="$1" ; shift
-    local waitTime="$1" ; shift
-    local increment="$1" ; shift
+    local aMsg="$1" ; shift
+    local aWaitTime="$1" ; shift
+    local aIncrement="$1" ; shift
     
     # get rid of decimals
-    local waitTimeInt="${waitTime#*.}" ; [[ "$waitTimeInt" = "$waitTime" ]] && waitTimeInt=
-    local incrementInt="${increment#*.}" ; [[ "$incrementInt" = "$increment" ]] && incrementInt=
+    local waitTimeInt="${aWaitTime#*.}" ; [[ "$waitTimeInt" = "$aWaitTime" ]] && waitTimeInt=
+    local incrementInt="${aIncrement#*.}" ; [[ "$incrementInt" = "$aIncrement" ]] && incrementInt=
     local decDiff=$((${#incrementInt} - ${#waitTimeInt}))
     if [[ decDiff -gt 0 ]] ; then
-        incrementInt="${increment%.*}$incrementInt"
-        waitTimeInt=$(( ${waitTime%.*}$waitTimeInt * ( 10**$decDiff ) ))
+        incrementInt="${aIncrement%.*}$incrementInt"
+        waitTimeInt=$(( ${aWaitTime%.*}$waitTimeInt * ( 10**$decDiff ) ))
     elif [[ decDiff -lt 0 ]] ; then
-        waitTimeInt="${waitTime%.*}$waitTimeInt"
-        incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
+        waitTimeInt="${aWaitTime%.*}$waitTimeInt"
+        incrementInt=$(( ${aIncrement%.*}$incrementInt * ( 10**${decDiff#-} ) ))
     else
-        incrementInt="${increment%.*}$incrementInt"
-        waitTimeInt="${waitTime%.*}$waitTimeInt"
+        incrementInt="${aIncrement%.*}$incrementInt"
+        waitTimeInt="${aWaitTime%.*}$waitTimeInt"
     fi
     
     # wait for the condition to be true
@@ -1344,8 +1344,8 @@ function waitforcondition {
         "$@" && return 0
         
         # wait
-        [[ "$curTime" = 0 ]] && debuglog "Waiting for $msg..."
-        sleep $increment
+        [[ "$curTime" = 0 ]] && debuglog "Waiting for $aMsg..."
+        sleep $aIncrement
         
         # update time
         curTime=$(( $curTime + $incrementInt ))
@@ -1952,7 +1952,7 @@ function dialog {
     
     # arguments
     local var="$1" ; shift ; [[ "$var" ]] || var=var  # if not capturing, just save dialog text to this local
-    local msg="$1" ; shift
+    local aMsg="$1" ; shift
     local title="$1" ; shift
     local title_code="$title" ; [[ "$title_code" ]] && title_code="with title \"$(escapejson "$title_code")\""
     local icon="$1" ; shift
@@ -2019,8 +2019,8 @@ function dialog {
     
     # log the dialog
     if [[ "$debug" || ("$numbuttons" = 1) ]] ; then
-        local logmsg="${msg%%$'\n'*}"
-        [[ "$logmsg" = "$msg" ]] && logmsg="with text '$msg'" || logmsg="starting '$logmsg'..."
+        local logmsg="${aMsg%%$'\n'*}"
+        [[ "$logmsg" = "$aMsg" ]] && logmsg="with text '$aMsg'" || logmsg="starting '$logmsg'..."
         if [[ ("$numbuttons" = 1) ]] ; then
             errlog "Showing alert '$title' $logmsg"
         else
@@ -2031,9 +2031,9 @@ function dialog {
     # run the dialog
     try "${var}=" /usr/bin/osascript -e "$icon_set
     $try_start
-    button returned of (display dialog \"$(escapejson "$msg")\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
+    button returned of (display dialog \"$(escapejson "$aMsg")\" $title_code $icon_code buttons $buttonlist $button_default $button_cancel)
     $try_end" \
-    "Unable to display dialog box with message \"$msg\""
+    "Unable to display dialog box with message \"$aMsg\""
     
     if [[ "$debug" && "$ok" && ("$numbuttons" != 1) ]] ; then
         errlog DEBUG "User clicked button '$(eval "echo "\$$var"")'"
@@ -2046,8 +2046,8 @@ function dialog {
         # display simple alert with fallback icon
         [[ "$icon" ]] && icon="with icon $icon"
         try /usr/bin/osascript -e \
-                "display alert \"$(escapejson "$msg")\" $icon buttons {\"OK\"} default button \"OK\" $title_code" \
-                "Unable to display fallback alert with message \"$msg\""
+                "display alert \"$(escapejson "$aMsg")\" $icon buttons {\"OK\"} default button \"OK\" $title_code" \
+                "Unable to display fallback alert with message \"$aMsg\""
     fi
     
     # add new error message or restore old one

@@ -503,7 +503,7 @@ function runCreate() {
                 // show warning
                 dialog(myDlgMessage, {
                     withTitle: 'App Folder ' + (myDirExists ? 'Found' : 'Created'),
-                    withIcon: $(msg),
+                    withIcon: kEpichromeIcon,
                     buttons: ['OK'],
                     defaultButton: 1
                 });
