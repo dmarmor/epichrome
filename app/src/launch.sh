@@ -1084,7 +1084,6 @@ function updateprofiledir {
 	
 	# error states
 	local myErrDelete=
-	local myErrFirstRun=
 	local myErrAllExtensions=
 	local myErrSomeExtensions=
 	local myErrBookmarks=
@@ -1175,19 +1174,11 @@ function updateprofiledir {
 	# if this is our first-run, get Preferences and First Run file in consistent state
 	if [[ "$myStatusReset" ]] ; then
 		
-		# ensure prefs are deleted for reset
-		try /bin/rm -f "$myPreferencesFile" \
-				'Error deleting preferences file.'
+		# we're missing either First Run or Prefs file, so delete both
+		try /bin/rm -f "$myFirstRunFile" "$myPreferencesFile" \
+				'Error deleting first-run files.'
 		if [[ ! "$ok" ]] ; then
 			[[ "$myErrDelete" ]] && myErrDelete+=' ' ; myErrDelete+="$(msg)"
-			ok=1 ; errmsg=
-		fi
-		
-		# ensure we have a First Run file to avoid default browser prompt
-		try /usr/bin/touch "$myFirstRunFile" \
-			'Error updating First Run file.'
-		if [[ ! "$ok" ]] ; then
-			myErrFirstRun=1
 			ok=1 ; errmsg=
 		fi
 	fi
@@ -1389,11 +1380,7 @@ ${BASH_REMATCH[5]}}"
 	# REPORT NON-FATAL ERRORS
 	
 	if [[ "$myErrDelete" ]] ; then
-		errmsg="Unable to update profile files. ($myErrDelete) The app's settings may be corrupted and might need to be deleted."
-	fi
-	if [[ "$myErrFirstRun" ]] ; then
-		if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
-		errmsg+=" to ensure First Run file exists. On first run, you may receive a prompt to set your app as the default browser."
+		errmsg="Unable to remove old profile files. ($myErrDelete) The app's settings may be corrupted and might need to be deleted."
 	fi
 	if [[ "$myErrBookmarks" ]] ; then
 		if [[ "$errmsg" ]] ; then errmsg+=' Also unable ' ; else errmsg='Unable ' ; fi
@@ -2629,7 +2616,7 @@ function setmasterprefs {
 	# initialize state
 	myMasterPrefsState=
 	
-	if [[ "$myStatusReset" ]] ; then
+	if [[ ! ( -e "$myFirstRunFile" || -e "$myPreferencesFile" ) ]] ; then
 		
 		# this looks like a first run, so set master prefs
 		debuglog "Setting master prefs for new profile."
