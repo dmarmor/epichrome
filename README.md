@@ -60,7 +60,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 ## New in version 2.3.27
 
-- The built-in engine has been updated to Brave 1.21.73 and switched it to a universal binary for better performance on Apple Silicon machines.
+- The built-in engine has been updated to Brave 1.21.73.
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
