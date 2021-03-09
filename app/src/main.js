@@ -2239,16 +2239,63 @@ function stepBrowser(aInfo) {
 
 // STEPICON: step function to determine custom icon
 function stepIcon(aInfo) {
+    
+    // dialog variables
+    let myMapObject, myDlgResult;
+    
+    // show extra dialog for edit mode
+    if (aInfo.stepInfo.action == kActionEDIT) {
 
-    // set up dialog message
-
-    let myDlgResult = stepDialog(aInfo, 'Do you want to provide a custom icon?', {
-        key: 'icon',
-        buttons: {
-            'Yes': (aInfo.appInfo.icon ? aInfo.appInfo.icon : true),
-            'No':  false
+        // set up map object
+        myMapObject = {
+            stepInfo: kActionEDIT,
+            appInfo: {
+                defaultToYes: (aInfo.oldAppInfo.icon != aInfo.appInfo.icon)
+            },
+            oldAppInfo: {
+                defaultToYes: false
+            }
+        };
+        
+        myDlgResult = stepDialog(aInfo, "Do you want to change this app's icon?", {
+            mapObject: myMapObject,
+            key: 'defaultToYes',
+            buttons: {
+                'Yes': true,
+                'No':  false
+            }
+        });
+        
+        if (myDlgResult.canceled) {
+            // Back button
+            return -1;
         }
-    });
+        
+        if (myDlgResult.buttonIndex != 0) {
+            // No -- make sure icon matches old icon & move on
+            aInfo.appInfo.icon = aInfo.oldAppInfo.icon;
+            return 1;
+        }
+        
+    }
+    
+    
+    // DEFAULT/CUSTOM ICON DIALOG
+    
+    // object to let dialog know what's currently selected
+    myMapObject = {
+        icon: aInfo.appInfo.icon
+    };
+    
+    myDlgResult = stepDialog(aInfo,
+        'Do you want to provide a custom icon or use the default Epichrome icon?', {
+            mapObject: myMapObject,
+            key: 'icon',
+            buttons: {
+                'Custom': (aInfo.appInfo.icon ? aInfo.appInfo.icon : true),
+                'Default':  false
+            }
+        });
     
     if (myDlgResult.canceled) {
         // Back button
