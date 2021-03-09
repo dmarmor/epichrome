@@ -618,7 +618,10 @@ function split_array {
 #        'filename.txt<':            store stdout in file (overwrite)
 #        'filename.txt<<':           append stdout to file
 #
-#        for all targets, add & before = or << to also capture stderr (e.g. varname&=)
+#        for all targets, choose streams by adding selector after =, += < or <<:
+#
+#        &: capture both stdout & stderr (e.g. varname=&)
+#        2: capture stderr only (e.g. varname=2)
 #
 # get first line of a variable: "${x%%$'\n'*}"
 #
@@ -635,6 +638,7 @@ function try {
     local doAppend=
     local ifscode=
     local storeStderr=
+    local storeStdout=
     local dropStdout= ; local dropStderr=
     local logStdout=1 ; local logStderr=1
     
@@ -669,52 +673,70 @@ function try {
     fi
     
     # figure out which type of storage to do
-    if [[ "$target" =~ (\+?)=$ ]]; then
-        # storing in a variable as a string
-        target="${target::${#target}-${#BASH_REMATCH[0]}}"
-        type=scalar
-        [[ "${BASH_REMATCH[1]}" ]] && doAppend=1
-        shift
-    elif [[ "$target" =~ (\+?)=\(([^\)]?)\)$ ]] ; then
-        # array
-        target="${target::${#target}-${#BASH_REMATCH[0]}}"
-        type=array
-        [[ "${BASH_REMATCH[1]}" ]] && doAppend=1
-        ifscode="${BASH_REMATCH[2]}"
-        shift
-    elif [[ "${target:${#target}-2}" = '<''<' ]]; then
-        # append to file
-        target="${target::${#target}-2}"
-        type=file_append
-        shift
-    elif [[ "${target:${#target}-1}" = '<' ]] ; then
-        # append to file
-        target="${target::${#target}-1}"
-        type=file
+    # scalar/array groups: varname=2, append=4, isarray=5, delimiter=6
+    # file groups: path=8, append=9
+    # selector=10
+    local iTargetRe='^(([a-zA-Z_][a-zA-Z0-9_]*)((\+?)=(\(([^\)]?)\))?)|((.*[^<])<(<?)))([&2]?)$'
+    
+    if [[ "$target" =~ $iTargetRe ]] ; then
+        
+        if [[ "${BASH_REMATCH[2]}" ]] ; then
+            
+            # storing in a variable as a string
+            target="${BASH_REMATCH[2]}"
+            [[ "${BASH_REMATCH[4]}" ]] && doAppend=1
+            if [[ "${BASH_REMATCH[5]}" ]] ; then
+                type=array
+                ifscode="${BASH_REMATCH[6]}"
+                
+                # handle special ifscode values
+                if [[ "$ifscode" = t ]] ; then
+                    ifscode=$'\t\n'
+                elif [[ "$ifscode" = n ]] ; then
+                    ifscode=$'\n'
+                elif [[ ! "$ifscode" ]] ; then
+                    ifscode="$IFS"  # no IFS given, so use current value
+                fi
+            else
+                type=scalar
+            fi
+        else
+            
+            # writing to a file
+            target="${BASH_REMATCH[8]}"
+            [[ "${BASH_REMATCH[9]}" ]] && type=file_append || type=file
+        fi
+        
+        # select which streams to store
+        if [[ "${BASH_REMATCH[10]}" = '&' ]] ; then
+            
+            # store both streams
+            storeStdout=1
+            storeStderr=1
+            dropStdout=
+            dropStderr=
+            logStdout=
+            logStderr=
+        
+        elif [[ "${BASH_REMATCH[10]}" ]] ; then
+
+            # store stderr only
+            storeStderr=1
+            dropStderr=
+            logStderr=
+
+        else
+            
+            # default: store stdout only
+            storeStdout=1
+            dropStdout=
+            logStdout=
+        fi
+        
         shift
     else
         # not storing, logging both stdout & stderr
         target=
-    fi
-    
-    # handle special ifscode values
-    if [[ "$ifscode" = t ]] ; then
-        ifscode=$'\t\n'
-    elif [[ "$ifscode" = n ]] ; then
-        ifscode=$'\n'
-    elif [[ ! "$ifscode" ]] ; then
-        ifscode="$IFS"  # no IFS given, so use current value
-    fi
-    
-    # determine storing/logging of stdout and stderr
-    if [[ "$type" ]] ; then
-        logStdout=
-        if [[ "${target:${#target}-1}" = '&' ]] ; then
-            # store stderr too
-            target="${target::${#target}-1}"
-            storeStderr=1
-            logStderr=
-        fi
     fi
     
     # get command-line args
@@ -739,6 +761,16 @@ function try {
                 temp="$( "${args[@]}" )"
             else
                 temp="$( "${args[@]}" 2> /dev/null )"
+            fi
+            result="$?"
+        elif [[ ! "$storeStdout" ]] ; then
+            if [[ ( ! "$dropStdout" ) || ( "$dropStdout" = ignore ) ]] ; then
+                temp="$( "${args[@]}" 3>&1 1> "$stdoutTempFile" 2>&3 )"
+                if [[ "$dropStdout" = ignore ]] ; then
+                    /bin/cat "$stdoutTempFile" 2> /dev/null
+                fi
+            else
+                temp="$( "${args[@]}" 3>&1 1> /dev/null 2>&3 )"
             fi
             result="$?"
         else
@@ -780,6 +812,15 @@ function try {
                 "${args[@]}" >> "$target" 2> /dev/null
             fi
             result="$?"
+        elif [[ ! "$storeStdout" ]] ; then
+                if [[ ! "$dropStdout" ]] ; then
+                    "${args[@]}" 2>> "$target" 1> "$stdoutTempFile"
+                elif [[ "$dropStdout" = ignore ]] ; then
+                    "${args[@]}" 2>> "$target"
+                else
+                    "${args[@]}" 2>> "$target" 1> /dev/null
+                fi
+                result="$?"
         else
             "${args[@]}" >> "$target" 2>&1
             result="$?"
@@ -795,6 +836,15 @@ function try {
                 "${args[@]}" > "$target" 2> /dev/null
             fi
             result="$?"
+        elif [[ ! "$storeStdout" ]] ; then
+                if [[ ! "$dropStdout" ]] ; then
+                    "${args[@]}" 2> "$target" 1> "$stdoutTempFile"
+                elif [[ "$dropStdout" = ignore ]] ; then
+                    "${args[@]}" 2> "$target"
+                else
+                    "${args[@]}" 2> "$target" 1> /dev/null
+                fi
+                result="$?"
         else
             "${args[@]}" > "$target" 2>&1
             result="$?"
@@ -1070,7 +1120,7 @@ function abort {
                 
                 # clear OK state so try works & ignore result
                 ok=1 ; errmsg=
-                try 'iReportErrMsg&=' /usr/bin/osascript "$myScriptPath/reporterr.js" "${iReportErrArgs[@]}" ''
+                try 'iReportErrMsg=&' /usr/bin/osascript "$myScriptPath/reporterr.js" "${iReportErrArgs[@]}" ''
                 
                 # error is non-fatal, so just report it
                 if [[ ! "$ok" ]] ; then

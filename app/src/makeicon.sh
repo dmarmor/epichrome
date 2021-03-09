@@ -268,10 +268,12 @@ function makeicon {
         }
     ]'"$iDocIconCmd"'
 ]'
-    
-        # run PHP script to convert image into app (and maybe doc icons)
+        
+        
+        # RUN PHP SCRIPT TO CONVERT IMAGE INTO APP (AND MAYBE DOC ICONS)
+        
         local iMakeIconErr=
-        try 'iMakeIconErr&=' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
+        try 'iMakeIconErr=&' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
         
         # log any stderr output
         local iMakeIconOutput="${iMakeIconErr%PHPERR|*}"

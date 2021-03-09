@@ -570,7 +570,7 @@ elif [[ "$epiAction" = 'build' ]] ; then
     
     # create the app directory in a temporary location
     appTmp="$(tempname "$epiAppPath")"
-    try 'cmdtext&=' /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
+    try 'cmdtext=&' /bin/mkdir -p "$appTmp" 'Unable to create temporary app bundle.'
     [[ "$ok" ]] || abort
     
     
