@@ -796,6 +796,7 @@ engine: build/engine/Brave
 				build/engine/Brave/Info.plist
 	@mkdir -p $(APP_RNTM)/Engine/Filter
 	mv -f build/engine/Brave/Info.plist $(APP_RNTM)/Engine/Filter/Info.plist
+	/usr/libexec/PlistBuddy -c 'Add :LSArchitecturePriority array' -c 'Add :LSArchitecturePriority: string arm64' -c 'Add :LSArchitecturePriority: string x86_64' $(APP_RNTM)/Engine/Filter/Info.plist
 	rm -rf $(APP_RNTM)/Engine/Exec $(APP_RNTM)/Engine/Link $(APP_RNTM)/Engine/Payload
 	mv -f build/engine/Brave/Exec $(APP_RNTM)/Engine
 	mkdir -p $(APP_RNTM)/Engine/Link

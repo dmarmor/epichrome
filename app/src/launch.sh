@@ -2067,221 +2067,224 @@ function deleteengine {  # ( [mustSucceed] )
 
 # CREATEENGINE -- create Epichrome engine (payload & placeholder)
 function createengine {
-
-    # only run if we're OK
-    [[ "$ok" ]] || return 1
-
-    
-    # CLEAR OUT ANY OLD ENGINE
-    
-    deleteengine MUSTSUCCEED
-    
-    
-    # CREATE NEW ENGINE
-    
-    try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
-    [[ "$ok" ]] || return 1
-    
-    debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine at '$SSBEnginePath'."
-    
-    if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 	
-	# EXTERNAL ENGINE PAYLOAD
+	# only run if we're OK
+	[[ "$ok" ]] || return 1
 	
-	# make sure we have a source for the payload
-	if [[ ! -d "${SSBEngineSourceInfo[$iPath]}" ]] ; then
-	    
-	    # we should already have this, so as a last ditch, ask the user to locate it
-	    local myExtEngineSourcePath=
-	    local myExtEngineName=
-	    getbrowserinfo 'myExtEngineName'
-	    myExtEngineName="${myExtEngineName[$iDisplayName]}"
-	    [[ "$myExtEngineName" ]] || myExtEngineName="${SSBEngineType#*|}"
-	    
-	    try 'myExtEngineSourcePath=' osascript -e \
-		"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
-		"Locate engine app dialog failed."
-	    myExtEngineSourcePath="${myExtEngineSourcePath%/}"
-	    
-	    if [[ ! "$ok" ]] ; then
+	
+	# CLEAR OUT ANY OLD ENGINE
+	
+	deleteengine MUSTSUCCEED
+	
+	
+	# CREATE NEW ENGINE
+	
+	try /bin/mkdir -p "$SSBEnginePath" 'Unable to create new engine.'
+	[[ "$ok" ]] || return 1
+	
+	debuglog "Creating ${SSBEngineType%%|*} ${SSBEngineSourceInfo[$iName]} engine at '$SSBEnginePath'."
+	
+	if [[ "${SSBEngineType%%|*}" != internal ]] ; then
 		
-		# we've failed to find the engine browser
-		[[ "$errmsg" ]] && errmsg=" ($errmsg)"
-		errmsg="Unable to find $myExtEngineName.$errmsg"
-		return 1
-	    fi
-	    
-	    # user selected a path, so check it
-	    getextenginesrcinfo "$myExtEngineSourcePath"
-	    
-	    if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
-		ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
-		return 1
-	    fi
+		# EXTERNAL ENGINE PAYLOAD
+		
+		# make sure we have a source for the payload
+		if [[ ! -d "${SSBEngineSourceInfo[$iPath]}" ]] ; then
+			
+			# we should already have this, so as a last ditch, ask the user to locate it
+			local myExtEngineSourcePath=
+			local myExtEngineName=
+			getbrowserinfo 'myExtEngineName'
+			myExtEngineName="${myExtEngineName[$iDisplayName]}"
+			[[ "$myExtEngineName" ]] || myExtEngineName="${SSBEngineType#*|}"
+			
+			try 'myExtEngineSourcePath=' osascript -e \
+					"return POSIX path of (choose application with title \"Locate $myExtEngineName\" with prompt \"Please locate $myExtEngineName\" as alias)" \
+					"Locate engine app dialog failed."
+			myExtEngineSourcePath="${myExtEngineSourcePath%/}"
+			
+			if [[ ! "$ok" ]] ; then
+				
+				# we've failed to find the engine browser
+				[[ "$errmsg" ]] && errmsg=" ($errmsg)"
+				errmsg="Unable to find $myExtEngineName.$errmsg"
+				return 1
+			fi
+			
+			# user selected a path, so check it
+			getextenginesrcinfo "$myExtEngineSourcePath"
+			
+			if [[ ! "${SSBEngineSourceInfo[$iPath]}" ]] ; then
+				ok= ; errmsg="Selected app is not a valid instance of $myExtEngineName."
+				return 1
+			fi
+		fi
+		
+		# make sure external browser is on the same volume as the engine
+		if ! issamedevice "${SSBEngineSourceInfo[$iPath]}" "$SSBEnginePath" ; then
+			ok= ; errmsg="${SSBEngineSourceInfo[$iDisplayName]} is not on the same volume as this app's data directory."
+			return 1
+		fi
+		
+		# create Payload directory
+		try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
+				"Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
+		
+		# turn on extended glob for copying
+		local shoptState=
+		shoptset shoptState extglob
+		
+		# copy all of the external browser except Framework and Resources
+		local allExcept='!(Frameworks|Resources)'
+		try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/"$allExcept \
+				"$myEnginePayloadPath" \
+				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
+		
+		# copy Resources, except icons
+		allExcept='!(*.icns)'
+		try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/Resources/"$allExcept \
+				"$myEnginePayloadPath/Resources" \
+				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine resources to payload."
+		
+		# restore extended glob
+		shoptrestore shoptState
+		
+		# hard link to external engine browser Frameworks
+		linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myEnginePayloadPath" \
+				"${SSBEngineSourceInfo[$iDisplayName]} app engine" 'payload' 'Frameworks'
+		
+		# filter localization files
+		filterlproj "$myEnginePayloadPath/Resources" \
+				"${SSBEngineSourceInfo[$iDisplayName]} app engine"
+		
+		# link to this app's icons
+		try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
+				"$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \
+				"Unable to copy app icon to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
+		try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
+				"$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
+				"Unable to copy document icon file to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
+		
+		
+		# EXTERNAL ENGINE PLACEHOLDER
+		
+		# clear out any old active app
+		if [[ -d "$myEngineAppPath" ]] ; then
+			try /bin/rm -rf "$myEngineAppPath" \
+					"Unable to clear old ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
+			[[ "$ok" ]] || return 1
+		fi
+		
+		# create active placeholder app bundle
+		try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
+				"Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
+		
+		# filter Info.plist from payload
+		filterplist "$myEnginePayloadPath/Info.plist" \
+				"$myEngineAppPath/Contents/Info.plist" \
+				"${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder Info.plist" \
+				'Add :LSUIElement bool true' \
+				'Delete :CFBundleDocumentTypes' \
+				'Delete :CFBundleURLTypes' \
+				'Add :LSArchitecturePriority array' \
+				'Add :LSArchitecturePriority: string arm64' \
+				'Add :LSArchitecturePriority: string x86_64'
+		
+		# path to placeholder resources in the app
+		local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
+		
+		# copy in placeholder executable
+		try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
+				"$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
+				"Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
+		
+		# copy Resources directory from payload
+		try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
+				"Unable to copy resources from ${SSBEngineSourceInfo[$iDisplayName]} app engine payload to placeholder."
+		
+		# copy in scripts
+		try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
+				"$myEngineAppPath/Contents/Resources" \
+				"Unable to copy scripts to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
+		
+	else
+		
+		# INTERNAL ENGINE PAYLOAD
+		
+		# make sure we have the current version of Epichrome
+		if [[ ! -d "$epiCurrentPath" ]] ; then
+			ok=
+			errmsg="Unable to find this app's version of Epichrome ($SSBVersion)."
+			if vcmp "$epiLatestVersion" '>' "$SSBVersion" ; then
+				errmsg+=" The app can't be run until it's reinstalled or the app is updated."
+			else
+				errmsg+=" It must be reinstalled before the app can run."
+			fi
+			return 1
+		fi
+		
+		# make sure Epichrome is on the same volume as the engine
+		if ! issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
+			ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
+			return 1
+		fi
+		
+		# copy main payload from app
+		try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePayloadPath" \
+				"$myEnginePayloadPath" \
+				'Unable to copy app engine payload.'
+		
+		# copy icons to payload
+		safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
+				"$myEnginePayloadPath/Resources/$CFBundleIconFile" \
+				"engine app icon"
+		safecopy "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
+				"$myEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
+				"engine document icon"
+		
+		# hard link large payload items from Epichrome
+		linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
+				"$myEnginePayloadPath" 'app engine' 'payload'
+		
+		
+		# INTERNAL ENGINE PLACEHOLDER
+		
+		# clear out any old active app
+		if [[ -d "$myEngineAppPath" ]] ; then
+			try /bin/rm -rf "$myEngineAppPath" \
+					'Unable to clear old app engine placeholder.'
+			[[ "$ok" ]] || return 1
+		fi
+		
+		# create active placeholder app bundle
+		try /bin/mkdir -p "$myEngineAppPath" \
+				'Unable to create app engine placeholder.'
+		
+		# copy in app placeholder
+		try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
+				"$myEngineAppPath/Contents" \
+				'Unable to populate app engine placeholder.'
+		
+		# copy Resources directory from payload
+		try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
+				'Unable to copy resources from app engine payload to placeholder.'
+		
+		# copy in core script
+		try /bin/mkdir -p "$myEngineAppPath/Contents/Resources/Scripts" \
+				'Unable to create app engine placeholder scripts.'
+		try /bin/cp "$SSBAppPath/Contents/Resources/Scripts/core.sh" \
+		"$myEngineAppPath/Contents/Resources/Scripts" \
+				'Unable to copy core to placeholder.'
 	fi
 	
-	# make sure external browser is on the same volume as the engine
-	if ! issamedevice "${SSBEngineSourceInfo[$iPath]}" "$SSBEnginePath" ; then
-	    ok= ; errmsg="${SSBEngineSourceInfo[$iDisplayName]} is not on the same volume as this app's data directory."
-	    return 1
+	# link to engine
+	if [[ "$ok" ]] ; then
+		try /bin/ln -s "$SSBEnginePath" "$myDataPath/Engine" \
+				'Unable create to link to engine in data directory.'
 	fi
 	
-	# create Payload directory
-	try /bin/mkdir -p "$myEnginePayloadPath/Resources" \
-	    "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
-	
-	# turn on extended glob for copying
-	local shoptState=
-	shoptset shoptState extglob
-	
-	# copy all of the external browser except Framework and Resources
-	local allExcept='!(Frameworks|Resources)'
-	try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/"$allExcept \
-	    "$myEnginePayloadPath" \
-	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine payload."
-	
-	# copy Resources, except icons
-	allExcept='!(*.icns)'
-	try /bin/cp -PR "${SSBEngineSourceInfo[$iPath]}/Contents/Resources/"$allExcept \
-	    "$myEnginePayloadPath/Resources" \
-	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine resources to payload."
-	
-	# restore extended glob
-	shoptrestore shoptState
-	
-	# hard link to external engine browser Frameworks
-	linktree "${SSBEngineSourceInfo[$iPath]}/Contents" "$myEnginePayloadPath" \
-		 "${SSBEngineSourceInfo[$iDisplayName]} app engine" 'payload' 'Frameworks'
-	
-	# filter localization files
-	filterlproj "$myEnginePayloadPath/Resources" \
-		    "${SSBEngineSourceInfo[$iDisplayName]} app engine"
-	
-	# link to this app's icons
-	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-	    "$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iAppIconFile]}" \
-	    "Unable to copy app icon to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
-	try /bin/cp "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-	    "$myEnginePayloadPath/Resources/${SSBEngineSourceInfo[$iDocIconFile]}" \
-	    "Unable to copy document icon file to ${SSBEngineSourceInfo[$iDisplayName]} app engine."
-
-
-	# EXTERNAL ENGINE PLACEHOLDER
-	
-	# clear out any old active app
-	if [[ -d "$myEngineAppPath" ]] ; then
-	    try /bin/rm -rf "$myEngineAppPath" \
-		"Unable to clear old ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-	    [[ "$ok" ]] || return 1
-	fi
-	
-	# create active placeholder app bundle
-	try /bin/mkdir -p "$myEngineAppPath/Contents/MacOS" \
-	    "Unable to create ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-	
-	# filter Info.plist from payload
-	filterplist "$myEnginePayloadPath/Info.plist" \
-		    "$myEngineAppPath/Contents/Info.plist" \
-		    "${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder Info.plist" \
-		    'Add :LSUIElement bool true' \
-		    'Delete :CFBundleDocumentTypes' \
-		    'Delete :CFBundleURLTypes'
-	
-	# path to placeholder resources in the app
-	local myAppPlaceholderPath="$SSBAppPath/Contents/$appEnginePath"
-	
-	# copy in placeholder executable
-	try /bin/cp "$myAppPlaceholderPath/PlaceholderExec" \
-	    "$myEngineAppPath/Contents/MacOS/${SSBEngineSourceInfo[$iExecutable]}" \
-	    "Unable to copy ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder executable."
-	
-	# copy Resources directory from payload
-	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-	    "Unable to copy resources from ${SSBEngineSourceInfo[$iDisplayName]} app engine payload to placeholder."
-	
-	# copy in scripts
-	try /bin/cp -PR "$myAppPlaceholderPath/Scripts" \
-	    "$myEngineAppPath/Contents/Resources" \
-	    "Unable to copy scripts to ${SSBEngineSourceInfo[$iDisplayName]} app engine placeholder."
-	
-    else
-	
-	# INTERNAL ENGINE PAYLOAD
-	
-	# make sure we have the current version of Epichrome
-	if [[ ! -d "$epiCurrentPath" ]] ; then
-	    ok=
-	    errmsg="Unable to find this app's version of Epichrome ($SSBVersion)."
-	    if vcmp "$epiLatestVersion" '>' "$SSBVersion" ; then
-		errmsg+=" The app can't be run until it's reinstalled or the app is updated."
-	    else
-		errmsg+=" It must be reinstalled before the app can run."
-	    fi
-	    return 1
-	fi
-	
-	# make sure Epichrome is on the same volume as the engine
-	if ! issamedevice "$epiCurrentPath" "$SSBEnginePath" ; then
-	    ok= ; errmsg="Epichrome is not on the same volume as this app's data directory."
-	    return 1
-	fi
-	
-	# copy main payload from app
-	try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePayloadPath" \
-	    "$myEnginePayloadPath" \
-	    'Unable to copy app engine payload.'
-	
-	# copy icons to payload
-	safecopy "$SSBAppPath/Contents/Resources/$CFBundleIconFile" \
-		 "$myEnginePayloadPath/Resources/$CFBundleIconFile" \
-		 "engine app icon"
-	safecopy "$SSBAppPath/Contents/Resources/$CFBundleTypeIconFile" \
-		 "$myEnginePayloadPath/Resources/$CFBundleTypeIconFile" \
-		 "engine document icon"
-	
-	# hard link large payload items from Epichrome
-	linktree "$epiCurrentPath/Contents/Resources/Runtime/Engine/Link" \
-		 "$myEnginePayloadPath" 'app engine' 'payload'
-
-
-	# INTERNAL ENGINE PLACEHOLDER
-	
-	# clear out any old active app
-	if [[ -d "$myEngineAppPath" ]] ; then
-	    try /bin/rm -rf "$myEngineAppPath" \
-		'Unable to clear old app engine placeholder.'
-	    [[ "$ok" ]] || return 1
-	fi
-	
-	# create active placeholder app bundle
-	try /bin/mkdir -p "$myEngineAppPath" \
-	    'Unable to create app engine placeholder.'
-	
-	# copy in app placeholder
-	try /bin/cp -PR "$SSBAppPath/Contents/$appEnginePlaceholderPath" \
-	    "$myEngineAppPath/Contents" \
-	    'Unable to populate app engine placeholder.'
-
-	# copy Resources directory from payload
-	try /bin/cp -PR "$myEnginePayloadPath/Resources" "$myEngineAppPath/Contents" \
-	    'Unable to copy resources from app engine payload to placeholder.'
-	
-	# copy in core script
-	try /bin/mkdir -p "$myEngineAppPath/Contents/Resources/Scripts" \
-	    'Unable to create app engine placeholder scripts.'
-	try /bin/cp "$SSBAppPath/Contents/Resources/Scripts/core.sh" \
-	    "$myEngineAppPath/Contents/Resources/Scripts" \
-	    'Unable to copy core to placeholder.'
-    fi
-
-    # link to engine
-    if [[ "$ok" ]] ; then
-	try /bin/ln -s "$SSBEnginePath" "$myDataPath/Engine" \
-	    'Unable create to link to engine in data directory.'
-    fi
-    
-    # return code
-    [[ "$ok" ]] && return 0 || return 1
+	# return code
+	[[ "$ok" ]] && return 0 || return 1
 }
 
 
