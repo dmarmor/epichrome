@@ -71,6 +71,11 @@ const kAppInfoKeys = {
 const kWinStyleApp = 'App Window';
 const kWinStyleBrowser = 'Browser Tabs';
 const kAppDefaultURL = "https://www.google.com/mail/";
+
+const kIconDEFAULT = 0;
+const kIconCUSTOM  = 1;
+const kIconAUTO    = 2;
+
 const kBrowserInfo = {
     'com.microsoft.edgemac': {
         shortName: 'Edge',
@@ -196,7 +201,7 @@ let gAppInfoDefault = {
     windowStyle: kWinStyleApp,
     urls: [],
     registerBrowser: false,
-    icon: true,
+    icon: kIconAUTO,
     engine: kEngines[0],
     updateAction: 'prompt'
 };
@@ -303,8 +308,10 @@ function main(aApps=[]) {
     myInitInfo.core.settingsFile = gCoreInfo.settingsFile;
     gCoreInfo = myInitInfo.core;
     
-    // set up preview icon path
+    // set up set icon paths
     gCoreInfo.previewIcon = gCoreInfo.dataPath + '/preview.icns';
+    gCoreInfo.autoIconSource = gCoreInfo.dataPath + '/autoicon.png';
+    gCoreInfo.autoIconTempDir = gCoreInfo.dataPath + '/autoicon_tmp';
     
     // init engine list
     for (let curEng of kEngines) {
@@ -986,8 +993,12 @@ function readProperties() {
     }
 
 	// doCustomIcon
-	if (myYesNoRegex.test(myProperties["doCustomIcon"])) {
-        gAppInfoDefault.icon = (myProperties["doCustomIcon"] != 'No');
+	if (myProperties["doCustomIcon"] == 'Yes') {
+        gAppInfoDefault.icon = kIconCUSTOM;
+    } else if (myProperties["doCustomIcon"] == 'No') {
+        gAppInfoDefault.icon = kIconDEFAULT;
+    } else {
+        gAppInfoDefault.icon = kIconAUTO;
     }
 }
 
@@ -1226,7 +1237,14 @@ function writeProperties() {
                 value: myRegisterBrowser
             })
         );
-        let myIcon = (gAppInfoDefault.icon ? 'Yes' : 'No');
+        let myIcon = gAppInfoDefault.icon;
+        if (myIcon == kIconDEFAULT) {
+            myIcon = 'No';
+        } else if (myIcon == kIconCUSTOM) {
+            myIcon = 'Yes';
+        } else {
+            myIcon = 'Auto';
+        }
         myProperties.propertyListItems.push(
             kSysEvents.PropertyListItem({
                 kind:"string",
@@ -2250,22 +2268,15 @@ function stepIcon(aInfo) {
     
     // set up substeps
     let myIconSteps = [
+        stepIconCheckEdit,
+        stepIconCheckAuto,
         stepIconSelectAuto,
+        stepIconCheckCustom,
         stepIconSelectCustom,
         stepIconCheckStyle,
         stepIconSetComp,
         stepIconSetCrop
     ];
-    
-    // add substep if we're already using an autoicon
-    if (aInfo.appInfo.icon.autoIconUrl) {
-        myIconSteps.unshift(stepIconCheckAuto);
-    }
-    
-    // add substep if we're editing this app
-    if (aInfo.stepInfo.action == kActionEDIT) {
-        myIconSteps.unshift(stepIconCheckEdit);
-    }
     
     // let the steps know how many URLs we have
     aInfo.stepInfo.numUrls = ((aInfo.appInfo.windowStyle == kWinStyleApp) ?
@@ -2296,38 +2307,42 @@ function stepIcon(aInfo) {
 // STEPICONCHECKEDIT: step function to decide whether to change an app's existing icon
 function stepIconCheckEdit(aInfo) {
     
-    // dialog variables
-    let myMapObject, myDlgResult;
-    
-    // set up map object
-    myMapObject = {
-        stepInfo: kActionEDIT,
-        appInfo: {
-            defaultToYes: (aInfo.oldAppInfo.icon != aInfo.appInfo.icon)
-        },
-        oldAppInfo: {
-            defaultToYes: false
+    if (aInfo.stepInfo.action == kActionEDIT) {
+        
+        // set up map object
+        let myMapObject = {
+            stepInfo: kActionEDIT,
+            appInfo: {
+                defaultToYes: (aInfo.oldAppInfo.icon != aInfo.appInfo.icon)
+            },
+            oldAppInfo: {
+                defaultToYes: false
+            }
+        };
+        
+        let myDlgResult = stepDialog(aInfo, "Do you want to change this app's icon?", {
+            mapObject: myMapObject,
+            key: 'defaultToYes',
+            buttons: {
+                'Yes': true,
+                'No':  false
+            }
+        });
+        
+        if (myDlgResult.canceled) {
+            // Back button
+            return -1;
         }
-    };
-    
-    myDlgResult = stepDialog(aInfo, "Do you want to change this app's icon?", {
-        mapObject: myMapObject,
-        key: 'defaultToYes',
-        buttons: {
-            'Yes': true,
-            'No':  false
+        
+        if (myDlgResult.buttonIndex != 0) {
+            // No -- make sure icon matches old icon
+            aInfo.appInfo.icon = aInfo.oldAppInfo.icon;
+            
+            // update dialog icon
+            aInfo.stepInfo.dlgIcon = setDlgIcon(aInfo.oldAppInfo);
+            
+            return aInfo.stepInfo.numSteps;
         }
-    });
-    
-    if (myDlgResult.canceled) {
-        // Back button
-        return -1;
-    }
-    
-    if (myDlgResult.buttonIndex != 0) {
-        // No -- make sure icon matches old icon & move on to setting style
-        aInfo.appInfo.icon = aInfo.oldAppInfo.icon;
-        return aInfo.stepInfo.numSteps - 3;
     }
     
     // we're going to edit the icon
@@ -2338,21 +2353,24 @@ function stepIconCheckEdit(aInfo) {
 // STEPICONCHECKAUTO: step function to determine whether to change an auto-icon
 function stepIconCheckAuto(aInfo) {
     
-    let myDlgResult = stepDialog(aInfo, 'This app is set to use an icon found automatically at ' +
-        aInfo.appInfo.icon.autoIconUrl +
-        '. Do you want to continue with this icon or change it?', {
-            buttons: [kDotSelected + ' Continue', 'Change']
+    if (aInfo.appInfo.icon.autoIconUrl) {
+
+        let myDlgResult = stepDialog(aInfo, 'This app is set to use an icon found automatically at ' +
+            aInfo.appInfo.icon.autoIconUrl +
+            '. Do you want to continue with this icon or change it?', {
+                buttons: [kDotSelected + ' Continue', 'Change']
+            }
+        );
+        
+        if (myDlgResult.canceled) {
+            // Back button
+            return ((aInfo.stepInfo.action == kActionEDIT) ? -1 : -2);
         }
-    );
-    
-    if (myDlgResult.canceled) {
-        // Back button
-        return -1;
-    }
-    
-    if (myDlgResult.buttonIndex == 0) {
-        // continue using this autoicon, move on to setting style
-        return 3;
+        
+        if (myDlgResult.buttonIndex == 0) {
+            // continue using this autoicon, move on to setting style
+            return 4;
+        }
     }
     
     // otherwise, we're going to change the icon
@@ -2364,20 +2382,33 @@ function stepIconSelectAuto(aInfo) {
     
     if (aInfo.stepInfo.numUrls > 0) {
         
+        // $$$ tHIS SHOULDN'T BE DEFAULT TO CONTINUE IF CUSTOM HAS BEEN SET
+        
+        // set up map object
+        let myMapObject = {
+            defaultToAuto: (getIconType(aInfo.appInfo.icon) == kIconAUTO)
+        };
+        
         myDlgResult = stepDialog(aInfo,
             "Do you want to try to automatically create an icon based on " +
             ((aInfo.stepInfo.numUrls > 1) ? "one of the app's URLs" : "the app's URL") + ', or select your own icon?\n\n' +
             kDotInfo + ' The automatic check may take several seconds.', {
-                buttons: [kDotSelected + ' Auto', 'Select']
+                mapObject: myMapObject,
+                key: 'defaultToAuto',
+                buttons: {
+                    'Auto': true,
+                    'Select': false
+                }
             }
         );
         
         if (myDlgResult.canceled) {
             // Back button
-            return -1;
+            return (aInfo.appInfo.icon.autoIconUrl ? -1 :
+                ((aInfo.stepInfo.action == kActionEDIT) ? -2 : -3));
         }
         
-        if (myDlgResult.buttonIndex == 0) {
+        if (myDlgResult.buttonValue) {
             // check for an auto icon
             dialog("simulating autocheck fail");
             // myUseAutoIcon = true;
@@ -2388,11 +2419,39 @@ function stepIconSelectAuto(aInfo) {
             // updateAppInfo(aInfo, 'icon');
 
             // if succeeded, move on to style
-            //return 2;
+            //return 3;
         }
     }
     
     // if we got here, we're not doing an auto-icon, so move on to selecting custom icon
+    return 1;
+}
+
+
+// STEPICONSELECTAUTO: step function to select type of icon to use
+function stepIconCheckCustom(aInfo) {
+    
+    if ((aInfo.appInfo.icon instanceof Object) &&
+        (!aInfo.appInfo.icon.autoIconUrl)) {
+        
+        let myDlgResult = stepDialog(aInfo,
+            'Continue using the currently-selected custom icon?', {
+                buttons: [ kDotSelected + ' Continue', 'Change' ]
+            }
+        );
+        
+        if (myDlgResult.canceled) {
+            // Back button
+            return ((aInfo.stepInfo.numUrls > 0) ? -1 : -2);
+        }
+        
+        if (myDlgResult.buttonIndex == 0) {
+            // Continue
+            return 2;
+        }
+    }
+    
+    // if we got here we'll choose a new icon
     return 1;
 }
 
@@ -2418,12 +2477,17 @@ function stepIconSelectCustom(aInfo) {
     
     if (myDlgResult.canceled) {
         // Back button
-        return (aInfo.stepInfo.numUrls > 0 ? -1 : -2);
+        if ((aInfo.appInfo.icon instanceof Object) &&
+            (!aInfo.appInfo.icon.autoIconUrl)) {
+            return -1;
+        } else {
+            return ((aInfo.stepInfo.numUrls > 0) ? -2 : -3);
+        }
     }
     
     // if editing & icon choice changed from custom to default, confirm whether to remove icon
     if ((aInfo.stepInfo.action == kActionEDIT) &&
-        (aInfo.appInfo.icon && aInfo.oldAppInfo.icon) &&
+        ((aInfo.appInfo.icon != kIconDEFAULT) && (aInfo.oldAppInfo.icon != kIconDEFAULT)) &&
         !myDlgResult.buttonValue) {
         
         let myConfirmResult = dialog("Are you sure you want to remove this app's custom icon and replace it with the default Epichrome icon?", {
@@ -2524,7 +2588,7 @@ function stepIconSelectCustom(aInfo) {
     } else {
         
         // default icon, and skip all icon style steps
-        aInfo.appInfo.icon = false;
+        aInfo.appInfo.icon = kIconDEFAULT;
         aInfo.stepInfo.dlgIcon = kEpiAppIcon;
         myNextStep = 4;
     }
@@ -2540,7 +2604,9 @@ function stepIconSelectCustom(aInfo) {
 function stepIconCheckStyle(aInfo) {
     
     // where to backstep to
-    let myBackStep = iconIsAuto(aInfo.appInfo.icon) ? -2 : -1;
+    let myBackStep = (aInfo.appInfo.icon.autoIconURL ? -4 :
+        (((aInfo.appInfo.icon instanceof Object) &&
+            (!aInfo.appInfo.icon.autoIconUrl)) ? -2 : -1));
     
     // store source image dimensions
     let iSourceSize = [0,0];
@@ -2580,8 +2646,6 @@ function stepIconCheckStyle(aInfo) {
     aInfo.appInfo.icon.sourceHeight = iSourceSize[1];
     aInfo.appInfo.icon.sourceIsSquare = ((aInfo.appInfo.icon.sourceWidth > 0) &&
         (aInfo.appInfo.icon.sourceWidth == aInfo.appInfo.icon.sourceHeight));
-    
-    dialog(JSON.stringify(aInfo.appInfo.icon, null, 3));  // $$$$ diagnostic
     
     
     // SHOW COMP SETTINGS DIALOG
@@ -2726,8 +2790,8 @@ function stepIconSetCrop(aInfo) {
         gIconSettings.crop = iDlgResult.buttonValue;
     }
     
-    // move on
-    return 1;
+    // return to confirmation
+    return -2;
 }
 
 
@@ -2968,13 +3032,14 @@ function stepBuild(aInfo) {
 
 
     // BUILD SCRIPT ARGUMENTS
-
+    
+    let myIconType = getIconType(aInfo.appInfo.icon);
     let myScriptArgs = [
         'epiAction=' + myScriptAction,
         'CFBundleDisplayName=' + aInfo.appInfo.displayName,
         'CFBundleName=' + aInfo.appInfo.shortName,
         'SSBIdentifier=' + aInfo.appInfo.id,
-        'SSBCustomIcon=' + (aInfo.appInfo.icon ? 'Yes' : 'No'),
+        'SSBCustomIcon=' + ((myIconType == kIconAUTO) ? 'Auto' : ((myIconType == kIconCUSTOM) ? 'Yes' : 'No')),
         'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
         'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
         'SSBUpdateAction=' + kUpdateActions[aInfo.appInfo.updateAction].value
@@ -2991,7 +3056,13 @@ function stepBuild(aInfo) {
 
     // add icon source if necessary
     if (aInfo.appInfo.icon instanceof Object) {
-        myScriptArgs.push('epiIconSource=' + aInfo.appInfo.icon.path);
+        if (aInfo.appInfo.icon.autoIconUrl) {
+            // auto icon
+            myScriptArgs.push('epiIconSource=' + gCoreInfo.autoIconSource);
+        } else {
+            // custom icon
+            myScriptArgs.push('epiIconSource=' + aInfo.appInfo.icon.path);
+        }
         
         // add icon compositing options
         myScriptArgs.push('epiIconCrop=' + (gIconSettings.crop ? '1' : ''));
@@ -3747,8 +3818,17 @@ function iconPreview(aIconPath, aSourceSizeArray=null) {
 }
 
 
-function iconIsAuto(aIcon) {
-    return ((aIcon instanceof Object) && aIcon.hasOwnProperty('autoIconUrl'));
+// GETICONTYPE: return the type of an app's icon, whether fully set or code
+function getIconType(aIcon) {
+    if (aIcon instanceof Object) {
+        if (aIcon.hasOwnProperty('autoIconUrl')) {
+            return kIconAUTO;
+        } else {
+            return kIconCUSTOM;
+        }
+    }
+    
+    return aIcon;
 }
 
 

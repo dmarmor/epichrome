@@ -53,7 +53,7 @@ stepIEng4=15000
 progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 ))
  
 # custom icon progress
-if [[ "$SSBCustomIcon" = Yes ]] ; then
+if [[ "$SSBCustomIcon" != 'No' ]] ; then
     if [[ "$epiIconSource" ]] ; then
         progressTotal=$(( $progressTotal + $stepIconA1 + $stepIconA2 + $stepIconA3 ))
     else
@@ -285,7 +285,7 @@ progress '!step07'
 
 # COPY OR CREATE CUSTOM APP ICONS
 
-if [[ "$SSBCustomIcon" = Yes ]] ; then
+if [[ "$SSBCustomIcon" != 'No' ]] ; then
     
     # relative path for welcome icon
     welcomeIconBase="$appWelcomePath/img/app_icon.png"

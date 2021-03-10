@@ -423,11 +423,12 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # basic info
     ynRe='^(Yes|No)$'
+    ynaRe='^(Auto|Yes|No)$'
     updateRe='^(Auto|Never)$'
     if [[ ! ( "$SSBVersion" && "$SSBIdentifier" && \
             "$CFBundleDisplayName" && "$CFBundleName" && \
             ( ( ! "$SSBRegisterBrowser" ) || ( "$SSBRegisterBrowser" =~ $ynRe ) ) && \
-            ( "$SSBCustomIcon" =~ $ynRe ) && \
+            ( "$SSBCustomIcon" =~ $ynaRe ) && \
             ( ( ! "$SSBUpdateAction" ) || ( "$SSBUpdateAction" =~ $updateRe ) ) ) ]] ; then
         abort "Basic app info is missing or corrupt"
     fi
@@ -490,9 +491,12 @@ elif [[ "$epiAction" = 'read' ]] ; then
     
     # adapt icon value
     if [[ "$SSBCustomIcon" = 'Yes' ]] ; then
-        myIcon='true'
+        myIcon='1'
+    elif [[ "$SSBCustomIcon" = 'No' ]] ; then
+        myIcon='0'
     else
-        myIcon='false'
+        # auto-icon
+        myIcon='2'
     fi
     
     # adapt update action value

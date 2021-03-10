@@ -106,9 +106,9 @@ function makeicon {
     if [[ "$iSourceInfo" =~ $iSipsRe ]] ; then
         iSourceFormat="${BASH_REMATCH[1]}"
         
-        if [[ "$iSourceSizeVar" ]] ; then
-            # set iSourceSizeVar to array with width & height
-            eval "$iSourceSizeVar=( \"\${BASH_REMATCH[2]}\" \"\${BASH_REMATCH[3]}\" )"
+        if [[ "$aSourceSizeVar" ]] ; then
+            # set aSourceSizeVar to array with width & height
+            eval "$aSourceSizeVar=( \"\${BASH_REMATCH[2]}\" \"\${BASH_REMATCH[3]}\" )"
         fi
     else
         ok= ; errmsg="Unable to parse file info for \"${aIconSource##*/}\"."
