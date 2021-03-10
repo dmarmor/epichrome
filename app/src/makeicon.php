@@ -20,9 +20,70 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-// maximum icon size
+// --- CONSTANTS ---
+
+// ICON SIZE LIMITS
+
 const ICON_SIZE_MAX = 1024;
 const ICON_SIZE_MIN = 16;
+const AUTOICON_SIZE_MIN = 48;
+
+
+// AUTO-ICON INFO
+
+// auto-icon user agent
+const AUTOICON_USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1';
+
+// auto-icon timeout
+const AUTOICON_PAGE_TIMEOUT = 5;
+const AUTOICON_IMAGE_TIMEOUT = 3;
+
+// auto-icon URL transforms
+const AUTOICON_URL_TRANSFORMS = [
+    [
+        [
+            ['/(^|\.)gmail\.com$/i'],
+            ['/(^|\.)g?mail\.google\.com$/i'],
+            ['/(^|\.)google.com$/i', '#^/g?mail($|/)#i'],
+            
+        ],
+        'https://www.google.com/gmail/about/#'
+    ],
+    [
+        [
+            ['/(^|\.)calendar\.google\.com$/i'],
+            ['/(^|\.)google.com$/i', '#^/calendar($|/)#i'],
+            
+        ],
+        'https://www.google.com/calendar/about/'
+    ],
+    [
+        [
+            ['/(^|\.)drive\.google\.com$/i']
+        ],
+        'https://www.google.com/drive/'
+    ]
+];
+
+// auto-icon tag search
+const AUTOICON_TAG_SEARCH = [
+    ['link', 'rel', ['/^fluid-icon$/',
+                    '/^apple-touch-icon.*/',
+                    '/^icon$/'], 'href'],
+    ['meta', 'name', [['/^msapplication-TileImage$/', 0]], 'content']
+];
+
+// auto-icon fallback filenames
+const AUTOICON_FALLBACK = [
+    'apple-touch-icon.png',
+    'apple-touch-icon-precomposed.png',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    'favicon.ico',
+    '/favicon.ico'
+];
+
+// --- ACTIONS ---
 
 // RUNACTION -- run an arbitrary list of image-processing actions
 function runActions($aAction, $aInput = null) {
@@ -72,6 +133,17 @@ function runActions($aAction, $aInput = null) {
             
             actionWritePNG($curInput, $curAction->path, $curAction->resolution, $curAction->options);
             $nextInput = null;
+            
+        } elseif ($curAction->action == 'autoicon') {
+            
+            // ACTION: FIND AUTO-ICON
+            
+            // we immediately exit after this
+            if (actionAutoIcon($curAction->options)) {
+                exit(0);
+            } else {
+                exit(1);
+            }
             
         } else {
             
@@ -409,6 +481,211 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
 }
 
 
+// ACTIONGETAUTOICON -- attempt to download an icon based on URL
+function actionAutoIcon($aOptions) {
+
+    // turn off the many warnings emitted when reading HTML
+    error_reporting(error_reporting() & ~E_WARNING);
+
+    // normalize & parse URL
+    $iUrl = $aOptions->url;
+    if (!parse_url($iUrl, PHP_URL_SCHEME)) { $iUrl = 'http://'.$iUrl; }
+    $iUrlParts = parse_url($iUrl);
+    
+    // apply transforms for sites with hard-to-get icons
+    $iMatchFound = false;
+    foreach (AUTOICON_URL_TRANSFORMS as $curTransform) {
+        foreach ($curTransform[0] as $curRule) {
+            
+            // get current regexes to match against URL
+            $curHostMatch = $curRule[0]; if (!$curHostMatch) { $curHostMatch = '/.*/'; }
+            $curPathMatch = $curRule[1]; if (!$curPathMatch) { $curPathMatch = '/.*/'; }
+            
+            // try to match URL
+            if (preg_match($curHostMatch, $iUrlParts['host']) &&
+            preg_match($curPathMatch, $iUrlParts['path'])) {
+                $iMatchFound = true;
+                break;
+            }
+        }
+        
+        if ($iMatchFound) {
+            
+            // transform URL according to this rule
+            $iUrl = $curTransform[1];
+            $iUrlParts = parse_url($iUrl);
+            break;
+        }
+    }
+    
+    
+    // LOAD URL
+    
+    // load HTML
+    $iDoc = loadUrl($iUrl);
+    if ((!$iDoc) || !$iDoc->documentElement) {
+        throw new EpiException('Unable to load URL "' . $aOptions->url . '"');
+    }
+    
+    // update URL after redirects
+    $iUrl = $iDoc->documentURI;
+    $iUrlParts = parse_url($iUrl);
+    
+    // get <head> element
+    $iHead = $iDoc->documentElement->getElementsByTagName('head')[0];
+    
+        
+    // CREATE LIST OF ICON FILES TO TRY
+    
+    // search known tags for icon sources
+    
+    $iTagIcons = [];
+    
+    foreach (AUTOICON_TAG_SEARCH as $curTag) {
+        
+        // get all elements with current tag name
+        $curElemList = $iHead->getElementsByTagName($curTag[0]);
+        
+        foreach ($curElemList as $curElem) {
+            
+            // get needed attributes for current element
+            $curAttrList = $curElem->attributes;
+            $curPath = $curAttrList->getNamedItem($curTag[3])->nodeValue;
+            $curPropList = explode(' ', $curAttrList->getNamedItem($curTag[1])->nodeValue);
+            
+            foreach ($curPropList as $curProp) {
+                foreach ($curTag[2] as $curMatch) {
+                    
+                    if (preg_match($curMatch, $curProp)) {
+                        
+                        // found an icon!
+                        $iTagIcons[] = $curPath;
+                    }
+                }
+            }
+        }
+    }
+    
+    // create unique list of candidate icons, with NULL between tag & fallback
+    foreach (array_merge($iTagIcons, [null], AUTOICON_FALLBACK) as $curIcon) {
+        if ($curIcon) {
+            $iIconCandidates[] = absoluteUrlPath($iUrlParts, $curIcon);
+        } else {
+            $iIconCandidates[] = null;
+        }
+    }
+    $iIconCandidates = array_unique($iIconCandidates);
+    
+    
+    // DOWNLOAD & CHECK ICONS
+    
+    // set user agent
+    ini_set('user_agent', AUTOICON_USER_AGENT);
+    
+    // set timeout (https://stackoverflow.com/questions/21497561/domdocumentload-timeout)
+    libxml_set_streams_context(stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => strval(AUTOICON_IMAGE_TIMEOUT)
+        ]
+    ]));
+    ini_set('default_socket_timeout', AUTOICON_IMAGE_TIMEOUT);  // overriding timeout
+    
+    $iFinalIcons = [];
+    foreach ($iIconCandidates as $curIcon) {
+        
+        if ($curIcon === null) {
+            if (count($iFinalIcons) > 0) {
+                // good icon already found, so don't search fallback list
+                break;
+            } else {
+                // move on to fallbacks
+                continue;
+            }
+        }
+        
+        // get file extension, if any
+        $curExt = end(explode('.', explode('?', $curIcon)[0]));
+        if ($curExt) { $curExt = '.' . $curExt; }
+        
+        // create unique output file name
+        do {
+            $curOutPath = $aOptions->tempImageDir . '/iconsource_' . sprintf('%03d', rand(0,999)) . $curExt;
+        } while (file_exists($curOutPath));
+                
+        // download icon
+        $curIconData = file_get_contents($curIcon);
+        
+        if ($curIconData) {
+            
+            if (file_put_contents($curOutPath, $curIconData)) {
+                
+                // run sips on downloaded file
+                unset($curSipsOutput);
+                exec("/usr/bin/sips --getProperty format --getProperty pixelWidth ".escapeshellarg($curOutPath),
+                        $curSipsOutput, $iResult);
+                
+                if ($iResult == 0) {
+                    
+                    // collapse output into a single string
+                    $curSipsOutput = implode(" ", $curSipsOutput);
+                    
+                    // parse out image format & pixelWidth
+                    if (preg_match('/format: ([^ ]+).*pixelWidth: ([0-9]+)/i',
+                            $curSipsOutput, $curSipsMatch, PREG_OFFSET_CAPTURE) &&
+                        (intval($curSipsMatch[2][0]) >= AUTOICON_SIZE_MIN)) {
+                        
+                        // good image above minimum size, so add to list
+                        $iFinalIcons[] = [intval($curSipsMatch[2][0]), $curSipsMatch[1][0], $curOutPath];
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    // SELECT BIGGEST ICON
+    
+    if (count($iFinalIcons) > 0) {
+        
+        // sort final list of icons
+        usort($iFinalIcons, function($a, $b) {
+            if ($a[0] > $b[0]) {
+                return -1;
+            } elseif ($a[0] < $b[0]) {
+                return 1;
+            } elseif (($a[1] == 'png') && ($b[1] != 'png')) {
+                return -1;
+            } elseif (($a[1] != 'png') && ($b[1] == 'png')) {
+                return 1;
+            } else {
+                return 0;
+            }
+        });
+        
+        foreach ($iFinalIcons as $curIcon) {
+            if ($curIcon[1] == 'png') {
+                
+                // already a PNG, so just move it into place
+                if (rename($curIcon[2], $aOptions->imagePath)) { return true; }
+                
+            } else {
+                
+                // convert to PNG
+                exec("/usr/bin/sips --setProperty format png --out iconsource.png " .
+                        escapeshellarg($curIcon[2]), $iIgnore, $iResult);
+                if ($iResult == 0) { return true; }
+            }
+        }
+    }
+    
+    // if we got here, we didn't find an icon
+    throw new EpiException('No suitable icon found at "' . $aOptions->url . '"');
+}
+
+
+// --- UTILITY FUNCTIONS ---
+
 // COMPOSITEIMAGE -- resize an image to arbitrary dimensions & composite over another
 function compositeImage($aTopInput, $aCanvasInput, $aCanvasSize, $aClipToCanvas,
                         $aSrcX, $aSrcY, $aSrcW, $aSrcH,
@@ -588,6 +865,71 @@ function newInput($aImage = null, $aPath = null, $aOrigPath = null) {
     $iResult->errName = ($aOrigPath ? 'image "' . basename($aOrigPath) . '"' : 'unnamed image');
     
     // return result
+    return $iResult;
+}
+
+
+// ABSOLUTEURLPATH -- convert an URL and possibly-relative path to an absolute URL
+function absoluteUrlPath($aUrlParts, $aPath)
+{
+    // return if already absolute URL
+    if (parse_url($aPath, PHP_URL_SCHEME) != '' || substr($aPath, 0, 2) == '//') return $aPath;
+    
+    // ignore queries and anchors
+    if ($aPath[0]=='#' || $aPath[0]=='?') { $aPath = ''; }
+    
+    // destroy path if relative url points to root
+    if ($aPath[0] == '/') {
+        $aUrlParts['path'] = '';
+    } elseif ($aPath) {
+        // remove non-directory element from path
+        $aUrlParts['path'] = preg_replace('#/[^/]*$#', '/', $aUrlParts['path']);
+    }
+        
+    // create dirty absolute URL
+    $iResult = $aUrlParts['host'] . ($aUrlParts['port'] ? ':' . $aUrlParts['port'] : '') . $aUrlParts['path'];
+    
+    if ($aPath) { $iResult .= '/' . $aPath; }
+    
+    // replace '//' or '/./' or '/foo/../' with '/'
+    $iCanonicalRe = array('#(/\.?/)#', '#/(?!\.\.)[^/]+/\.\./#');
+    do {
+        $iResult = preg_replace($iCanonicalRe, '/', $iResult, -1, $iMatchCount);
+    } while ($iMatchCount > 0);
+    
+    // add scheme and any user & password
+    return $aUrlParts['scheme'] . '://' .
+            ($aUrlParts['user'] ? $aUrlParts['user'] .
+                ($aUrlParts['pass'] ? ':' . $aUrlParts['pass'] : '') . '@' : '') .
+            $iResult;
+}
+
+
+function loadUrl($aUrl) {
+    
+    // initialize cURL
+    $iCurl = curl_init($aUrl);
+    curl_setopt_array($iCurl, array(
+        CURLOPT_USERAGENT => AUTOICON_USER_AGENT,
+        CURLOPT_TIMEOUT => AUTOICON_PAGE_TIMEOUT,
+        CURLOPT_RETURNTRANSFER  => true,
+        CURLOPT_FOLLOWLOCATION  => true
+    ));
+    
+    // create result document
+    $iResult = new DOMDocument();
+    $iResult->strictErrorChecking = false;
+    // $doc->preserveWhiteSpace = false;
+    // $doc->formatOutput = true;
+    
+    // execute the request
+    $iResult->loadHTML(curl_exec($iCurl));
+    
+    // extract the target url
+    $iResult->documentURI = curl_getinfo($iCurl, CURLINFO_EFFECTIVE_URL);
+    
+    curl_close($iCurl);
+    
     return $iResult;
 }
 

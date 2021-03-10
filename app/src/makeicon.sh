@@ -30,7 +30,7 @@ fi
 
 
 # MAKEICON: use makeicon.php to build icons
-#  makeicon(aIconSource aAppIcon aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress aMaxSize aMinSize)
+#  makeicon(aIconSource aAppIcon [aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress aMaxSize aMinSize aSourceSizeVar])
 function makeicon {
     
     # only run if we're OK
@@ -47,6 +47,7 @@ function makeicon {
     local aDoProgress="$1" ; shift
     local aMaxSize="$1" ; shift
     local aMinSize="$1" ; shift
+    local aSourceSizeVar="$1" ; shift
     
     [[ "$aDoProgress" ]] && progress '!stepIconA1'
     
@@ -83,6 +84,8 @@ function makeicon {
     # JSON for original source path (if necessary)
     local iOrigSourcePath=
     
+    # regex to pull out sips info
+    local iSipsRe='format: *([^ ]+).*pixelWidth: *([0-9]+).*pixelHeight: *([0-9]+)'
     # list of formats PHP can read without conversion
     local iFormatRe='^(jpeg|png|gif|bmp)$'
     
@@ -91,17 +94,33 @@ function makeicon {
     local iPHPSourceFormat=
     
     # check format of icon source
-    local iSourceFormat=
-    try 'iSourceFormat=' /usr/bin/sips --getProperty format "$aIconSource" \
-        "File \"${aIconSource##*/}\" is not a known image type."
+    local iSourceInfo=
+    try 'iSourceInfo=' /usr/bin/sips \
+            --getProperty format --getProperty pixelWidth --getProperty pixelHeight \
+            "$aIconSource" \
+            "File \"${aIconSource##*/}\" is not a known image type."
     [[ "$ok" ]] || return 1
+    
+    # pull out info
+    local iSourceFormat=
+    if [[ "$iSourceInfo" =~ $iSipsRe ]] ; then
+        iSourceFormat="${BASH_REMATCH[1]}"
+        
+        if [[ "$iSourceSizeVar" ]] ; then
+            # set iSourceSizeVar to array with width & height
+            eval "$iSourceSizeVar=( \"\${BASH_REMATCH[2]}\" \"\${BASH_REMATCH[3]}\" )"
+        fi
+    else
+        ok= ; errmsg="Unable to parse file info for \"${aIconSource##*/}\"."
+        errlog
+        return 1
+    fi
     
     # if imagecreatefromwebp is ever implemented in PHP:
     # if [[ "$aIconSource" = *'.'[wW][eE][bB][pP] ]] ; then
     #     iPHPSourceFormat='webp'
     
-    if [[ "${iSourceFormat##*format: }" =~ $iFormatRe ]] ; then
-        
+    if [[ "$iSourceFormat" =~ $iFormatRe ]] ; then
         # set source format
         iPHPSourceFormat="${iSourceFormat##*format: }"
     else

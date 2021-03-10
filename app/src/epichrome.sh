@@ -523,6 +523,34 @@ elif [[ "$epiAction" = 'read' ]] ; then
 }"
 
 
+elif [[ "$epiAction" = 'autoicon' ]] ; then
+
+    # ACTION: ATTEMPT TO LOAD AUTO-ICON
+:
+# // $$$ MOVE TO SH
+# if (file_exists('output')) {
+#     exec("/bin/rm -rf output", $ignore, $result);
+#     if ($result != 0) {
+#         print("can't remove old output dir\n");
+#         exit(1);
+#     }
+# }
+# if (!mkdir('output')) {
+#     print("can't make output dir\n");
+# }
+
+## delete imagePath
+
+# /usr/bin/php "$myScriptPathEpichrome/makeicon.php"
+# run thing  '[{"action": "autoicon", "options": {"url": "drive.google.com", "imagePath": "/Users/davidmarmor/Desktop/test2.png", "tempImageDir": "./output" } }]'
+
+# #    // $$$ MOVE TO SH
+#     exec("/bin/rm -rf output", $ignore, $result);
+#     if ($result != 0) {
+#         print("can't remove output dir\n");
+#     }
+
+
 elif [[ "$epiAction" = 'iconpreview' ]] ; then
     
     # ACTION: CREATE SAMPLE ICON
@@ -532,9 +560,13 @@ elif [[ "$epiAction" = 'iconpreview' ]] ; then
     
     # build icon
     makeicon "$epiIconSource" "$epiIconPreviewPath" '' '' \
-        "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" '' 256 256
+        "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" '' 256 256 \
+        sourceSize
     [[ "$ok" ]] || abort
     
+    if [[ "${sourceSize[*]}" ]] ; then
+        echo "[ ${sourceSize[0]}, ${sourceSize[1]} ]"
+    fi
     
 elif [[ "$epiAction" = 'build' ]] ; then
     
