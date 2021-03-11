@@ -2861,7 +2861,7 @@ function launchapp {
 	local aArgs="$1" ; shift ; [[ "$aArgs" ]] && eval "aArgs=( \"\${$aArgs[@]}\" )"
 	local aResultPIDVar="$1" ; shift
 	
-	# launch the app  $$$ DEBUG OPTION BELOW
+	# launch the app  $$$ REMOVE "debug" option below
 	local iResultPID=
 	try 'iResultPID=' /usr/bin/osascript "$myScriptPath/apputil.js" "{
    \"action\": \"launch\",
@@ -2869,13 +2869,13 @@ function launchapp {
    \"args\": [ $(jsonarray ', ' "${aArgs[@]}" ) ],
    \"options\": {
       \"registerFirst\": $aDoRegister,
-	  \"debug\": true
+	  \"debug\": false
    }
 }" "Unknown error launching $aAppDesc."
 	[[ "$ok" ]] || return 1
 	
-	# $$$$$ DEBUGGING
-	errlog FATAL $'DEBUGGING OUTPUT FROM LAUNCHAPP:\n'"$iResultPID"
+	# # $$$$$ DEBUGGING
+	# errlog FATAL $'DEBUGGING OUTPUT FROM LAUNCHAPP:\n'"$iResultPID"
 	iResultPID="${iResultPID##*$'\n'}"
 	
 	# check for known errors

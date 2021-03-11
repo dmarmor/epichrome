@@ -94,8 +94,6 @@ function runActions($aAction, $aInput = null) {
     // make sure we don't destroy this input during any subactions
     if ($curInput) { $curInput->preserve = true; }
     
-    // $$$ if (!is_array($aAction)) { $aAction = [ $aAction ]; }
-    
     // loop through array of actions
     foreach ($aAction as $curAction) {
         if (is_array($curAction)) {
