@@ -139,11 +139,7 @@ function runActions($aAction, $aInput = null) {
             // ACTION: FIND AUTO-ICON
             
             // we immediately exit after this
-            if (actionAutoIcon($curAction->options)) {
-                exit(0);
-            } else {
-                exit(1);
-            }
+            actionAutoIcon($curAction->options);
             
         } else {
             
@@ -524,7 +520,7 @@ function actionAutoIcon($aOptions) {
     // load HTML
     $iDoc = loadUrl($iUrl);
     if ((!$iDoc) || !$iDoc->documentElement) {
-        throw new EpiException('Unable to load URL "' . $aOptions->url . '"');
+        throw new EpiException("Couldn't load \"" . $aOptions->url . '".');
     }
     
     // update URL after redirects
@@ -680,7 +676,7 @@ function actionAutoIcon($aOptions) {
     }
     
     // if we got here, we didn't find an icon
-    throw new EpiException('No suitable icon found at "' . $aOptions->url . '"');
+    throw new EpiException('No suitable icon found at "' . $aOptions->url . '".');
 }
 
 

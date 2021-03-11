@@ -2380,9 +2380,13 @@ function stepIconCheckAuto(aInfo) {
 // STEPICONSELECTAUTO: step function to select type of icon to use
 function stepIconSelectAuto(aInfo) {
     
+    let myAutoUrl;
+    
     if (aInfo.stepInfo.numUrls > 0) {
         
-        // $$$ tHIS SHOULDN'T BE DEFAULT TO CONTINUE IF CUSTOM HAS BEEN SET
+        // set backstep based on state of app icons
+        let myBackStep = (aInfo.appInfo.icon.autoIconUrl ? -1 :
+            ((aInfo.stepInfo.action == kActionEDIT) ? -2 : -3));
         
         // set up map object
         let myMapObject = {
@@ -2390,7 +2394,7 @@ function stepIconSelectAuto(aInfo) {
         };
         
         myDlgResult = stepDialog(aInfo,
-            "Do you want to try to automatically create an icon based on " +
+            "Do you want to try to automatically find an icon at " +
             ((aInfo.stepInfo.numUrls > 1) ? "one of the app's URLs" : "the app's URL") + ', or select your own icon?\n\n' +
             kDotInfo + ' The automatic check may take several seconds.', {
                 mapObject: myMapObject,
@@ -2404,22 +2408,79 @@ function stepIconSelectAuto(aInfo) {
         
         if (myDlgResult.canceled) {
             // Back button
-            return (aInfo.appInfo.icon.autoIconUrl ? -1 :
-                ((aInfo.stepInfo.action == kActionEDIT) ? -2 : -3));
+            return myBackStep;
         }
         
         if (myDlgResult.buttonValue) {
+
+            if (aInfo.stepInfo.numUrls > 1) {
+                
+                // we have multiple URLs, so ask user to choose
+                myAutoUrl = kApp.chooseFromList(aInfo.appInfo.urls, {
+                    withTitle: 'Select URL',
+                    withPrompt: 'Please select the URL you wish to check for an icon.',
+                    defaultItems: [(aInfo.appInfo.urls.includes(aInfo.appInfo.autoIconUrl) ?
+                        aInfo.appInfo.autoIconUrl : aInfo.appInfo.urls[0])],
+                    okButtonName: 'Select',
+                    multipleSelectionsAllowed: false,
+                    emptySelectionAllowed: false
+                });
+                
+                // handle Cancel button
+                if (!myAutoUrl) {
+                    return 0;
+                }
+                
+                // get string
+                myAutoUrl = myAutoUrl[0];
+                
+            } else {
+                // we only have one URL
+                myAutoUrl = aInfo.appInfo.urls[0];
+            }
+            
             // check for an auto icon
-            dialog("simulating autocheck fail");
-            // myUseAutoIcon = true;
-            // myShowIconStyle = true;
-            // aInfo.appInfo.icon.autoIconUrl = some url
-
+            let iErr;
+            try {
+                shell('epiAction=autoicon',
+                'epiAutoIconURL=' + myAutoUrl,
+                'epiAutoIconOutPath=' + gCoreInfo.autoIconSource,
+                'epiAutoIconTempDir=' + gCoreInfo.autoIconTempDir);
+            } catch(iErr) {
+                
+                if (errIsReportable(iErr.message)[0]) {
+                    
+                    // fatal error in auto-icon code
+                    return {
+                        message: errIsReportable(iErr.message)[1],
+                        title: 'Icon Creation Error',
+                        error: iErr,
+                        reportError: true,
+                        backStep: myBackStep
+                    }
+                }
+                
+                // show error & try a new image file
+                dialog(iErr.message + ' You will need to create an icon manually.', {
+                    withTitle: 'No Automatic Icon',
+                    withIcon: 'caution',
+                    buttons: ['OK'],
+                    defaultButton: 1
+                });
+                
+                return myBackStep;
+            }
+            
+            // update app icon info
+            aInfo.appInfo.icon = {
+                autoIconUrl: myAutoUrl
+            }
+            
             // update summaries
-            // updateAppInfo(aInfo, 'icon');
-
-            // if succeeded, move on to style
-            //return 3;
+            updateAppInfo(aInfo, 'icon');
+            
+            // move on to style
+            return 3;
         }
     }
     
@@ -2461,15 +2522,15 @@ function stepIconSelectCustom(aInfo) {
     
     // object to let dialog know what's currently selected
     let myMapObject = {
-        icon: aInfo.appInfo.icon
+        icon: ((aInfo.appInfo.icon == kIconDEFAULT) ? false : true)
     };
-    
+        
     myDlgResult = stepDialog(aInfo,
         'Do you want to provide a custom icon or use the default Epichrome icon?', {
             mapObject: myMapObject,
             key: 'icon',
             buttons: {
-                'Custom': (aInfo.appInfo.icon ? aInfo.appInfo.icon : true),
+                'Custom': true,
                 'Default':  false
             }
         }
@@ -2477,11 +2538,21 @@ function stepIconSelectCustom(aInfo) {
     
     if (myDlgResult.canceled) {
         // Back button
-        if ((aInfo.appInfo.icon instanceof Object) &&
-            (!aInfo.appInfo.icon.autoIconUrl)) {
+        if (getIconType(aInfo.appInfo.icon) == kIconCUSTOM) {
             return -1;
         } else {
-            return ((aInfo.stepInfo.numUrls > 0) ? -2 : -3);
+            // back out as few as 2, or as many as all steps
+            let myBackStep = -2;
+            if (aInfo.stepInfo.numUrls == 0) {
+                myBackStep--;
+                if (!aInfo.appInfo.icon.autoIconUrl) {
+                    myBackStep--;
+                    if (aInfo.stepInfo.action != kActionEDIT) {
+                        myBackStep--;
+                    }
+                }
+            }
+            return myBackStep;
         }
     }
     
@@ -2604,7 +2675,7 @@ function stepIconSelectCustom(aInfo) {
 function stepIconCheckStyle(aInfo) {
     
     // where to backstep to
-    let myBackStep = (aInfo.appInfo.icon.autoIconURL ? -4 :
+    let myBackStep = (aInfo.appInfo.icon.autoIconUrl ? -4 :
         (((aInfo.appInfo.icon instanceof Object) &&
             (!aInfo.appInfo.icon.autoIconUrl)) ? -2 : -1));
     
@@ -2614,15 +2685,15 @@ function stepIconCheckStyle(aInfo) {
     let iErr;
     try {
         // get preview icon & source image dimensions
-        aInfo.stepInfo.dlgIcon = iconPreview(aInfo.appInfo.icon.path, iSourceSize);
+        aInfo.stepInfo.dlgIcon = iconPreview(aInfo.appInfo.icon, iSourceSize);
         
     } catch (iErr) {
-                
+        
         if (errIsReportable(iErr.message)[0]) {
             
             // fatal error in icon creation code
             return {
-                message: errIsReportable(myTryAgain.message)[1],
+                message: errIsReportable(iErr.message)[1],
                 title: 'Icon Creation Error',
                 error: iErr,
                 reportError: true,
@@ -2706,7 +2777,7 @@ function stepIconSetComp(aInfo) {
             'Image Only': false,
             'Big Sur':  true
         },
-        withIcon: iconPreview(aInfo.appInfo.icon.path)
+        withIcon: iconPreview(aInfo.appInfo.icon)
     });
     
     // handle Back button
@@ -2778,7 +2849,7 @@ function stepIconSetCrop(aInfo) {
                 'Fit': false,
                 'Crop':  true
             },
-            withIcon: iconPreview(aInfo.appInfo.icon.path)
+            withIcon: iconPreview(aInfo.appInfo.icon)
         });
         
         // handle Back button
@@ -3056,13 +3127,9 @@ function stepBuild(aInfo) {
 
     // add icon source if necessary
     if (aInfo.appInfo.icon instanceof Object) {
-        if (aInfo.appInfo.icon.autoIconUrl) {
-            // auto icon
-            myScriptArgs.push('epiIconSource=' + gCoreInfo.autoIconSource);
-        } else {
-            // custom icon
-            myScriptArgs.push('epiIconSource=' + aInfo.appInfo.icon.path);
-        }
+        
+        // get path to icon source image
+        myScriptArgs.push('epiIconSource=' + getIconSourcePath(aInfo.appInfo.icon));
         
         // add icon compositing options
         myScriptArgs.push('epiIconCrop=' + (gIconSettings.crop ? '1' : ''));
@@ -3582,13 +3649,17 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
             // set common summary
             let curSummary;
-            if (aInfo.appInfo.icon) {
-                curSummary = dot() +
-                    ((aInfo.appInfo.icon instanceof Object) ? aInfo.appInfo.icon.name : '[existing custom]');
-            } else {
+            if (aInfo.appInfo.icon == kIconDEFAULT) {
                 curSummary = dot() + '[default]';
+            } else if (aInfo.appInfo.icon == kIconCUSTOM) {
+                curSummary = dot() + '[existing custom]';
+            } else if (aInfo.appInfo.icon == kIconAUTO) {
+                curSummary = dot() + '[existing auto]';
+            } else {
+                curSummary = dot() +
+                    (aInfo.appInfo.icon.autoIconUrl ? '[' + aInfo.appInfo.icon.autoIconUrl + ']' : aInfo.appInfo.icon.name);
             }
-
+            
             // set step summary
             if (aInfo.stepInfo.action == kActionEDIT) {
 
@@ -3597,7 +3668,11 @@ function updateAppInfo(aInfo, aKey, aValue) {
                 // display old value
                 if (curStatus.changed) {
                     curStatus.stepSummary += '  |  Was: ' +
-                        (aInfo.oldAppInfo.icon ? '[existing custom]' : '[default]');
+                        ((aInfo.oldAppInfo.icon == kIconDEFAULT) ?
+                            '[default]' :
+                            ((aInfo.oldAppInfo.icon == kIconCUSTOM) ?
+                                '[existing custom]' :
+                                '[existing auto]'));
                 }
             }
 
@@ -3781,14 +3856,22 @@ function engineName(aEngine, aCapType=true) {
 
 
 // ICONPREVIEW: create or retrieve a preview icon for the current settings
-function iconPreview(aIconPath, aSourceSizeArray=null) {
+function iconPreview(aIcon, aSourceSizeArray=null) {
     
-    if ((!iconPreview.path) || (iconPreview.source !== aIconPath) ||
+    // get source path for this icon
+    let iIconSource;
+    if (aIcon.autoIconUrl) {
+        iIconSource = aIcon.autoIconUrl;
+    } else {
+        iIconSource = aIcon.path;
+    }
+    
+    if ((!iconPreview.path) || (iconPreview.source !== iIconSource) ||
         (!objEquals(iconPreview.settings, gIconSettings))) {
         
         // run script
         let iSourceSize = shell('epiAction=iconpreview',
-        'epiIconSource=' + aIconPath,
+        'epiIconSource=' + getIconSourcePath(aIcon),
         'epiIconPreviewPath=' + gCoreInfo.previewIcon,
         'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
         'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
@@ -3796,7 +3879,7 @@ function iconPreview(aIconPath, aSourceSizeArray=null) {
         
         // cache all info
         iconPreview.path = Path(gCoreInfo.previewIcon);
-        iconPreview.source = aIconPath;
+        iconPreview.source = iIconSource;
         iconPreview.settings = objCopy(gIconSettings);
 
         if (iSourceSize) {
@@ -3829,6 +3912,16 @@ function getIconType(aIcon) {
     }
     
     return aIcon;
+}
+
+
+// GETICONSOURCEPATH: return the path to the source image for an icon, if found
+function getIconSourcePath(aIcon) {
+    if (aIcon.autoIconUrl) {
+        return gCoreInfo.autoIconSource;
+    } else {
+        return aInfo.appInfo.icon.path;
+    }
 }
 
 

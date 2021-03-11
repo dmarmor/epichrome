@@ -530,30 +530,48 @@ elif [[ "$epiAction" = 'read' ]] ; then
 elif [[ "$epiAction" = 'autoicon' ]] ; then
 
     # ACTION: ATTEMPT TO LOAD AUTO-ICON
-:
-# // $$$ MOVE TO SH
-# if (file_exists('output')) {
-#     exec("/bin/rm -rf output", $ignore, $result);
-#     if ($result != 0) {
-#         print("can't remove old output dir\n");
-#         exit(1);
-#     }
-# }
-# if (!mkdir('output')) {
-#     print("can't make output dir\n");
-# }
+    
 
-## delete imagePath
+    # remove any leftover temp directory
+    if [[ -e "$epiAutoIconTempDir" ]] ; then
+        saferm 'Unable to remove old auto-icon directory.' "$epiAutoIconTempDir"
+    fi
+    
+    # remove any leftover icon source image
+    try /bin/rm -f "$epiAutoIconOutPath" 'Unable to remove old auto-icon source image.'
+    
+    # create temp directory
+    try /bin/mkdir "$epiAutoIconTempDir" 'Unable to create temporary auto-icon directory.'
+    
+    [[ "$ok" ]] || abort
+    
+    # build makeicon command
+    autoIconCmd='[
+    {
+        "action": "autoicon",
+        "options": {
+            "url": "'"$epiAutoIconURL"'",
+            "imagePath": "'"$epiAutoIconOutPath"'",
+            "tempImageDir": "'"$epiAutoIconTempDir"'"
+        }
+    }
+]'
 
-# /usr/bin/php "$myScriptPathEpichrome/makeicon.php"
-# run thing  '[{"action": "autoicon", "options": {"url": "drive.google.com", "imagePath": "/Users/davidmarmor/Desktop/test2.png", "tempImageDir": "./output" } }]'
-
-# #    // $$$ MOVE TO SH
-#     exec("/bin/rm -rf output", $ignore, $result);
-#     if ($result != 0) {
-#         print("can't remove output dir\n");
-#     }
-
+    # run command
+    autoIconErr=
+    try 'autoIconErr=&' /usr/bin/php "$myScriptPathEpichrome/makeicon.php" \
+            "$autoIconCmd" ''
+    if [[ ! "$ok" ]] ; then
+        errmsg="${autoIconErr#*PHPERR|}"
+        errlog
+    fi
+    
+    # remove temp directory no matter what
+    myTry=tryalways ; saferm 'Unable to remove temporary auto-icon directory.' \
+            "$epiAutoIconTempDir"
+    
+    [[ "$ok" ]] || abort
+    
 
 elif [[ "$epiAction" = 'iconpreview' ]] ; then
     

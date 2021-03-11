@@ -111,6 +111,7 @@ function makeicon {
             eval "$aSourceSizeVar=( \"\${BASH_REMATCH[2]}\" \"\${BASH_REMATCH[3]}\" )"
         fi
     else
+        errlog FATAL "$iSourceInfo"
         ok= ; errmsg="Unable to parse file info for \"${aIconSource##*/}\"."
         errlog
         return 1

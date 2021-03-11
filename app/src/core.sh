@@ -394,15 +394,15 @@ function errlog_raw {
         fi
     fi
 }
-# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR] [aMsg] ($errmsg by default)...)
+# errlog([ERROR|DEBUG|FATAL|STDOUT|STDERR][|cmd] [aMsg] ($errmsg by default)...)
 function errlog {
     
     # prefix format: *[PID]LogID(line)/function(line)/...:
     
     # arguments
     local logType="${1%%|*}"
-    local logName="${1#*|}" ; [[ "$logName" = "$1" ]] && logName=
-        
+    local logName="${1#*|}" ; [[ "$logName" = "$1" ]] && logName= || logName="{$logName}"
+    
     # determine log type & final name element
     case "$logType" in
         DEBUG)
@@ -445,7 +445,7 @@ function errlog {
     # output prefix & message
     local logPID="$epiLogPID"
     [[ "$logPID" ]] || logPID="$$"
-    local iPrologue="$logType[$logPID]$(join_array '/' "${iTrace[@]}"):"
+    local iPrologue="$logType[$logPID]$(join_array '/' "${iTrace[@]}")$logName:"
     local iLogLines="$(msg "$@")"
     split_array iLogLines
     if [[ "${#iLogLines[@]}" -lt 2 ]] ; then
