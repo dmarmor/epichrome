@@ -1,8 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0b12
-epiBuildNum=7
+epiBuildNum=8
 epiDesc=( \
+        "Added option to try and find an app icon based on the app's URL" \
         'Improved icon creation interface to show preview of actual icon' \
         'Greatly increased the variety of image formats that can be used to create icons' \
         'Updated built-in engine to Brave 1.20.110' )

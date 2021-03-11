@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - New unified app engine architecture for better compatibility with the dock, notifications, and other system services
 - Added ability to edit existing Epichrome apps
 - Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, "Epichrome Scan.app" to do the same manually
+- Added option to try and find an app icon based on the app's URL
 - Updated all icons for compatibility with Big Sur, and added interface for creating Big Sur-compatible app icons
 - Improved icon creation interface to show preview of icon during app creation process
 - Added an advanced setting during app creation and editing to control how the app handles updates
