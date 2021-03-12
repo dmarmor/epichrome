@@ -2442,10 +2442,8 @@ function stepIconSelectAuto(aInfo) {
             // check for an auto icon
             let iErr;
             try {
-                shell('epiAction=autoicon',
-                'epiAutoIconURL=' + myAutoUrl,
-                'epiAutoIconOutPath=' + gCoreInfo.autoIconSource,
-                'epiAutoIconTempDir=' + gCoreInfo.autoIconTempDir);
+                iconPreview(aInfo.appInfo.icon, null, myAutoUrl);
+                
             } catch(iErr) {
                 
                 if (errIsReportable(iErr.message)[0]) {
@@ -2458,6 +2456,10 @@ function stepIconSelectAuto(aInfo) {
                         reportError: true,
                         backStep: myBackStep
                     }
+                }
+                
+                if (iErr.message.startsWith('CANCEL')) {
+                    return 0;
                 }
                 
                 // show error & try a new image file
@@ -2699,6 +2701,10 @@ function stepIconCheckStyle(aInfo) {
                 reportError: true,
                 backStep: myBackStep
             }
+        }
+        
+        if (iErr.message.startsWith('CANCEL')) {
+            return myBackStep;
         }
         
         // show error & try a new image file
@@ -3856,26 +3862,64 @@ function engineName(aEngine, aCapType=true) {
 
 
 // ICONPREVIEW: create or retrieve a preview icon for the current settings
-function iconPreview(aIcon, aSourceSizeArray=null) {
+//              optionally find the icon source given a URL
+function iconPreview(aIcon, aSourceSizeArray=null, aSearchUrl=null) {
     
     // get source path for this icon
     let iIconSource;
-    if (aIcon.autoIconUrl) {
-        iIconSource = aIcon.autoIconUrl;
+
+    // shell parameters
+    let iShellVars = [
+        'epiAction=icon',
+        'epiIconPreviewPath=' + gCoreInfo.previewIcon,
+        'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
+        'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
+        'epiIconCompBG=' + (gIconSettings.compBigSur ? gIconSettings.compBG : '')
+    ];
+    
+    // shell action
+    if (aSearchUrl) {
+        
+        // set icon source
+        iIconSource = aSearchUrl;
+        
+        if (aSearchUrl != iconPreview.source) {
+            
+            // new URL, so add autoicon parameters
+            iShellVars.push(
+                'epiAutoIconURL=' + aSearchUrl,
+                'epiAutoIconOutPath=' + gCoreInfo.autoIconSource,
+                'epiAutoIconTempDir=' + gCoreInfo.autoIconTempDir
+            );
+        }
+        
+        // path to autoicon source image
+        iShellVars.push('epiIconSource=' + gCoreInfo.autoIconSource);
+        
     } else {
-        iIconSource = aIcon.path;
+        // set icon source
+        if (aIcon.autoIconUrl) {
+            iIconSource = aIcon.autoIconUrl;
+        } else {
+            iIconSource = aIcon.path;
+        }
+        
+        // set preview-only action
+        iShellVars.push('epiIconSource=' + getIconSourcePath(aIcon));
     }
     
     if ((!iconPreview.path) || (iconPreview.source !== iIconSource) ||
         (!objEquals(iconPreview.settings, gIconSettings))) {
         
         // run script
-        let iSourceSize = shell('epiAction=iconpreview',
-        'epiIconSource=' + getIconSourcePath(aIcon),
-        'epiIconPreviewPath=' + gCoreInfo.previewIcon,
-        'epiIconCrop=' + (gIconSettings.crop ? '1' : ''),
-        'epiIconCompSize=' + (gIconSettings.compBigSur ? gIconSettings.compSize : ''),
-        'epiIconCompBG=' + (gIconSettings.compBigSur ? gIconSettings.compBG : ''));
+        let iSourceSize, iErr;
+        try {
+            iSourceSize = shell.apply(null, iShellVars);
+        } catch(iErr) {
+            kApp.activate();  // bring app back to the front
+            throw iErr;
+        }
+        kApp.activate();  // bring app back to the front
         
         // cache all info
         iconPreview.path = Path(gCoreInfo.previewIcon);
@@ -3920,7 +3964,7 @@ function getIconSourcePath(aIcon) {
     if (aIcon.autoIconUrl) {
         return gCoreInfo.autoIconSource;
     } else {
-        return aInfo.appInfo.icon.path;
+        return aIcon.path;
     }
 }
 

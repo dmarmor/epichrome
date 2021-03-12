@@ -527,68 +527,31 @@ elif [[ "$epiAction" = 'read' ]] ; then
 }"
 
 
-elif [[ "$epiAction" = 'autoicon' ]] ; then
+elif [[ "$epiAction" = 'icon' ]] ; then
 
-    # ACTION: ATTEMPT TO LOAD AUTO-ICON
+    # ACTION: CREATE ICON PREVIEW
     
+    # load progress bar app script
+    loadscript 'runprogress.sh'
 
-    # remove any leftover temp directory
-    if [[ -e "$epiAutoIconTempDir" ]] ; then
-        saferm 'Unable to remove old auto-icon directory.' "$epiAutoIconTempDir"
-    fi
+    # export command to progress bar
+    export myScriptPathEpichrome \
+            epiIconSource epiIconPreviewPath epiIconCrop epiIconCompSize epiIconCompBG \
+            epiAutoIconURL epiAutoIconOutPath epiAutoIconTempDir
     
-    # remove any leftover icon source image
-    try /bin/rm -f "$epiAutoIconOutPath" 'Unable to remove old auto-icon source image.'
-    
-    # create temp directory
-    try /bin/mkdir "$epiAutoIconTempDir" 'Unable to create temporary auto-icon directory.'
-    
-    [[ "$ok" ]] || abort
-    
-    # build makeicon command
-    autoIconCmd='[
-    {
-        "action": "autoicon",
-        "options": {
-            "url": "'"$epiAutoIconURL"'",
-            "imagePath": "'"$epiAutoIconOutPath"'",
-            "tempImageDir": "'"$epiAutoIconTempDir"'"
-        }
-    }
-]'
-
     # run command
-    autoIconErr=
-    try 'autoIconErr=&' /usr/bin/php "$myScriptPathEpichrome/makeicon.php" \
-            "$autoIconCmd" ''
+    runprogress "$myScriptPath/.." 'icon'
+    
     if [[ ! "$ok" ]] ; then
-        errmsg="${autoIconErr#*PHPERR|}"
-        errlog
+        
+        if [[ "$errmsg" = 'SOURCESIZE|'* ]] ; then
+            errmsg="${errmsg#SOURCESIZE|}"
+            echo "[ ${errmsg%,}, ${errmsg#,} ]"
+        else
+            abort
+        fi
     fi
     
-    # remove temp directory no matter what
-    myTry=tryalways ; saferm 'Unable to remove temporary auto-icon directory.' \
-            "$epiAutoIconTempDir"
-    
-    [[ "$ok" ]] || abort
-    
-
-elif [[ "$epiAction" = 'iconpreview' ]] ; then
-    
-    # ACTION: CREATE SAMPLE ICON
-    
-    # load makeicon.sh
-    loadscript 'makeicon.sh'
-    
-    # build icon
-    makeicon "$epiIconSource" "$epiIconPreviewPath" '' '' \
-        "$epiIconCrop" "$epiIconCompSize" "$epiIconCompBG" '' 256 256 \
-        sourceSize
-    [[ "$ok" ]] || abort
-    
-    if [[ "${sourceSize[*]}" ]] ; then
-        echo "[ ${sourceSize[0]}, ${sourceSize[1]} ]"
-    fi
     
 elif [[ "$epiAction" = 'build' ]] ; then
     

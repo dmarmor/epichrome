@@ -621,6 +621,7 @@ $(PROGRESS_APP): $(PROGRESS_CT)/MacOS/EpichromeProgress \
 		$(PROGRESS_CT)/Resources/app.icns \
 		\
 		$(PROGRESS_CT)/Resources/Scripts/progress.sh \
+		$(PROGRESS_CT)/Resources/Scripts/mode_icon.sh \
 		$(PROGRESS_CT)/Resources/Scripts/mode_extcache.sh \
 		$(PROGRESS_CT)/Resources/Scripts/mode_payload.sh \
 		$(PROGRESS_CT)/Resources/Scripts/mode_update.sh

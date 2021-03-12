@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b12
-epiBuildNum=8
+epiVersion=2.4.0b13
+epiBuildNum=1
 epiDesc=( \
         "Added option to try and find an app icon based on the app's URL" \
         'Improved icon creation interface to show preview of actual icon' \
