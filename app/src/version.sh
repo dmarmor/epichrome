@@ -3,10 +3,9 @@
 epiVersion=2.4.0b13
 epiBuildNum=1
 epiDesc=( \
-        "Added option to try and find an app icon based on the app's URL" \
-        'Improved icon creation interface to show preview of actual icon' \
-        'Greatly increased the variety of image formats that can be used to create icons' \
-        'Updated built-in engine to Brave 1.20.110' )
+        'Fixed a bug that caused custom icon creation to fail' \
+        'Added a progress bar to icon creation process' \
+        'Built-in engine still at Brave 1.21.74' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \
