@@ -1657,46 +1657,53 @@ function safecopy {
 
 
 # TRIMSAVES -- trim a saved file directory to its maximum
-#   trimsaves(saveDir maxFiles [ fileExt fileDesc trimVar ])
+#   trimsaves(aSaveDir aMaxFiles [ aFileExt aFileDesc aTrimVar ])
 function trimsaves {
     
     # only run if we're OK
     [[ "$ok" ]] || return 1
     
     # arguments
-    local saveDir="$1" ; shift
-    local maxFiles="$1" ; shift
-    local fileExt="$1" ; shift
-    local fileDesc="$1" ; shift ; [[ "$fileDesc" ]] || fileDesc='files'
-    local trimVar="$1" ; shift
+    local aSaveDir="$1" ; shift
+    local aMaxFiles="$1" ; shift
+    local aFileExt="$1" ; shift
+    local aFileDesc="$1" ; shift ; [[ "$aFileDesc" ]] || aFileDesc='files'
+    local aTrimVar="$1" ; shift
+    
+    # break pattern up
+    
     
     # get all files in directory
     local myShoptState=
     shoptset myShoptState nullglob
-    local oldFiles=( "$saveDir"/*"$fileExt" )
+    local oldFiles=( "$aSaveDir"/*"$aFileExt" )
     shoptrestore myShoptState
     
     # if we got any files, sort them oldest-to-newest
     if [[ "${#oldFiles[@]}" -gt 0 ]] ; then
-        try '!2' 'oldFiles=(n)' /bin/ls -tUr "$saveDir"/*"$fileExt" ''
+        try '!2' 'oldFiles=(n)' /bin/ls -tUr "$aSaveDir"/*"$aFileExt" ''
         ok=1 ; errmsg=
     fi
     
     # if more than the max number of files exist, delete the oldest ones
-    if [[ "${#oldFiles[@]}" -gt "$maxFiles" ]] ; then
+    if [[ "${#oldFiles[@]}" -gt "$aMaxFiles" ]] ; then
         
         # get list of files to trim
-        local trimFiles=( "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" )
+        local trimFiles=( "${oldFiles[@]::$((${#oldFiles[@]} - $aMaxFiles))}" )
         
-        if [[ "$trimVar" ]] ; then
+        if [[ "$aTrimVar" ]] ; then
             
-            # save list into trimVar
-            eval "$trimVar=( \"\${trimFiles[@]}\" )"
+            # save list into aTrimVar
+            eval "$aTrimVar=( \"\${trimFiles[@]}\" )"
+            
+            
         else
             # delete the files now
-            try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $maxFiles))}" \
-                    "Unable to remove old $fileDesc."
+            try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $aMaxFiles))}" \
+                    "Unable to remove old $aFileDesc."
         fi
+    elif [[ "$aTrimVar" ]] ; then
+        eval "$aTrimVar=()"
     fi
     
     # return code
