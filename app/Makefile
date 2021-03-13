@@ -132,9 +132,14 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 # BRAVE ENGINE
 
-BRAVE:=$(shell ls Engines/Brave* 2> /dev/null | sort -r | head -n 1)
+BRAVEINFO:=$(shell test/update/updatebrave.sh Engines)
+BRAVE:=$(shell braveinfo='$(BRAVEINFO)' ; echo "$${braveinfo%|*}")
+BRAVE_VERSION:=$(shell braveinfo='$(BRAVEINFO)' ; echo "$${braveinfo\#*|}")
 ifeq ($(BRAVE),)
 $(error Unable to find Brave archive)
+endif
+ifeq ($(BRAVE_VERSION),ERROR)
+$(error Unable to parse Brave version)
 endif
 ifneq ($(suffix $(BRAVE)),.tgz)
 ifeq ($(suffix $(BRAVE)),.dmg)
@@ -146,11 +151,6 @@ BRAVE:=$(BRAVE:.pkg=.tgz)
 else
 $(error Unrecognized file in Engines directory: $(BRAVE))
 endif
-endif
-BRAVE_VERSION:=$(shell if [[ '$(BRAVE)' =~ [0-9][0-9.]*[0-9] ]] ; then \
-				echo "$${BASH_REMATCH[0]}" ; else echo ERROR ; fi)
-ifeq ($(BRAVE_VERSION),ERROR)
-$(error Unable to retrieve Brave version from $(BRAVE))
 endif
 
 

@@ -4,9 +4,6 @@
 latestUrl='https://brave.com/latest/'
 engineUrl='https://laptop-updates.brave.com/latest/osxarm64/release'
 
-# path to engines directory
-enginepath='../../Engines'
-
 shopt -s nullglob
 
 # absolute path to this script
@@ -17,8 +14,8 @@ elif [[ "$mypath" ]] ; then
     mypath="$(cd "$mypath" ; pwd)"
 fi
 
-# get final path to engines directory
-enginepath="$mypath/$enginepath"
+# path to engines directory
+[[ "$1" ]] && enginepath="$1" || enginepath="$mypath/../../Engines"
 
 # load core.sh
 if ! source "$mypath/../../src/core.sh" ; then
@@ -32,7 +29,7 @@ try 'latestVersion=' /usr/bin/php "$mypath/braveversion.php" "$latestUrl" \
 [[ "$ok" ]] || abort
 
 # get current version number on our system
-try '!2' 'curBrave=(n)' /bin/ls -tUr "$mypath/../../Engines/Brave"* \
+try '!2' 'curBrave=(n)' /bin/ls -tUr "$enginepath/Brave"* \
         'Unable to read engine directory.'
 curBrave="${curBrave[0]}"
 if [[ "$curBrave" =~ [0-9]+\.[0-9.]*[0-9] ]] ; then
@@ -60,7 +57,8 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
     enginefile="${enginelink##*/}"
     enginefile="${enginefile%.*}-$latestVersion.${enginefile##*.}"
     
-    echo "Downloading new Brave $latestVersion (replacing $curVersion)..."
+    echo "Downloading new Brave $latestVersion (replacing $curVersion)..." 1>&2
+    echo '---' 1>&2
     
     # download direct link direct to apps
     try '-2' "$enginepath/../$enginefile<" /usr/bin/curl "$enginelink" \
@@ -68,13 +66,24 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
     [[ "$ok" ]] || abort
     
     # move old engines out
-    trash "$enginepath/"*.tgz
-    /bin/mv "$enginepath/Brave"*.dmg "$enginepath/Brave"*.pkg "$enginepath/old"
-    /bin/mv "$enginepath/../$enginefile" "$enginepath"
-    
+    try trash "$enginepath/"*.tgz 'Unable to remove old engine .tgz files.'
+    try /bin/mv "$enginepath/Brave"*.dmg "$enginepath/Brave"*.pkg "$enginepath/old" \
+            'Unable to move old engine .dmg files out of Engines directory.'
+    try /bin/mv "$enginepath/../$enginefile" "$enginepath" \
+            'Unable to move new engine file into Engines directory.'
     trimsaves "$enginepath/old" 2 '' 'old engines'
+    [[ "$ok" ]] || abort
+    
+    # running from Makefile, so spit out filename & version
+    if [[ "$1" ]] ; then
+        echo "$enginepath/$enginefile|$latestVersion"
+    fi
 else
-    echo "Current Brave engine $curVersion is the latest!"
+    echo "Current Brave engine $curVersion is the latest!" 1>&2
+    
+    if [[ "$1" ]] ; then
+        echo "$curBrave|$curVersion"
+    fi
 fi
 
 cleanexit
