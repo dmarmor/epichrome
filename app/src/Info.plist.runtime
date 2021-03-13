@@ -233,6 +233,11 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>EPIVERSIONCODE</string>
+	<key>LSArchitecturePriority</key>
+	<array>
+		<string>arm64</string>
+		<string>x86_64</string>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>10.10.0</string>
 	<key>LSUIElement</key>
