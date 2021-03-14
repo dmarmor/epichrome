@@ -17,25 +17,55 @@ if ! source "$epipath/src/core.sh" ; then
     exit 1
 fi
 
-# ensure we are on the master branch
-
-try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
-        'Unable to get current git branch.'
-[[ "$ok" ]] || abort
-[[ "$gitbranch" = 'master' ]] || abort 'Not on git master branch.'
-
-try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
-        'Unable to get git status.'
-[[ "$ok" ]] || abort
-[[ "$gitstatus" ]] && abort 'Git repository is not clean.'
-
-# get brave version
-braveVersion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
-[[ "$?" = 0 ]] || abort 'Unable to get Brave version.'
-braveVersion="${braveVersion#*|}"
-
 
 # --- FUNCTIONS ---
+
+# CHECK_REPOSITORY
+function check_repository {
+    
+    [[ "$ok" ]] || return 1
+    
+    # notify user
+    echo '## Checking git repository...' 1>&2
+    
+    # ensure we are on the master branch
+    try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
+            'Unable to get current git branch.'
+    [[ "$ok" ]] || return 1
+    if [[ "$gitbranch" != 'master' ]] ; then
+        ok= ; errmsg='Not on git master branch.' ; errlog ; return 1
+    fi
+
+    try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
+            'Unable to get git status.'
+    [[ "$ok" ]] || return 1
+    if [[ "$gitstatus" ]] ; then
+        ok= ; errmsg='Git repository is not clean.' ; errlog ; return 1
+    fi
+    
+    return 0
+}
+
+
+# UPDATE_BRAVE: get latest Brave version
+braveVersion=
+function update_brave {
+
+    [[ "$ok" ]] || return 1
+    
+    # notify user
+    echo '## Checking Brave version...' 1>&2
+    
+    # get brave version
+    braveVersion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
+    if [[ "$?" != 0 ]] ; then
+        ok= ; errmsg='Unable to get Brave version.' ; errlog ; return 1
+    fi
+    braveVersion="${braveVersion#*|}"
+    
+    return 0
+}
+
 
 # UPDATE_VERSION: optionally bump version number
 prevVersion=
@@ -265,11 +295,91 @@ function update_welcome {
 }
 
 
-# $$$ACTIVATE
-update_version
-update_changelog
-update_readme
-update_welcome
-[[ "$ok" ]] || abort
+# CREATE_GITHUB_RELEASE
+function create_github_release {
+    
+    [[ "$ok" ]] || return 1
+    
+    if ! source "$epipath/src/launch.sh" ; then
+        ok= ; errmsg='Unable to load launch.sh.' ; errlog ; return 1
+    fi
+    
+    # base url
+    local iUrl='https://github.com/dmarmor/epichrome/releases/new'
 
-cleanexit
+    #title=testest&body=%0A%0A%0A---%0AI%27m+a+human.+Please+be+nice.'
+    
+    # notify user
+    echo '## Creating GitHub release...' 1>&2
+    
+    # build release body
+    local iReleaseBody='<!--<epichrome>
+   ▪️ Updates built-in engine to Brave '"$braveVersion"'
+</epichrome>-->
+
+This release updates the built-in engine to Brave '"$braveVersion"'.
+
+***IMPORTANT NOTE***: Epichrome 2.3 has not been developed or fully tested with Big Sur. If you rely on Epichrome apps, if possible please wait until Epichrome 2.4 is released before updating to Big Sur.
+
+---
+
+<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>
+<p align="center">This release was made possible by our Patreon patrons.<br />
+If Epichrome is useful to you, please consider joining them!</p>'
+    
+    # open URL
+    try /usr/bin/open "$iUrl?title=$(encodeurl "Version $epiVersion")&body=$(encodeurl "$iReleaseBody")" \
+            'Unable to create GitHub release.'
+}
+
+
+# --- RUN UPDATES ---
+
+check_repository
+update_brave
+# update_version
+# update_changelog
+# update_readme
+# update_welcome
+# [[ "$ok" ]] || abort
+#
+#
+# # build package
+# echo "## Building epichrome-$epiVersion.pkg..." 1>&2
+# make --directory="$epipath" clean clean-package package
+# [[ "$?" = 0 ]] || abort "Package build failed."
+#
+# # test epichrome
+# echo "## Testing Epichrome.app..." 1>&2
+# try open -W "$epipath/Epichrome/Epichrome.app" \
+#         'Unable to launch Epichrome.app.'
+# try '-2' read -p "Does Epichrome.app pass basic testing? [n] " ans \
+#         'Unable to ask about Epichrome testing.'
+# [[ "$ok" ]] || abort
+# [[ "$ans" =~ ^[Yy] ) ]] || abort 'Epichrome.app failed test!'
+#
+# # test package
+# echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
+# try open -W "$epipath/epichrome-$epiVersion.pkg" \
+#         "Unable to launch epichrome-$epiVersion.pkg."
+# try '-2' read -p "Does installer package pass basic testing? [n] " ans \
+#         'Unable to ask about installer package testing.'
+# [[ "$ok" ]] || abort
+# [[ "$ans" =~ ^[Yy] ) ]] || abort 'Installer package failed test!'
+#
+# # notarize package
+# make --directory="$epipath" notarize
+# [[ "$?" = 0 ]] || abort 'Package notarization failed.'
+#
+# # staple notarization
+# echo 'Waiting 5 minutes for package to be approved...' 1>&2
+# sleep 300
+#
+# # staple notarization
+# make --directory="$epipath" notarize
+# [[ "$?" = 0 ]] || abort 'Package notarization failed.'
+
+# create new release on GitHub
+create_github_release
+
+[[ "$ok" ]] && cleanexit || abort

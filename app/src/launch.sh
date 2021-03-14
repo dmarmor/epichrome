@@ -103,46 +103,48 @@ function vcmp { # ( version1 operator version2 )
 
 
 # ENCODEURL -- encode a string for URL
-function encodeurl {  # ( input [safe] )
-    
-    # arguments
-    local input="$1" ; shift ; local input_err="$input"
-    local safe="$1" ; shift
-    
-    # quote strings for python
-    input="${input//\\/\\\\}"
-    input="${input//\'/\'}"
-    safe="${safe//\\/\\\\}"
-    safe="${safe//\'/\'}"
-
-    # use python urllib to urlencode string
-    local encoded=
-    try 'encoded=' /usr/bin/python2.7 \
-	-c 'import urllib ; print urllib.quote('\'"$input"\'', '\'"$safe"\'')' \
-	"Error URL-encoding string '$input_err'."
-
-    if [[ ! "$ok" ]] ; then
-
-	# fallback if python fails -- adapted from https://gist.github.com/cdown/1163649
-	local LC_COLLATE=C
-	local length="${#input_err}"
-	local i= ; local c=
-	local result=
-	for (( i = 0; i < length; i++ )); do
-            c="${input_err:i:1}"
-            case $c in
-		[a-zA-Z0-9.~_-]) result+="$(printf "$c")" ;;
-		*) result+="$(printf '%%%02X' "'$c")" ;;
-            esac
-	done
-	echo "$result"
+#  encodeurl( input [safe] )
+function encodeurl {
 	
-	ok=1 ; errmsg=
-	return 1
-    else
-	echo "$encoded"
-	return 0
-    fi
+	# arguments
+	local input="$1" ; shift ; local input_err="$input"
+	local safe="$1" ; shift
+	
+	# quote strings for python
+	input="${input//\\/\\\\}"
+	input="${input//\'/\'}"
+	input="${input//$'\n'/\\n}"
+	safe="${safe//\\/\\\\}"
+	safe="${safe//\'/\'}"
+	
+	# use python urllib to urlencode string
+	local encoded=
+	try 'encoded=' /usr/bin/python2.7 \
+			-c 'import urllib ; print urllib.quote('\'"$input"\'', '\'"$safe"\'')' \
+			"Error URL-encoding string '$input_err'."
+	
+	if [[ ! "$ok" ]] ; then
+		
+		# fallback if python fails -- adapted from https://gist.github.com/cdown/1163649
+		local LC_COLLATE=C
+		local length="${#input_err}"
+		local i= ; local c=
+		local result=
+		for (( i = 0; i < length; i++ )); do
+			c="${input_err:i:1}"
+			case $c in
+				[a-zA-Z0-9.~_-]) result+="$(printf "$c")" ;;
+				*) result+="$(printf '%%%02X' "'$c")" ;;
+			esac
+		done
+		echo "$result"
+		
+		ok=1 ; errmsg=
+		return 1
+	else
+		echo "$encoded"
+		return 0
+	fi
 }
 
 
