@@ -44,8 +44,9 @@ cd "$mypath/../.." || abort 'Unable to move to app directory.'
 # ensure package is in place
 [[ -f "$package" ]] || abort "Unable to find $package"
 
-# notarize credentials
+# get notarize credentials
 credentials="$(cat private/notarize_credentials.txt)" || abort 'Unable to retrieve credentials.'
+eval "credentials=( $credentials )"
 
 if [[ ! "$staple_only" ]] ; then
     
@@ -64,18 +65,23 @@ if [[ ! "$staple_only" ]] ; then
     fi
 
     # send to Apple
+    echo "Sending $package to Apple for notarization..."
+    
     request_id="notarize-request.$(date '+%Y%m%d-%H%M%S')"
     request_file="epichrome-$version.$request_id.txt"
-    # request_file="$$(ls epichrome-$(VERSION).notarize*.txt 2> /dev/null | sort | tail -n 1)" ; \
     xcrun altool --notarize-app \
-    --primary-bundle-id 'org.epichrome.Epichrome.'"$version.$request_id" \
-    $credentials \
-    --file "$package" > "$request_file"
+            --primary-bundle-id 'org.epichrome.Epichrome.'"$version.$request_id" \
+            "${credentials[@]}" \
+            --file "$package" > "$request_file"
     result=$?
     cat "$request_file"
     [[ "$result" = 0 ]] || abort
+        
+    # wait a minute
+    echo 'Waiting one minute before checking status...'
+    sleep 60
 else
-    request_file="$(ls "epichrome-$version.notarize_request."*.txt 2> /dev/null | sort | tail -n 1)" || \
+    request_file="$(ls "epichrome-$version.notarize-request."*.txt 2> /dev/null | sort | tail -n 1)" || \
     abort 'Unable to find request file.'
 fi
 
@@ -86,15 +92,13 @@ fi
 request_uuid="$(sed -En 's/RequestUUID *= *([^ ]+) *$/\1/p' "$request_file")" || abort 'Unable to get request UUID.'
 check_file="${request_file%.txt}.check.txt"
 json_file="${request_file%.txt}.json"
-status_re=$'\n *Status: *([a-zA-Z]+) *\n'
+status_re=$'\n *Status: *([a-zA-Z][a-zA-Z ]*[a-zA-Z]) *\n'
 
 for ((i=0; i<5; i++)) ; do
-    # wait a minute
-    sleep 60
     
     # check status
     echo "Checking $request_file..."
-    xcrun altool --notarization-info "$request_uuid" $credentials > "$check_file" || \
+    xcrun altool --notarization-info "$request_uuid" "${credentials[@]}" > "$check_file" || \
             abort 'Error checking notarization status.'
     
     # parse check file to get status
@@ -106,9 +110,12 @@ for ((i=0; i<5; i++)) ; do
             # success! staple it
             echo 'Package approved! Stapling notarization...'
             xcrun stapler staple "$package" || abort 'Stapling failed.'
-            break
+            exit 0
             
-        elif [[ "${BASH_REMATCH[1]}" = 'pending' ]] ; then
+        elif [[ "${BASH_REMATCH[1]}" = 'in progress' ]] ; then
+            # wait a minute
+            sleep 60
+
             continue
         else
             check_status="${BASH_REMATCH[1]}"
