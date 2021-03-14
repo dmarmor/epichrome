@@ -368,52 +368,52 @@ function prompt {
 
 # --- RUN UPDATES ---
 
-# # run doc updates
-# check_repository
-# update_brave
+# run doc updates
+check_repository
+update_brave
 update_version
-# update_changelog
-# update_readme
-# update_welcome
-# [[ "$ok" ]] || abort
-#
-# # build package
-# echo "## Building epichrome-$epiVersion.pkg..." 1>&2
-# make --directory="$epipath" clean clean-package package
-# [[ "$?" = 0 ]] || abort "Package build failed."
-#
-# # test epichrome
-# echo "## Testing Epichrome.app..." 1>&2
-# try open -W "$epipath/Epichrome/Epichrome.app" \
-#         'Unable to launch Epichrome.app.'
-# if ! prompt 'Does Epichrome.app pass basic testing?' y ; then
-#     if [[ "$ok" ]] ; then
-#         abort 'Epichrome.app failed test!'
-#     else
-#         echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
-#         ok=1 ; errmsg=
-#     fi
-# fi
-#
-# # test package
-# echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
-# try open -W "$epipath/epichrome-$epiVersion.pkg" \
-#         "Unable to launch epichrome-$epiVersion.pkg."
-# if ! prompt 'Does installer package pass basic testing?' y ; then
-#     if [[ "$ok" ]] ; then
-#         abort 'Installer package failed test!'
-#     else
-#         echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
-#         ok=1 ; errmsg=
-#     fi
-# fi
-#
-# # create new release on GitHub
-# create_github_release
-# if [[ ! "$ok" ]] ; then
-#     echo "Unable to create GitHub release." 1>&2
-#     ok=1 ; errmsg=
-# fi
+update_changelog
+update_readme
+update_welcome
+[[ "$ok" ]] || abort
+
+# build package
+echo "## Building epichrome-$epiVersion.pkg..." 1>&2
+make --directory="$epipath" clean clean-package package
+[[ "$?" = 0 ]] || abort "Package build failed."
+
+# test epichrome
+echo "## Testing Epichrome.app..." 1>&2
+try open -W "$epipath/Epichrome/Epichrome.app" \
+        'Unable to launch Epichrome.app.'
+if ! prompt 'Does Epichrome.app pass basic testing?' y ; then
+    if [[ "$ok" ]] ; then
+        abort 'Epichrome.app failed test!'
+    else
+        echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
+        ok=1 ; errmsg=
+    fi
+fi
+
+# test package
+echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
+try open -W "$epipath/epichrome-$epiVersion.pkg" \
+        "Unable to launch epichrome-$epiVersion.pkg."
+if ! prompt 'Does installer package pass basic testing?' y ; then
+    if [[ "$ok" ]] ; then
+        abort 'Installer package failed test!'
+    else
+        echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
+        ok=1 ; errmsg=
+    fi
+fi
+
+# create new release on GitHub
+create_github_release
+if [[ ! "$ok" ]] ; then
+    echo "Unable to create GitHub release." 1>&2
+    ok=1 ; errmsg=
+fi
 
 # notarize package
 "$mypath/notarize.sh" "$epiVersion"
