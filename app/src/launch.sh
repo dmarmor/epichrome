@@ -586,8 +586,8 @@ function updatedatadir {
     
     # if we don't have a data path, abort (safety check before rm -rf)
     if ! checkpath "$myDataPath" "$appDataPathBase" ; then
-	ok= ; errmsg='Data path is not properly set!'
-	return 1
+		ok= ; errmsg='Data path is not properly set!'
+		return 1
     fi
 
     

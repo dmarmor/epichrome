@@ -201,17 +201,17 @@ if [[ "$coreContext" = 'app' ]] ; then
     # RUNNING IN AN APP
     
     # set up this app's data path
-    [[ "$myDataPath" ]] || myDataPath="$appDataPathBase/$SSBIdentifier"
+    myDataPath="$appDataPathBase/$SSBIdentifier"
 
     # pausing without spawning sleep processes
-    [[ "$myPauseFifo" ]] || myPauseFifo="$myDataPath/pause"
+    myPauseFifo="$myDataPath/pause"
     
     # path to important data directories and paths
     myConfigFile="$myDataPath/config.sh"
     myProfilePath="$myDataPath/UserData"
 
     # app log ID
-    [[ "$myLogID" ]] || myLogID="$SSBIdentifier"
+    myLogID="$SSBIdentifier"
     
     # export all to helper
     export myDataPath myPauseFifo myConfigFile myProfilePath myLogID

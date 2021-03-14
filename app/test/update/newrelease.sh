@@ -83,9 +83,7 @@ function update_version {
     prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
     
-    zsh -c "read \"ans?Bump version from $epiVersion to $iNewVersion? [n] \"; [[ \"\$ans\" = [Yy]* ]] || exit 2"
-    local iResult="$?"
-    if [[ "$iResult" = 0 ]] ; then
+    if prompt "Bump version from $epiVersion to $iNewVersion?" ; then
         
         # notify user
         echo "## Bumping version from $epiVersion to $iNewVersion..." 1>&2
@@ -101,7 +99,7 @@ function update_version {
         # update version variables
         epiVersion="$iNewVersion"
         prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
-    elif [[ "$iResult" != 2 ]] ; then
+    elif [[ ! "$ok" ]] ; then
         ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
     fi
     
@@ -336,6 +334,38 @@ If Epichrome is useful to you, please consider joining them!</p>'
 }
 
 
+# PROMPT: prompt for an answer
+#   prompt(aPrompt aDefault)
+function prompt {
+    
+    [[ "$ok" ]] || return 1
+    
+    # arguments
+    local aPrompt="$1" ; shift
+    local aDefault="$1" ; shift ; [[ "$aDefault" != [yn] ]] && aDefault='n'
+    local iAnswerPattern iCodeDefault iCodeNondefault
+    if [[ "$aDefault" = y ]] ; then
+        iAnswerPattern='Nn'
+        iCodeDefault=0
+        iCodeNondefault=2
+    else
+        iAnswerPattern='Yy'
+        iCodeDefault=2
+        iCodeNondefault=0
+    fi
+    # show prompt
+    zsh -c "read \"ans?$aPrompt [$aDefault] \"; [[ \"\$ans\" = [$iAnswerPattern]* ]] && exit $iCodeNondefault || exit $iCodeDefault"
+    local iResult="$?"
+    
+    if [[ "$?" = 1 ]] ; then
+        # prompt failed
+        ok= ; errmsg='Error prompting for input.' ; return 1
+    fi
+    
+    return "$iResult"
+}
+
+
 # --- RUN UPDATES ---
 
 # run doc updates
@@ -356,22 +386,26 @@ make --directory="$epipath" clean clean-package package
 echo "## Testing Epichrome.app..." 1>&2
 try open -W "$epipath/Epichrome/Epichrome.app" \
         'Unable to launch Epichrome.app.'
-zsh -c "read \"ans?Does Epichrome.app pass basic testing? [y] \"; [[ \"\$ans\" = [Nn]* ]] && exit 2"
-iResult="$?"
-[[ "$iResult" = 2 ]] && abort 'Epichrome.app failed test!'
-if [[ "$iResult" != 0 ]] ; then
-    echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
+if ! prompt 'Does Epichrome.app pass basic testing?' ; then
+    if [[ "$ok" ]] ; then
+        abort 'Epichrome.app failed test!'
+    else
+        echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
+        ok=1 ; errmsg=
+    fi
 fi
 
 # test package
 echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
 try open -W "$epipath/epichrome-$epiVersion.pkg" \
         "Unable to launch epichrome-$epiVersion.pkg."
-zsh -c "read \"ans?Does installer package pass basic testing? [y] \"; [[ \"\$ans\" = [Nn]* ]] && exit 2"
-iResult="$?"
-[[ "$iResult" = 2 ]] && abort 'Installer package failed test!'
-if [[ "$iResult" != 0 ]] ; then
-    echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
+if ! prompt 'Does installer package pass basic testing?' ; then
+    if [[ "$ok" ]] ; then
+        abort 'Installer package failed test!'
+    else
+        echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
+        ok=1 ; errmsg=
+    fi
 fi
 
 # notarize package
