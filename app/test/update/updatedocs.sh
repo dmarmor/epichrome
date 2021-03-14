@@ -1,5 +1,6 @@
 #!/bin/bash
 
+logNoStderr=1
 
 # absolute path to this script
 mypath="${BASH_SOURCE[0]%/*}"
@@ -18,18 +19,26 @@ fi
 
 # ensure we are on the master branch
 
-try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
-        'Unable to get current git branch.'
-[[ "$ok" ]] || abort
+# try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
+#         'Unable to get current git branch.'
+# [[ "$ok" ]] || abort
+# [[ "$gitbranch" = 'master' ]] || abort 'Not on git master branch.'
+#
+# try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
+#         'Unable to get git status.'
+# [[ "$ok" ]] || abort
+# [[ "$gitstatus" ]] && abort 'Git repository is not clean.'
 
-if [[ "$gitbranch" != 'master' ]] ; then
-    abort 'Not on git master branch.'
-fi
+# get brave version
+braveVersion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
+[[ "$?" = 0 ]] || abort 'Unable to get Brave version.'
+braveVersion="${braveVersion#*|}"
 
-echo here
-cleanexit
 
-# UPDATE_VERSION
+# --- FUNCTIONS ---
+
+# UPDATE_VERSION: optionally bump version number
+prevVersion=
 function update_version {
     
     [[ "$ok" ]] || return 1
@@ -39,7 +48,8 @@ function update_version {
     safesource "$iVersionFile"
     [[ "$ok" ]] || return 1
     
-    # get potential new version
+    # get previous & potential new version
+    prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
     
     try '-2' read -p "Bump version from $epiVersion to $iNewVersion? [n] " ans \
@@ -47,97 +57,224 @@ function update_version {
     [[ "$ok" ]] || return 1
     
     if [[ "$ans" =~ ^[Yy] ]] ; then
-        try "$iVersionFile.new<" /usr/bin/sed -e "s/^epiVersion=.*$/epiVersion=$iNewVersion/" \
-        -e 's/^epiBuildNum=.*$/epiBuildNum=1/' "$iVersionFile" \
-        'Unable to update version.sh.'
+        
+        # notify user
+        echo "## Bumping version from $epiVersion to $iNewVersion..." 1>&2
+        
+        try "$iVersionFile.new<" /usr/bin/sed -E -e "s/^epiVersion=.*$/epiVersion=$iNewVersion/" \
+                -e 's/^epiBuildNum=.*$/epiBuildNum=1/' "$iVersionFile" \
+                'Unable to update version.sh.'
         permanent "$iVersionFile.new" "$iVersionFile"
         [[ "$ok" ]] || return 1
         
         epiVersion="$iNewVersion"
+        prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     fi
     
     return 0
 }
 
 
+# UPDATE_CHANGELOG
+function update_changelog {
+    
+    [[ "$ok" ]] || return 1
+    
+    # notify user
+    echo '## Updating CHANGELOG.md...' 1>&2
+    
+    # path to changelog
+    local iChangelogFile="$epipath/CHANGELOG.md"
+    local iChangelogTmp="$(tempname "$iChangelogFile")"
 
-
-
-# GET BRAVE VERSION
-
-braveversion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
-[[ "$?" = 0 ]] || abort 'Unable to get Brave version.'
-braveversion="${braveversion#*|}"
-
-
-# UPDATE CHANGELOG
-
-changelog_file="$epipath/CHANGELOG.md"
-
-
-try 'changelog=' /bin/cat  "$changelog_file" \
-        'Unable to read in CHANGELOG.md.'
-try 'curdate=' /bin/date '+%Y-%m-%d' \
-        'Unable to parse date for CHANGELOG.md.'
-
-if [[ "$ok" ]] ; then
+    local iChangelog iCurDate
+    try 'iChangelog=' /bin/cat  "$iChangelogFile" \
+            'Unable to read in CHANGELOG.md.'
+    try 'iCurDate=' /bin/date '+%Y-%m-%d' \
+            'Unable to parse date for CHANGELOG.md.'
+    [[ "$ok" ]] || return 1
+    
+    # ensure we don't already have this version in the changelog
+    local iChangeVerRe='## \[([0-9.]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}'
+    if [[ "$iChangelog" =~ $iChangeVerRe ]] ; then
+        if [[ "${BASH_REMATCH[1]}" != "$prevVersion" ]] ; then
+            ok=
+            errmsg="CHANGELOG.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
+            errlog
+            return 1
+        fi
+    else
+        ok= ; errmsg='Unable to parse latest version in CHANGELOG.md.' ; errlog ; return 1
+    fi
     
     # parse file
-    prefix="${changelog%%$'\n'## [*}"
-    postfix="${changelog#*$'\n'## [}"
+    local iPrefix="${iChangelog%%$'\n'## [*}"
+    local iPostfix="${iChangelog#*$'\n'## [}"
     
-    if [[ ( "$prefix" != "$changelog" ) && ( "$postfix" != "$changelog" ) ]] ; then
-        # parsed correctly $$$ GET RID OF .NEW
-        try "$changelog_file.new<" echo "$prefix
-## [$newversion] - $curdate
-### Changed
-- Updated built-in engine to Brave $braveversion
-
-
-## [$postfix" 'Unable to update CHANGELOG.md.'
-
-    else
-        errlog 'Unable to parse CHANGELOG.md.'
+    if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iPostfix" = "$iChangelog" ) ]] ; then
+        ok= ; errmsg='Unable to parse CHANGELOG.md.'
+        errlog
+        return 1
     fi
-else
-    # move on even if this failed
-    ok=1 ; errmsg=
-fi
+    
+    # parsed correctly
+    try "$iChangelogTmp<" echo "$iPrefix
+## [$epiVersion] - $iCurDate
+### Changed
+- Updated built-in engine to Brave $braveVersion
 
 
-# UPDATE README.MD
-
-# all Epichrome [0-9]*.[0-9]*.[0-9]* > newverions
-# ## New in version XXX -> updated
-### New in version 2.3.28
-#
-# - The built-in engine has been updated to Brave 1.X.
-#
-#
-# *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
-
-# macOS name x.x.x -> updated
-osnum="$(sw_vers | sed -n -e 's/^ProductVersion:[      ]*//p')"
-osname="$(awk '/SOFTWARE LICENSE AGREEMENT FOR macOS/' '/System/Library/CoreServices/Setup Assistant.app/Contents/Resources/en.lproj/OSXSoftwareLicense.rtf' | awk -F 'macOS ' '{print $NF}' | awk '{print substr($0, 0, length($0)-1)}')"
-
-# Google Chrome version XXXX -> updated
-try 'chromeversion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-        /Applications/Google\ Chrome.app/Contents/Info.plist \
-        'Unable to get Chrome version number'
+## [$iPostfix" 'Unable to update CHANGELOG.md.'
+    
+    if [[ "$ok" ]] ; then
+        : # $$$ permanent "$iChangelogTmp" "$iChangelogFile"
+    else
+        : # $$$ tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
+    fi
+    
+    [[ "$ok" ]] && return 0 || return 1
+}
 
 
-# WELCOME.HTML
+# UPDATE_README
+function update_readme {
+    
+    [[ "$ok" ]] || return 1
+    
+    # notify user
+    echo '## Updating README.md...' 1>&2
+    
+    # path to readme
+    local iReadmeFile="$epipath/../README.md"
+    local iReadmeTmp1="$(tempname "$iReadmeFile")"
+    
+    # read in readme
+    local iReadme
+    try 'iReadme=' /bin/cat  "$iReadmeFile" \
+            'Unable to read in README.md.'
+    [[ "$ok" ]] || return 1
+    
+    # check readme file version
+    local iReadmeVerRe='<span id="epiversion">([0-9.]+)</span>'
+    if [[ "$iReadme" =~ $iReadmeVerRe ]] ; then
+        if [[ "${BASH_REMATCH[1]}" != "$prevVersion" ]] ; then
+            ok=
+            errmsg="README.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
+            errlog
+            return 1
+        fi
+    else
+        ok= ; errmsg='Unable to parse latest version in README.md.' ; errlog ; return 1
+    fi
+    
+    # parse readme file
+    local iChangesStart='<!-- CHANGES_START -->'
+    local iChangesEnd='<!-- CHANGES_END -->'
+    local iPrefix="${iReadme%%$iChangesStart*}"
+    local iPostfix="${iReadme#*$iChangesEnd}"
+    
+    if [[ ( "$iPrefix" = "$iReadme" ) || ( "$iPostfix" = "$iReadme" ) ]] ; then
+        ok= ; errmsg='Unable to parse README.md.'
+        errlog
+        return 1
+    fi
+    
+    # update Epichrome, OS & Chrome versions
+    local iOSVersion iOSName iChromeVersion
 
-# <ul>
-#   <!-- <li>TURNED OFF FOR .0 RELEASE</li> -->
-#   <li>Completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and cam
-# era from within apps and interacting with AppleScript</li>
-#   <li>Optional built-in Chrome-compatible <a href="https://github.com/brave/brave-browser" target="_blank">Brave Browser</a> engine added for more app-like behavior</li>
-#   <li>Welcome page (this page!) now gives useful information and prompts for important actions like (re)installing extensions</li>
-#   <li>Many, many under-the-hood improvements, including better logging and more robust error-handling</li>
-# </ul>
+    local iOSVerRe=$'ProductVersion:[ \t]*([^\n]+)'
+    try 'iOSVersion=' /usr/bin/sw_vers  'Unable to get macOS version.'
+    if [[ "$iOSVersion" =~ $iOSVerRe ]] ; then
+        iOSVersion="${BASH_REMATCH[1]}"
+    else
+        ok= ; errmsg='Unable to parse macOS version number.' ; errlog ; return 1
+    fi
+    
+    iOSName="$(/usr/bin/awk '/SOFTWARE LICENSE AGREEMENT FOR macOS/' '/System/Library/CoreServices/Setup Assistant.app/Contents/Resources/en.lproj/OSXSoftwareLicense.rtf' | awk -F 'macOS ' '{print $NF}' | awk '{print substr($0, 0, length($0)-1)}')"
+    if [[ "$?" != 0 ]] ; then
+        ok= ; errmsg='Unable to parse macOS version name.' ; errlog ; return 1
+    fi
+    
+    try 'iChromeVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            '/Applications/Google Chrome.app/Contents/Info.plist' \
+            'Unable to get Chrome version number.'
+
+    # replace change list
+    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart
+
+- The built-in engine has been updated to Brave $braveVersion.
+
+
+$iChangesEnd$iPostfix" \
+            'Unable to replace change list in README.md.'
+    
+    # replace Epichrome, OS & Chrome versions
+    local iReadmeTmp2="$(tempname "$iReadmeFile")"
+    try "$iReadmeTmp2<" /usr/bin/sed -E \
+            -e 's/<span id="epiversion">[^<]*<\/span>/<span id="epiversion">'"$epiVersion"'<\/span>/g' \
+            "$iReadmeTmp1" \
+            'Unable to update version numbers in README.md.'
+    
+    if [[ "$ok" ]] ; then
+        : # $$$ permanent "$iReadmeTmp2" "$iReadmeFile"
+    fi
+    
+    # $$$ tryalways /bin/rm -f "$iReadmeTmp1" "$iReadmeTmp2" \
+    #         'Unable to remove temporary README.md files.'
+    
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# UPDATE_WELCOME
+function update_welcome {
+    
+    [[ "$ok" ]] || return 1
+    
+    # notify user
+    echo '## Updating welcome.html...' 1>&2
+    
+    # path to Welcome
+    local iWelcomeFile="$epipath/src/welcome/welcome.html"
+    local iWelcomeTmp="$(tempname "$iWelcomeFile")"
+    
+    # read in Welcome
+    local iWelcome
+    try 'iWelcome=' /bin/cat  "$iWelcomeFile" \
+            'Unable to read in welcome.html.'
+    [[ "$ok" ]] || return 1
+    
+    # parse Welcome file
+    local iChangesStart='<ul id="changes_minor_ul">'
+    local iChangesEnd='</ul><!-- #changes_minor_ul -->'
+    local iPrefix="${iWelcome%%$iChangesStart*}"
+    local iPostfix="${iWelcome#*$iChangesEnd}"
+    
+    if [[ ( "$iPrefix" = "$iWelcome" ) || ( "$iPostfix" = "$iWelcome" ) ]] ; then
+        ok= ; errmsg='Unable to parse welcome.html.' ; errlog ; return 1
+    fi
+    
+    # replace change list
+    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart
+                  <li>Updated built-in engine to Brave $braveVersion</li>
+                $iChangesEnd$iPostfix" \
+            'Unable to replace change list in welcome.html.'
+    
+    if [[ "$ok" ]] ; then
+        : # $$$ permanent "$iWelcomeTmp" "$iWelcomeFile"
+    else
+        : # $$$ tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
+    fi
+    
+    [[ "$ok" ]] && return 0 || return 1
+}
+
 
 # $$$ACTIVATE
-#update_version
+update_version
+update_changelog
+update_readme
+update_welcome
+[[ "$ok" ]] || abort
 
 cleanexit

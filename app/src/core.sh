@@ -68,7 +68,7 @@ while [[ "$#" -gt 0 ]] ; do
 		    foundArray=1
 		    break
 		fi
-	    done	    
+	    done
 	fi
 
 	# save array or scalar value
@@ -359,7 +359,8 @@ function errlog {  # ( [ERROR|DEBUG|FATAL|STDOUT|STDERR] msg... )
     done
 
     # output prefix & message
-    errlog_raw "$logType[$$]$(join_array '/' "${trace[@]}"): $@"
+    local iMsg="$*" ; [[ "$iMsg" ]] || iMsg="$errmsg"
+    errlog_raw "$logType[$$]$(join_array '/' "${trace[@]}"): $iMsg"
 }
 function debuglog_raw {
     [[ "$debug" ]] && errlog_raw "$@"
@@ -400,7 +401,7 @@ function initlogfile {  # ( logFile )
     
     # get all existing logs
     local oldLogs=
-    try '!2' 'oldLogs=(n)' /bin/ls -tUr "${myLogDir}"/*.txt ''    
+    try '!2' 'oldLogs=(n)' /bin/ls -tUr "${myLogDir}"/*.txt ''
     if [[ "$ok" ]] ; then
 	
 	# if more than the max number of logs exist, delete the oldest ones
@@ -649,7 +650,7 @@ function try {
 	    elif [[ "$dropStderr" = ignore ]] ; then
 		"${args[@]}" >> "$target"
 	    else
-		"${args[@]}" >> "$target" 2> /dev/null		    
+		"${args[@]}" >> "$target" 2> /dev/null
 	    fi
 	    result="$?"
 	else
@@ -664,7 +665,7 @@ function try {
 	    elif [[ "$dropStderr" = ignore ]] ; then
 		"${args[@]}" > "$target"
 	    else
-		"${args[@]}" > "$target" 2> /dev/null		    
+		"${args[@]}" > "$target" 2> /dev/null
 	    fi
 	    result="$?"
 	else
@@ -867,15 +868,16 @@ export -f cleanexit
 
 
 # ABORT -- display an error alert and abort
-function abort { # ( [myErrMsg [myCode]] )
+#   abort( [myErrMsg [myCode]] )
+function abort {
     
     # arguments
     local myErrMsg="$1" ; shift ; [[ "$myErrMsg" ]] || myErrMsg="$errmsg"
     local myCode="$1"   ; shift ; [[ "$myCode"   ]] || myCode=1
-
+    
     # make sure we have a log file
     if [[ ( ! "$logNoFile" ) && ( ! "$myLogFile" ) ]] ; then
-	initlogfile
+        initlogfile
     fi
     
     # log error message
@@ -884,26 +886,26 @@ function abort { # ( [myErrMsg [myCode]] )
     errlog FATAL "$myAbortLog"
     
     if [[ "$coreContext" = 'app' ]] ; then
-
-	# show dialog & offer to open log
-	if [[ "$( type -t dialog )" = function ]] ; then
-	    local buttons=( '+Quit' )
-	    [[ "$logNoFile" ]] || buttons+=( '-View Log' )
-	    local choice=
-	    dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
-	    if [[ "$choice" = 'View Log' ]] ; then
-		
-		# clear OK state so try works & ignore result
-		ok=1 ; errmsg=
-		try /usr/bin/osascript -e '
+        
+        # show dialog & offer to open log
+        if [[ "$( type -t dialog )" = function ]] ; then
+            local buttons=( '+Quit' )
+            [[ "$logNoFile" ]] || buttons+=( '-View Log' )
+            local choice=
+            dialog choice "$myErrMsg" "Unable to Run" '|stop' "${buttons[@]}"
+            if [[ "$choice" = 'View Log' ]] ; then
+                
+                # clear OK state so try works & ignore result
+                ok=1 ; errmsg=
+                try /usr/bin/osascript -e '
 tell application "Finder" to reveal ((POSIX file "'"$myLogFile"'") as alias)
 tell application "Finder" to activate' 'Error attempting to view log file.'
-	    fi
-	fi
-    elif [[ "$coreContext" = 'epichrome' ]] ; then
-
-	# log just the error message to stderr
-	[[ "$myErrMsg" ]] && echo "$myErrMsg" 1>&2
+            fi
+        fi
+    elif [[ ( "$coreContext" = 'epichrome' ) || "$logNoStderr" ]] ; then
+        
+        # log just the error message to stderr
+        [[ "$myErrMsg" ]] && echo "$myErrMsg" 1>&2
     fi
     
     # quit with error code
@@ -988,7 +990,7 @@ function waitforcondition {  # ( msg waitTime increment command [args ...] )
 	incrementInt=$(( ${increment%.*}$incrementInt * ( 10**${decDiff#-} ) ))
     else
 	incrementInt="${increment%.*}$incrementInt"
-	waitTimeInt="${waitTime%.*}$waitTimeInt"	
+	waitTimeInt="${waitTime%.*}$waitTimeInt"
     fi
 
     # wait for the condition to be true
@@ -1144,7 +1146,7 @@ export -f permanent
 # RMTEMP: remove a temporary file or directory (whether $ok or not)
 function rmtemp {
     local temp="$1"
-    local filetype="$2"	
+    local filetype="$2"
 
     # delete the temp file
     if [ -e "$temp" ] ; then
