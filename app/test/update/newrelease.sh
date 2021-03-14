@@ -83,12 +83,9 @@ function update_version {
     prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
     
-    read -p "Bump version from $epiVersion to $iNewVersion? [n] " ans
-    if [[ "$?" != 0 ]] ; then
-        ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
-    fi
-    
-    if [[ "$ans" =~ ^[Yy] ]] ; then
+    zsh -c "read \"ans?Bump version from $epiVersion to $iNewVersion? [n] \"; [[ \"\$ans\" = [Yy]* ]] || exit 2"
+    local iResult="$?"
+    if [[ "$iResult" = 0 ]] ; then
         
         # notify user
         echo "## Bumping version from $epiVersion to $iNewVersion..." 1>&2
@@ -104,6 +101,8 @@ function update_version {
         # update version variables
         epiVersion="$iNewVersion"
         prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
+    elif [[ "$iResult" != 2 ]] ; then
+        ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
     fi
     
     return 0
