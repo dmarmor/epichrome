@@ -94,7 +94,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS <span id="osname">Catalina</span> <span id="osversion">10.15.7</span> and Google Chrome version <span id="chromeversion">89.0.4389.82</span>.
+- Built and tested on macOS <span id="osname">OSNAME</span> <span id="osversion">OSVERSION</span> and Google Chrome version <span id="chromeversion">CHROMEVERSION</span>.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
