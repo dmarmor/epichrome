@@ -83,9 +83,10 @@ function update_version {
     prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
     
-    try '-2' read -p "Bump version from $epiVersion to $iNewVersion? [n] " ans \
-            'Unable to ask whether to bump version.'
-    [[ "$ok" ]] || return 1
+    read -p "Bump version from $epiVersion to $iNewVersion? [n] " ans
+    if [[ "$?" != 0 ]] ; then
+        ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
+    fi
     
     if [[ "$ans" =~ ^[Yy] ]] ; then
         
@@ -356,19 +357,21 @@ make --directory="$epipath" clean clean-package package
 echo "## Testing Epichrome.app..." 1>&2
 try open -W "$epipath/Epichrome/Epichrome.app" \
         'Unable to launch Epichrome.app.'
-try '-2' read -p "Does Epichrome.app pass basic testing? [n] " ans \
-        'Unable to ask about Epichrome testing.'
-[[ "$ok" ]] || abort
-[[ "$ans" =~ ^[Yy] ) ]] || abort 'Epichrome.app failed test!'
+read -p "Does Epichrome.app pass basic testing? [y] " ans
+if [[ "$?" != 0 ]] ; then
+    echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
+fi
+[[ "$ans" =~ ^[Nn] ]] && abort 'Epichrome.app failed test!'
 
 # test package
 echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
 try open -W "$epipath/epichrome-$epiVersion.pkg" \
         "Unable to launch epichrome-$epiVersion.pkg."
-try '-2' read -p "Does installer package pass basic testing? [n] " ans \
-        'Unable to ask about installer package testing.'
-[[ "$ok" ]] || abort
-[[ "$ans" =~ ^[Yy] ) ]] || abort 'Installer package failed test!'
+read -p "Does installer package pass basic testing? [n] " ans
+if [[ "$?" != 0 ]] ; then
+    echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
+fi
+[[ "$ans" =~ ^[Nn] ]] && abort 'Installer package failed test!'
 
 # notarize package
 make --directory="$epipath" notarize
