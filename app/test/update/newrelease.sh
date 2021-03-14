@@ -356,21 +356,23 @@ make --directory="$epipath" clean clean-package package
 echo "## Testing Epichrome.app..." 1>&2
 try open -W "$epipath/Epichrome/Epichrome.app" \
         'Unable to launch Epichrome.app.'
-read -p "Does Epichrome.app pass basic testing? [y] " ans
-if [[ "$?" != 0 ]] ; then
+zsh -c "read \"ans?Does Epichrome.app pass basic testing? [y] \"; [[ \"\$ans\" = [Nn]* ]] && exit 2"
+iResult="$?"
+[[ "$iResult" = 2 ]] && abort 'Epichrome.app failed test!'
+if [[ "$iResult" != 0 ]] ; then
     echo 'Unable to ask about Epichrome testing. Assuming success.' 1>&2
 fi
-[[ "$ans" =~ ^[Nn] ]] && abort 'Epichrome.app failed test!'
 
 # test package
 echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
 try open -W "$epipath/epichrome-$epiVersion.pkg" \
         "Unable to launch epichrome-$epiVersion.pkg."
-read -p "Does installer package pass basic testing? [n] " ans
-if [[ "$?" != 0 ]] ; then
+zsh -c "read \"ans?Does installer package pass basic testing? [y] \"; [[ \"\$ans\" = [Nn]* ]] && exit 2"
+iResult="$?"
+[[ "$iResult" = 2 ]] && abort 'Installer package failed test!'
+if [[ "$iResult" != 0 ]] ; then
     echo 'Unable to ask about installer package testing. Assuming success.' 1>&2
 fi
-[[ "$ans" =~ ^[Nn] ]] && abort 'Installer package failed test!'
 
 # notarize package
 make --directory="$epipath" notarize
