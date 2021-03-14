@@ -547,6 +547,7 @@ elif [[ "$epiAction" = 'icon' ]] ; then
         if [[ "$errmsg" = 'SOURCESIZE|'* ]] ; then
             errmsg="${errmsg#SOURCESIZE|}"
             echo "[ ${errmsg%,}, ${errmsg#,} ]"
+            ok=1 ; errmsg=
         else
             abort
         fi

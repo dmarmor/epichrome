@@ -305,7 +305,7 @@ function makeicon {
                 'Unable to create app icon from temporary iconset.'
             [[ "$aDocIcon" ]] && \
                 try /usr/bin/iconutil -c icns -o "$aDocIcon" "$iDocIconset" \
-                    'Unable to create app icon from temporary iconset.'
+                    'Unable to create document icon from temporary iconset.'
         else
             # handle messaging for makeicon.php errors
             errmsg="${iMakeIconErr#*PHPERR|}"

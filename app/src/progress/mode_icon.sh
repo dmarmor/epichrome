@@ -51,7 +51,7 @@ if [[ "$epiAutoIconURL" ]] ; then
     fi
     
     # remove any leftover icon source image
-    try /bin/rm -f "$epiAutoIconOutPath" 'Unable to remove old auto-icon source image.'
+    try /bin/rm -f "$epiIconSource" 'Unable to remove old auto-icon source image.'
     
     # create temp directory
     try /bin/mkdir "$epiAutoIconTempDir" 'Unable to create temporary auto-icon directory.'
@@ -60,14 +60,14 @@ if [[ "$epiAutoIconURL" ]] ; then
     
     # build makeicon command
     autoIconCmd='[
-{
-    "action": "autoicon",
-    "options": {
-        "url": "'"$epiAutoIconURL"'",
-        "imagePath": "'"$epiAutoIconOutPath"'",
-        "tempImageDir": "'"$epiAutoIconTempDir"'"
+    {
+        "action": "autoicon",
+        "options": {
+            "url": "'"$epiAutoIconURL"'",
+            "imagePath": "'"$epiIconSource"'",
+            "tempImageDir": "'"$epiAutoIconTempDir"'"
+        }
     }
-}
 ]'
     
     autoIconErr=
@@ -87,6 +87,19 @@ fi
 
 
 # CREATE ICON PREVIEW
+
+# ensure icon source file exists
+if [[ ! -e "$epiIconSource" ]] ; then
+    ok=
+    if [[ "$epiAutoIconURL" ]] ; then
+        errmsg='REPORT|Unable to find automatically-downloaded icon.'
+        errlog FATAL
+    else
+        errmsg="Unable to find \"${epiIconSource##*/}\"."
+        errlog
+    fi
+    abort
+fi
 
 echo 'Creating icon preview...'
 

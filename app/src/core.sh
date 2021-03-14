@@ -1131,7 +1131,7 @@ function abort {
         fi
     fi
     
-    # set abort message for final handling (put report back on it for passing along
+    # set abort message for final handling (put report back on it for passing along)
     errmsg="$myErrMsg"
     [[ "$iDoReport" ]] && reportmsg
     
@@ -1228,9 +1228,9 @@ function handleexitsignal {
             try /bin/mkdir -p "$iErrmsgDir" 'Unable to create directory for error message file.'
         fi
         
-        # log just the error message to errmsg file
+        # log the error message to errmsg file with REPORT| header
         ok=1 ; errmsg=
-        try "$coreErrFile<" echo "$(msg "$iErrMsg")" 'Unable to write to error message file.'
+        try "$coreErrFile<" echo "$iErrMsg" 'Unable to write to error message file.'
         
     elif [[ "$coreContext" = 'epichrome' ]] ; then
         

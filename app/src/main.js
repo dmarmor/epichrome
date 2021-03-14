@@ -1298,6 +1298,10 @@ function doSteps(aSteps, aInfo, aOptions={}) {
     // let the steps know how many of them there are
     aInfo.stepInfo.numSteps = aSteps.length;
     
+    // initialize step numbers
+    aInfo.stepInfo.curStepNumber = myNextStep;
+    aInfo.stepInfo.prevStepNumber = -1;
+    
     while (true) {
 
         // backed out of the first step
@@ -1381,8 +1385,15 @@ function doSteps(aSteps, aInfo, aOptions={}) {
         }
         
         // set step number
-        aInfo.stepInfo.number = myNextStep;
-
+        if (aInfo.stepInfo.restartStep) {
+            // simulate going forward
+            aInfo.stepInfo.prevStepNumber = myNextStep - 1;
+            aInfo.stepInfo.restartStep = false;
+        } else {
+            aInfo.stepInfo.prevStepNumber = aInfo.stepInfo.curStepNumber;
+        }
+        aInfo.stepInfo.curStepNumber = myNextStep;
+        
         if (aInfo.stepInfo.action != kActionUPDATE) {
 
             // update step number unless these are substeps
@@ -2272,6 +2283,7 @@ function stepIcon(aInfo) {
         stepIconCheckAuto,
         stepIconSelectAuto,
         stepIconCheckCustom,
+        stepIconChooseType,
         stepIconSelectCustom,
         stepIconCheckStyle,
         stepIconSetComp,
@@ -2341,7 +2353,14 @@ function stepIconCheckEdit(aInfo) {
             // update dialog icon
             aInfo.stepInfo.dlgIcon = setDlgIcon(aInfo.oldAppInfo);
             
+            // skip to the end
             return aInfo.stepInfo.numSteps;
+        }
+    } else {
+        
+        // this step was silent, so if we're backing out, keep going
+        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
+            return -1;
         }
     }
     
@@ -2364,12 +2383,18 @@ function stepIconCheckAuto(aInfo) {
         
         if (myDlgResult.canceled) {
             // Back button
-            return ((aInfo.stepInfo.action == kActionEDIT) ? -1 : -2);
+            return -1;
         }
         
         if (myDlgResult.buttonIndex == 0) {
             // continue using this autoicon, move on to setting style
-            return 4;
+            return 5;
+        }
+    } else {
+        
+        // this step was silent, so if we're backing out, keep going
+        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
+            return -1;
         }
     }
     
@@ -2383,10 +2408,6 @@ function stepIconSelectAuto(aInfo) {
     let myAutoUrl;
     
     if (aInfo.stepInfo.numUrls > 0) {
-        
-        // set backstep based on state of app icons
-        let myBackStep = (aInfo.appInfo.icon.autoIconUrl ? -1 :
-            ((aInfo.stepInfo.action == kActionEDIT) ? -2 : -3));
         
         // set up map object
         let myMapObject = {
@@ -2408,7 +2429,7 @@ function stepIconSelectAuto(aInfo) {
         
         if (myDlgResult.canceled) {
             // Back button
-            return myBackStep;
+            return -1;
         }
         
         if (myDlgResult.buttonValue) {
@@ -2454,7 +2475,7 @@ function stepIconSelectAuto(aInfo) {
                         title: 'Icon Creation Error',
                         error: iErr,
                         reportError: true,
-                        backStep: myBackStep
+                        backStep: 0
                     }
                 }
                 
@@ -2470,10 +2491,17 @@ function stepIconSelectAuto(aInfo) {
                     defaultButton: 1
                 });
                 
-                return myBackStep;
+                // if we haven't yet set an icon, make sure default is no longer auto
+                if (aInfo.appInfo.icon == kIconAUTO) {
+                    aInfo.appInfo.icon = kIconCUSTOM;
+                }
+                
+                // move on to custom/default
+                return 1;
             }
             
             // update app icon info
+            aInfo.stepInfo.prevIcon = aInfo.appInfo.icon;
             aInfo.appInfo.icon = {
                 autoIconUrl: myAutoUrl
             }
@@ -2482,7 +2510,13 @@ function stepIconSelectAuto(aInfo) {
             updateAppInfo(aInfo, 'icon');
             
             // move on to style
-            return 3;
+            return 4;
+        }
+    } else {
+        
+        // this step was silent, so if we're backing out, keep going
+        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
+            return -1;
         }
     }
     
@@ -2505,12 +2539,18 @@ function stepIconCheckCustom(aInfo) {
         
         if (myDlgResult.canceled) {
             // Back button
-            return ((aInfo.stepInfo.numUrls > 0) ? -1 : -2);
+            return -1;
         }
         
         if (myDlgResult.buttonIndex == 0) {
             // Continue
-            return 2;
+            return 3;
+        }
+    } else {
+        
+        // this step was silent, so if we're backing out, keep going
+        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
+            return -1;
         }
     }
     
@@ -2519,8 +2559,8 @@ function stepIconCheckCustom(aInfo) {
 }
 
 
-// STEPICONSELECTAUTO: step function to select type of icon to use
-function stepIconSelectCustom(aInfo) {
+// STEPICONCHOOSETYPE: step function to choose between custom & default icon
+function stepIconChooseType(aInfo) {
     
     // object to let dialog know what's currently selected
     let myMapObject = {
@@ -2540,22 +2580,7 @@ function stepIconSelectCustom(aInfo) {
     
     if (myDlgResult.canceled) {
         // Back button
-        if (getIconType(aInfo.appInfo.icon) == kIconCUSTOM) {
-            return -1;
-        } else {
-            // back out as few as 2, or as many as all steps
-            let myBackStep = -2;
-            if (aInfo.stepInfo.numUrls == 0) {
-                myBackStep--;
-                if (!aInfo.appInfo.icon.autoIconUrl) {
-                    myBackStep--;
-                    if (aInfo.stepInfo.action != kActionEDIT) {
-                        myBackStep--;
-                    }
-                }
-            }
-            return myBackStep;
-        }
+        return -1;
     }
     
     // if editing & icon choice changed from custom to default, confirm whether to remove icon
@@ -2576,100 +2601,108 @@ function stepIconSelectCustom(aInfo) {
         }
     }
     
-    // next step for return
-    let myNextStep = 1;
-    
-    if (myDlgResult.buttonValue) {
+    if (!myDlgResult.buttonValue) {
         
-        // CHOOSE AN APP ICON
-        
-        let myIconSourcePath;
-        
-        // set up file selection dialog options
-        let myDlgOptions = {
-            withPrompt: aInfo.stepInfo.numText + ': Select an image to use as an icon.',
-            ofType: [
-                'com.adobe.pdf',
-                'com.adobe.photoshop-image',
-                'com.adobe.raw-image',
-                'com.apple.atx',
-                'com.apple.icns',
-                'com.apple.pict',
-                'com.canon.cr2-raw-image',
-                'com.canon.cr3-raw-image',
-                'com.canon.crw-raw-image',
-                'com.canon.tif-raw-image',
-                'com.compuserve.gif',
-                'com.dxo.raw-image',
-                'com.epson.raw-image',
-                'com.fuji.raw-image',
-                'com.hasselblad.3fr-raw-image',
-                'com.hasselblad.fff-raw-image',
-                'com.ilm.openexr-image',
-                'com.kodak.raw-image',
-                'com.konicaminolta.raw-image',
-                'com.leafamerica.raw-image',
-                'com.leica.raw-image',
-                'com.leica.rwl-raw-image',
-                'com.microsoft.bmp',
-                'com.microsoft.cur',
-                'com.microsoft.dds',
-                'com.microsoft.ico',
-                'com.nikon.nrw-raw-image',
-                'com.nikon.raw-image',
-                'com.olympus.or-raw-image',
-                'com.olympus.raw-image',
-                'com.olympus.sr-raw-image',
-                'com.panasonic.raw-image',
-                'com.panasonic.rw2-raw-image',
-                'com.pentax.raw-image',
-                'com.phaseone.raw-image',
-                'com.samsung.raw-image',
-                'com.sgi.sgi-image',
-                'com.sony.arw-raw-image',
-                'com.sony.raw-image',
-                'com.sony.sr2-raw-image',
-                'com.truevision.tga-image',
-                'org.khronos.astc',
-                'org.khronos.ktx',
-                'public.avci',
-                'public.heic',
-                'public.heics',
-                'public.heif',
-                'public.jpeg',
-                'public.jpeg-2000',
-                'public.mpo-image',
-                'public.pbm',
-                'public.png',
-                'public.pvr',
-                'public.radiance',
-                'public.tiff',
-                'org.webmproject.webp'
-            ],
-            invisibles: false
-        };
-        
-        // show file selection dialog
-        myIconSourcePath = fileDialog('open', gEpiLastDir, 'icon', myDlgOptions);
-        if (!myIconSourcePath) {
-            // canceled: ask about a custom icon again
-            return 0;
-        }
-        
-        // update custom icon info
-        aInfo.appInfo.icon = myIconSourcePath;
-    } else {
-        
-        // default icon, and skip all icon style steps
+        // set default icon
         aInfo.appInfo.icon = kIconDEFAULT;
         aInfo.stepInfo.dlgIcon = kEpiAppIcon;
-        myNextStep = 4;
+        
+        // update summaries
+        updateAppInfo(aInfo, 'icon');
+        
+        // skip all remaining steps
+        return aInfo.stepInfo.numSteps;
     }
+
+    // custom icon
+    return 1;
+}
+
+
+// STEPICONSELECTCUSTOM: step function to select a custom icon
+function stepIconSelectCustom(aInfo) {
+    
+    let myIconSourcePath;
+        
+    // set up file selection dialog options
+    let myDlgOptions = {
+        withPrompt: aInfo.stepInfo.numText + ': Select an image to use as an icon.',
+        ofType: [
+            'com.adobe.pdf',
+            'com.adobe.photoshop-image',
+            'com.adobe.raw-image',
+            'com.apple.atx',
+            'com.apple.icns',
+            'com.apple.pict',
+            'com.canon.cr2-raw-image',
+            'com.canon.cr3-raw-image',
+            'com.canon.crw-raw-image',
+            'com.canon.tif-raw-image',
+            'com.compuserve.gif',
+            'com.dxo.raw-image',
+            'com.epson.raw-image',
+            'com.fuji.raw-image',
+            'com.hasselblad.3fr-raw-image',
+            'com.hasselblad.fff-raw-image',
+            'com.ilm.openexr-image',
+            'com.kodak.raw-image',
+            'com.konicaminolta.raw-image',
+            'com.leafamerica.raw-image',
+            'com.leica.raw-image',
+            'com.leica.rwl-raw-image',
+            'com.microsoft.bmp',
+            'com.microsoft.cur',
+            'com.microsoft.dds',
+            'com.microsoft.ico',
+            'com.nikon.nrw-raw-image',
+            'com.nikon.raw-image',
+            'com.olympus.or-raw-image',
+            'com.olympus.raw-image',
+            'com.olympus.sr-raw-image',
+            'com.panasonic.raw-image',
+            'com.panasonic.rw2-raw-image',
+            'com.pentax.raw-image',
+            'com.phaseone.raw-image',
+            'com.samsung.raw-image',
+            'com.sgi.sgi-image',
+            'com.sony.arw-raw-image',
+            'com.sony.raw-image',
+            'com.sony.sr2-raw-image',
+            'com.truevision.tga-image',
+            'org.khronos.astc',
+            'org.khronos.ktx',
+            'public.avci',
+            'public.heic',
+            'public.heics',
+            'public.heif',
+            'public.jpeg',
+            'public.jpeg-2000',
+            'public.mpo-image',
+            'public.pbm',
+            'public.png',
+            'public.pvr',
+            'public.radiance',
+            'public.tiff',
+            'org.webmproject.webp'
+        ],
+        invisibles: false
+    };
+    
+    // show file selection dialog
+    myIconSourcePath = fileDialog('open', gEpiLastDir, 'icon', myDlgOptions);
+    if (!myIconSourcePath) {
+        // canceled: ask about a custom icon again
+        return -1;
+    }
+    
+    // update custom icon info
+    aInfo.stepInfo.prevIcon = aInfo.appInfo.icon;
+    aInfo.appInfo.icon = myIconSourcePath;
     
     // update summaries
     updateAppInfo(aInfo, 'icon');
     
-    return myNextStep;
+    return 1;
 }
 
 
@@ -2677,9 +2710,7 @@ function stepIconSelectCustom(aInfo) {
 function stepIconCheckStyle(aInfo) {
     
     // where to backstep to
-    let myBackStep = (aInfo.appInfo.icon.autoIconUrl ? -4 :
-        (((aInfo.appInfo.icon instanceof Object) &&
-            (!aInfo.appInfo.icon.autoIconUrl)) ? -2 : -1));
+    let myBackStep = (aInfo.appInfo.icon.autoIconUrl ? -5 : -3);
     
     // store source image dimensions
     let iSourceSize = [0,0];
@@ -2691,9 +2722,14 @@ function stepIconCheckStyle(aInfo) {
         
     } catch (iErr) {
         
+        // roll back icon to previous state
+        aInfo.appInfo.icon = aInfo.stepInfo.prevIcon;
+        updateAppInfo(aInfo, 'icon');
+        
         if (errIsReportable(iErr.message)[0]) {
             
             // fatal error in icon creation code
+            aInfo.stepInfo.restartStep = true;
             return {
                 message: errIsReportable(iErr.message)[1],
                 title: 'Icon Creation Error',
@@ -2704,6 +2740,7 @@ function stepIconCheckStyle(aInfo) {
         }
         
         if (iErr.message.startsWith('CANCEL')) {
+            aInfo.stepInfo.restartStep = true;
             return myBackStep;
         }
         
@@ -2715,6 +2752,7 @@ function stepIconCheckStyle(aInfo) {
             defaultButton: 1
         });
         
+        aInfo.stepInfo.restartStep = true;
         return myBackStep;
     }
     
@@ -2847,6 +2885,7 @@ function stepIconSetComp(aInfo) {
 function stepIconSetCrop(aInfo) {
     
     if (!aInfo.appInfo.icon.sourceIsSquare) {
+        
         // show step dialog
         let iDlgResult = stepDialog(aInfo, 'How to make non-square image square?', {
             mapObject: gIconSettings,
@@ -2865,9 +2904,16 @@ function stepIconSetCrop(aInfo) {
         
         // update icon crop setting
         gIconSettings.crop = iDlgResult.buttonValue;
+    } else {
+        
+        // this step was silent, so if we're backing out, keep going
+        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
+            return -1;
+        }
     }
     
     // return to confirmation
+    aInfo.stepInfo.restartStep = true;
     return -2;
 }
 
@@ -3100,7 +3146,7 @@ function stepBuild(aInfo) {
         // if there are no changes, quit
         if (!myDoBuild) {
             // go to step -1 to trigger quit dialog
-            return -aInfo.stepInfo.number - 1;
+            return -aInfo.stepInfo.curStepNumber - 1;
         }
     } else {
         // update action
@@ -3888,7 +3934,6 @@ function iconPreview(aIcon, aSourceSizeArray=null, aSearchUrl=null) {
             // new URL, so add autoicon parameters
             iShellVars.push(
                 'epiAutoIconURL=' + aSearchUrl,
-                'epiAutoIconOutPath=' + gCoreInfo.autoIconSource,
                 'epiAutoIconTempDir=' + gCoreInfo.autoIconTempDir
             );
         }

@@ -438,7 +438,7 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
     
     // get smallest size for this icon
     $iSmallestSize = ICON_SIZE_MIN;
-    if ($aOptions->minSize) { $iSmallestSize = max($aOptions->minSize, $iSmallestSize); }
+    if ($aOptions->minSize) { $iSmallestSize = max(min($aOptions->minSize, $iRefSize), $iSmallestSize); }
     
     // get biggest icon size
     $curSize = $iBiggestSize;
@@ -661,14 +661,19 @@ function actionAutoIcon($aOptions) {
             if ($curIcon[1] == 'png') {
                 
                 // already a PNG, so just move it into place
-                if (rename($curIcon[2], $aOptions->imagePath)) { return true; }
+                if (rename($curIcon[2], $aOptions->imagePath)) {
+                    return true;
+                }
                 
             } else {
                 
                 // convert to PNG
-                exec("/usr/bin/sips --setProperty format png --out iconsource.png " .
+                exec('/usr/bin/sips --setProperty format png --out ' .
+                        escapeshellarg($aOptions->imagePath) . ' ' .
                         escapeshellarg($curIcon[2]), $iIgnore, $iResult);
-                if ($iResult == 0) { return true; }
+                if ($iResult == 0) {
+                    return true;
+                }
             }
         }
     }
