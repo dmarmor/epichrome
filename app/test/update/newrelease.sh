@@ -368,7 +368,7 @@ function prompt {
 
 # --- RUN UPDATES ---
 
-# run doc updates
+# # run doc updates
 check_repository
 update_brave
 update_version
@@ -386,7 +386,7 @@ make --directory="$epipath" clean clean-package package
 echo "## Testing Epichrome.app..." 1>&2
 try open -W "$epipath/Epichrome/Epichrome.app" \
         'Unable to launch Epichrome.app.'
-if ! prompt 'Does Epichrome.app pass basic testing?' ; then
+if ! prompt 'Does Epichrome.app pass basic testing?' y ; then
     if [[ "$ok" ]] ; then
         abort 'Epichrome.app failed test!'
     else
@@ -399,7 +399,7 @@ fi
 echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
 try open -W "$epipath/epichrome-$epiVersion.pkg" \
         "Unable to launch epichrome-$epiVersion.pkg."
-if ! prompt 'Does installer package pass basic testing?' ; then
+if ! prompt 'Does installer package pass basic testing?' y ; then
     if [[ "$ok" ]] ; then
         abort 'Installer package failed test!'
     else
@@ -408,19 +408,14 @@ if ! prompt 'Does installer package pass basic testing?' ; then
     fi
 fi
 
-# notarize package
-make --directory="$epipath" notarize
-[[ "$?" = 0 ]] || abort 'Package notarization failed.'
-
-# staple notarization
-echo 'Waiting 5 minutes for package to be approved...' 1>&2
-sleep 300
-
-# staple notarization
-make --directory="$epipath" notarize
-[[ "$?" = 0 ]] || abort 'Package notarization failed.'
-
 # create new release on GitHub
 create_github_release
+if [[ ! "$ok" ]] ; then
+    echo "Unable to create GitHub release." 1>&2
+    ok=1 ; errmsg=
+fi
+
+# notarize package
+"$mypath/notarize.sh" "$epiVersion"
 
 [[ "$ok" ]] && cleanexit || abort
