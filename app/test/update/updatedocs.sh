@@ -19,15 +19,15 @@ fi
 
 # ensure we are on the master branch
 
-# try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
-#         'Unable to get current git branch.'
-# [[ "$ok" ]] || abort
-# [[ "$gitbranch" = 'master' ]] || abort 'Not on git master branch.'
-#
-# try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
-#         'Unable to get git status.'
-# [[ "$ok" ]] || abort
-# [[ "$gitstatus" ]] && abort 'Git repository is not clean.'
+try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
+        'Unable to get current git branch.'
+[[ "$ok" ]] || abort
+[[ "$gitbranch" = 'master' ]] || abort 'Not on git master branch.'
+
+try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
+        'Unable to get git status.'
+[[ "$ok" ]] || abort
+[[ "$gitstatus" ]] && abort 'Git repository is not clean.'
 
 # get brave version
 braveVersion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
@@ -45,6 +45,7 @@ function update_version {
     
     # get current version
     local iVersionFile="$epipath/src/version.sh"
+    local iVersionTmp="$(tempname "$iVersionFile")"
     safesource "$iVersionFile"
     [[ "$ok" ]] || return 1
     
@@ -61,12 +62,15 @@ function update_version {
         # notify user
         echo "## Bumping version from $epiVersion to $iNewVersion..." 1>&2
         
-        try "$iVersionFile.new<" /usr/bin/sed -E -e "s/^epiVersion=.*$/epiVersion=$iNewVersion/" \
+        try "$iVersionTmp<" /usr/bin/sed -E -e "s/^epiVersion=.*$/epiVersion=$iNewVersion/" \
                 -e 's/^epiBuildNum=.*$/epiBuildNum=1/' "$iVersionFile" \
                 'Unable to update version.sh.'
-        permanent "$iVersionFile.new" "$iVersionFile"
+        
+        [[ "$ok" ]] && permanent "$iVersionTmp" "$iVersionFile"
+        tryalways /bin/rm -f "$iVersionTmp" 'Unable to remove temporary version.sh.'
         [[ "$ok" ]] || return 1
         
+        # update version variables
         epiVersion="$iNewVersion"
         prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     fi
@@ -126,11 +130,8 @@ function update_changelog {
 
 ## [$iPostfix" 'Unable to update CHANGELOG.md.'
     
-    if [[ "$ok" ]] ; then
-        : # $$$ permanent "$iChangelogTmp" "$iChangelogFile"
-    else
-        : # $$$ tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
-    fi
+    [[ "$ok" ]] && permanent "$iChangelogTmp" "$iChangelogFile"
+    tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
     
     [[ "$ok" ]] && return 0 || return 1
 }
@@ -215,12 +216,9 @@ $iChangesEnd$iPostfix" \
             "$iReadmeTmp1" \
             'Unable to update version numbers in README.md.'
     
-    if [[ "$ok" ]] ; then
-        : # $$$ permanent "$iReadmeTmp2" "$iReadmeFile"
-    fi
-    
-    # $$$ tryalways /bin/rm -f "$iReadmeTmp1" "$iReadmeTmp2" \
-    #         'Unable to remove temporary README.md files.'
+    [[ "$ok" ]] && permanent "$iReadmeTmp2" "$iReadmeFile"
+    tryalways /bin/rm -f "$iReadmeTmp1" "$iReadmeTmp2" \
+            'Unable to remove temporary README.md files.'
     
     [[ "$ok" ]] && return 0 || return 1
 }
@@ -260,11 +258,8 @@ function update_welcome {
                 $iChangesEnd$iPostfix" \
             'Unable to replace change list in welcome.html.'
     
-    if [[ "$ok" ]] ; then
-        : # $$$ permanent "$iWelcomeTmp" "$iWelcomeFile"
-    else
-        : # $$$ tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
-    fi
+    [[ "$ok" ]] && permanent "$iWelcomeTmp" "$iWelcomeFile"
+    tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
     
     [[ "$ok" ]] && return 0 || return 1
 }
