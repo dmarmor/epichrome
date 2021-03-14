@@ -243,6 +243,9 @@ $iChangesEnd$iPostfix" \
     local iReadmeTmp2="$(tempname "$iReadmeFile")"
     try "$iReadmeTmp2<" /usr/bin/sed -E \
             -e 's/<span id="epiversion">[^<]*<\/span>/<span id="epiversion">'"$epiVersion"'<\/span>/g' \
+            -e 's/<span id="osname">[^<]*<\/span>/<span id="osname">'"$iOSName"'<\/span>/g' \
+            -e 's/<span id="osversion">[^<]*<\/span>/<span id="osversion">'"$iOSVersion"'<\/span>/g' \
+            -e 's/<span id="chromeversion">[^<]*<\/span>/<span id="chromeversion">'"$iChromeVersion"'<\/span>/g' \
             "$iReadmeTmp1" \
             'Unable to update version numbers in README.md.'
     
