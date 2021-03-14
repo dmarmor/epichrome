@@ -79,7 +79,8 @@ if [[ "$epiAutoIconURL" ]] ; then
     fi
     
     # remove temp directory no matter what
-    myTry=tryalways ; saferm 'Unable to remove temporary auto-icon directory.' \
+    myTry=tryalways
+    saferm 'Unable to remove temporary auto-icon directory.' \
             "$epiAutoIconTempDir"
     
     [[ "$ok" ]] || abort
