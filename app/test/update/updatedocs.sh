@@ -335,49 +335,49 @@ If Epichrome is useful to you, please consider joining them!</p>'
 
 # --- RUN UPDATES ---
 
+# run doc updates
 check_repository
 update_brave
-# update_version
-# update_changelog
-# update_readme
-# update_welcome
-# [[ "$ok" ]] || abort
-#
-#
-# # build package
-# echo "## Building epichrome-$epiVersion.pkg..." 1>&2
-# make --directory="$epipath" clean clean-package package
-# [[ "$?" = 0 ]] || abort "Package build failed."
-#
-# # test epichrome
-# echo "## Testing Epichrome.app..." 1>&2
-# try open -W "$epipath/Epichrome/Epichrome.app" \
-#         'Unable to launch Epichrome.app.'
-# try '-2' read -p "Does Epichrome.app pass basic testing? [n] " ans \
-#         'Unable to ask about Epichrome testing.'
-# [[ "$ok" ]] || abort
-# [[ "$ans" =~ ^[Yy] ) ]] || abort 'Epichrome.app failed test!'
-#
-# # test package
-# echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
-# try open -W "$epipath/epichrome-$epiVersion.pkg" \
-#         "Unable to launch epichrome-$epiVersion.pkg."
-# try '-2' read -p "Does installer package pass basic testing? [n] " ans \
-#         'Unable to ask about installer package testing.'
-# [[ "$ok" ]] || abort
-# [[ "$ans" =~ ^[Yy] ) ]] || abort 'Installer package failed test!'
-#
-# # notarize package
-# make --directory="$epipath" notarize
-# [[ "$?" = 0 ]] || abort 'Package notarization failed.'
-#
-# # staple notarization
-# echo 'Waiting 5 minutes for package to be approved...' 1>&2
-# sleep 300
-#
-# # staple notarization
-# make --directory="$epipath" notarize
-# [[ "$?" = 0 ]] || abort 'Package notarization failed.'
+update_version
+update_changelog
+update_readme
+update_welcome
+[[ "$ok" ]] || abort
+
+# build package
+echo "## Building epichrome-$epiVersion.pkg..." 1>&2
+make --directory="$epipath" clean clean-package package
+[[ "$?" = 0 ]] || abort "Package build failed."
+
+# test epichrome
+echo "## Testing Epichrome.app..." 1>&2
+try open -W "$epipath/Epichrome/Epichrome.app" \
+        'Unable to launch Epichrome.app.'
+try '-2' read -p "Does Epichrome.app pass basic testing? [n] " ans \
+        'Unable to ask about Epichrome testing.'
+[[ "$ok" ]] || abort
+[[ "$ans" =~ ^[Yy] ) ]] || abort 'Epichrome.app failed test!'
+
+# test package
+echo "## Testing epichrome-$epiVersion.pkg..." 1>&2
+try open -W "$epipath/epichrome-$epiVersion.pkg" \
+        "Unable to launch epichrome-$epiVersion.pkg."
+try '-2' read -p "Does installer package pass basic testing? [n] " ans \
+        'Unable to ask about installer package testing.'
+[[ "$ok" ]] || abort
+[[ "$ans" =~ ^[Yy] ) ]] || abort 'Installer package failed test!'
+
+# notarize package
+make --directory="$epipath" notarize
+[[ "$?" = 0 ]] || abort 'Package notarization failed.'
+
+# staple notarization
+echo 'Waiting 5 minutes for package to be approved...' 1>&2
+sleep 300
+
+# staple notarization
+make --directory="$epipath" notarize
+[[ "$?" = 0 ]] || abort 'Package notarization failed.'
 
 # create new release on GitHub
 create_github_release
