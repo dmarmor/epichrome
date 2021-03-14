@@ -28,6 +28,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
 
 
+## [2.3.28] - 2021-03-14
+### Changed
+- Updated built-in engine to Brave 1.21.76
+
+
 ## [2.3.27] - 2021-03-07
 ### Changed
 - Updated built-in engine to Brave 1.21.74

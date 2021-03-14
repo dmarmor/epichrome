@@ -53,7 +53,8 @@ myWelcomePath="$myDataPath/$appDataWelcomeDir"
 
 
 # ENCODEURL -- encode a string for URL
-function encodeurl {  # ( input [safe] )
+#  encodeurl( input [safe] )
+function encodeurl {
 	
 	# arguments
 	local input="$1" ; shift ; local input_err="$input"
@@ -62,6 +63,7 @@ function encodeurl {  # ( input [safe] )
 	# quote strings for python
 	input="${input//\\/\\\\}"
 	input="${input//\'/\'}"
+	input="${input//$'\n'/\\n}"
 	safe="${safe//\\/\\\\}"
 	safe="${safe//\'/\'}"
 	

@@ -35,8 +35,6 @@ EXTN_ID_RELEASE:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTN_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
 EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
-NOTARIZE_CREDENTIALS:=$(shell cat private/notarize_credentials.txt)
-
 CODESIGN_IDENTITY:=$(shell cat private/codesign_identity.txt)
 
 THISYEAR:=$(shell date '+%Y')
@@ -162,11 +160,6 @@ NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_
 endif
 
 
-# NOTARIZE INFO
-
-NOTARIZE_REQUEST_FILE:=$(shell ls epichrome-$(VERSION).notarize_request_*.txt 2> /dev/null | sort | tail -n 1)
-
-
 # BETA CONDITIONAL INFO
 
 ifeq ($(BETA),_beta)
@@ -258,7 +251,7 @@ PRECIOUS_INTERMEDIATES:=\
 
 .DELETE_ON_ERROR:
 
-.PHONY: bump build release package clean no-clean clean-package clean-engine clean-all verify notarize notarize-check notarize-staple
+.PHONY: bump build release package clean no-clean clean-package clean-engine clean-all verify notarize notarize-staple
 
 .PRECIOUS: $(PRECIOUS_INTERMEDIATES)
 
@@ -399,53 +392,10 @@ build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/pac
 # NOTARIZE PACKAGE
 
 notarize:
-#	https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
-#	sudo xcode-select -r
-#	  # to find ProviderShortname for --asc-provider
-#	xcrun altool --list-providers -u "dmarmor@gmail.com" -p "@keychain:AppleID altool notarize"
-#	  # to store AppleID app password credential in keychain:
-#	xcrun altool --store-password-in-keychain-item 'KEYCHAIN_ITEM' -u 'USERNAME' -p 'PASSWORD'
-	@if [[ ! -f 'epichrome-$(VERSION).pkg' ]] ; then \
-		echo '*** Unable to find epichrome-$(VERSION).pkg' ; false ; \
-	fi
-	@echo '*** This should only be done after thorough testing that the package is correct.' ; \
-	read -p "Send epichrome-$(VERSION).pkg to Apple for notarization? (y/n [n]) " -r ; \
-	if [[ "$$REPLY" =~ ^[Yy]$$ ]] ; then \
-		request_id='notarize-request.'"$$(date '+%Y%m%d-%H%M%S')" ; \
-		xcrun altool --notarize-app \
-               --primary-bundle-id 'org.epichrome.Epichrome.$(VERSION).'"$$request_id" \
-               $(NOTARIZE_CREDENTIALS) \
-               --file epichrome-$(VERSION).pkg > 'epichrome-$(VERSION).'"$$request_id"'.txt' ; \
-		result=$$? ; cat 'epichrome-$(VERSION).'"$$request_id"'.txt' ; exit $$result ; fi
+	test/update/notarize.sh --prompt $(VERSION)
 
-notarize-check:
-	@request_file="$$(ls epichrome-$(VERSION).notarize*.txt 2> /dev/null | sort | tail -n 1)" ; \
-	if [[ "$$request_file" ]] ; then \
-		echo "Checking $$request_file..." ; \
-		xcrun altool --notarization-info \
-		"$$(sed -En 's/RequestUUID *= *([^ ]+) *$$/\1/p' "$$request_file")" \
-		$(NOTARIZE_CREDENTIALS) > "$${request_file%.txt}.check.txt" ; \
-		cat "$${request_file%.txt}.check.txt" ; \
-		url="$$(sed -En 's/^ *LogFileURL: *(.+)$$/\1/p' "$${request_file%.txt}.check.txt")" ; \
-		if [[ "$$url" ]] ; then \
-			curl --silent --show-error "$$url" > "$${request_file%.txt}.json" ; \
-			echo 'Created issues manifest.' ; \
-		fi ; \
-	else echo 'No request file found.' ; fi
-
-notarize-staple: notarize-check
-	@if [[ ! -f 'epichrome-$(VERSION).pkg' ]] ; then \
-		echo '*** Unable to find epichrome-$(VERSION).pkg' ; false ; \
-	fi
-	@request_file="$$(ls epichrome-$(VERSION).notarize*.check.txt 2> /dev/null | sort | tail -n 1)" ; \
-	request_file="$$(cat "$$request_file")" ; \
-	re=$$'\n *Status: *success *\n' ; \
-	if [[ "$$request_file" =~ $$re ]] ; then \
-		xcrun stapler staple 'epichrome-$(VERSION).pkg' ; \
-	else \
-		echo '*** Stapling should only be done after notarization has been accepted by Apple.' ; \
-		false ; \
-	fi
+notarize-staple:
+	test/update/notarize.sh --staple $(VERSION)
 
 
 # CODESIGNING
