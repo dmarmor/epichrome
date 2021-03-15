@@ -89,7 +89,7 @@ export VERSION
 
 VERSIONMAJOR:=$(shell version='$(VERSION)' && echo "$${version%.*}")
 VERSIONTEXT:=$(subst b, BETA ,$(VERSION))
-VERSIONCODE:=$(shell src/versioncode.sh '$(VERSION_INTERNAL)')
+VERSIONCODE:=$(shell scripts/versioncode.sh '$(VERSION_INTERNAL)')
 ifeq ($(VERSIONCODE),FAIL)
 $(error Unable to parse version number in version.sh)
 endif
@@ -130,7 +130,7 @@ BETA:=$(shell if [[ '$(VERSION)' =~ b ]] ; then echo _beta ; else echo '' ; fi)
 
 # BRAVE ENGINE
 
-BRAVEINFO:=$(shell test/update/updatebrave.sh Engines)
+BRAVEINFO:=$(shell scripts/updatebrave.sh Engines)
 BRAVE:=$(shell braveinfo='$(BRAVEINFO)' ; echo "$${braveinfo%|*}")
 BRAVE_VERSION:=$(shell braveinfo='$(BRAVEINFO)' ; echo "$${braveinfo\#*|}")
 ifeq ($(BRAVE),)
@@ -392,10 +392,10 @@ build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/pac
 # NOTARIZE PACKAGE
 
 notarize:
-	test/update/notarize.sh --prompt $(VERSION)
+	scripts/notarize.sh --prompt $(VERSION)
 
 notarize-staple:
-	test/update/notarize.sh --staple $(VERSION)
+	scripts/notarize.sh --staple $(VERSION)
 
 
 # CODESIGNING
@@ -806,7 +806,7 @@ $(CHROMIUM): $(CHROMIUM:.tgz=.zip)
 # rmdir '$(CHROMIUM_FRAMEWORK)/Versions/Current/_CodeSignature' \
 # 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc/Contents/_CodeSignature' \
 # 	'$(CHROMIUM_FRAMEWORK)/Versions/Current/Helpers/'*.app/Contents/_CodeSignature
-	src/signmatch.sh '/Applications/Google Chrome.app' build/chromium \
+	scripts/signmatch.sh '/Applications/Google Chrome.app' build/chromium \
 		'$(CHROMIUM_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
 		'$(CHROMIUM_FRAMEWORK)/Versions/Current/Helpers/'* \
 		'$(CHROMIUM_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
@@ -852,7 +852,7 @@ build/engine_tmp/brave: build/engine_tmp/$(BRAVE_SRC) build/engine_tmp/brave_rec
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
 	xattr -cr build/engine_tmp/brave
-	src/signmatch.sh '' \
+	scripts/signmatch.sh '' \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
