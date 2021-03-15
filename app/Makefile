@@ -301,17 +301,22 @@ build/icons/%.icns: build/icons/%.png src/core.sh src/makeicon.sh src/makeicon.p
 	if [[ "$$ok" ]] ; then cleanexit ; else exit 1 ; fi
 
 build/icons/%.png: ../images/icons/%.psd
-	open -a "$$(cd ../images ; pwd)"/PNG.app '$<'
-	@printf 'Waiting for Photoshop to finish converting $<...'
-	@while [[ ( ! -e $(basename $<).png ) || ( $(basename $<).png -ot $< ) ]] ; do sleep 1 ; done
-	@mtime=$$(stat -f '%m' $(basename $<).png) ; \
-	while [[ "$$oldmtime" != "$$mtime" ]] ; do \
-		sleep 1 ; \
-		oldmtime="$$mtime" ; \
+	@if [[ -d private/PNG.app ]] ; then \
+		open -a "$$(cd private ; pwd)"/PNG.app '$<' ; \
+		printf 'Waiting for Photoshop to finish converting $<...' ; \
+		while [[ ( ! -e $(basename $<).png ) || ( $(basename $<).png -ot $< ) ]] ; do sleep 1 ; done ; \
 		mtime=$$(stat -f '%m' $(basename $<).png) ; \
-	done
-	mv $(basename $<).png $@
-	@echo 'done!'
+		while [[ "$$oldmtime" != "$$mtime" ]] ; do \
+			sleep 1 ; \
+			oldmtime="$$mtime" ; \
+			mtime=$$(stat -f '%m' $(basename $<).png) ; \
+		done ; \
+		mv $(basename $<).png $@ ; \
+		echo 'done!' ; \
+	else \
+		cmd=( sips --setProperty format png --out $@ $< ) ; \
+		echo "$${cmd[@]}" ; "$${cmd[@]}" ; \
+	fi
 
 
 # PACKAGE BUILD

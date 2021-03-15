@@ -14,6 +14,7 @@ if [[ "$mypath" = "${BASH_SOURCE[0]}" ]] ; then
 elif [[ "$mypath" ]] ; then
     mypath="$(cd "$mypath" ; pwd)"
 fi
+epipath="$mypath/.."
 
 # ABORT function
 function abort {
@@ -39,7 +40,7 @@ version="$1"
 package="epichrome-$version.pkg"
 
 # move to app directory
-cd "$mypath/../.." || abort 'Unable to move to app directory.'
+cd "$epipath" || abort 'Unable to move to app directory.'
 
 # ensure package is in place
 [[ -f "$package" ]] || abort "Unable to find $package"

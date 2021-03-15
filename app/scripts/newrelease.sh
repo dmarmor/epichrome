@@ -9,7 +9,7 @@ if [[ "$mypath" = "${BASH_SOURCE[0]}" ]] ; then
 elif [[ "$mypath" ]] ; then
     mypath="$(cd "$mypath" ; pwd)"
 fi
-epipath="$mypath/../.."
+epipath="$mypath/.."
 
 # load core.sh
 if ! source "$epipath/src/core.sh" ; then

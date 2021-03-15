@@ -13,12 +13,13 @@ if [[ "$mypath" = "${BASH_SOURCE[0]}" ]] ; then
 elif [[ "$mypath" ]] ; then
     mypath="$(cd "$mypath" ; pwd)"
 fi
+epipath="$mypath/.."
 
 # path to engines directory
-[[ "$1" ]] && enginepath="$1" || enginepath="$mypath/../../Engines"
+[[ "$1" ]] && enginepath="$1" || enginepath="$epipath/Engines"
 
 # load core.sh
-if ! source "$mypath/../../src/core.sh" ; then
+if ! source "$epipath/src/core.sh" ; then
     echo "Unable to load core.sh." 1>&2
     exit 1
 fi
