@@ -1,11 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0b14
-epiBuildNum=2
+epiVersion=2.4.0b15
+epiBuildNum=1
 epiDesc=( \
-        'Both Chrome-based and Brave-based apps should now run natively on Apple Silicon Macs' \
-        'Fixed several bugs in automatic icon-downloading & new icon interface' \
-        'Built-in engine updated to Brave 1.21.76' )
+        'Built-in engine updated to Brave 1.X' )
 # epiDescMajor=( \
 #         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
 #         'Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID' \

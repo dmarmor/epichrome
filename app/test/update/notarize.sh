@@ -92,7 +92,7 @@ fi
 request_uuid="$(sed -En 's/RequestUUID *= *([^ ]+) *$/\1/p' "$request_file")" || abort 'Unable to get request UUID.'
 check_file="${request_file%.txt}.check.txt"
 json_file="${request_file%.txt}.json"
-status_re=$'\n *Status: *([a-zA-Z][a-zA-Z ]*[a-zA-Z]) *\n'
+status_re=$'(^|\n) *Status: *([a-zA-Z][a-zA-Z ]*[a-zA-Z]) *(\n|$)'
 
 for ((i=0; i<5; i++)) ; do
     
@@ -105,14 +105,14 @@ for ((i=0; i<5; i++)) ; do
     check_data="$(cat "$check_file")"
     check_status='unknown (unable to parse)'
     if [[ "$check_data" =~ $status_re ]] ; then
-        if [[ "${BASH_REMATCH[1]}" = 'success' ]] ; then
+        if [[ "${BASH_REMATCH[2]}" = 'success' ]] ; then
             
             # success! staple it
             echo 'Package approved! Stapling notarization...'
             xcrun stapler staple "$package" || abort 'Stapling failed.'
             exit 0
             
-        elif [[ "${BASH_REMATCH[1]}" = 'in progress' ]] ; then
+        elif [[ "${BASH_REMATCH[2]}" = 'in progress' ]] ; then
             # wait a minute
             sleep 60
 
