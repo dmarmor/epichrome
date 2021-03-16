@@ -71,19 +71,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             <div id="changes_major" class="change_list changes_major hide">
               <h3>New in Version <span id="update_version_major">EPIMAJORVERSION</span></h3>
               <ul>
-                <li>Fully compatible with macOS 11 Big Sur</li>
-                <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
+                <li>Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon</li>
                 <li>Epichrome apps can now be edited by dropping them on Epichrome.app!</li>
-                <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, <span class="folder_name">Epichrome Scan.app</span>, to do the same manually</li>
-                <li>Added advanced settings during app creation and editing to control how the app handles updates, and to customize its ID</li>
-                <li>Progress bars now appear when creating and updating apps and their engines, as well as while parsing browser extensions</li>
-                <li>Update dialogs now show info about changes in the new version being offered</li>
-                <li>Checking GitHub for updates is now unified across all apps and Epichrome itself, so when a new update is found, you will only receive one notification</li>
-                <li>Added a button to open an issue on GitHub when an app or Epichrome aborts due to error</li>
-                <li>Apps are now automatically backed up whenever they are edited or updated (in the Backups subfolder of the app's data directory)</li>
-                <li>Reorganized and cleaned up the app welcome page</li>
-                <li>Improved browser extension parsing and added a cache to improve startup time for new apps</li>
-                <li>Many other improvements and bug fixes...</li>
+                <li>Major update to icons, including automatic downloading of icons based on an app&rsquo;s URL, icon preview during the creation process, and an interface for creating Big Sur-compatible icons</li>
+                <li>Added advanced settings during app creation and editing to control how apps handle updates, and to customize their IDs</li>
+                <li>New unified app engine architecture for better compatibility with the dock, notifications, and other system services</li>
+                <li>Apps are now automatically backed up whenever they&rsquo;re edited or updated (in the Backups subfolder of the app&rsquo;s data directory)</li>
+                <li>Progress bars now appear during lengthy operations such as updating an app</li>
+                <li>Added a login scan to restore apps left in an unlaunchable state after a crash, and <span class="folder_name">Epichrome Scan.app</span> to do the same manually</li>
+                <li>Checking GitHub for updates is now unified across all apps so when a new update is found, you will only receive one notification, which will display info on changes in the new version</li>
+                <li>Both the GitHub update notification and the app update prompt now show info on changes in the new version</li>
+                <li>Many more improvements and bug fixes...</li>
               </ul>
             </div>
             
@@ -173,7 +171,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                       </span>
                       Epichrome Helper Extension
                     </h3>
-                    <p><span class="group_rt rt_install">If you haven't already, please install the Epichrome Helper extension to help your app work better (including redirecting links to the default browser).</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it.</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled.</span><span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
+                    <p><span class="group_rt rt_install">If you haven&rsquo;t already, please install the Epichrome Helper extension to help your app work better (including redirecting links to the default browser).</span><span class="group_rt rt_update rt_update_fail hide">As of version 2.3.0, Epichrome Helper is no longer automatically installed, so to continue using it you will probably need to reinstall it.</span><span class="group_rt rt_change_engine rt_reset hide"><span class="group_rt rt_change_engine hide">Because of the engine change, the Epichrome Helper extension will</span><span class="group_rt rt_reset hide">Because the app preferences were reset, the Epichrome Helper extension may</span> need to be reinstalled.</span><span class="group_rt rt_update rt_change_engine rt_reset hide"> All your rules and settings should be preserved.</span><span class="group_rt rt_update_fail error hide"> Please note: There was an error attempting to preserve the extension&rsquo;s settings. After reinstalling, you will probably need to restore them from a backup or re-enter them.</span></p>
                   </div> <!-- .runtime_text -->
                   <div class="runtime_button">
                     <img class="extension_icon" src="img/epichrome_icon.png" alt="Epichrome Helper icon" />

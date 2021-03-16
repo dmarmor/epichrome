@@ -616,8 +616,6 @@ function runEdit(aApps) {
         // fill out engine info
         curApp.appInfo.engine.button = engineName(curApp.appInfo.engine);
 
-        // $$$ CHECK FOR LEGAL ENGINE?
-        
         // start stepInfo
         let myDlgIcon = setDlgIcon(curApp.appInfo);
         curApp.stepInfo = {

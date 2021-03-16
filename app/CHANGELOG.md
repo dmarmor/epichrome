@@ -2,19 +2,20 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.4.0] - 2021-XX-XX
+## [2.4.0] - 2021-03-XX
 ### Changed
 - Fully compatible with macOS 11 Big Sur
+- Apps run natively on new Apple Silicon machines
 - New unified app engine architecture for better compatibility with the dock, notifications, and other system services
 - Added ability to edit existing Epichrome apps
 - Added a login scan to restore apps left in an unlaunchable state after a crash, and a new app, "Epichrome Scan.app" to do the same manually
-- Added option to try and find an app icon based on the app's URL
+- Added option to try and automatically find an app icon based on the app's URL(s)
 - Updated all icons for compatibility with Big Sur, and added interface for creating Big Sur-compatible app icons
 - Improved icon creation interface to show preview of icon during app creation process
 - Added an advanced setting during app creation and editing to control how the app handles updates
 - Added an advanced setting during app creation and editing to customize the app's ID
 - Added progress bars that appear while creating and updating apps and their engines, as well as while parsing browser extensions
-- Unified GitHub update-checking across apps and Epichrome itself, so when a new update is found, you will only receive one notification (issue #???)
+- Unified GitHub update-checking across apps and Epichrome itself, so when a new update is found, you will only receive one notification ([issue #257](https://github.com/dmarmor/epichrome/issues/257 "issue #257"))
 - The GitHub update-found dialog now shows info about changes in the new version
 - The app update prompt now shows info about changes in the new version
 - Added button to open an issue on GitHub when an app or Epichrome aborts due to error
@@ -23,9 +24,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Reorganized and cleaned up the app welcome page
 - Improved browser extension parsing, and added cache to improve startup time for new apps
 - Improved retention of extension state across engine changes (extensions like Session Buddy with databases won't lose them any more)
-- Updated built-in engine to Brave 1.1X.XX
+- Updated built-in engine to Brave 1.21.77
 ### Fixed
-- Apps will now retain their register browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
+- Apps will now retain their register-as-browser setting across updates (existing apps that should not be registered browsers will need to be edited once to set that)
 
 
 ## [2.3.28] - 2021-03-14

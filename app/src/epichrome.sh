@@ -306,20 +306,15 @@ elif [[ "$epiAction" = 'read' ]] ; then
             abort
         fi
         
-        # remove any trailing export statement
-        # myConfig="${myConfig%%$'\n'export*}"
-        
         # read in config variables
         try eval "$myConfig" "Unable to parse app configuration for '$epiAppPath'."
         [[ "$ok" ]] || abort 'Unable to parse app configuration'
         
         # update engine type for beta versions 2.3.0b1-2.3.0b6
         if [[ "$SSBEngineType" = 'Chromium' ]] ; then
-            ok= ; errmsg='Cannot yet update Chromium-engine app'
+            ok= ; errmsg='Cannot update Chromium-engine apps'
             errlog "$errmsg '$epiAppPath'."
             abort
-            # $$$ if we add Chromium back:
-            # SSBEngineType="internal|${appBrowserInfo_org_chromium_Chromium[0]}"
         elif [[ "$SSBEngineType" = 'Google Chrome' ]] ; then
             SSBEngineType="external|${appBrowserInfo_com_google_Chrome[0]}"
         fi

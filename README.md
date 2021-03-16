@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.3.28</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.0</span></h1>
 
 ## Overview
 
@@ -57,24 +57,38 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 </table>
 </b>
 
-
-## New in version <span id="epiversion">2.3.28</span><!-- CHANGES_START -->
-
+<!--
+## New in version <span id="epiversion">2.4.0</span><!-- CHANGES_START -->
+<!--
 - The built-in engine has been updated to Brave 1.21.76.
 
-<!-- CHANGES_END -->
+<!-- CHANGES_END --><!--
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
+-->
 
+## New in version 2.4
 
-## New in version 2.3
+- Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon
 
-- Epichrome has been completely rewritten for full compatibility with macOS 10.15 Catalina, including accessing the system microphone and camera from within apps and interacting with AppleScript.
+- Epichrome apps can now be edited by dropping them on Epichrome.app!
 
-- A new built-in engine has been added, using the Chrome-compatible open source [Brave Browser](https://github.com/brave/brave-browser "Brave Browser") to allow more app-like behavior including better link-routing and custom icons on desktop notifications.
+- Major update to icons, including automatic downloading of icons based on an app's URL, icon preview during the creation process, and an interface for creating Big Sur-compatible icons
 
-- The welcome page that appears when apps are created or updated now gives useful contextual information and prompts for important actions like (re)installing extensions.
+- Added advanced settings during app creation and editing to control how apps handle updates, and to customize their IDs
 
-<!-- ## New in version 2.3 -->
+- New unified app engine architecture for better compatibility with the dock, notifications, and other system services
+
+- Apps are now automatically backed up whenever they're edited or updated (in the Backups subfolder of the app's data directory)
+
+- Progress bars now appear during lengthy operations such as updating an app
+
+- Added a login scan to restore apps left in an unlaunchable state after a crash, and "Epichrome Scan.app" to do the same manually
+
+- Checking GitHub for updates is now unified across all apps so when a new update is found, you will only receive one notification, which will display info on changes in the new version
+
+- Both the GitHub update notification and the app update prompt now show info on changes in the new version
+
+- Many more improvements and bug fixes... (See [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for details)
 
 
 ## Important Notes

@@ -201,11 +201,6 @@ function actionReadFile($aOptions) {
     if (!imagepalettetotruecolor($iResult->image)) {
         throw new EpiException("Unable to convert $iResult->errName to true color.");
     }
-    
-    // turn on alpha blending $$$ DO I WANT THIS HERE?
-    // if (!imagealphablending($iImage, true)) {
-    //     throw new EpiException('Unable to convert image to true color.');
-    // }
         
     return $iResult;
 }
@@ -359,13 +354,6 @@ function actionComposite($aInput, $aOptions) {
             }
         }
     }
-    
-    // $$$$ DIAGNOSTIC
-    // print("iCanvasSize = $iCanvasSize\n");
-    // print("TOP:\n");
-    // print_r($iTop);
-    // print("\n\nBOTTOM:\n");
-    // print_r($iBottom);
     
     
     // RESIZE IF NECESSARY & COMPOSITE
