@@ -73,7 +73,7 @@ function updateapp {
             fi
             
             # start relaunch job
-            updaterelaunch "$myEpiRuntimeResources/Scripts" &
+            updaterelaunch "$myEpiRuntimeResources/Scripts" < /dev/null &> /dev/null &
             
             # exit
             cleanexit
@@ -128,6 +128,7 @@ function updaterelaunch {
     
     # relaunch
     local iArgs=( '--relaunch' )
+    local iRelaunchPid
     launchapp "$SSBAppPath" REGISTER 'updated app' iArgs
     
     # report result

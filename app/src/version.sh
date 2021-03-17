@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.0
-epiBuildNum=1
+epiBuildNum=4
 epiDesc=( \
         )  # END_epiDesc
 epiDescMajor=( \
