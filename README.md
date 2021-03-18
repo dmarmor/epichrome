@@ -82,7 +82,7 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 - Progress bars now appear during lengthy operations such as updating an app
 
-- Added a login scan to restore apps left in an unlaunchable state after a crash, and "Epichrome Scan.app" to do the same manually
+- Added a login scan to restore apps left in an unlaunchable state after a crash, and *Epichrome Scan.app* to do the same manually
 
 - Checking GitHub for updates is now unified across all apps so when a new update is found, you will only receive one notification, which will display info on changes in the new version
 
