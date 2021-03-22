@@ -275,36 +275,39 @@ function update_changelog {
         iChangeList=( "${epiDesc[@]}" )
     fi
     
-    # prefix & postfix variables
-    local iPrefix=
-    local iPostfix=
-    
-    # ensure we don't already have this version in the changelog
-    local iChangeVerRe='## \[([0-9.]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}'
-    if [[ "$iChangelog" =~ $iChangeVerRe ]] ; then
-        if [[ "${BASH_REMATCH[1]}" = "$epiVersion" ]] ; then
-            echo "CHANGELOG.md already has an entry for $epiVersion:"
-            echo "XXXXX"
-            if prompt "Replace with new descriptions?" ; then
-                :# $$$$ I AM HERE
-            fi
-            ok=
-            errmsg="CHANGELOG.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
-            errlog
-            return 1
-        fi
-    else
-        ok= ; errmsg='Unable to parse latest version in CHANGELOG.md.' ; errlog ; return 1
+    # break up the changelog into before, during and after our version
+    local iCurVersionFound=
+    local iPrefix="${iChangelog%%$'\n'## [*}"
+    local iAfterCurVersion="${iChangelog#*$'\n'## [}"
+    if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iAfterCurVersion" = "$iChangelog" ) ]] ; then
+        ok= ; errmsg='Unable to parse CHANGELOG.md.' ; errlog ; return 1
     fi
-    
-    # parse file
-    iPrefix="${iChangelog%%$'\n'## [*}"
-    iPostfix="${iChangelog#*$'\n'## [}"
-    
-    if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iPostfix" = "$iChangelog" ) ]] ; then
-        ok= ; errmsg='Unable to parse CHANGELOG.md.'
-        errlog
-        return 1
+    iAfterCurVersion=$'\n'"## [$iAfterCurVersion"
+    local iBeforeCurVersion="${iAfterCurVersion%%$'\n'## \[$epiVersion\]*}"
+    if [[ "$iBeforeCurVersion" = "$iAfterCurVersion" ]] ; then
+        # our version not found in changelog
+        iBeforeCurVersion="$iPrefix"
+        iAfterCurVersion="${iAfterCurVersion:1}"  # strip leading newline
+    else
+        # found our version, so remove it from our variables
+        iCurVersionFound=1
+        iBeforeCurVersion="$iPrefix$iBeforeCurVersion"
+        local iTemp="${iAfterCurVersion#*$'\n'## \[$epiVersion\]}"
+        if [[ "$iTemp" = "$iAfterCurVersion" ]] ; then
+            ok= ; errmsg='Unable to parse current version in CHANGELOG.md.' ; errlog ; return 1
+        fi
+        iAfterCurVersion="${iTemp#*$'\n'## [}"
+        if [[ "$iTemp" = "$iAfterCurVersion" ]] ; then
+            ok= ; errmsg='Unable to remove current version from CHANGELOG.md.' ; errlog ; return 1
+        fi
+        iAfterCurVersion="## [$iAfterCurVersion"
+        
+        # $$$ PROMPT TO REPLACE IT
+        echo "CHANGELOG.md already has an entry for $epiVersion:"
+        echo "XXXXX"
+        if prompt "Replace with new descriptions?" ; then
+            :# $$$$ I AM HERE
+        fi
     fi
     
     # parsed correctly
@@ -532,9 +535,9 @@ function prompt {
 update_brave
 latest_version
 update_version
+update_changelog
 [[ "$ok" ]] || abort
 cleanexit
-update_changelog
 update_readme
 update_welcome
 [[ "$ok" ]] || abort
