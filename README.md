@@ -57,14 +57,14 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 </table>
 </b>
 
-<!--
+
 ## New in version <span id="epiversion">2.4.0</span><!-- CHANGES_START -->
-<!--
+
 - The built-in engine has been updated to Brave 1.21.76.
 
-<!-- CHANGES_END --><!--
+<!-- CHANGES_END -->
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
--->
+
 
 ## New in version 2.4
 

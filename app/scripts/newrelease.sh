@@ -87,7 +87,9 @@ function latest_version {
 
 
 # UPDATE_VERSION: optionally bump version number
-isBumped=
+epiIsBumped=  ## $$$$ DELET THIS?
+epiChangeList=()
+epiFixList=()
 function update_version {
     
     [[ "$ok" ]] || return 1
@@ -120,12 +122,16 @@ function update_version {
             # notify user
             echo "## Bumping version from $epiVersion to $iNewVersion and building..." 1>&2
             
-            isBumped=1
+            epiIsBumped=1
             
             # update version variables
             epiVersion="$iNewVersion"
             epiBuildNum=1
             epiDesc=( "$iBraveUpdateMsg" )
+            
+            # update changelog/readme variables
+            epiChangeList=( "${epiDesc[@]}" )
+            epiFixList=()
 
         elif [[ ! "$ok" ]] ; then
             ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
@@ -175,6 +181,17 @@ function update_version {
             
             # update epiDesc
             epiDesc=( "${newDescList[@]}" )
+            
+            # categorize all changes
+            epiChangeList=()
+            epiFixList=()
+            for curDesc in "${epiDesc[@]}" ; do
+                if prompt "Is \"$curDesc\" a bug fix?" ; then
+                    epiFixList+=( "$curDesc" )
+                else
+                    epiChangeList+=( "$curDesc" )
+                fi
+            done
 
         elif [[ ! "$ok" ]] ; then
             ok= ; errmsg='Unable to ask whether to build.' ; errlog ; return 1
@@ -260,22 +277,6 @@ function update_changelog {
 
     local curDesc
     
-    # if we're not bumping the version, categorize all changes
-    local iFixList=()
-    local iChangeList=()
-    if [[ ! "$isBumped" ]] ; then
-        for curDesc in "${epiDesc[@]}" ; do
-            if prompt "Is \"$curDesc\" a bug fix?" ; then
-                iFixList+=( "$curDesc" )
-            else
-                iChangeList+=( "$curDesc" )
-            fi
-        done
-    else
-        # we're bumping the version, so our only change is not a bug fix
-        iChangeList=( "${epiDesc[@]}" )
-    fi
-    
     # make sure our version isn't already in changelog
     if [[ "${iChangelog%%$'\n'## \[$epiVersion\]*}" != "$iChangelog" ]] ; then
         ok= ; errmsg="CHANGELOG.md already has an entry for $epiVersion." ; errlog ; return 1
@@ -290,8 +291,8 @@ function update_changelog {
     iBody="## [$iBody"
     
     # build fix and change lists
-    iChangeList="$(join_array $'\n- ' "${iChangeList[@]}")"
-    iFixList="$(join_array $'\n- ' "${iFixList[@]}")"
+    local iChangeList="$(join_array $'\n- ' "${epiChangeList[@]}")"
+    local iFixList="$(join_array $'\n- ' "${epiFixList[@]}")"
     [[ "$iChangeList" ]] && iChangeList=$'\n### Changed\n- '"$iChangeList"
     [[ "$iFixList" ]] && iFixList=$'\n### Fixed\n- '"$iFixList"
     [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] && iChangeList=$'\n- No changes'
@@ -300,6 +301,7 @@ function update_changelog {
             echo "$iPrefix"$'\n'"## [$epiVersion] - $iCurDate$iChangeList$iFixList"$'\n\n\n'"$iBody" \
             'Unable to update CHANGELOG.md.'
     
+    # $$$$
     # [[ "$ok" ]] && permanent "$iChangelogTmp" "$iChangelogFile"
     # tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
     
@@ -326,16 +328,8 @@ function update_readme {
     [[ "$ok" ]] || return 1
     
     # check readme file version
-    local iReadmeVerRe='<span id="epiversion">([0-9.]+)</span>'
-    if [[ "$iReadme" =~ $iReadmeVerRe ]] ; then
-        if [[ "${BASH_REMATCH[1]}" != "$prevVersion" ]] ; then
-            ok=
-            errmsg="README.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
-            errlog
-            return 1
-        fi
-    else
-        ok= ; errmsg='Unable to parse latest version in README.md.' ; errlog ; return 1
+    if [[ "$iReadme" = *"<span id=\"epiversion\">$epiVersion</span>"* ]] ; then
+        ok= ; errmsg="README.md already at version $epiVersion." ; errlog ; return 1
     fi
     
     # parse readme file
@@ -370,13 +364,20 @@ function update_readme {
             '/Applications/Google Chrome.app/Contents/Info.plist' \
             'Unable to get Chrome version number.'
 
-    # replace change list
-    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart
-
-- The built-in engine has been updated to Brave $braveVersion.
-
-
-$iChangesEnd$iPostfix" \
+    # replace change list  $$$$ categorize & add ###Changes, etc if necessry
+    # build fix and change lists
+    local iChangeList="$(join_array $'.\n\n- ' "${epiChangeList[@]}")"
+    local iFixList="$(join_array $'.\n\n- ' "${epiFixList[@]}")"
+    [[ "$iChangeList" ]] && iChangeList=$'\n\n- '"$iChangeList."
+    [[ "$iFixList" ]] && iFixList=$'\n\n- '"$iFixList."
+    if [[ "$iChangeList" && "$iFixList" ]] ; then
+        iChangeList=$'\n\n### Changed:'"$iChangeList"
+        iFixList=$'\n\n### Fixed:'"$iFixList"
+    elif [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] ; then
+        iChangeList=$'\n\n- No changes.'
+    fi
+    
+    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart$iChangeList$iFixList"$'\n\n'"$iChangesEnd$iPostfix" \
             'Unable to replace change list in README.md.'
     
     # replace Epichrome, OS & Chrome versions
@@ -389,8 +390,9 @@ $iChangesEnd$iPostfix" \
             "$iReadmeTmp1" \
             'Unable to update version numbers in README.md.'
     
-    [[ "$ok" ]] && permanent "$iReadmeTmp2" "$iReadmeFile"
-    tryalways /bin/rm -f "$iReadmeTmp1" "$iReadmeTmp2" \
+    # $$$$ put back "$iReadmeTmp2" \ to temp removal
+    # [[ "$ok" ]] && permanent "$iReadmeTmp2" "$iReadmeFile"
+    tryalways /bin/rm -f "$iReadmeTmp1" \
             'Unable to remove temporary README.md files.'
     
     [[ "$ok" ]] && return 0 || return 1
@@ -497,7 +499,7 @@ function prompt {
     fi
         
     # show prompt
-    zsh -c "read \"ans?$aPrompt [$aDefault] \"; [[ \"\$ans\" = [$iAnswerPattern]* ]] && exit $iCodeNondefault || exit $iCodeDefault"
+    zsh -c "read \"ans?>>$aPrompt [$aDefault] \"; [[ \"\$ans\" = [$iAnswerPattern]* ]] && exit $iCodeNondefault || exit $iCodeDefault"
     local iResult="$?"
     
     if [[ "$?" = 1 ]] ; then
@@ -517,9 +519,9 @@ update_brave
 latest_version
 update_version
 update_changelog
+update_readme
 [[ "$ok" ]] || abort
 cleanexit
-update_readme
 update_welcome
 [[ "$ok" ]] || abort
 
