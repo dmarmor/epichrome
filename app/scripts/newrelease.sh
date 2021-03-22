@@ -231,8 +231,8 @@ function update_version {
         ok= ; errmsg="Unable to parse version.sh." ; errlog ; return 1
     fi
     
-    # write out new version.sh
-    try "$iVersionFile<" echo "$iVersionData" \
+    # write out new temp version.sh  $$$$
+    try "$iVersionTmp<" echo "$iVersionData" \
             'Unable to write updated version.sh.'
 
     [[ "$ok" ]] && return 0 || return 1
@@ -257,12 +257,13 @@ function update_changelog {
     try 'iCurDate=' /bin/date '+%Y-%m-%d' \
             'Unable to parse date for CHANGELOG.md.'
     [[ "$ok" ]] || return 1
+
+    local curDesc
     
     # if we're not bumping the version, categorize all changes
     local iFixList=()
     local iChangeList=()
     if [[ ! "$isBumped" ]] ; then
-        local curDesc
         for curDesc in "${epiDesc[@]}" ; do
             if prompt "Is \"$curDesc\" a bug fix?" ; then
                 iFixList+=( "$curDesc" )
@@ -275,52 +276,32 @@ function update_changelog {
         iChangeList=( "${epiDesc[@]}" )
     fi
     
-    # break up the changelog into before, during and after our version
-    local iCurVersionFound=
+    # make sure our version isn't already in changelog
+    if [[ "${iChangelog%%$'\n'## \[$epiVersion\]*}" != "$iChangelog" ]] ; then
+        ok= ; errmsg="CHANGELOG.md already has an entry for $epiVersion." ; errlog ; return 1
+    fi
+    
+    # break up the changelog into before & after where our version should go
     local iPrefix="${iChangelog%%$'\n'## [*}"
-    local iAfterCurVersion="${iChangelog#*$'\n'## [}"
-    if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iAfterCurVersion" = "$iChangelog" ) ]] ; then
+    local iBody="${iChangelog#*$'\n'## [}"
+    if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iBody" = "$iChangelog" ) ]] ; then
         ok= ; errmsg='Unable to parse CHANGELOG.md.' ; errlog ; return 1
     fi
-    iAfterCurVersion=$'\n'"## [$iAfterCurVersion"
-    local iBeforeCurVersion="${iAfterCurVersion%%$'\n'## \[$epiVersion\]*}"
-    if [[ "$iBeforeCurVersion" = "$iAfterCurVersion" ]] ; then
-        # our version not found in changelog
-        iBeforeCurVersion="$iPrefix"
-        iAfterCurVersion="${iAfterCurVersion:1}"  # strip leading newline
-    else
-        # found our version, so remove it from our variables
-        iCurVersionFound=1
-        iBeforeCurVersion="$iPrefix$iBeforeCurVersion"
-        local iTemp="${iAfterCurVersion#*$'\n'## \[$epiVersion\]}"
-        if [[ "$iTemp" = "$iAfterCurVersion" ]] ; then
-            ok= ; errmsg='Unable to parse current version in CHANGELOG.md.' ; errlog ; return 1
-        fi
-        iAfterCurVersion="${iTemp#*$'\n'## [}"
-        if [[ "$iTemp" = "$iAfterCurVersion" ]] ; then
-            ok= ; errmsg='Unable to remove current version from CHANGELOG.md.' ; errlog ; return 1
-        fi
-        iAfterCurVersion="## [$iAfterCurVersion"
-        
-        # $$$ PROMPT TO REPLACE IT
-        echo "CHANGELOG.md already has an entry for $epiVersion:"
-        echo "XXXXX"
-        if prompt "Replace with new descriptions?" ; then
-            :# $$$$ I AM HERE
-        fi
-    fi
+    iBody="## [$iBody"
     
-    # parsed correctly
-    try "$iChangelogTmp<" echo "$iPrefix
-## [$epiVersion] - $iCurDate
-### Changed
-- Updated built-in engine to Brave $braveVersion
-
-
-## [$iPostfix" 'Unable to update CHANGELOG.md.'
+    # build fix and change lists
+    iChangeList="$(join_array $'\n- ' "${iChangeList[@]}")"
+    iFixList="$(join_array $'\n- ' "${iFixList[@]}")"
+    [[ "$iChangeList" ]] && iChangeList=$'\n### Changed\n- '"$iChangeList"
+    [[ "$iFixList" ]] && iFixList=$'\n### Fixed\n- '"$iFixList"
+    [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] && iChangeList=$'\n- No changes'
     
-    [[ "$ok" ]] && permanent "$iChangelogTmp" "$iChangelogFile"
-    tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
+    try "$iChangelogTmp<" \
+            echo "$iPrefix"$'\n'"## [$epiVersion] - $iCurDate$iChangeList$iFixList"$'\n\n\n'"$iBody" \
+            'Unable to update CHANGELOG.md.'
+    
+    # [[ "$ok" ]] && permanent "$iChangelogTmp" "$iChangelogFile"
+    # tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
     
     [[ "$ok" ]] && return 0 || return 1
 }
