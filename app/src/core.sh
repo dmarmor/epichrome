@@ -1881,14 +1881,14 @@ function formatarray {
     local quote="\'"
     
     # variable holds an array, so start the array
-    local value="("
+    local value='('
     
     # go through each value and build the array
     local elem=
     for elem in "$@" ; do
         
         # add array value, escaping single quotes & wrapping in single quotes
-        value="${value} '${elem//\'/'$quote'}'"
+        value+=" '${elem//\'/'$quote'}'"
         
     done
     

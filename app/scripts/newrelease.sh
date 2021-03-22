@@ -192,8 +192,8 @@ function update_version {
     # let us know what change/fix descriptions we'll have in the docs
     if [[ "${epiDesc[*]}" ]] ; then
         echo 'Documents will be updated with the following descriptions:'
-        for curDesc in "${epiDesc[*]}" ; do
-            echo "   \"$curDesc\""
+        for curDesc in "${epiDesc[@]}" ; do
+            echo "   $(formatscalar "$curDesc")"
         done
     else
         echo 'Documents will be updated with NO descriptions.'
@@ -211,15 +211,28 @@ function update_version {
     # parse version.sh
     local iVersionRe=$'^(.*epiVersion=)[^\n]+(.*epiBuildNum=)[^\n]+(.*epiDesc=\().*(\) *# END_epiDesc.*)$'
     if [[ "$iVersionData" =~ $iVersionRe ]] ; then
+        
+        # format descriptions
+        local iEpiDescData=
+        if [[ "${epiDesc[*]}" ]] ; then
+            iEpiDescData=$' \\\n'
+            for curDesc in "${epiDesc[@]}" ; do
+                iEpiDescData+="        $(formatscalar "$curDesc")"$' \\\n'
+            done
+            iEpiDescData+='    '
+        fi
+        
+        # build new version.sh
         iVersionData="${BASH_REMATCH[1]}$epiVersion"
         iVersionData+="${BASH_REMATCH[2]}$epiBuildNum"
-        iVersionData+="${BASH_REMATCH[3]}HELLO"
+        iVersionData+="${BASH_REMATCH[3]}$iEpiDescData"
         iVersionData+="${BASH_REMATCH[4]}"
     else
         ok= ; errmsg="Unable to parse version.sh." ; errlog ; return 1
     fi
     
-    try "$iVersionFile<" "$iVersionData" \
+    # write out new version.sh
+    try "$iVersionFile<" echo "$iVersionData" \
             'Unable to write updated version.sh.'
 
     [[ "$ok" ]] && return 0 || return 1
@@ -273,7 +286,8 @@ function update_changelog {
             echo "CHANGELOG.md already has an entry for $epiVersion:"
             echo "XXXXX"
             if prompt "Replace with new descriptions?" ; then
-                # $$$$ I AM HERE
+                :# $$$$ I AM HERE
+            fi
             ok=
             errmsg="CHANGELOG.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
             errlog
