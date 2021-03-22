@@ -49,6 +49,7 @@ function check_repository {
 
 # UPDATE_BRAVE: get latest Brave version
 braveVersion=
+oldBraveVersion=
 function update_brave {
 
     [[ "$ok" ]] || return 1
@@ -57,18 +58,36 @@ function update_brave {
     echo '## Checking Brave version...' 1>&2
     
     # get brave version
-    braveVersion="$("$mypath/updatebrave.sh" "$epipath/Engines")"
+    braveVersion="$("$mypath/updatebrave.sh")"
     if [[ "$?" != 0 ]] ; then
         ok= ; errmsg='Unable to get Brave version.' ; errlog ; return 1
     fi
+    
+    # set current and old versions
     braveVersion="${braveVersion#*|}"
+    oldBraveVersion="${braveVersion%|*}"
+    [[ "$oldBraveVersion" = "$braveVersion" ]] && oldBraveVersion=
     
     return 0
 }
 
 
+# LATEST_VERSION: get latest installed version of Epichrome
+latestVersion=
+function latest_version {
+
+    [[ "$ok" ]] || return 1
+    
+    try 'latestVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+        '/Applications/Epichrome/Epichrome.app/Contents/Info.plist' \
+        'Unable to get version of latest installed Epichrome.'
+    
+    [[ "$ok" ]] && return 0 || return 1
+}
+
+
 # UPDATE_VERSION: optionally bump version number
-prevVersion=
+isBumped=
 function update_version {
     
     [[ "$ok" ]] || return 1
@@ -78,32 +97,132 @@ function update_version {
     local iVersionTmp="$(tempname "$iVersionFile")"
     safesource "$iVersionFile"
     [[ "$ok" ]] || return 1
-    
+        
     # get previous & potential new version
-    prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
     local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
     
-    if prompt "Bump version from $epiVersion to $iNewVersion?" ; then
+    # Brave update message
+    local iBraveUpdateMsg="Built-in engine updated to Brave $braveVersion"
+    
+    local curDesc=
+    
+    # is current version already bumped from latest installed?
+    if vcmp "$epiVersion" '=' "$latestVersion" ; then
         
-        # notify user
-        echo "## Bumping version from $epiVersion to $iNewVersion..." 1>&2
+        # determine if we have an engine update
+        if [[ ! "$oldBraveVersion" ]] ; then
+            ok= ; errmsg='No new Brave engine found, so no need to bump and build.' ; errlog; return 1
+        fi
         
-        try "$iVersionTmp<" /usr/bin/sed -E -e "s/^epiVersion=.*$/epiVersion=$iNewVersion/" \
-                -e 's/^epiBuildNum=.*$/epiBuildNum=1/' "$iVersionFile" \
-                'Unable to update version.sh.'
+        # confirm version bump and build
+        if prompt "Bump version from $epiVersion to $iNewVersion and build release?" y ; then
+            
+            # notify user
+            echo "## Bumping version from $epiVersion to $iNewVersion and building..." 1>&2
+            
+            isBumped=1
+            
+            # update version variables
+            epiVersion="$iNewVersion"
+            epiBuildNum=1
+            epiDesc=( "$iBraveUpdateMsg" )
+
+        elif [[ ! "$ok" ]] ; then
+            ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
+        else
+            # user elected not to continue
+            ok= ; errmsg='Process canceled.' ; errlog ; return 1
+        fi
+    elif vcmp "$latestVersion" '<' "$epiVersion" ; then
         
-        [[ "$ok" ]] && permanent "$iVersionTmp" "$iVersionFile"
-        tryalways /bin/rm -f "$iVersionTmp" 'Unable to remove temporary version.sh.'
-        [[ "$ok" ]] || return 1
+        # version has already been set
+        if prompt "Update docs for version $epiVersion and build release?" y ; then
+            
+            # notify user
+            echo "## Building version $epiVersion..." 1>&2
+            
+            # update descriptions based on engine update
+            local newDescList=()
+            local iAddBraveDesc=1
+            local iBraveRe='^(.*) Brave ([0-9]+\.[0-9]+\.[0-9]+)(.*)$'
+            for curDesc in "${epiDesc[@]}" ; do
+                if [[ "$curDesc" =~ $iBraveRe ]] ; then
+                    iAddBraveDesc=
+                    local iBumpBrave=
+                    if [[ "${BASH_REMATCH[2]}" != "$braveVersion" ]] ; then
+
+                        if prompt "Bump message \"$curDesc\" to Brave $braveVersion?" y ; then
+                            iBumpBrave=1
+                        elif [[ ! "$ok" ]] ; then
+                            echo "Error displaying prompt. Bumping message \"$curDesc\" to Brave $braveVersion."
+                            iBumpBrave=1
+                        fi
+                    fi
+                    
+                    if [[ "$iBumpBrave" ]] ; then
+                        newDescList+=( "${BASH_REMATCH[1]} Brave $braveVersion${BASH_REMATCH[3]}" )
+                    else
+                        newDescList+=( "$curDesc" )
+                    fi
+                else
+                    newDescList+=( "$curDesc" )
+                fi
+            done
+            
+            if [[ "$oldBraveVersion" && "$iAddBraveDesc" ]] ; then
+                newDescList+=( "$iBraveUpdateMsg" )
+            fi
+            
+            # update epiDesc
+            epiDesc=( "${newDescList[@]}" )
+
+        elif [[ ! "$ok" ]] ; then
+            ok= ; errmsg='Unable to ask whether to build.' ; errlog ; return 1
+        else
+            # user elected not to continue
+            ok= ; errmsg='Process canceled.' ; errlog ; return 1
+        fi
         
-        # update version variables
-        epiVersion="$iNewVersion"
-        prevVersion="${epiVersion%.*}.$(( ${epiVersion##*.} - 1 ))"
-    elif [[ ! "$ok" ]] ; then
-        ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
+    else
+        
+        # our version is less than the latest installed!
+        ok= ; errmsg="Build version $epiVersion is older than installed $latestVersion!" ; errlog ; return 1
     fi
     
-    return 0
+    # let us know what change/fix descriptions we'll have in the docs
+    if [[ "${epiDesc[*]}" ]] ; then
+        echo 'Documents will be updated with the following descriptions:'
+        for curDesc in "${epiDesc[*]}" ; do
+            echo "   \"$curDesc\""
+        done
+    else
+        echo 'Documents will be updated with NO descriptions.'
+    fi
+    
+    
+    # UPDATE VERSION.SH WITH CHANGES
+    
+    # read version.sh into variable
+    local iVersionData=
+    try 'iVersionData=' /bin/cat "$iVersionFile" \
+            'Unable to read in version.sh.'
+    [[ "$ok" ]] || return 1
+    
+    # parse version.sh
+    local iVersionRe=$'^(.*epiVersion=)[^\n]+(.*epiBuildNum=)[^\n]+(.*epiDesc=\().*(\) *# END_epiDesc.*)$'
+    if [[ "$iVersionData" =~ $iVersionRe ]] ; then
+        iVersionData="${BASH_REMATCH[1]}$epiVersion"
+        iVersionData+="${BASH_REMATCH[2]}$epiBuildNum"
+        iVersionData+="${BASH_REMATCH[3]}HELLO"
+        iVersionData+="${BASH_REMATCH[4]}"
+    else
+        ok= ; errmsg="Unable to parse version.sh." ; errlog ; return 1
+    fi
+    
+    try "$iVersionFile<" "$iVersionData" \
+            'Unable to write updated version.sh.'
+
+    [[ "$ok" ]] && return 0 || return 1
 }
 
 
@@ -126,10 +245,35 @@ function update_changelog {
             'Unable to parse date for CHANGELOG.md.'
     [[ "$ok" ]] || return 1
     
+    # if we're not bumping the version, categorize all changes
+    local iFixList=()
+    local iChangeList=()
+    if [[ ! "$isBumped" ]] ; then
+        local curDesc
+        for curDesc in "${epiDesc[@]}" ; do
+            if prompt "Is \"$curDesc\" a bug fix?" ; then
+                iFixList+=( "$curDesc" )
+            else
+                iChangeList+=( "$curDesc" )
+            fi
+        done
+    else
+        # we're bumping the version, so our only change is not a bug fix
+        iChangeList=( "${epiDesc[@]}" )
+    fi
+    
+    # prefix & postfix variables
+    local iPrefix=
+    local iPostfix=
+    
     # ensure we don't already have this version in the changelog
     local iChangeVerRe='## \[([0-9.]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}'
     if [[ "$iChangelog" =~ $iChangeVerRe ]] ; then
-        if [[ "${BASH_REMATCH[1]}" != "$prevVersion" ]] ; then
+        if [[ "${BASH_REMATCH[1]}" = "$epiVersion" ]] ; then
+            echo "CHANGELOG.md already has an entry for $epiVersion:"
+            echo "XXXXX"
+            if prompt "Replace with new descriptions?" ; then
+                # $$$$ I AM HERE
             ok=
             errmsg="CHANGELOG.md at unexpected version ${BASH_REMATCH[1]} (expected $prevVersion)."
             errlog
@@ -140,8 +284,8 @@ function update_changelog {
     fi
     
     # parse file
-    local iPrefix="${iChangelog%%$'\n'## [*}"
-    local iPostfix="${iChangelog#*$'\n'## [}"
+    iPrefix="${iChangelog%%$'\n'## [*}"
+    iPostfix="${iChangelog#*$'\n'## [}"
     
     if [[ ( "$iPrefix" = "$iChangelog" ) || ( "$iPostfix" = "$iChangelog" ) ]] ; then
         ok= ; errmsg='Unable to parse CHANGELOG.md.'
@@ -341,7 +485,7 @@ function prompt {
     [[ "$ok" ]] || return 1
     
     # arguments
-    local aPrompt="$1" ; shift
+    local aPrompt="$1" ; shift ; aPrompt="$(escapejson "$aPrompt")"
     local aDefault="$1" ; shift ; [[ "$aDefault" != [yn] ]] && aDefault='n'
     local iAnswerPattern iCodeDefault iCodeNondefault
     if [[ "$aDefault" = y ]] ; then
@@ -353,6 +497,7 @@ function prompt {
         iCodeDefault=2
         iCodeNondefault=0
     fi
+        
     # show prompt
     zsh -c "read \"ans?$aPrompt [$aDefault] \"; [[ \"\$ans\" = [$iAnswerPattern]* ]] && exit $iCodeNondefault || exit $iCodeDefault"
     local iResult="$?"
@@ -369,9 +514,12 @@ function prompt {
 # --- RUN UPDATES ---
 
 # run doc updates
-check_repository
+#check_repository
 update_brave
+latest_version
 update_version
+[[ "$ok" ]] || abort
+cleanexit
 update_changelog
 update_readme
 update_welcome

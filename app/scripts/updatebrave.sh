@@ -75,15 +75,22 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
     trimsaves "$enginepath/old" 2 '' 'old engines'
     [[ "$ok" ]] || abort
     
-    # running from Makefile, so spit out filename & version
     if [[ "$1" ]] ; then
+        # running from Makefile, so spit out filename & version
         echo "$enginepath/$enginefile|$latestVersion"
+    else
+        # running from newrelease.sh, so spit out new and old versions
+        echo "$curVersion|$latestVersion"
     fi
 else
     echo "Current Brave engine $curVersion is the latest!" 1>&2
     
     if [[ "$1" ]] ; then
+        # running from Makefile so spit out filename & version
         echo "$curBrave|$curVersion"
+    else
+        # running from newrelease.sh, so spit out current & already-installed version
+        echo "$curVersion|$curVersion"
     fi
 fi
 

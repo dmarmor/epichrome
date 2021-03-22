@@ -1232,7 +1232,7 @@ function handleexitsignal {
         ok=1 ; errmsg=
         try "$coreErrFile<" echo "$iErrMsg" 'Unable to write to error message file.'
         
-    elif [[ "$coreContext" = 'epichrome' ]] ; then
+    elif [[ ( "$coreContext" = 'epichrome' ) || "$logNoStderr" ]] ; then
         
         # log final error message to stderr -- with any REPORT| header
         [[ "$errmsg" ]] && echo "$errmsg" 1>&2
