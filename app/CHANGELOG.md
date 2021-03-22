@@ -2,7 +2,7 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
-## [2.4.0] - 2021-03-XX
+## [2.4.0] - 2021-03-19
 ### Changed
 - Fully compatible with macOS 11 Big Sur
 - Apps run natively on new Apple Silicon machines
