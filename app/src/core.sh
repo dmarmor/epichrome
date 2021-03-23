@@ -1854,6 +1854,19 @@ function jsonarray {
 }
 
 
+# ESCAPEHTML: escape HTML-reserved characters in a string
+function escapehtml {  # ( str )
+
+    # argument
+    local str="$1" ; shift
+
+    # escape HTML characters & ignore errors
+    echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' \
+            "Unable to escape HTML characters in string '$str'"
+    ok=1 ; errmsg=
+}
+
+
 # FORMATSCALAR -- utility funciton to format a scalar value for variable assignment or eval
 #   formatscalar(value [noQuotes])
 function formatscalar {

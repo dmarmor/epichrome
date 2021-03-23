@@ -88,8 +88,6 @@ function latest_version {
 
 # UPDATE_VERSION: optionally bump version number
 epiIsBumped=  ## $$$$ DELET THIS?
-epiChangeList=()
-epiFixList=()
 function update_version {
     
     [[ "$ok" ]] || return 1
@@ -127,12 +125,8 @@ function update_version {
             # update version variables
             epiVersion="$iNewVersion"
             epiBuildNum=1
-            epiDesc=( "$iBraveUpdateMsg" )
+            epiMinorChangeList=( "$iBraveUpdateMsg" ) ; epiMinorFixList=()
             
-            # update changelog/readme variables
-            epiChangeList=( "${epiDesc[@]}" )
-            epiFixList=()
-
         elif [[ ! "$ok" ]] ; then
             ok= ; errmsg='Unable to ask whether to bump version.' ; errlog ; return 1
         else
@@ -147,11 +141,11 @@ function update_version {
             # notify user
             echo "## Building version $epiVersion..." 1>&2
             
-            # update descriptions based on engine update
-            local newDescList=()
+            # update change list based on engine update
+            local iNewChangeList=()
             local iAddBraveDesc=1
             local iBraveRe='^(.*) Brave ([0-9]+\.[0-9]+\.[0-9]+)(.*)$'
-            for curDesc in "${epiDesc[@]}" ; do
+            for curDesc in "${epiMinorChangeList[@]}" ; do
                 if [[ "$curDesc" =~ $iBraveRe ]] ; then
                     iAddBraveDesc=
                     local iBumpBrave=
@@ -166,33 +160,22 @@ function update_version {
                     fi
                     
                     if [[ "$iBumpBrave" ]] ; then
-                        newDescList+=( "${BASH_REMATCH[1]} Brave $braveVersion${BASH_REMATCH[3]}" )
+                        iNewChangeList+=( "${BASH_REMATCH[1]} Brave $braveVersion${BASH_REMATCH[3]}" )
                     else
-                        newDescList+=( "$curDesc" )
+                        iNewChangeList+=( "$curDesc" )
                     fi
                 else
-                    newDescList+=( "$curDesc" )
+                    iNewChangeList+=( "$curDesc" )
                 fi
             done
             
             if [[ "$oldBraveVersion" && "$iAddBraveDesc" ]] ; then
-                newDescList+=( "$iBraveUpdateMsg" )
+                iNewChangeList+=( "$iBraveUpdateMsg" )
             fi
             
-            # update epiDesc
-            epiDesc=( "${newDescList[@]}" )
+            # update epiMinorChangeList
+            epiMinorChangeList=( "${iNewChangeList[@]}" )
             
-            # categorize all changes
-            epiChangeList=()
-            epiFixList=()
-            for curDesc in "${epiDesc[@]}" ; do
-                if prompt "Is \"$curDesc\" a bug fix?" ; then
-                    epiFixList+=( "$curDesc" )
-                else
-                    epiChangeList+=( "$curDesc" )
-                fi
-            done
-
         elif [[ ! "$ok" ]] ; then
             ok= ; errmsg='Unable to ask whether to build.' ; errlog ; return 1
         else
@@ -207,13 +190,22 @@ function update_version {
     fi
     
     # let us know what change/fix descriptions we'll have in the docs
-    if [[ "${epiDesc[*]}" ]] ; then
-        echo 'Documents will be updated with the following descriptions:'
-        for curDesc in "${epiDesc[@]}" ; do
-            echo "   $(formatscalar "$curDesc")"
-        done
+    if [[ "${epiMinorChangeList[*]}" || "${epiMinorFixList[*]}" ]] ; then
+        echo 'Documents will be updated with the following items:'
+        if [[ "${epiMinorChangeList[*]}" ]] ; then
+            echo '  CHANGES:'
+            for curDesc in "${epiMinorChangeList[@]}" ; do
+                echo "    * $curDesc"
+            done
+        fi
+        if [[ "${epiMinorFixList[*]}" ]] ; then
+            echo '  FIXES:'
+            for curDesc in "${epiMinorFixList[@]}" ; do
+                echo "    * $curDesc"
+            done
+        fi
     else
-        echo 'Documents will be updated with NO descriptions.'
+        echo 'Documents will be updated with NO changes or fixes.'
     fi
     
     
@@ -226,24 +218,33 @@ function update_version {
     [[ "$ok" ]] || return 1
     
     # parse version.sh
-    local iVersionRe=$'^(.*epiVersion=)[^\n]+(.*epiBuildNum=)[^\n]+(.*epiDesc=\().*(\) *# END_epiDesc.*)$'
+    local iVersionRe=$'^(.*epiVersion=)[^\n]+(.*epiBuildNum=)[^\n]+(.*epiMinorChangeList=\().*(\) *# END_epiMinorChangeList.*epiMinorFixList=\().*(\) *# END_epiMinorFixList.*)$'
     if [[ "$iVersionData" =~ $iVersionRe ]] ; then
         
-        # format descriptions
-        local iEpiDescData=
-        if [[ "${epiDesc[*]}" ]] ; then
-            iEpiDescData=$' \\\n'
-            for curDesc in "${epiDesc[@]}" ; do
-                iEpiDescData+="        $(formatscalar "$curDesc")"$' \\\n'
+        # format changes and fixes
+        local iChanges=
+        if [[ "${epiMinorChangeList[*]}" ]] ; then
+            iChanges=$' \\\n'
+            for curDesc in "${epiMinorChangeList[@]}" ; do
+                iChanges+="        $(formatscalar "$curDesc")"$' \\\n'
             done
-            iEpiDescData+='    '
+            iChanges+='    '
+        fi
+        local iFixes=
+        if [[ "${epiMinorFixList[*]}" ]] ; then
+            iFixes=$' \\\n'
+            for curDesc in "${epiMinorFixList[@]}" ; do
+                iFixes+="        $(formatscalar "$curDesc")"$' \\\n'
+            done
+            iFixes+='    '
         fi
         
         # build new version.sh
         iVersionData="${BASH_REMATCH[1]}$epiVersion"
         iVersionData+="${BASH_REMATCH[2]}$epiBuildNum"
-        iVersionData+="${BASH_REMATCH[3]}$iEpiDescData"
-        iVersionData+="${BASH_REMATCH[4]}"
+        iVersionData+="${BASH_REMATCH[3]}$iChanges"
+        iVersionData+="${BASH_REMATCH[4]}$iFixes"
+        iVersionData+="${BASH_REMATCH[5]}"
     else
         ok= ; errmsg="Unable to parse version.sh." ; errlog ; return 1
     fi
@@ -291,8 +292,8 @@ function update_changelog {
     iBody="## [$iBody"
     
     # build fix and change lists
-    local iChangeList="$(join_array $'\n- ' "${epiChangeList[@]}")"
-    local iFixList="$(join_array $'\n- ' "${epiFixList[@]}")"
+    local iChangeList="$(join_array $'\n- ' "${epiMinorChangeList[@]}")"
+    local iFixList="$(join_array $'\n- ' "${epiMinorFixList[@]}")"
     [[ "$iChangeList" ]] && iChangeList=$'\n### Changed\n- '"$iChangeList"
     [[ "$iFixList" ]] && iFixList=$'\n### Fixed\n- '"$iFixList"
     [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] && iChangeList=$'\n- No changes'
@@ -364,20 +365,16 @@ function update_readme {
             '/Applications/Google Chrome.app/Contents/Info.plist' \
             'Unable to get Chrome version number.'
 
-    # replace change list  $$$$ categorize & add ###Changes, etc if necessry
-    # build fix and change lists
-    local iChangeList="$(join_array $'.\n\n- ' "${epiChangeList[@]}")"
-    local iFixList="$(join_array $'.\n\n- ' "${epiFixList[@]}")"
-    [[ "$iChangeList" ]] && iChangeList=$'\n\n- '"$iChangeList."
-    [[ "$iFixList" ]] && iFixList=$'\n\n- '"$iFixList."
-    if [[ "$iChangeList" && "$iFixList" ]] ; then
-        iChangeList=$'\n\n### Changed:'"$iChangeList"
-        iFixList=$'\n\n### Fixed:'"$iFixList"
-    elif [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] ; then
-        iChangeList=$'\n\n- No changes.'
-    fi
+    # build change list
+    local iChangeList="$(join_array $'.\n\n- ' "${epiMinorChangeList[@]}")"
+    [[ "$iChangeList" ]] && iChangeList=$'## New in version <span id="epiversion">'"$epiVersion"$'</span>\n\n- '"$iChangeList."$'\n\n\n'
     
-    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart$iChangeList$iFixList"$'\n\n'"$iChangesEnd$iPostfix" \
+    # build fix list
+    local iFixList="$(join_array $'.\n\n- ' "${epiMinorFixList[@]}")"
+    [[ "$iFixList" ]] && iFixList=$'## Fixed in version <span id="epiversion">'"$epiVersion"$'</span>\n\n- '"$iFixList."$'\n\n\n'
+    
+    # replace Readme change list
+    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iChangeList$iFixList$iChangesEnd$iPostfix" \
             'Unable to replace change list in README.md.'
     
     # replace Epichrome, OS & Chrome versions
@@ -418,8 +415,8 @@ function update_welcome {
     [[ "$ok" ]] || return 1
     
     # parse Welcome file
-    local iChangesStart='<ul id="changes_minor_ul">'
-    local iChangesEnd='</ul><!-- #changes_minor_ul -->'
+    local iChangesStart='<!-- CHANGES_START -->'
+    local iChangesEnd='<!-- CHANGES_END -->'
     local iPrefix="${iWelcome%%$iChangesStart*}"
     local iPostfix="${iWelcome#*$iChangesEnd}"
     
@@ -427,14 +424,42 @@ function update_welcome {
         ok= ; errmsg='Unable to parse welcome.html.' ; errlog ; return 1
     fi
     
-    # replace change list
-    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart
-                  <li>Updated built-in engine to Brave $braveVersion</li>
-                $iChangesEnd$iPostfix" \
-            'Unable to replace change list in welcome.html.'
+    # list header/footer
+    local iIndent=$'\n                '
+    local iListHeader="$iIndent<h3>TYPENAME in Version <span id=\"update_version_minor\">EPIVERSION</span></h3>$iIndent<ul id=\"changes_minor_TYPEID_ul\">"
+    local iListFooter="$iIndent</ul>"
     
-    [[ "$ok" ]] && permanent "$iWelcomeTmp" "$iWelcomeFile"
-    tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
+    local curDesc
+    
+    # build change list
+    local iChangeList=
+    for curDesc in "${epiMinorChangeList[@]}" ; do
+        iChangeList+="$iIndent  <li>$(escapehtml "$curDesc")</li>"
+    done
+    if [[ "$iChangeList" ]] ; then
+        local iChangeHeader="${iListHeader/TYPENAME/New}"
+        iChangeHeader="${iChangeHeader/TYPEID/change}"
+        iChangeList="$iChangeHeader$iChangeList$iListFooter"
+    fi
+    
+    # build fix list
+    local iFixList=
+    for curDesc in "${epiMinorFixList[@]}" ; do
+        iFixList+="$iIndent  <li>$(escapehtml "$curDesc")</li>"
+    done
+    if [[ "$iFixList" ]] ; then
+        local iFixHeader="${iListHeader/TYPENAME/Fixed}"
+        iFixHeader="${iFixHeader/TYPEID/fix}"
+        iFixList="$iFixHeader$iFixList$iListFooter"
+    fi
+    
+    # replace change & fix lists
+    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iChangeList$iFixList$iIndent$iChangesEnd$iPostfix" \
+            'Unable to replace change list in welcome.html.'
+
+    # $$$$ MOVE THIS
+    # [[ "$ok" ]] && permanent "$iWelcomeTmp" "$iWelcomeFile"
+    # tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
     
     [[ "$ok" ]] && return 0 || return 1
 }
@@ -520,10 +545,9 @@ latest_version
 update_version
 update_changelog
 update_readme
-[[ "$ok" ]] || abort
-cleanexit
 update_welcome
 [[ "$ok" ]] || abort
+cleanexit  # $$$$
 
 # build package
 echo "## Building epichrome-$epiVersion.pkg..." 1>&2

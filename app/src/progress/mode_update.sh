@@ -79,19 +79,6 @@ updateBackupFile=
 
 # FUNCTION DEFINITIONS
 
-# ESCAPEHTML: escape HTML-reserved characters in a string
-function escapehtml {  # ( str )
-
-    # argument
-    local str="$1" ; shift
-
-    # escape HTML characters & ignore errors
-    echo "$str" | try '-1' /usr/bin/sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' \
-            "Unable to escape HTML characters in string '$str'"
-    ok=1 ; errmsg=
-}
-
-
 # CLEANUP: clean up any incomplete update prior to exit
 function cleanup {
     

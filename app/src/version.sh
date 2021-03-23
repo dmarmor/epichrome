@@ -2,8 +2,8 @@
 
 epiVersion=2.4.1
 epiBuildNum=5
-epiMinorChangeList=( 'Improved messaging of changes in new versions' )  # END_epiMinorChangeList
-epiMinorFixList=()  # END_epiMinorFixList
+epiMinorChangeList=( 'Improved messaging of changes in new versions' 'Did some things with Brave 2.3.4 that you wouldn'"'"'t believe' )  # END_epiMinorChangeList
+epiMinorFixList=( 'Fixed some bugs in some stuff' 'And fixed another thing' )  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
