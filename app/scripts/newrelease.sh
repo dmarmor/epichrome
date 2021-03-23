@@ -104,8 +104,6 @@ function update_version {
     # Brave update message
     local iBraveUpdateMsg="Built-in engine updated to Brave $braveVersion"
     
-    local curDesc=
-    
     # is current version already bumped from latest installed?
     if vcmp "$epiVersion" '=' "$latestVersion" ; then
         
@@ -145,16 +143,17 @@ function update_version {
             local iNewChangeList=()
             local iAddBraveDesc=1
             local iBraveRe='^(.*) Brave ([0-9]+\.[0-9]+\.[0-9]+)(.*)$'
-            for curDesc in "${epiMinorChangeList[@]}" ; do
-                if [[ "$curDesc" =~ $iBraveRe ]] ; then
+            local curItem
+            for curItem in "${epiMinorChangeList[@]}" ; do
+                if [[ "$curItem" =~ $iBraveRe ]] ; then
                     iAddBraveDesc=
                     local iBumpBrave=
                     if [[ "${BASH_REMATCH[2]}" != "$braveVersion" ]] ; then
 
-                        if prompt "Bump message \"$curDesc\" to Brave $braveVersion?" y ; then
+                        if prompt "Bump message \"$curItem\" to Brave $braveVersion?" y ; then
                             iBumpBrave=1
                         elif [[ ! "$ok" ]] ; then
-                            echo "Error displaying prompt. Bumping message \"$curDesc\" to Brave $braveVersion."
+                            echo "Error displaying prompt. Bumping message \"$curItem\" to Brave $braveVersion."
                             iBumpBrave=1
                         fi
                     fi
@@ -162,10 +161,10 @@ function update_version {
                     if [[ "$iBumpBrave" ]] ; then
                         iNewChangeList+=( "${BASH_REMATCH[1]} Brave $braveVersion${BASH_REMATCH[3]}" )
                     else
-                        iNewChangeList+=( "$curDesc" )
+                        iNewChangeList+=( "$curItem" )
                     fi
                 else
-                    iNewChangeList+=( "$curDesc" )
+                    iNewChangeList+=( "$curItem" )
                 fi
             done
             
@@ -190,23 +189,9 @@ function update_version {
     fi
     
     # let us know what change/fix descriptions we'll have in the docs
-    if [[ "${epiMinorChangeList[*]}" || "${epiMinorFixList[*]}" ]] ; then
-        echo 'Documents will be updated with the following items:'
-        if [[ "${epiMinorChangeList[*]}" ]] ; then
-            echo '  CHANGES:'
-            for curDesc in "${epiMinorChangeList[@]}" ; do
-                echo "    * $curDesc"
-            done
-        fi
-        if [[ "${epiMinorFixList[*]}" ]] ; then
-            echo '  FIXES:'
-            for curDesc in "${epiMinorFixList[@]}" ; do
-                echo "    * $curDesc"
-            done
-        fi
-    else
-        echo 'Documents will be updated with NO changes or fixes.'
-    fi
+    build_both_lists $'Documents will be updated with the following items:' \
+            $'\n  CHANGES:' $'\n  FIXES:' '' '' $'\n    * ' '' '' \
+            'Documents will be updated with NO changes or fixes.'
     
     
     # UPDATE VERSION.SH WITH CHANGES
@@ -222,22 +207,8 @@ function update_version {
     if [[ "$iVersionData" =~ $iVersionRe ]] ; then
         
         # format changes and fixes
-        local iChanges=
-        if [[ "${epiMinorChangeList[*]}" ]] ; then
-            iChanges=$' \\\n'
-            for curDesc in "${epiMinorChangeList[@]}" ; do
-                iChanges+="        $(formatscalar "$curDesc")"$' \\\n'
-            done
-            iChanges+='    '
-        fi
-        local iFixes=
-        if [[ "${epiMinorFixList[*]}" ]] ; then
-            iFixes=$' \\\n'
-            for curDesc in "${epiMinorFixList[@]}" ; do
-                iFixes+="        $(formatscalar "$curDesc")"$' \\\n'
-            done
-            iFixes+='    '
-        fi
+        local iChanges="$(build_list $' \\\n' '    ' '        ' $' \\\n' formatscalar "${epiMinorChangeList[@]}")"
+        local iFixes="$(build_list $' \\\n' '    ' '        ' $' \\\n' formatscalar "${epiMinorFixList[@]}")"
         
         # build new version.sh
         iVersionData="${BASH_REMATCH[1]}$epiVersion"
@@ -252,7 +223,7 @@ function update_version {
     # write out new temp version.sh  $$$$
     try "$iVersionTmp<" echo "$iVersionData" \
             'Unable to write updated version.sh.'
-
+    
     [[ "$ok" ]] && return 0 || return 1
 }
 
@@ -276,8 +247,6 @@ function update_changelog {
             'Unable to parse date for CHANGELOG.md.'
     [[ "$ok" ]] || return 1
 
-    local curDesc
-    
     # make sure our version isn't already in changelog
     if [[ "${iChangelog%%$'\n'## \[$epiVersion\]*}" != "$iChangelog" ]] ; then
         ok= ; errmsg="CHANGELOG.md already has an entry for $epiVersion." ; errlog ; return 1
@@ -291,25 +260,12 @@ function update_changelog {
     fi
     iBody="## [$iBody"
     
-    # build change list
-    local iChangeList=
-    for curDesc in "${epiMinorChangeList[@]}" ; do
-        iChangeList+=$'\n- '"$(escapehtml "$curDesc")"
-    done
-    [[ "$iChangeList" ]] && iChangeList=$'\n### Changed'"$iChangeList"
-
-    # build fix list
-    local iFixList=
-    for curDesc in "${epiMinorFixList[@]}" ; do
-        iFixList+=$'\n- '"$(escapehtml "$curDesc")"
-    done
-    [[ "$iFixList" ]] && iFixList=$'\n### Fixed'"$iFixList"
-    
-    # if neither changes nor fixed, indicate that
-    [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] && iChangeList=$'\n- No changes'
+    # build both lists
+    local iLists="$(build_both_lists '' $'\n### Changed' $'\n### Fixed' '' '' \
+            $'\n- ' '' escapehtml $'\n- No changes')"
     
     try "$iChangelogTmp<" \
-            echo "$iPrefix"$'\n'"## [$epiVersion] - $iCurDate$iChangeList$iFixList"$'\n\n\n'"$iBody" \
+            echo "$iPrefix"$'\n'"## [$epiVersion] - $iCurDate$iLists"$'\n\n\n'"$iBody" \
             'Unable to update CHANGELOG.md.'
     
     # $$$$
@@ -375,27 +331,16 @@ function update_readme {
             '/Applications/Google Chrome.app/Contents/Info.plist' \
             'Unable to get Chrome version number.'
 
-    local curDesc
-    
-    # build change list
-    local iChangeList=
-    for curDesc in "${epiMinorChangeList[@]}" ; do
-        iChangeList+=$'\n\n- '"$(escapehtml "$curDesc")."
-    done
-    [[ "$iChangeList" ]] && iChangeList=$'## New in version <span id="epiversion">'"$epiVersion</span>$iChangeList"$'\n\n\n'
-    
-    # build fix list
-    local iFixList=
-    for curDesc in "${epiMinorFixList[@]}" ; do
-        iFixList+=$'\n\n- '"$(escapehtml "$curDesc")."
-    done
-    [[ "$iFixList" ]] && iFixList=$'## Fixed in version <span id="epiversion">'"$epiVersion</span>$iFixList"$'\n\n\n'
-    
-    local iChangelogLink=
-    [[ "$iChangeList" || "$iFixList" ]] && iChangelogLink=$'*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*\n'
+    # build lists
+    local iLists="$(build_both_lists '' \
+            "## New in version <span id=\"epiversion\">$epiVersion</span>" \
+            "## Fixed in version <span id=\"epiversion\">$epiVersion</span>" \
+            $'\n\n\n*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*' \
+            $'\n\n\n' \
+            $'\n\n- ' '.' escapehtml)"
 
     # replace Readme change list
-    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iChangeList$iFixList$iChangelogLink$iChangesEnd$iPostfix" \
+    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iLists"$'\n'"$iChangesEnd$iPostfix" \
             'Unable to replace change list in README.md.'
     
     # replace Epichrome, OS & Chrome versions
@@ -447,40 +392,22 @@ function update_welcome {
     
     # list header/footer
     local iIndent=$'\n            '
+    local iListDivStart="$iIndent<div id=\"changes_minor\" class=\"changes_minor"
     local iListHeader="$iIndent  <div id=\"changes_minor_TYPEID\" class=\"change_list\">$iIndent    <h3>TYPENAME in Version <span id=\"update_version_minor\">EPIVERSION</span></h3>$iIndent    <ul id=\"changes_minor_TYPEID_ul\">"
+    local iChangeHeader="${iListHeader//TYPENAME/New}" ; iChangeHeader="${iChangeHeader//TYPEID/change}"
+    local iFixHeader="${iListHeader//TYPENAME/Fixed}" ; iFixHeader="${iFixHeader//TYPEID/fix}"
     local iListFooter="$iIndent    </ul>$iIndent  </div>"
     
-    local curDesc
-    
-    # build change list
-    local iChangeList=
-    for curDesc in "${epiMinorChangeList[@]}" ; do
-        iChangeList+="$iIndent      <li>$(escapehtml "$curDesc")</li>"
-    done
-    if [[ "$iChangeList" ]] ; then
-        local iChangeHeader="${iListHeader//TYPENAME/New}"
-        iChangeHeader="${iChangeHeader//TYPEID/change}"
-        iChangeList="$iChangeHeader$iChangeList$iListFooter"
-    fi
-    
-    # build fix list
-    local iFixList=
-    for curDesc in "${epiMinorFixList[@]}" ; do
-        iFixList+="$iIndent      <li>$(escapehtml "$curDesc")</li>"
-    done
-    if [[ "$iFixList" ]] ; then
-        local iFixHeader="${iListHeader//TYPENAME/Fixed}"
-        iFixHeader="${iFixHeader//TYPEID/fix}"
-        iFixList="$iFixHeader$iFixList$iListFooter"
-    fi
-    
-    # create enclosing <div>
-    local iListDiv="$iIndent<div id=\"changes_minor\" class=\"changes_minor"
-    [[ "$iChangeList" || "$iFixList" ]] || iListDiv+=' hide'
-    iListDiv+='">'
-
+    # build lists
+    local iLists="$(build_both_lists \
+            "$iListDivStart\">" \
+            "$iChangeHeader" "$iFixHeader" \
+            "$iIndent    </ul>$iIndent  </div>$iIndent</div>" \
+            "$iIndent    </ul>$iIndent  </div>" \
+            "$iIndent      <li>" '</li>' escapehtml \
+            "$iListDivStart hide\" />")"
     # replace change & fix lists
-    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iListDiv$iChangeList$iFixList$iIndent</div>$iIndent$iChangesEnd$iPostfix" \
+    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iLists$iIndent$iChangesEnd$iPostfix" \
             'Unable to replace change list in welcome.html.'
 
     # $$$$ MOVE THIS
@@ -529,6 +456,68 @@ If Epichrome is useful to you, please consider joining them!</p>'
 }
 
 
+# BUILD_BOTH_LISTS: format out both lists of changes
+#   build_both_lists(aPrologue aChangeHeader aFixHeader aEpilogue aBetweenLists aBeforeEach aAfterEach aProcessFn aAltText)
+function build_both_lists {
+
+    # arguments
+    local aPrologue="$1" ; shift
+    local aChangeHeader="$1" ; shift
+    local aFixHeader="$1" ; shift
+    local aEpilogue="$1" ; shift
+    local aBetweenLists="$1" ; shift
+    local aBeforeEach="$1" ; shift
+    local aAfterEach="$1" ; shift
+    local aProcessFn="$1" ; shift
+    local aAltText="$1" ; shift
+    
+    # format out each list
+    local iChanges="$(build_list "$aChangeHeader" '' \
+            "$aBeforeEach" "$aAfterEach" "$aProcessFn" \
+            "${epiMinorChangeList[@]}" )"
+    local iFixes="$(build_list "$aFixHeader" '' \
+            "$aBeforeEach" "$aAfterEach" "$aProcessFn" \
+            "${epiMinorFixList[@]}" )"
+    
+    # combine lists
+    if [[ "$iChanges" || "$iFixes" ]] ; then
+        iChanges="$aPrologue$iChanges"
+        [[ "$iFixes" ]] && iChanges+="$aBetweenLists$iFixes"
+        iChanges+="$aEpilogue"
+        echo "$iChanges"
+    elif [[ "$aAltText" ]] ; then
+        echo "$aAltText"
+    fi
+}
+
+
+# BUILD_LIST: build a list of changes
+#   build_list(aBeforeAll aAfterAll aBeforeEach aAfterEach aProcessFn items ...)
+function build_list {
+    
+    # arguments
+    local aBeforeAll="$1" ; shift
+    local aAfterAll="$1" ; shift
+    local aBeforeEach="$1" ; shift
+    local aAfterEach="$1" ; shift
+    local aProcessFn="$1" ; shift
+    
+    # build list
+    local curItem
+    local iResult=
+    for curItem in "$@" ; do
+        if [[ "$aProcessFn" ]] ; then
+            iResult+="$aBeforeEach$("$aProcessFn" "$curItem")$aAfterEach"
+        else
+            iResult+="$aBeforeEach$curItem$aAfterEach"
+        fi
+    done
+    if [[ "$iResult" ]] ; then
+        echo "$aBeforeAll$iResult$aAfterAll"
+    fi
+}
+
+
 # PROMPT: prompt for an answer
 #   prompt(aPrompt aDefault)
 function prompt {
@@ -572,6 +561,8 @@ update_version
 update_changelog
 update_readme
 update_welcome
+[[ "$ok" ]] || abort
+cleanexit  # $$$$
 [[ "$ok" ]] || abort
 cleanexit  # $$$$
 
