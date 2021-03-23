@@ -335,9 +335,9 @@ function update_readme {
     local iLists="$(build_both_lists '' \
             "## New in version <span id=\"epiversion\">$epiVersion</span>" \
             "## Fixed in version <span id=\"epiversion\">$epiVersion</span>" \
-            $'\n\n*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*' \
+            $'\n\n\n*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*' \
             $'\n\n\n' \
-            $'\n- ' '.' escapehtml)"
+            $'\n\n- ' '.' escapehtml)"
 
     # replace Readme change list
     try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iLists"$'\n'"$iChangesEnd$iPostfix" \
