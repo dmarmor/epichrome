@@ -439,7 +439,7 @@ function create_github_release {
     
     # build list for release notes
     [[ "$iReleaseBody" ]] && iReleaseBody+=$'\n'
-    iReleaseBody+="$(build_both_lists '' '### New in this release' '### Fixed in this release' $'\n\n' \
+    iReleaseBody+="$(build_both_lists '' '### New in this release:' '### Fixed in this release:' $'\n\n' \
             $'\n\n' $'\n- ' '' escapehtml 'No changes in this release.')"
     
     # add Patreon footer
@@ -554,9 +554,9 @@ function prompt {
 update_brave
 latest_version
 update_version
-# update_changelog
+update_changelog
 update_readme
-# update_welcome
+update_welcome
 create_github_release  # $$$$ Move this
 [[ "$ok" ]] || abort
 cleanexit  # $$$$
