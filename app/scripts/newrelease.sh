@@ -291,11 +291,21 @@ function update_changelog {
     fi
     iBody="## [$iBody"
     
-    # build fix and change lists
-    local iChangeList="$(join_array $'\n- ' "${epiMinorChangeList[@]}")"
-    local iFixList="$(join_array $'\n- ' "${epiMinorFixList[@]}")"
-    [[ "$iChangeList" ]] && iChangeList=$'\n### Changed\n- '"$iChangeList"
-    [[ "$iFixList" ]] && iFixList=$'\n### Fixed\n- '"$iFixList"
+    # build change list
+    local iChangeList=
+    for curDesc in "${epiMinorChangeList[@]}" ; do
+        iChangeList+=$'\n- '"$(escapehtml "$curDesc")"
+    done
+    [[ "$iChangeList" ]] && iChangeList=$'\n### Changed'"$iChangeList"
+
+    # build fix list
+    local iFixList=
+    for curDesc in "${epiMinorFixList[@]}" ; do
+        iFixList+=$'\n- '"$(escapehtml "$curDesc")"
+    done
+    [[ "$iFixList" ]] && iFixList=$'\n### Fixed'"$iFixList"
+    
+    # if neither changes nor fixed, indicate that
     [[ ( ! "$iChangeList" ) && ( ! "$iFixList" ) ]] && iChangeList=$'\n- No changes'
     
     try "$iChangelogTmp<" \
@@ -365,16 +375,27 @@ function update_readme {
             '/Applications/Google Chrome.app/Contents/Info.plist' \
             'Unable to get Chrome version number.'
 
+    local curDesc
+    
     # build change list
-    local iChangeList="$(join_array $'.\n\n- ' "${epiMinorChangeList[@]}")"
-    [[ "$iChangeList" ]] && iChangeList=$'## New in version <span id="epiversion">'"$epiVersion"$'</span>\n\n- '"$iChangeList."$'\n\n\n'
+    local iChangeList=
+    for curDesc in "${epiMinorChangeList[@]}" ; do
+        iChangeList+=$'\n\n- '"$(escapehtml "$curDesc")."
+    done
+    [[ "$iChangeList" ]] && iChangeList=$'## New in version <span id="epiversion">'"$epiVersion</span>$iChangeList"$'\n\n\n'
     
     # build fix list
-    local iFixList="$(join_array $'.\n\n- ' "${epiMinorFixList[@]}")"
-    [[ "$iFixList" ]] && iFixList=$'## Fixed in version <span id="epiversion">'"$epiVersion"$'</span>\n\n- '"$iFixList."$'\n\n\n'
+    local iFixList=
+    for curDesc in "${epiMinorFixList[@]}" ; do
+        iFixList+=$'\n\n- '"$(escapehtml "$curDesc")."
+    done
+    [[ "$iFixList" ]] && iFixList=$'## Fixed in version <span id="epiversion">'"$epiVersion</span>$iFixList"$'\n\n\n'
     
+    local iChangelogLink=
+    [[ "$iChangeList" || "$iFixList" ]] && iChangelogLink=$'*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*\n'
+
     # replace Readme change list
-    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iChangeList$iFixList$iChangesEnd$iPostfix" \
+    try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iChangeList$iFixList$iChangelogLink$iChangesEnd$iPostfix" \
             'Unable to replace change list in README.md.'
     
     # replace Epichrome, OS & Chrome versions
@@ -425,36 +446,41 @@ function update_welcome {
     fi
     
     # list header/footer
-    local iIndent=$'\n                '
-    local iListHeader="$iIndent<h3>TYPENAME in Version <span id=\"update_version_minor\">EPIVERSION</span></h3>$iIndent<ul id=\"changes_minor_TYPEID_ul\">"
-    local iListFooter="$iIndent</ul>"
+    local iIndent=$'\n            '
+    local iListHeader="$iIndent  <div id=\"changes_minor_TYPEID\" class=\"change_list\">$iIndent    <h3>TYPENAME in Version <span id=\"update_version_minor\">EPIVERSION</span></h3>$iIndent    <ul id=\"changes_minor_TYPEID_ul\">"
+    local iListFooter="$iIndent    </ul>$iIndent  </div>"
     
     local curDesc
     
     # build change list
     local iChangeList=
     for curDesc in "${epiMinorChangeList[@]}" ; do
-        iChangeList+="$iIndent  <li>$(escapehtml "$curDesc")</li>"
+        iChangeList+="$iIndent      <li>$(escapehtml "$curDesc")</li>"
     done
     if [[ "$iChangeList" ]] ; then
-        local iChangeHeader="${iListHeader/TYPENAME/New}"
-        iChangeHeader="${iChangeHeader/TYPEID/change}"
+        local iChangeHeader="${iListHeader//TYPENAME/New}"
+        iChangeHeader="${iChangeHeader//TYPEID/change}"
         iChangeList="$iChangeHeader$iChangeList$iListFooter"
     fi
     
     # build fix list
     local iFixList=
     for curDesc in "${epiMinorFixList[@]}" ; do
-        iFixList+="$iIndent  <li>$(escapehtml "$curDesc")</li>"
+        iFixList+="$iIndent      <li>$(escapehtml "$curDesc")</li>"
     done
     if [[ "$iFixList" ]] ; then
-        local iFixHeader="${iListHeader/TYPENAME/Fixed}"
-        iFixHeader="${iFixHeader/TYPEID/fix}"
+        local iFixHeader="${iListHeader//TYPENAME/Fixed}"
+        iFixHeader="${iFixHeader//TYPEID/fix}"
         iFixList="$iFixHeader$iFixList$iListFooter"
     fi
     
+    # create enclosing <div>
+    local iListDiv="$iIndent<div id=\"changes_minor\" class=\"changes_minor"
+    [[ "$iChangeList" || "$iFixList" ]] || iListDiv+=' hide'
+    iListDiv+='">'
+
     # replace change & fix lists
-    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iChangeList$iFixList$iIndent$iChangesEnd$iPostfix" \
+    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iListDiv$iChangeList$iFixList$iIndent</div>$iIndent$iChangesEnd$iPostfix" \
             'Unable to replace change list in welcome.html.'
 
     # $$$$ MOVE THIS

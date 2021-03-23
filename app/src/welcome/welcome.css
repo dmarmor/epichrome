@@ -370,7 +370,7 @@ h2#major_update_title {
     flex-direction: column;
     font-size: 95%;
 }
-.changes_update_lists>.change_list {
+.changes_update_lists .change_list {
     margin-bottom: 1.5em;
 }
 .changes_changelog {
