@@ -335,9 +335,9 @@ function update_readme {
     local iLists="$(build_both_lists '' \
             "## New in version <span id=\"epiversion\">$epiVersion</span>" \
             "## Fixed in version <span id=\"epiversion\">$epiVersion</span>" \
-            $'\n\n\n*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*' \
+            $'\n\n*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*' \
             $'\n\n\n' \
-            $'\n\n- ' '.' escapehtml)"
+            $'\n- ' '.' escapehtml)"
 
     # replace Readme change list
     try "$iReadmeTmp1<" echo "$iPrefix$iChangesStart"$'\n'"$iLists"$'\n'"$iChangesEnd$iPostfix" \
@@ -429,26 +429,22 @@ function create_github_release {
     
     # base url
     local iUrl='https://github.com/dmarmor/epichrome/releases/new'
-
-    #title=testest&body=%0A%0A%0A---%0AI%27m+a+human.+Please+be+nice.'
     
     # notify user
     echo '## Creating GitHub release...' 1>&2
     
-    # build release body
-    local iReleaseBody='<!--<epichrome>
-   ▪️ Updates built-in engine to Brave '"$braveVersion"'
-</epichrome>-->
-
-This release updates the built-in engine to Brave '"$braveVersion"'.
-
-***IMPORTANT NOTE***: Epichrome 2.3 has not been developed or fully tested with Big Sur. If you rely on Epichrome apps, if possible please wait until Epichrome 2.4 is released before updating to Big Sur.
-
----
-
-<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>
-<p align="center">This release was made possible by our Patreon patrons.<br />
-If Epichrome is useful to you, please consider joining them!</p>'
+    # build list for GitHub-check dialog
+    local iReleaseBody="$(build_both_lists $'<!--<epichrome>\n' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
+            $'\n\n' $'\n\n   ▪️ ' '' '' '')"
+    
+    # build list for release notes
+    [[ "$iReleaseBody" ]] && iReleaseBody+=$'\n'
+    iReleaseBody+="$(build_both_lists '' '### New in this release' '### Fixed in this release' $'\n\n' \
+            $'\n\n' $'\n- ' '' escapehtml 'No changes in this release.')"
+    
+    # add Patreon footer
+    [[ "$iReleaseBody" ]] && iReleaseBody+=$'\n\n---\n\n'
+    iReleaseBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
     
     # open URL
     try /usr/bin/open "$iUrl?title=$(encodeurl "Version $epiVersion")&body=$(encodeurl "$iReleaseBody")" \
@@ -558,11 +554,10 @@ function prompt {
 update_brave
 latest_version
 update_version
-update_changelog
+# update_changelog
 update_readme
-update_welcome
-[[ "$ok" ]] || abort
-cleanexit  # $$$$
+# update_welcome
+create_github_release  # $$$$ Move this
 [[ "$ok" ]] || abort
 cleanexit  # $$$$
 
