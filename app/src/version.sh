@@ -1,8 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0
+epiVersion=2.4.1
 epiBuildNum=5
-epiDesc=()  # END_epiDesc
+epiMinorChangeList=( 'Improved messaging of changes in new versions' )  # END_epiMinorChangeList
+epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
@@ -16,3 +17,4 @@ epiDescMajor=( \
         'Both the GitHub update notification and the app update prompt now show info on changes in the new version' \
         'Many more improvements and bug fixes... (See change log on GitHub for details)' \
     )
+epiDesc=( "${epiMinorChangeList[@]}" "${epiMinorFixList[@]}" )  # backward compatibility with 2.4.0

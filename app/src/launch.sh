@@ -133,16 +133,16 @@ function readjsonkeys {
 function getepichromeinfo {
 	# populates the following globals (if found):
 	#    epiCurrentPath -- path to version of Epichrome that corresponds to this app
-	#    epiLatestVersion/Path/Desc/DescMajor -- version/path/description of the latest Epichrome found
-	#    epiUpdateVersion/Path/Desc/DescMajor -- version/path/description of the latest Epichrome eligible for update
+	#    epiLatestVersion/Path/ChangeList/FixList/DescMajor -- version/path/description of the latest Epichrome found
+	#    epiUpdateVersion/Path/ChangeList/FixList/DescMajor -- version/path/description of the latest Epichrome eligible for update
 	
 	# only run if we're OK
 	[[ "$ok" ]] || return 1
 	
 	# default global return values
 	epiCurrentPath=
-	epiLatestVersion= ; epiLatestPath= ; epiLatestDesc= ; epiLatestDescMajor=
-	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateDesc= ; epiUpdateDescMajor=
+	epiLatestVersion= ; epiLatestPath= ; epiLatestChangeList= ; epiLatestFixList= ; epiLatestDescMajor=
+	epiUpdateVersion= ; epiUpdatePath= ; epiUpdateChangeList= ; epiUpdateFixList= ; epiUpdateDescMajor=
 	
 	# current version to test against
 	local myVersion=
@@ -233,12 +233,12 @@ function getepichromeinfo {
 	# check instances of Epichrome to find the current and latest
 	local curInstance=
 	local doIgnoreCurVersion=
-	local epiVersion mcssbVersion epiDesc epiDescMajor
+	local epiVersion mcssbVersion epiMinorChangeList epiMinorFixList epiDescMajor epiDesc
 	for curInstance in "${instances[@]}" ; do
 		if [[ -d "$curInstance" ]] ; then
 			
 			# clear old version.sh values
-			epiVersion= ; mcssbVersion= ; epiDesc= ; epiDescMajor=
+			epiVersion= ; mcssbVersion= ; epiMinorChangeList= ; epiMinorFixList= ; epiDescMajor=
 			
 			# get this instance's version & optional description
 			safesource "$curInstance/Contents/Resources/Scripts/version.sh"
@@ -285,7 +285,8 @@ function getepichromeinfo {
 							vcmp "$epiUpdateVersion" '<' "$epiVersion" ) ; then
 						epiUpdatePath="$(canonicalize "$curInstance")"
 						epiUpdateVersion="$epiVersion"
-						epiUpdateDesc=( "${epiDesc[@]}" )
+						epiUpdateChangeList=( "${epiMinorChangeList[@]}" )
+						epiUpdateFixList=( "${epiMinorFixList[@]}" )
 						epiUpdateDescMajor=( "${epiDescMajor[@]}" )
 					fi
 				fi
@@ -295,7 +296,8 @@ function getepichromeinfo {
 						vcmp "$epiLatestVersion" '<' "$epiVersion" ; then
 					epiLatestPath="$(canonicalize "$curInstance")"
 					epiLatestVersion="$epiVersion"
-					epiLatestDesc=( "${epiDesc[@]}" )
+					epiLatestChangeList=( "${epiMinorChangeList[@]}" )
+					epiLatestFixList=( "${epiMinorFixList[@]}" )
 					epiLatestDescMajor=( "${epiDescMajor[@]}" )
 				fi
 				
@@ -326,7 +328,8 @@ function getepichromeinfo {
 		if [[ ! "$epiUpdatePath" ]] && vcmp "$epiLatestVersion" '>' "$myVersion" ; then
 			epiUpdatePath="$epiLatestPath"
 			epiUpdateVersion="$epiLatestVersion"
-			epiUpdateDesc=( "${epiLatestDesc[@]}" )
+			epiUpdateChangeList=( "${epiLatestChangeList[@]}" )
+			epiUpdateFixList=( "${epiLatestFixList[@]}" )
 			epiUpdateDescMajor=( "${epiLatestDescMajor[@]}" )
 		fi
 	fi
@@ -398,30 +401,31 @@ function checkappupdate {
 		# basic update message
 		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
 		
-		# add any description for this version
-		local iUpdateDesc="$(join_array $'\n\n   ▪️ ' "${epiUpdateDesc[@]}")"
-		[[ "$iUpdateDesc" ]] && iUpdateDesc="NEW IN VERSION $epiUpdateVersion:"$'\n\n   ▪️ '"$iUpdateDesc"
+		# add any description for this version  $$$ I AM HERE, FIX/CHANGE THIS
+		local iDelim=$'\n\n   ▪️ '
+		local iChangeList="$(join_array "$iDelim" "${epiUpdateChangeList[@]}")"
+		local iFixList="$(join_array "$iDelim" "${epiUpdateFixList[@]}")"
+		[[ "$iChangeList" ]] && iChangeList=$'\n\n'"NEW IN VERSION $epiUpdateVersion:$iDelim$iChangeList"
+		[[ "$iFixList" ]] && iFixList=$'\n\n'"FIXED IN VERSION $epiUpdateVersion:$iDelim$iFixList"
+		
+		# build update description
+		local iUpdateDesc="$iChangeList$iFixList"
 		
 		# if this is a major update, add more description
-		if [[ "$iUpdateDesc" || "${epiUpdateDescMajor[*]}" ]] && \
-				vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
+		if vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
 			
 			# add major update header
-			[[ "$iUpdateDesc" ]] && iUpdateDesc=$'\n\n'"$iUpdateDesc"
-			iUpdateDesc='🚀 MAJOR UPDATE!'"$iUpdateDesc"
+			iUpdateDesc=$'\n\n'"🚀 MAJOR UPDATE!$iUpdateDesc"
 			
 			# add any description for the major version
 			if [[ "${epiUpdateDescMajor[*]}" ]] ; then
-				if [[ "$iUpdateDesc" ]] ; then
-					iUpdateDesc+=$'\n\n'
-				fi
-				iUpdateDesc+="NEW IN VERSION ${epiUpdateVersion%.*}"
-				iUpdateDesc+=$':\n\n   ▪️ '"$(join_array $'\n\n   ▪️ ' "${epiUpdateDescMajor[@]}")"
+				iUpdateDesc+=$'\n\n'"NEW IN VERSION ${epiUpdateVersion%.*}:"
+				iUpdateDesc+="$iDelim$(join_array "$iDelim" "${epiUpdateDescMajor[@]}")"
 			fi
 		fi
 		
 		# add any description to update message
-		[[ "$iUpdateDesc" ]] && updateMsg+=$'\n\n'"$iUpdateDesc"
+		updateMsg+="$iUpdateDesc"
 		
 		# update buttons
 		local updateButtonList=( "+$updateBtnUpdate" "-$updateBtnLater" )
