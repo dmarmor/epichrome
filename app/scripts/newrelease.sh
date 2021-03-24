@@ -17,11 +17,59 @@ if ! source "$epipath/src/core.sh" ; then
     exit 1
 fi
 
-# installed Epichrome
-intalledEpichrome='/Applications/Epichrome/Epichrome.app'
-
 
 # --- FUNCTIONS ---
+
+
+# READ_VERSION
+epiIsBeta=
+epiInstalledPath=
+epiInstalledVersion=
+function read_version {
+
+    [[ "$ok" ]] || return 1
+    
+    # installed Epichrome
+    local iEpichromeReleasePath='/Applications/Epichrome/Epichrome.app'
+    local iEpichromeBetaPath='/Applications/Epichrome Beta/Epichrome Beta.app'
+    
+    # get current version information
+    safesource "$epiVersionFile"
+    [[ "$ok" ]] || return 1
+    
+    # get appropriate version of installed Epichrome
+    
+    epiInstalledPath="$iEpichromeReleasePath"
+    
+    # get installed release version
+    try 'epiInstalledVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            "$epiInstalledPath/Contents/Info.plist" \
+            'Unable to get installed release version of Epichrome.'
+    [[ "$ok" ]] || return 1
+    
+    # determine if this is a beta version
+    if visbeta "$epiVersion" ; then
+        
+        # mark our build version as beta
+        epiIsBeta=1
+        
+        # get installed beta version
+        local iInstalledBetaVersion=
+        try 'iInstalledBetaVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+                "$iEpichromeBetaPath/Contents/Info.plist" \
+                'Unable to get installed beta version of Epichrome.'
+        [[ "$ok" ]] || return 1
+        
+        # determine if installed beta version is more recent
+        if vcmp "$epiInstalledVersion" '<' "$iInstalledBetaVersion" ; then
+            epiInstalledPath="$iEpichromeBetaPath"
+            epiInstalledVersion="$iInstalledBetaVersion"
+        fi
+    fi
+    
+    return 0
+}
+
 
 # CHECK_REPOSITORY
 function check_repository {
@@ -31,19 +79,50 @@ function check_repository {
     # notify user
     echo '## Checking git repository...' 1>&2
     
-    # ensure we are on the master branch
-    try 'gitbranch=' /usr/bin/git -C "$epipath" branch --show-current \
-            'Unable to get current git branch.'
-    [[ "$ok" ]] || return 1
-    if [[ "$gitbranch" != 'master' ]] ; then
-        ok= ; errmsg='Not on git master branch.' ; errlog ; return 1
-    fi
-
-    try 'gitstatus=' /usr/bin/git -C "$epipath" status --porcelain \
+    local iGitStatus
+    try 'iGitStatus=' /usr/bin/git -C "$epipath" status --porcelain \
             'Unable to get git status.'
     [[ "$ok" ]] || return 1
-    if [[ "$gitstatus" ]] ; then
+    if [[ "$iGitStatus" ]] ; then
         ok= ; errmsg='Git repository is not clean.' ; errlog ; return 1
+    fi
+    
+    # retrieve our branch
+    local iGitBranch=
+    try 'iGitBranch=' /usr/bin/git -C "$epipath" branch --show-current \
+            'Unable to get current git branch.'
+    [[ "$ok" ]] || return 1
+    
+    # check which branch we're on
+    if [[ "$epiIsBeta" ]] ; then
+        
+        # show a prompt based on which branch we're on
+        if [[ "$iGitBranch" = 'master' ]] ; then
+            prompt 'Create a beta release from the master branch?'
+        else
+            prompt "Create a beta release from the $iGitBranch branch?" y
+        fi
+        local iResult="$?"
+        if [[ "$iResult" != 0 ]] ; then
+            if [[ ! "$ok" ]] ; then
+                if [[ "$iGitBranch" = 'master' ]] ; then
+                    errmsg='Error displaying prompt to ask about creating a beta release from the master branch.'
+                    errlog
+                    return 1
+                else
+                    echo "Error displaying prompt. Creating beta release from the $iGitBranch branch."
+                    ok=1 ; errmsg=
+                fi
+            else
+                ok= ; errmsg='Process canceled.' ; errlog ; return 1
+            fi
+        fi
+        
+    else
+        # we're not in beta, so must be on the master branch
+        if [[ "$iGitBranch" != 'master' ]] ; then
+            ok= ; errmsg='Not on git master branch.' ; errlog ; return 1
+        fi
     fi
     
     return 0
@@ -62,7 +141,7 @@ function update_brave {
     
     # get currently-installed Epichrome Brave version
     try 'oldBraveVersion=' /usr/bin/readlink \
-            "$intalledEpichrome/Contents/Resources/Runtime/Engine/Link/Frameworks/Brave Browser Framework.framework/Versions/Current" \
+            "$epiInstalledPath/Contents/Resources/Runtime/Engine/Link/Frameworks/Brave Browser Framework.framework/Versions/Current" \
             'Unable to get Brave version from currently-installed Epichrome.'
     [[ "$ok" ]] || return 1
     oldBraveVersion="${oldBraveVersion#*.}"
@@ -81,25 +160,13 @@ function update_brave {
 
 
 # UPDATE_VERSION: optionally bump version number
-epiInstalledVersion=
-epiIsBumped=  ## $$$$ DELET THIS?
-epiIsBeta=
+epiIsBumped=
 epiVersionFile="$epipath/src/version.sh"
 epiVersionTmp="$(tempname "$epiVersionFile")"
 function update_version {
     
     [[ "$ok" ]] || return 1
     
-    # get installed version
-    try 'epiInstalledVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-        "$intalledEpichrome/Contents/Info.plist" \
-        'Unable to get version of latest installed Epichrome.'
-    [[ "$ok" ]] || return 1
-    
-    # get current version
-    safesource "$epiVersionFile"
-    [[ "$ok" ]] || return 1
-        
     # get potential new version
     local iNewVersion="${epiInstalledVersion%.*}.$(( ${epiInstalledVersion##*.} + 1 ))"
     
@@ -139,9 +206,6 @@ function update_version {
         
         # version has already been bumped
         
-        # determine if this is a beta version
-        visbeta "$epiVersion" && epiIsBeta=1
-        
         local iPrompt="Update docs for version $epiVersion and build "
         [[ "$epiIsBeta" ]] && iPrompt+='BETA release?' || iPrompt+='release?'
         if prompt "$iPrompt" y ; then
@@ -165,6 +229,7 @@ function update_version {
                         elif [[ ! "$ok" ]] ; then
                             echo "Error displaying prompt. Bumping message \"$curItem\" to Brave $braveVersion."
                             iBumpBrave=1
+                            ok=1 ; errmsg=
                         fi
                     fi
                     
@@ -471,6 +536,30 @@ function create_github_release {
 }
 
 
+# CREATE_PATREON_POST
+function create_patreon_post {
+    
+    [[ "$ok" ]] || return 1
+    
+    # header
+    echo
+    echo 'PATREON POST'
+    echo '------------'
+    echo "SUBJECT: Epichrome ${epiVersion%b*} BETA ${epiVersion##*b}"
+    echo 'BODY:'
+    
+    if [[ "$epiIsBumped" ]] ; then
+        # maintenance beta text
+        echo 'PLACEHOLDER MAINTENANCE TEXT'
+    else
+        # update beta text
+        echo 'PLACEHOLDER UPDATE TEXT'
+    fi
+    
+    echo
+}
+
+
 # BUILD_BOTH_LISTS: format out both lists of changes
 #   build_both_lists(aPrologue aChangeHeader aFixHeader aEpilogue aBetweenLists aBeforeEach aAfterEach aProcessFn aAltText)
 function build_both_lists {
@@ -567,12 +656,15 @@ function prompt {
 # --- RUN UPDATES ---
 
 # run doc updates
-#check_repository
+read_version
+check_repository
 update_brave
 update_version
-update_changelog
-update_readme
 update_welcome
+if [[ ! "$epiIsBeta" ]] ; then
+    update_changelog
+    update_readme
+fi
 commit_files
 [[ "$ok" ]] || abort
 cleanexit
@@ -583,7 +675,7 @@ make --directory="$epipath" clean clean-package package
 [[ "$?" = 0 ]] || abort "Package build failed."
 
 # test epichrome
-echo "## Testing Epichrome.app..." 1>&2
+echo "## Testing build..." 1>&2
 try open -W "$epipath/Epichrome/Epichrome.app" \
         'Unable to launch Epichrome.app.'
 if ! prompt 'Does Epichrome.app pass basic testing?' y ; then
@@ -608,11 +700,20 @@ if ! prompt 'Does installer package pass basic testing?' y ; then
     fi
 fi
 
-# create new release on GitHub
-create_github_release
-if [[ ! "$ok" ]] ; then
-    echo "Unable to create GitHub release." 1>&2
-    ok=1 ; errmsg=
+if [[ ! "$epiIsBeta" ]] ; then
+
+    # create new release on GitHub
+    create_github_release
+    if [[ ! "$ok" ]] ; then
+        echo "Unable to create GitHub release." 1>&2
+        ok=1 ; errmsg=
+    fi
+else
+    create_patreon_post
+    if [[ ! "$ok" ]] ; then
+        echo "Unable to create Patreon post text." 1>&2
+        ok=1 ; errmsg=
+    fi
 fi
 
 # notarize package
