@@ -1,8 +1,8 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.0
+epiVersion=2.4.1
 epiBuildNum=5
-epiMinorChangeList=()  # END_epiMinorChangeList
+epiMinorChangeList=( 'Improved messaging of changes in new versions' )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \

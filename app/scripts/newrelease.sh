@@ -88,14 +88,14 @@ function latest_version {
 
 # UPDATE_VERSION: optionally bump version number
 epiIsBumped=  ## $$$$ DELET THIS?
+epiVersionFile="$epipath/src/version.sh"
+epiVersionTmp="$(tempname "$epiVersionFile")"
 function update_version {
     
     [[ "$ok" ]] || return 1
     
     # get current version
-    local iVersionFile="$epipath/src/version.sh"
-    local iVersionTmp="$(tempname "$iVersionFile")"
-    safesource "$iVersionFile"
+    safesource "$epiVersionFile"
     [[ "$ok" ]] || return 1
         
     # get previous & potential new version
@@ -198,7 +198,7 @@ function update_version {
     
     # read version.sh into variable
     local iVersionData=
-    try 'iVersionData=' /bin/cat "$iVersionFile" \
+    try 'iVersionData=' /bin/cat "$epiVersionFile" \
             'Unable to read in version.sh.'
     [[ "$ok" ]] || return 1
     
@@ -220,8 +220,8 @@ function update_version {
         ok= ; errmsg="Unable to parse version.sh." ; errlog ; return 1
     fi
     
-    # write out new temp version.sh  $$$$
-    try "$iVersionTmp<" echo "$iVersionData" \
+    # write out new temp version.sh
+    try "$epiVersionTmp<" echo "$iVersionData" \
             'Unable to write updated version.sh.'
     
     [[ "$ok" ]] && return 0 || return 1
@@ -229,6 +229,8 @@ function update_version {
 
 
 # UPDATE_CHANGELOG
+epiChangelogFile="$epipath/CHANGELOG.md"
+epiChangelogTmp="$(tempname "$epiChangelogFile")"
 function update_changelog {
     
     [[ "$ok" ]] || return 1
@@ -237,11 +239,9 @@ function update_changelog {
     echo '## Updating CHANGELOG.md...' 1>&2
     
     # path to changelog
-    local iChangelogFile="$epipath/CHANGELOG.md"
-    local iChangelogTmp="$(tempname "$iChangelogFile")"
 
     local iChangelog iCurDate
-    try 'iChangelog=' /bin/cat  "$iChangelogFile" \
+    try 'iChangelog=' /bin/cat  "$epiChangelogFile" \
             'Unable to read in CHANGELOG.md.'
     try 'iCurDate=' /bin/date '+%Y-%m-%d' \
             'Unable to parse date for CHANGELOG.md.'
@@ -264,19 +264,17 @@ function update_changelog {
     local iLists="$(build_both_lists '' $'\n### Changed' $'\n### Fixed' '' '' \
             $'\n- ' '' escapehtml $'\n- No changes')"
     
-    try "$iChangelogTmp<" \
+    try "$epiChangelogTmp<" \
             echo "$iPrefix"$'\n'"## [$epiVersion] - $iCurDate$iLists"$'\n\n\n'"$iBody" \
             'Unable to update CHANGELOG.md.'
-    
-    # $$$$
-    # [[ "$ok" ]] && permanent "$iChangelogTmp" "$iChangelogFile"
-    # tryalways /bin/rm -f "$iChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
-    
+        
     [[ "$ok" ]] && return 0 || return 1
 }
 
 
 # UPDATE_README
+epiReadmeFile="$epipath/../README.md"
+epiReadmeTmp="$(tempname "$epiReadmeFile")"
 function update_readme {
     
     [[ "$ok" ]] || return 1
@@ -285,12 +283,11 @@ function update_readme {
     echo '## Updating README.md...' 1>&2
     
     # path to readme
-    local iReadmeFile="$epipath/../README.md"
-    local iReadmeTmp1="$(tempname "$iReadmeFile")"
+    local iReadmeTmp1="$(tempname "$epiReadmeFile")"
     
     # read in readme
     local iReadme
-    try 'iReadme=' /bin/cat  "$iReadmeFile" \
+    try 'iReadme=' /bin/cat  "$epiReadmeFile" \
             'Unable to read in README.md.'
     [[ "$ok" ]] || return 1
     
@@ -344,8 +341,7 @@ function update_readme {
             'Unable to replace change list in README.md.'
     
     # replace Epichrome, OS & Chrome versions
-    local iReadmeTmp2="$(tempname "$iReadmeFile")"
-    try "$iReadmeTmp2<" /usr/bin/sed -E \
+    try "$epiReadmeTmp<" /usr/bin/sed -E \
             -e 's/<span id="epiversion">[^<]*<\/span>/<span id="epiversion">'"$epiVersion"'<\/span>/g' \
             -e 's/<span id="osname">[^<]*<\/span>/<span id="osname">'"$iOSName"'<\/span>/g' \
             -e 's/<span id="osversion">[^<]*<\/span>/<span id="osversion">'"$iOSVersion"'<\/span>/g' \
@@ -353,8 +349,6 @@ function update_readme {
             "$iReadmeTmp1" \
             'Unable to update version numbers in README.md.'
     
-    # $$$$ put back "$iReadmeTmp2" \ to temp removal
-    # [[ "$ok" ]] && permanent "$iReadmeTmp2" "$iReadmeFile"
     tryalways /bin/rm -f "$iReadmeTmp1" \
             'Unable to remove temporary README.md files.'
     
@@ -363,6 +357,8 @@ function update_readme {
 
 
 # UPDATE_WELCOME
+epiWelcomeFile="$epipath/src/welcome/welcome.html"
+epiWelcomeTmp="$(tempname "$epiWelcomeFile")"
 function update_welcome {
     
     [[ "$ok" ]] || return 1
@@ -371,12 +367,10 @@ function update_welcome {
     echo '## Updating welcome.html...' 1>&2
     
     # path to Welcome
-    local iWelcomeFile="$epipath/src/welcome/welcome.html"
-    local iWelcomeTmp="$(tempname "$iWelcomeFile")"
     
     # read in Welcome
     local iWelcome
-    try 'iWelcome=' /bin/cat  "$iWelcomeFile" \
+    try 'iWelcome=' /bin/cat  "$epiWelcomeFile" \
             'Unable to read in welcome.html.'
     [[ "$ok" ]] || return 1
     
@@ -405,16 +399,30 @@ function update_welcome {
             "$iIndent    </ul>$iIndent  </div>$iIndent</div>" \
             "$iIndent    </ul>$iIndent  </div>" \
             "$iIndent      <li>" '</li>' escapehtml \
-            "$iListDivStart hide\" />")"
+            "$iListDivStart hide\"></div>")"
     # replace change & fix lists
-    try "$iWelcomeTmp<" echo "$iPrefix$iChangesStart$iLists$iIndent$iChangesEnd$iPostfix" \
+    try "$epiWelcomeTmp<" echo "$iPrefix$iChangesStart$iLists$iIndent$iChangesEnd$iPostfix" \
             'Unable to replace change list in welcome.html.'
-
-    # $$$$ MOVE THIS
-    # [[ "$ok" ]] && permanent "$iWelcomeTmp" "$iWelcomeFile"
-    # tryalways /bin/rm -f "$iWelcomeTmp" 'Unable to remove temporary welcome.html.'
     
     [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# COMMIT_FILES: write all temp files to permanent versions, or delete temps if not OK
+function commit_files {
+    
+    if [[ "$ok" ]] ; then
+        
+        permanent "$epiVersionTmp" "$epiVersionFile"
+        permanent "$epiChangelogTmp" "$epiChangelogFile"
+        permanent "$epiReadmeTmp" "$epiReadmeFile"
+        permanent "$epiWelcomeTmp" "$epiWelcomeFile"
+    fi
+    
+    [[ -e "$epiVersionTmp" ]] && tryalways /bin/rm -f "$epiVersionTmp" 'Unable to remove temporary version.sh.'
+    [[ -e "$epiChangelogTmp" ]] && tryalways /bin/rm -f "$epiChangelogTmp" 'Unable to remove temporary CHANGELOG.md.'
+    [[ -e "$epiReadmeTmp" ]] && tryalways /bin/rm -f "$epiReadmeTmp" 'Unable to remove temporary README.md.'
+    [[ -e "$epiWelcomeTmp" ]] && tryalways /bin/rm -f "$epiWelcomeTmp" 'Unable to remove temporary welcome.html.'
 }
 
 
@@ -477,10 +485,8 @@ function build_both_lists {
     
     # combine lists
     if [[ "$iChanges" || "$iFixes" ]] ; then
-        iChanges="$aPrologue$iChanges"
-        [[ "$iFixes" ]] && iChanges+="$aBetweenLists$iFixes"
-        iChanges+="$aEpilogue"
-        echo "$iChanges"
+        [[ "$iChanges" && "$iFixes" ]] && iChanges+="$aBetweenLists"
+        echo "$aPrologue$iChanges$iFixes$aEpilogue"
     elif [[ "$aAltText" ]] ; then
         echo "$aAltText"
     fi
@@ -557,9 +563,9 @@ update_version
 update_changelog
 update_readme
 update_welcome
-create_github_release  # $$$$ Move this
+commit_files
 [[ "$ok" ]] || abort
-cleanexit  # $$$$
+cleanexit
 
 # build package
 echo "## Building epichrome-$epiVersion.pkg..." 1>&2
