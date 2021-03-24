@@ -557,6 +557,14 @@ function create_patreon_post {
     fi
     
     echo
+    
+    # open URL
+    try /usr/bin/open 'https://www.patreon.com/posts/new' \
+            'Unable to create Patreon post.'
+    [[ "$ok" ]] || return 1
+    
+    # come back to terminal
+    sleep 1 ; try /usr/bin/open -a 'Terminal'
 }
 
 
