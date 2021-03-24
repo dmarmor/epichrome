@@ -168,7 +168,12 @@ function update_version {
     [[ "$ok" ]] || return 1
     
     # get potential new version
-    local iNewVersion="${epiInstalledVersion%.*}.$(( ${epiInstalledVersion##*.} + 1 ))"
+    local iNewVersion=
+    if visbeta "$epiInstalledVersion" ; then
+        iNewVersion="${epiInstalledVersion%b*}b$(( ${epiInstalledVersion##*b} + 1 ))"
+    else
+        iNewVersion="${epiInstalledVersion%.*}.$(( ${epiInstalledVersion##*.} + 1 ))"
+    fi
     
     # Brave update message
     local iBraveUpdateMsg="Built-in engine updated to Brave $braveVersion"
