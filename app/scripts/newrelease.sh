@@ -556,7 +556,7 @@ function prompt {
 # --- RUN UPDATES ---
 
 # run doc updates
-#check_repository
+check_repository
 update_brave
 latest_version
 update_version
