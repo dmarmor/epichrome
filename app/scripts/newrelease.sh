@@ -79,12 +79,14 @@ function check_repository {
     # notify user
     echo '## Checking git repository...' 1>&2
     
-    local iGitStatus
-    try 'iGitStatus=' /usr/bin/git -C "$epipath" status --porcelain \
-            'Unable to get git status.'
-    [[ "$ok" ]] || return 1
-    if [[ "$iGitStatus" ]] ; then
-        ok= ; errmsg='Git repository is not clean.' ; errlog ; return 1
+    if [[ ! "$IGNOREGIT" ]] ; then
+        local iGitStatus
+        try 'iGitStatus=' /usr/bin/git -C "$epipath" status --porcelain \
+                'Unable to get git status.'
+        [[ "$ok" ]] || return 1
+        if [[ "$iGitStatus" ]] ; then
+            ok= ; errmsg='Git repository is not clean.' ; errlog ; return 1
+        fi
     fi
     
     # retrieve our branch
@@ -98,9 +100,9 @@ function check_repository {
         
         # show a prompt based on which branch we're on
         if [[ "$iGitBranch" = 'master' ]] ; then
-            prompt 'Create a beta release from the master branch?'
+            prompt 'Create a BETA release from the master branch?'
         else
-            prompt "Create a beta release from the $iGitBranch branch?" y
+            prompt "Create a BETA release from the $iGitBranch branch?" y
         fi
         local iResult="$?"
         if [[ "$iResult" != 0 ]] ; then
@@ -507,8 +509,8 @@ function commit_files {
 }
 
 
-# CREATE_GITHUB_RELEASE
-function create_github_release {
+# CREATE_RELEASE_POST
+function create_release_post {
     
     [[ "$ok" ]] || return 1
     
@@ -517,59 +519,72 @@ function create_github_release {
     fi
     
     # base url
-    local iUrl='https://github.com/dmarmor/epichrome/releases/new'
+    local iGithubUrl='https://github.com/dmarmor/epichrome/releases/new'
+    local iPatreonUrl='https://www.patreon.com/posts/new'
     
-    # notify user
-    echo '## Creating GitHub release...' 1>&2
-    
-    # build list for GitHub-check dialog
-    local iReleaseBody="$(build_both_lists $'<!--<epichrome>\n' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
-            $'\n\n' $'\n\n   ▪️ ' '' '' '')"
-    
-    # build list for release notes
-    [[ "$iReleaseBody" ]] && iReleaseBody+=$'\n'
-    iReleaseBody+="$(build_both_lists '' '### New in this release:' '### Fixed in this release:' $'\n\n' \
-            $'\n\n' $'\n- ' '' escapehtml 'No changes in this release.')"
-    
-    # add Patreon footer
-    [[ "$iReleaseBody" ]] && iReleaseBody+=$'\n\n---\n\n'
-    iReleaseBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
-    
-    # open URL
-    try /usr/bin/open "$iUrl?title=$(encodeurl "Version $epiVersion")&body=$(encodeurl "$iReleaseBody")" \
-            'Unable to create GitHub release.'
-}
-
-
-# CREATE_PATREON_POST
-function create_patreon_post {
-    
-    [[ "$ok" ]] || return 1
-    
-    # header
-    echo
-    echo 'PATREON POST'
-    echo '------------'
-    echo "SUBJECT: Epichrome ${epiVersion%b*} BETA ${epiVersion##*b}"
-    echo 'BODY:'
-    
-    if [[ "$epiIsBumped" ]] ; then
-        # maintenance beta text
-        echo 'PLACEHOLDER MAINTENANCE TEXT'
+    # set post type and title
+    local iPostType=
+    local iPostTitle=
+    local iChangeHeader='New in this release:'
+    local iFixHeader='Fixed in this release:'
+    local iListAfterEach=
+    if [[ "$epiIsBeta" ]] ; then
+        local iBetaLabel="${epiVersion%b*} BETA ${epiVersion##*b}"
+        iPostType='Patreon post'
+        iPostTitle="Epichrome $iBetaLabel"
+        iChangeHeader="**$iChangeHeader**"
+        iFixHeader="**$iFixHeader**"
+        #iListAfterEach=$'\n|'
     else
-        # update beta text
-        echo 'PLACEHOLDER UPDATE TEXT'
+        iPostType='GitHub release'
+        iPostTitle="Version $epiVersion"
+        iChangeHeader="### $iChangeHeader"
+        iFixHeader="### $iFixHeader"
     fi
     
-    echo
+    # notify user
+    echo "## Creating $iPostType..." 1>&2
     
-    # open URL
-    try /usr/bin/open 'https://www.patreon.com/posts/new' \
-            'Unable to create Patreon post.'
-    [[ "$ok" ]] || return 1
+    # start building body
+    local iPostBody=
     
-    # come back to terminal
-    sleep 1 ; try /usr/bin/open -a 'Terminal' 'Unable to bring Terminal back to the front.'
+    if [[ ! "$epiIsBeta" ]] ; then
+        # build list for GitHub-check dialog
+        iPostBody="$(build_both_lists $'<!--<epichrome>\n' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
+                $'\n\n' $'\n\n   ▪️ ' '' '' '')"
+        [[ "$iPostBody" ]] && iPostBody+=$'\n'
+    else
+        iPostBody='Hello Patrons!
+
+You can download Epichrome '"$iBetaLabel"' with [**this link [UPDATE]**](https://dropbox.com/).
+
+'
+    fi
+    
+    # build list for release notes
+    local iChangeList="$(build_both_lists '' "$iChangeHeader" "$iFixHeader" $'\n\n' \
+            $'\n\n' $'\n- ' "$iListAfterEach" escapehtml 'No changes in this release.')"
+    iPostBody+="$iChangeList"
+    
+    if [[ ! "$epiIsBeta" ]] ; then
+        # add Patreon footer
+        [[ "$iPostBody" ]] && iPostBody+=$'\n\n---\n\n'
+        iPostBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
+    else
+        #[[ "$iChangeList" ]] && iPostBody="${iPostBody%|}"$'\n'
+        [[ "$iChangeList" ]] && iPostBody+=$'\n\n'
+        iPostBody+='Please let me know how it goes (good or bad), and thank you as always for your support!'
+
+        # open Patreon URL
+        try /usr/bin/open "$iPatreonUrl" 'Unable to create Patreon post.'
+        [[ "$ok" ]] || echo "$errmsg" 1>&2
+        ok=1 ; errmsg=
+    fi
+    
+    # open GitHub URL
+    try /usr/bin/open "$iGithubUrl?title=$(encodeurl "$iPostTitle")&body=$(encodeurl "$iPostBody")" \
+            'Unable to create GitHub release.'
+    [[ "$ok" ]] || echo "$errmsg" 1>&2
     ok=1 ; errmsg=
 }
 
@@ -680,9 +695,7 @@ if [[ ! "$epiIsBeta" ]] ; then
     update_readme
 fi
 commit_files
-create_patreon_post # $$$$
 [[ "$ok" ]] || abort
-cleanexit
 
 # build package
 echo "## Building epichrome-$epiVersion.pkg..." 1>&2
@@ -715,21 +728,8 @@ if ! prompt 'Does installer package pass basic testing?' y ; then
     fi
 fi
 
-if [[ ! "$epiIsBeta" ]] ; then
-
-    # create new release on GitHub
-    create_github_release
-    if [[ ! "$ok" ]] ; then
-        echo "Unable to create GitHub release." 1>&2
-        ok=1 ; errmsg=
-    fi
-else
-    create_patreon_post
-    if [[ ! "$ok" ]] ; then
-        echo "Unable to create Patreon post text." 1>&2
-        ok=1 ; errmsg=
-    fi
-fi
+# create new release on GitHub or post on Patreon for beta
+create_release_post
 
 # notarize package
 "$mypath/notarize.sh" "$epiVersion"
