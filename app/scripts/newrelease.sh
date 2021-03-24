@@ -17,6 +17,9 @@ if ! source "$epipath/src/core.sh" ; then
     exit 1
 fi
 
+# installed Epichrome
+intalledEpichrome='/Applications/Epichrome/Epichrome.app'
+
 
 # --- FUNCTIONS ---
 
@@ -57,55 +60,56 @@ function update_brave {
     # notify user
     echo '## Checking Brave version...' 1>&2
     
-    # get brave version
+    # get currently-installed Epichrome Brave version
+    try 'oldBraveVersion=' /usr/bin/readlink \
+            "$intalledEpichrome/Contents/Resources/Runtime/Engine/Link/Frameworks/Brave Browser Framework.framework/Versions/Current" \
+            'Unable to get Brave version from currently-installed Epichrome.'
+    [[ "$ok" ]] || return 1
+    oldBraveVersion="${oldBraveVersion#*.}"
+    
+    # get latest Brave version
     braveVersion="$("$mypath/updatebrave.sh")"
     if [[ "$?" != 0 ]] ; then
         ok= ; errmsg='Unable to get Brave version.' ; errlog ; return 1
     fi
     
-    # set current and old versions
-    braveVersion="${braveVersion#*|}"
-    oldBraveVersion="${braveVersion%|*}"
+    # determine if our version of Brave is an update from the currently-installed one
     [[ "$oldBraveVersion" = "$braveVersion" ]] && oldBraveVersion=
     
     return 0
 }
 
 
-# LATEST_VERSION: get latest installed version of Epichrome
-latestVersion=
-function latest_version {
-
-    [[ "$ok" ]] || return 1
-    
-    try 'latestVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-        '/Applications/Epichrome/Epichrome.app/Contents/Info.plist' \
-        'Unable to get version of latest installed Epichrome.'
-    
-    [[ "$ok" ]] && return 0 || return 1
-}
-
-
 # UPDATE_VERSION: optionally bump version number
+epiInstalledVersion=
 epiIsBumped=  ## $$$$ DELET THIS?
+epiIsBeta=
 epiVersionFile="$epipath/src/version.sh"
 epiVersionTmp="$(tempname "$epiVersionFile")"
 function update_version {
     
     [[ "$ok" ]] || return 1
     
+    # get installed version
+    try 'epiInstalledVersion=' /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+        "$intalledEpichrome/Contents/Info.plist" \
+        'Unable to get version of latest installed Epichrome.'
+    [[ "$ok" ]] || return 1
+    
     # get current version
     safesource "$epiVersionFile"
     [[ "$ok" ]] || return 1
         
-    # get previous & potential new version
-    local iNewVersion="${epiVersion%.*}.$(( ${epiVersion##*.} + 1 ))"
+    # get potential new version
+    local iNewVersion="${epiInstalledVersion%.*}.$(( ${epiInstalledVersion##*.} + 1 ))"
     
     # Brave update message
     local iBraveUpdateMsg="Built-in engine updated to Brave $braveVersion"
     
     # is current version already bumped from latest installed?
-    if vcmp "$epiVersion" '=' "$latestVersion" ; then
+    if vcmp "$epiVersion" '=' "$epiInstalledVersion" ; then
+        
+        # current version has not been bumped
         
         # determine if we have an engine update
         if [[ ! "$oldBraveVersion" ]] ; then
@@ -131,13 +135,19 @@ function update_version {
             # user elected not to continue
             ok= ; errmsg='Process canceled.' ; errlog ; return 1
         fi
-    elif vcmp "$latestVersion" '<' "$epiVersion" ; then
+    elif vcmp "$epiInstalledVersion" '<' "$epiVersion" ; then
         
-        # version has already been set
-        if prompt "Update docs for version $epiVersion and build release?" y ; then
+        # version has already been bumped
+        
+        # determine if this is a beta version
+        visbeta "$epiVersion" && epiIsBeta=1
+        
+        local iPrompt="Update docs for version $epiVersion and build "
+        [[ "$epiIsBeta" ]] && iPrompt+='BETA release?' || iPrompt+='release?'
+        if prompt "$iPrompt" y ; then
             
             # notify user
-            echo "## Building version $epiVersion..." 1>&2
+            echo "## Setting info for version $epiVersion..." 1>&2
             
             # update change list based on engine update
             local iNewChangeList=()
@@ -168,6 +178,7 @@ function update_version {
                 fi
             done
             
+            # if we're updating Brave & there's not already an item about it, add one
             if [[ "$oldBraveVersion" && "$iAddBraveDesc" ]] ; then
                 iNewChangeList+=( "$iBraveUpdateMsg" )
             fi
@@ -185,7 +196,7 @@ function update_version {
     else
         
         # our version is less than the latest installed!
-        ok= ; errmsg="Build version $epiVersion is older than installed $latestVersion!" ; errlog ; return 1
+        ok= ; errmsg="Build version $epiVersion is older than installed $epiInstalledVersion!" ; errlog ; return 1
     fi
     
     # let us know what change/fix descriptions we'll have in the docs
@@ -556,9 +567,8 @@ function prompt {
 # --- RUN UPDATES ---
 
 # run doc updates
-check_repository
+#check_repository
 update_brave
-latest_version
 update_version
 update_changelog
 update_readme

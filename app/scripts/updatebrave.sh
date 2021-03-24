@@ -79,8 +79,8 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
         # running from Makefile, so spit out filename & version
         echo "$enginepath/$enginefile|$latestVersion"
     else
-        # running from newrelease.sh, so spit out new and old versions
-        echo "$curVersion|$latestVersion"
+        # running from newrelease.sh, so just spit out new version
+        echo "$latestVersion"
     fi
 else
     echo "Current Brave engine $curVersion is the latest!" 1>&2
@@ -89,8 +89,8 @@ else
         # running from Makefile so spit out filename & version
         echo "$curBrave|$curVersion"
     else
-        # running from newrelease.sh, so spit out current & already-installed version
-        echo "$curVersion|$curVersion"
+        # running from newrelease.sh, so just spit out current version
+        echo "$curVersion"
     fi
 fi
 
