@@ -569,7 +569,8 @@ function create_patreon_post {
     [[ "$ok" ]] || return 1
     
     # come back to terminal
-    sleep 1 ; try /usr/bin/open -a 'Terminal'
+    sleep 1 ; try /usr/bin/open -a 'Terminal' 'Unable to bring Terminal back to the front.'
+    ok=1 ; errmsg=
 }
 
 
