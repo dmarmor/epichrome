@@ -1,6 +1,6 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.1
+epiVersion=2.4.1b1
 epiBuildNum=5
 epiMinorChangeList=( 'Improved messaging of changes in new versions' )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
