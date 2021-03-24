@@ -494,10 +494,10 @@ function commit_files {
     
     if [[ "$ok" ]] ; then
         
-        permanent "$epiVersionTmp" "$epiVersionFile"
-        permanent "$epiChangelogTmp" "$epiChangelogFile"
-        permanent "$epiReadmeTmp" "$epiReadmeFile"
-        permanent "$epiWelcomeTmp" "$epiWelcomeFile"
+        [[ -e "$epiVersionTmp" ]] && permanent "$epiVersionTmp" "$epiVersionFile"
+        [[ -e "$epiChangelogTmp" ]] && permanent "$epiChangelogTmp" "$epiChangelogFile"
+        [[ -e "$epiReadmeTmp" ]] && permanent "$epiReadmeTmp" "$epiReadmeFile"
+        [[ -e "$epiWelcomeTmp" ]] && permanent "$epiWelcomeTmp" "$epiWelcomeFile"
     fi
     
     [[ -e "$epiVersionTmp" ]] && tryalways /bin/rm -f "$epiVersionTmp" 'Unable to remove temporary version.sh.'
