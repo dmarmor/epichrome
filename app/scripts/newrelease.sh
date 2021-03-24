@@ -679,6 +679,7 @@ if [[ ! "$epiIsBeta" ]] ; then
     update_readme
 fi
 commit_files
+create_patreon_post # $$$$
 [[ "$ok" ]] || abort
 cleanexit
 
