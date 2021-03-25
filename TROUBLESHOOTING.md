@@ -20,8 +20,7 @@ Another highly-recommended step, which will prevent the problem from occurring a
 The first time you run `Epichrome.app` after updating from 2.3.x to 2.4.x, it should offer you the option to enable the login scan. If you told it not to on that run, you can change your preference at any time by doing the following:
 
 - Hold down the `Option` key as you launch `Epichrome.app`. It should bring up the following dialog:
-
-![image](./images/troubleshooting/login-scan-enable.png)
+<img src="images/troubleshooting/login-scan-enable.png" width="50%" />
 
 - Click the `Enable` button
 
@@ -38,15 +37,15 @@ Here's how to try this with one of your misbehaving apps:
 1. Delete the `UserData` directory in your app's data directory (`~/Library/Application Support/Epichrome/Apps/<AppID>/UserData`).
 
 1. Run `Keychain Access` and search for "Brave". You should see a window like this:
-![image](./images/troubleshooting/brave-safe-storage.png)
+<img src="images/troubleshooting/brave-safe-storage.png" width="50%" />
 
 1. Delete the Brave Safe Storage item, then run the app again. The first time you run the app, you should most likely see a dialog like the one below. If you do, enter your login password and click `Always Allow`. (Sometimes this dialog doesn't appear and yet things still work, so even if you don't see it, try the testing steps below.)
-![image](./images/troubleshooting/keychain-prompt.png)
+<img src="images/troubleshooting/keychain-prompt.png" width="50%" />
 
 1. Once the app is running, open `Keychain Access` again and search for "Brave".
 Double-click `Brave Safe Storage` and click the `Access Control` button at the top.
 You should see something like this:
-![image](./images/troubleshooting/keychain-access.png)
+<img src="images/troubleshooting/keychain-access.png" width="50%" />
 
 1. The definitive test then is to enter a login/password to a site that you know will
 keep you logged in (I actually use GitHub to test this) and save the password in Brave.
@@ -58,7 +57,7 @@ Settings, you should see the password in your saved passwords.
 
 When one of your apps goes to a site that requests microphone or camera access, you will get a browser notification asking if you want to allow that site access to the resource. After you click the `Allow` button in the app, you should get a macOS dialog
 asking you to give the app permission to use the resource. It will look something like this:
-![image](./images/troubleshooting/access-mic.png)
+<img src="images/troubleshooting/access-mic.png" width="50%" />
 Sometimes that dialog takes several seconds to appear, so it's possible if you switch away from your app at the wrong moment or something, you could miss it.
 
 Even if you don't see the dialog, try using the microphone or camera with the site, as it's possible the system has already given the app permission to use that resource, or if your app is using the external Chrome engine and you've already given Chrome access to that resource then you won't see the dialog.
