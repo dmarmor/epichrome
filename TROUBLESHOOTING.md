@@ -57,6 +57,7 @@ Settings, you should see the password in your saved passwords.
 
 When one of your apps goes to a site that requests microphone or camera access, you will get a browser notification asking if you want to allow that site access to the resource. After you click the `Allow` button in the app, you should get a macOS dialog
 asking you to give the app permission to use the resource. It will look something like this:
+
 <img src="images/troubleshooting/access-mic.png" width="50%" />
 
 Sometimes that dialog takes several seconds to appear, so it's possible if you switch away from your app at the wrong moment or something, you could miss it.
