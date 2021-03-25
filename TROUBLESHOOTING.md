@@ -11,11 +11,19 @@
 
 ## Opening an app from the dock opens a generic browser
 
-If you keep your apps in the dock, you may find that launching them from there (especially after a system crash) brings up a generic browser window rather than your app.
+Sometimes you may find that opening an app brings up a generic browser window rather than your app. This is especially likely to happen after a system crash, as it's a result of the app engine not being properly deactivated when the app quits.
 
-This can happen if the app engine was not properly deactivated the last time the app quit (which is why it often occurs after a system crash). The solution is simple: launch the app once from the main app (the one you created with Epichrome.app). To make sure you're launching the main app, either use Spotlight to find it, or open a Finder window and launch it from there.
+Starting with Epichrome 2.4.0, the easiest way to solve this is to first make sure none of your problem apps are running, and then run `Epichrome Scan.app` (which is installed alongside `Epichrome.app`). It will show a progress bar as it scans your apps, and will show a summary of how many apps it restored.
 
-Once you have a successful launch of the app, quit it. The next time you launch it from the dock, it should launch properly again.
+Another highly-recommended step, which will prevent the problem from occurring after a system crash, is to enable the Epichrome login scanner. This runs automatically at login (it runs in the background and doesn't display any progress) and will silenty restore any apps left in a bad state after the crash.
+
+The first time you run `Epichrome.app` after updating from 2.3.x to 2.4.x, it should offer you the option to enable the login scan. If you told it not to on that run, you can change your preference at any time by doing the following:
+
+- Hold down the `Option` key as you launch `Epichrome.app`. It should bring up the following dialog:
+
+![image](./images/troubleshooting/login-scan-enable.png)
+
+- Click the `Enable` button
 
 *First mentioned in [issue #202](https://github.com/dmarmor/epichrome/issues/202 "issue #202").*
 
