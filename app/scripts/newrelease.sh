@@ -538,8 +538,8 @@ function create_release_post {
     else
         iPostType='GitHub release'
         iPostTitle="Version $epiVersion"
-        iChangeHeader="### $iChangeHeader"
-        iFixHeader="### $iFixHeader"
+        iChangeHeader="#### $iChangeHeader"
+        iFixHeader="#### $iFixHeader"
     fi
     
     # notify user
