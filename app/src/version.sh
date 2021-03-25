@@ -2,7 +2,10 @@
 
 epiVersion=2.4.1
 epiBuildNum=5
-epiMinorChangeList=( 'Improved messaging of changes in new versions' )  # END_epiMinorChangeList
+epiMinorChangeList=( \
+        'Improved messaging of changes in new versions' \
+        'Built-in engine updated to Brave 1.22.67' \
+    )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \

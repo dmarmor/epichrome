@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.0</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.1</span></h1>
 
 ## Overview
 
@@ -60,6 +60,14 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 
 <!-- CHANGES_START -->
+## New in version <span id="epiversion">2.4.1</span>
+
+- Improved messaging of changes in new versions
+
+- Built-in engine updated to Brave 1.22.67
+
+
+*Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
 <!-- CHANGES_END -->
 
 
@@ -106,7 +114,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS <span id="osname">Catalina</span> <span id="osversion">10.15.7</span> and Google Chrome version <span id="chromeversion">89.0.4389.82</span>.
+- Built and tested on macOS <span id="osname">Catalina</span> <span id="osversion">10.15.7</span> and Google Chrome version <span id="chromeversion">89.0.4389.90</span>.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 

@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.1] - 2021-03-25
+### Changed
+- Improved messaging of changes in new versions
+- Built-in engine updated to Brave 1.22.67
+
+
 ## [2.4.0] - 2021-03-19
 ### Changed
 - Fully compatible with macOS 11 Big Sur
