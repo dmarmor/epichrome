@@ -22,7 +22,6 @@ The first time you run `Epichrome.app` after updating from 2.3.x to 2.4.x, it sh
 - Hold down the `Option` key as you launch `Epichrome.app`. It should bring up the following dialog:
 
 <img src="images/troubleshooting/login-scan-enable.png" width="50%" />
-
 - Click the `Enable` button
 
 *First mentioned in [issue #202](https://github.com/dmarmor/epichrome/issues/202 "issue #202").*
@@ -40,17 +39,14 @@ Here's how to try this with one of your misbehaving apps:
 1. Run `Keychain Access` and search for "Brave". You should see a window like this:
 
 <img src="images/troubleshooting/brave-safe-storage.png" width="50%" />
-
 1. Delete the Brave Safe Storage item, then run the app again. The first time you run the app, you should most likely see a dialog like the one below. If you do, enter your login password and click `Always Allow`. (Sometimes this dialog doesn't appear and yet things still work, so even if you don't see it, try the testing steps below.)
 
 <img src="images/troubleshooting/keychain-prompt.png" width="50%" />
-
 1. Once the app is running, open `Keychain Access` again and search for "Brave".
 Double-click `Brave Safe Storage` and click the `Access Control` button at the top.
 You should see something like this:
 
 <img src="images/troubleshooting/keychain-access.png" width="50%" />
-
 1. The definitive test then is to enter a login/password to a site that you know will
 keep you logged in (I actually use GitHub to test this) and save the password in Brave.
 Then quit the app and run it again. You should still be logged in, and if you go to
