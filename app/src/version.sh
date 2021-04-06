@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.3
-epiBuildNum=1
+epiBuildNum=2
 epiMinorChangeList=( \
         'Added version information to package' \
         'Changed schedule to check GitHub for new versions every other day instead of once a week' \
