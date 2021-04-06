@@ -52,7 +52,7 @@ const AUTOICON_URL_TRANSFORMS = [
     [
         [
             ['/(^|\.)calendar\.google\.com$/i'],
-            ['/(^|\.)google.com$/i', '#^/calendar($|/)#i'],
+            ['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
             
         ],
         'https://www.google.com/calendar/about/'
@@ -63,6 +63,12 @@ const AUTOICON_URL_TRANSFORMS = [
         ],
         'https://www.google.com/drive/'
     ]
+];
+
+// static best-known icons for certain sites
+CONST AUTOICON_STATIC_ICONS = [
+    [['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/1024px-Google_Calendar_icon_%282020%29.svg.png']
 ];
 
 // auto-icon tag search
@@ -466,6 +472,10 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
 // ACTIONGETAUTOICON -- attempt to download an icon based on URL
 function actionAutoIcon($aOptions) {
     
+    // base path for candidate icons
+    $iIconTempFileBase = $aOptions->tempImageDir . '/iconsource_';
+    
+    
     // SET UP FOR AUTOICON WEB INTERACTION
     
     // set user agent
@@ -482,6 +492,9 @@ function actionAutoIcon($aOptions) {
     
     // turn off the many warnings emitted when reading HTML
     error_reporting(error_reporting() & ~E_WARNING);
+    
+    
+    // GET FINAL URL TO SEARCH
 
     // normalize & parse URL
     $iUrl = $aOptions->url;
@@ -515,84 +528,116 @@ function actionAutoIcon($aOptions) {
     }
     
     
-    // LOAD URL
+    // TRY TO LOAD ANY STATIC ICONS
     
-    // load HTML
-    $iDoc = loadUrl($iUrl);
-    if ((!$iDoc) || !$iDoc->documentElement) {
-        throw new EpiException("Couldn't load \"" . $aOptions->url . '".');
+    // try to match URL to a static icon rule
+    $iMatchFound = false;
+    foreach (AUTOICON_STATIC_ICONS as $curStaticIcon) {
+        
+        // get current regexes to match against URL
+        $curHostMatch = $curStaticIcon[0][0]; if (!$curHostMatch) { $curHostMatch = '/.*/'; }
+        $curPathMatch = $curStaticIcon[0][1]; if (!$curPathMatch) { $curPathMatch = '/.*/'; }
+        
+        // try to match URL
+        if (preg_match($curHostMatch, $iUrlParts['host']) &&
+        preg_match($curPathMatch, $iUrlParts['path'])) {
+            $iMatchFound = true;
+            break;
+        }
     }
     
-    // update URL after redirects
-    $iUrl = $iDoc->documentURI;
-    $iUrlParts = parse_url($iUrl);
-    
-    // get <head> element
-    $iHead = $iDoc->documentElement->getElementsByTagName('head')[0];
-    
+    // if a static icon was found, try to download it
+    $iFinalIcons = [];
+    if ($iMatchFound) {
         
-    // CREATE LIST OF ICON FILES TO TRY
+        // try to download this static icon
+        $iDownloadResult = downloadAutoIcon($curStaticIcon[1], $iIconTempFileBase);
+        if ($iDownloadResult) {
+            $iFinalIcons = [$iDownloadResult];
+        }
+    }
     
-    // search known tags for icon sources
     
-    $iTagIcons = [];
+    // IF NO STATIC ICON, LOAD URL & LOOK THROUGH TAGS
     
-    foreach (AUTOICON_TAG_SEARCH as $curTag) {
+    if (!$iFinalIcons) {
         
-        // get all elements with current tag name
-        $curElemList = $iHead->getElementsByTagName($curTag[0]);
+        // load HTML
+        $iDoc = loadUrl($iUrl);
+        if ((!$iDoc) || !$iDoc->documentElement) {
+            throw new EpiException("Couldn't load \"" . $aOptions->url . '".');
+        }
         
-        foreach ($curElemList as $curElem) {
+        // update URL after redirects
+        $iUrl = $iDoc->documentURI;
+        $iUrlParts = parse_url($iUrl);
+        
+        // get <head> element
+        $iHead = $iDoc->documentElement->getElementsByTagName('head')[0];
+        
+        
+        // CREATE LIST OF ICON FILES TO TRY
+        
+        // search known tags for icon sources
+        
+        $iTagIcons = [];
+        
+        foreach (AUTOICON_TAG_SEARCH as $curTag) {
             
-            // get needed attributes for current element
-            $curAttrList = $curElem->attributes;
-            $curPath = $curAttrList->getNamedItem($curTag[3])->nodeValue;
-            $curPropList = explode(' ', $curAttrList->getNamedItem($curTag[1])->nodeValue);
+            // get all elements with current tag name
+            $curElemList = $iHead->getElementsByTagName($curTag[0]);
             
-            foreach ($curPropList as $curProp) {
-                foreach ($curTag[2] as $curMatch) {
-                    
-                    if (preg_match($curMatch, $curProp)) {
+            foreach ($curElemList as $curElem) {
+                
+                // get needed attributes for current element
+                $curAttrList = $curElem->attributes;
+                $curPath = $curAttrList->getNamedItem($curTag[3])->nodeValue;
+                $curPropList = explode(' ', $curAttrList->getNamedItem($curTag[1])->nodeValue);
+                
+                foreach ($curPropList as $curProp) {
+                    foreach ($curTag[2] as $curMatch) {
                         
-                        // found an icon!
-                        $iTagIcons[] = $curPath;
+                        if (preg_match($curMatch, $curProp)) {
+                            
+                            // found an icon!
+                            $iTagIcons[] = $curPath;
+                        }
                     }
                 }
             }
         }
-    }
-    
-    // create unique list of candidate icons, with NULL between tag & fallback
-    foreach (array_merge($iTagIcons, [null], AUTOICON_FALLBACK) as $curIcon) {
-        if ($curIcon) {
-            $iIconCandidates[] = absoluteUrlPath($iUrlParts, $curIcon);
-        } else {
-            $iIconCandidates[] = null;
-        }
-    }
-    $iIconCandidates = array_unique($iIconCandidates);
-    
-    
-    // DOWNLOAD & CHECK ICONS
-    
-    $iIconTempFileBase = $aOptions->tempImageDir . '/iconsource_';
-    $iFinalIcons = [];
-    foreach ($iIconCandidates as $curIcon) {
         
-        if ($curIcon === null) {
-            if (count($iFinalIcons) > 0) {
-                // good icon already found, so don't search fallback list
-                break;
+        // create unique list of candidate icons, with NULL between tag & fallback
+        foreach (array_merge($iTagIcons, [null], AUTOICON_FALLBACK) as $curIcon) {
+            if ($curIcon) {
+                $iIconCandidates[] = absoluteUrlPath($iUrlParts, $curIcon);
             } else {
-                // move on to fallbacks
-                continue;
+                $iIconCandidates[] = null;
             }
         }
+        $iIconCandidates = array_unique($iIconCandidates);
         
-        // download and check current candidate
-        $iDownloadResult = downloadAutoIcon($curIcon, $iIconTempFileBase);
-        if ($iDownloadResult) {
-            $iFinalIcons[] = $iDownloadResult;
+        
+        // DOWNLOAD & CHECK ICONS
+        
+        $iFinalIcons = [];
+        foreach ($iIconCandidates as $curIcon) {
+            
+            if ($curIcon === null) {
+                if (count($iFinalIcons) > 0) {
+                    // good icon already found, so don't search fallback list
+                    break;
+                } else {
+                    // move on to fallbacks
+                    continue;
+                }
+            }
+            
+            // download and check current candidate
+            $iDownloadResult = downloadAutoIcon($curIcon, $iIconTempFileBase);
+            if ($iDownloadResult) {
+                $iFinalIcons[] = $iDownloadResult;
+            }
         }
     }
     

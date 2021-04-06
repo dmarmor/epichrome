@@ -63,9 +63,9 @@ if [[ "$epiAutoIconURL" ]] ; then
     {
         "action": "autoicon",
         "options": {
-            "url": "'"$epiAutoIconURL"'",
-            "imagePath": "'"$epiIconSource"'",
-            "tempImageDir": "'"$epiAutoIconTempDir"'"
+            "url": "'"$(escapejson "$epiAutoIconURL")"'",
+            "imagePath": "'"$(escapejson "$epiIconSource")"'",
+            "tempImageDir": "'"$(escapejson "$epiAutoIconTempDir")"'"
         }
     }
 ]'

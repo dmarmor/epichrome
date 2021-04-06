@@ -139,7 +139,7 @@ function makeicon {
         
         # add origPath argument to PHP
         iOrigSourcePath=',
-        "origPath": "'"$aIconSource"'"'
+        "origPath": "'"$(escapejson "$aIconSource")"'"'
     fi
     
     # create empty iconset directories
@@ -185,7 +185,7 @@ function makeicon {
                     "action": "read",
                     "options": {
                         "format": "png",
-                        "path": "'"$iAppIconCompBG"'"
+                        "path": "'"$(escapejson "$iAppIconCompBG")"'"
                     }
                 } ]
             }
@@ -197,7 +197,7 @@ function makeicon {
                     "action": "read",
                     "options": {
                         "format": "png",
-                        "path": "'"$iIconTemplatePath/apptemplate_shadow.png"'"
+                        "path": "'"$(escapejson "$iIconTemplatePath/apptemplate_shadow.png")"'"
                     }
                 } ]
             }
@@ -243,7 +243,7 @@ function makeicon {
                             "action": "read",
                             "options": {
                                 "format": "png",
-                                "path": "'"$iIconTemplatePath/doctemplate_bg.png"'"
+                                "path": "'"$(escapejson "$iIconTemplatePath/doctemplate_bg.png")"'"
                             }
                         }
                     ]
@@ -258,7 +258,7 @@ function makeicon {
                             "action": "read",
                             "options": {
                                 "format": "png",
-                                "path": "'"$iIconTemplatePath/doctemplate_fg.png"'"
+                                "path": "'"$(escapejson "$iIconTemplatePath/doctemplate_fg.png")"'"
                             }
                         }
                     ]
@@ -266,7 +266,7 @@ function makeicon {
             },
             {
                 "action": "write_iconset",
-                "path": "'"$iDocIconset"'"'"$iSizeLimitCmd"'
+                "path": "'"$(escapejson "$iDocIconset")"'"'"$iSizeLimitCmd"'
             }
         ]'
         fi
@@ -278,13 +278,13 @@ function makeicon {
         "action": "read",
         "options": {
             "format": "'"$iPHPSourceFormat"'",
-            "path": "'"$iPHPSource"'"'"$iOrigSourcePath"'
+            "path": "'"$(escapejson "$iPHPSource")"'"'"$iOrigSourcePath"'
         }
     },
     ['"$iAppIconCompCmd"'
         {
             "action": "write_iconset",
-            "path": "'"$iAppIconset"'"'"$iSizeLimitCmd"'
+            "path": "'"$(escapejson "$iAppIconset")"'"'"$iSizeLimitCmd"'
         }
     ]'"$iDocIconCmd"'
 ]'
