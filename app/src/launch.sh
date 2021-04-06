@@ -806,9 +806,9 @@ function checkgithubinfowrite {
 	local aNextVersion="$1" ; shift
 	local aUpdateError="$1" ; shift
 	
-	# update next check date
-	local iGithubNextDate=7
-	[[ "$aUpdateError" ]] && iGithubNextDate=3
+	# update next check date -- SET GITHUB CHECK SCHEDULE HERE
+	local iGithubNextDate=2
+	[[ "$aUpdateError" ]] && iGithubNextDate=1
 	iGithubNextDate=$(($aCheckDate + ($iGithubNextDate * 24 * 60 * 60)))
 	
 	# write out update check info

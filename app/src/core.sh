@@ -1112,7 +1112,7 @@ function abort {
             if [[ "$iDoReport" && ( "$choice" = "${buttons[0]:1}" ) ]] ; then
                 
                 # prepare for report
-                local iReportErrArgs=( "App aborted with error" )
+                local iReportErrArgs=( "Version $coreVersion app aborted with error" )
                 [[ "$myErrMsg" ]] && iReportErrArgs[0]+=": \"$myErrMsg\""
                 [[ "$iTrace" ]] && iReportErrArgs[0]+=" [$iTrace]"
                 [[ -f "$myLogFile" ]] && iReportErrArgs+=( "$myLogFile" )

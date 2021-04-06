@@ -4,6 +4,8 @@ epiVersion=2.4.3
 epiBuildNum=1
 epiMinorChangeList=( \
         'Added version information to package' \
+        'Changed schedule to check GitHub for new versions every other day instead of once a week' \
+        'Added version numbers to GitHub error reporting' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \

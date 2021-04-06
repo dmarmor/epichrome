@@ -253,7 +253,7 @@ function mainWrapper(aApps=[]) {
             defaultButton: 1,
             cancelButton: 2
         }).buttonIndex == 0) {
-            reportError('Epichrome reports fatal error: "' + myErr.message + '"');
+            reportError('Epichrome ' + kVersion + ' reports fatal error: "' + myErr.message + '"');
         }
     }
     
@@ -891,7 +891,7 @@ function runEdit(aApps) {
         // show summary
         if ((dialog(myDlgMessage, myDlgOptions).buttonIndex == 0) && (myDlgButtons.length == 2)) {
             // report errors
-            reportError('Epichrome reports errors while ' + (myDoEdit ? 'editing' : 'updating') + ' multiple apps');
+            reportError('Epichrome ' + kVersion + ' reports errors while ' + (myDoEdit ? 'editing' : 'updating') + ' multiple apps');
         }
     }
 }
@@ -1488,7 +1488,7 @@ function doSteps(aSteps, aInfo, aOptions={}) {
             
             if (aInfo.stepInfo.isOnlyApp && myStepResult.reportError && (myDlgResult == 0)) {
                 // user clicked 'Report Error & Quit'
-                reportError('Epichrome reports an error ' +
+                reportError('Epichrome ' + kVersion + ' reports an error ' +
                     ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
                         ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
                     ' an app: "' + errIsReportable(myStepResult.error.message)[1] + '"');
@@ -3484,7 +3484,7 @@ function loginScanSetState(aNewState) {
         }).buttonIndex == 1) {
             
             // report error
-            reportError('Unable to ' + iNewStateVerb + ' login scan');
+            reportError('Epichrome ' + kVersion + ' unable to ' + iNewStateVerb + ' login scan');
         }
         gEpiLoginScanEnabled = loginScanGetState();
     }
