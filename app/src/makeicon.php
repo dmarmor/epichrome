@@ -465,7 +465,21 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
 
 // ACTIONGETAUTOICON -- attempt to download an icon based on URL
 function actionAutoIcon($aOptions) {
-
+    
+    // SET UP FOR AUTOICON WEB INTERACTION
+    
+    // set user agent
+    ini_set('user_agent', AUTOICON_USER_AGENT);
+    
+    // set timeout (https://stackoverflow.com/questions/21497561/domdocumentload-timeout)
+    libxml_set_streams_context(stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => strval(AUTOICON_IMAGE_TIMEOUT)
+        ]
+    ]));
+    ini_set('default_socket_timeout', AUTOICON_IMAGE_TIMEOUT);  // overriding timeout
+    
     // turn off the many warnings emitted when reading HTML
     error_reporting(error_reporting() & ~E_WARNING);
 
@@ -561,18 +575,7 @@ function actionAutoIcon($aOptions) {
     
     // DOWNLOAD & CHECK ICONS
     
-    // set user agent
-    ini_set('user_agent', AUTOICON_USER_AGENT);
-    
-    // set timeout (https://stackoverflow.com/questions/21497561/domdocumentload-timeout)
-    libxml_set_streams_context(stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'timeout' => strval(AUTOICON_IMAGE_TIMEOUT)
-        ]
-    ]));
-    ini_set('default_socket_timeout', AUTOICON_IMAGE_TIMEOUT);  // overriding timeout
-    
+    $iIconTempFileBase = $aOptions->tempImageDir . '/iconsource_';
     $iFinalIcons = [];
     foreach ($iIconCandidates as $curIcon) {
         
@@ -586,42 +589,10 @@ function actionAutoIcon($aOptions) {
             }
         }
         
-        // get file extension, if any
-        $curExt = end(explode('.', explode('?', $curIcon)[0]));
-        if ($curExt) { $curExt = '.' . $curExt; }
-        
-        // create unique output file name
-        do {
-            $curOutPath = $aOptions->tempImageDir . '/iconsource_' . sprintf('%03d', rand(0,999)) . $curExt;
-        } while (file_exists($curOutPath));
-                
-        // download icon
-        $curIconData = file_get_contents($curIcon);
-        
-        if ($curIconData) {
-            
-            if (file_put_contents($curOutPath, $curIconData)) {
-                
-                // run sips on downloaded file
-                unset($curSipsOutput);
-                exec("/usr/bin/sips --getProperty format --getProperty pixelWidth ".escapeshellarg($curOutPath),
-                        $curSipsOutput, $iResult);
-                
-                if ($iResult == 0) {
-                    
-                    // collapse output into a single string
-                    $curSipsOutput = implode(" ", $curSipsOutput);
-                    
-                    // parse out image format & pixelWidth
-                    if (preg_match('/format: ([^ ]+).*pixelWidth: ([0-9]+)/i',
-                            $curSipsOutput, $curSipsMatch, PREG_OFFSET_CAPTURE) &&
-                        (intval($curSipsMatch[2][0]) >= AUTOICON_SIZE_MIN)) {
-                        
-                        // good image above minimum size, so add to list
-                        $iFinalIcons[] = [intval($curSipsMatch[2][0]), $curSipsMatch[1][0], $curOutPath];
-                    }
-                }
-            }
+        // download and check current candidate
+        $iDownloadResult = downloadAutoIcon($curIcon, $iIconTempFileBase);
+        if ($iDownloadResult) {
+            $iFinalIcons[] = $iDownloadResult;
         }
     }
     
@@ -672,6 +643,50 @@ function actionAutoIcon($aOptions) {
 
 
 // --- UTILITY FUNCTIONS ---
+
+// DOWNLOADAUTOICON -- download & check a potential autoicon
+function downloadAutoIcon($aURL, $aIconTempFileBase) {
+    
+    // get file extension, if any
+    $iExt = end(explode('.', explode('?', $aURL)[0]));
+    if ($iExt) { $iExt = '.' . $iExt; }
+    
+    // create unique output file name
+    do {
+        $iOutPath = $aIconTempFileBase . sprintf('%03d', rand(0,999)) . $iExt;
+    } while (file_exists($iOutPath));
+            
+    // download icon
+    $iIconData = file_get_contents($aURL);
+    
+    if ($iIconData) {
+        
+        if (file_put_contents($iOutPath, $iIconData)) {
+            
+            // run sips on downloaded file
+            exec("/usr/bin/sips --getProperty format --getProperty pixelWidth ".escapeshellarg($iOutPath),
+                    $iSipsOutput, $iResult);
+            
+            if ($iResult == 0) {
+                
+                // collapse output into a single string
+                $iSipsOutput = implode(" ", $iSipsOutput);
+                
+                // parse out image format & pixelWidth
+                if (preg_match('/format: ([^ ]+).*pixelWidth: ([0-9]+)/i',
+                        $iSipsOutput, $iSipsMatch, PREG_OFFSET_CAPTURE) &&
+                    (intval($iSipsMatch[2][0]) >= AUTOICON_SIZE_MIN)) {
+                    
+                    // good image above minimum size, so add to list
+                    return [intval($iSipsMatch[2][0]), $iSipsMatch[1][0], $iOutPath];
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
 
 // COMPOSITEIMAGE -- resize an image to arbitrary dimensions & composite over another
 function compositeImage($aTopInput, $aCanvasInput, $aCanvasSize, $aClipToCanvas,

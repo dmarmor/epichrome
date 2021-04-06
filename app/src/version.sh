@@ -1,8 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.3
-epiBuildNum=2
+epiBuildNum=3
 epiMinorChangeList=( \
+        'Improved auto icon downloading to be compatible with more sites' \
         'Added version information to package' \
         'Changed schedule to check GitHub for new versions every other day instead of once a week' \
         'Added version numbers to GitHub error reporting' \
