@@ -2492,9 +2492,12 @@ function stepIconSelectAuto(aInfo) {
                 // if we haven't yet set an icon, make sure default is no longer auto
                 if (aInfo.appInfo.icon == kIconAUTO) {
                     aInfo.appInfo.icon = kIconCUSTOM;
+                } else if (aInfo.appInfo.icon.autoIconUrl) {
+                    // we were trying to change from an existing auto-icon, so go back and ask again
+                    return -1;
                 }
                 
-                // move on to custom/default
+                // all other cases, move on to custom/default dialog
                 return 1;
             }
             
