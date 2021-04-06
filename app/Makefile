@@ -327,6 +327,7 @@ package: epichrome-$(VERSION).pkg
 epichrome-$(VERSION).pkg: build/epichrome-$(VERSION)-main.pkg build/epichrome-$(VERSION)-dist.xml build/resources/background.png build/resources/welcome.rtf build/resources/readme.rtf build/resources/license.rtf
 	@rm -f '$@'
 	productbuild --distribution build/epichrome-$(VERSION)-dist.xml \
+		--version '$(VERSION)' \
 		--package-path build \
 		--resources build/resources \
 		--sign '$(CODESIGN_IDENTITY)' \
@@ -343,9 +344,11 @@ build/epichrome-$(VERSION)-main.pkg: release build/scripts/postinstall build/ico
 	touch 'build/package/Applications/$(INSTALL_FOLDER)/Payload.noindex/.preserve'
 	mv $(APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(EPICHROME_DISPNAME).app'
 	mv $(SCAN_APP) 'build/package/Applications/$(INSTALL_FOLDER)/$(SCAN_DISPNAME).app'
-	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist && \
+	if ! ( pkgbuild --analyze --root build/package $(@:.pkg=).plist --version '$(VERSION)' && \
 	plutil -replace BundleIsRelocatable -bool NO $(@:.pkg=).plist && \
-	pkgbuild --root build/package --identifier org.epichrome.Epichrome \
+	pkgbuild --root build/package \
+		--identifier org.epichrome.Epichrome \
+		--version '$(VERSION)' \
 		--scripts build/scripts \
 		--component-plist $(@:.pkg=).plist '$@' && \
 	rm -f '$(@:.pkg=).plist' ) ; then \
@@ -382,6 +385,7 @@ build/epichrome-$(VERSION)-dist.xml: build/epichrome-$(VERSION)-main.pkg src/pac
 	@rm -f '$@'
 	productbuild --synthesize \
 		--product src/package/requirements.plist \
+		--version '$(VERSION)' \
 		--package '$<' \
 		'$@'
 	sed -E -i '' 's/enable_anywhere="true"/enable_anywhere="false"/; '\
