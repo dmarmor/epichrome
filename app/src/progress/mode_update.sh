@@ -150,8 +150,26 @@ if [[ "$epiAction" != 'build' ]] ; then
     # make sure backup directory exists
     if [[ -d "$myBackupDir" ]] ; then
         
+        # rename old *.tgz backups to *.app.tgz
+        if vcmp "$SSBVersion" '<=' '2.4.2' ; then
+            # get all .tgz files in directory
+            iShoptState=
+            shoptset iShoptState nullglob
+            iOldBackups=( "$myBackupDir"/*.tgz )
+            shoptrestore iShoptState
+            
+            # rename any that are not .app.tgz or .data.tgz
+            for curBackup in "${iOldBackups[@]}" ; do
+                if [[ ( "$curBackup" != *'.app.tgz' ) && ( "$curBackup" != *'.data.tgz' ) ]] ; then
+                    try /bin/mv "$curBackup" "${curBackup%.tgz}.app.tgz" \
+                            'Unable to rename old backups. These may have to be deleted manually.'
+                fi
+            done
+            ok=1 ; errmsg
+        fi
+        
         # trim backup directory to make room for new backup
-        trimsaves "$myBackupDir" "$backupPreserve" '.tgz' 'app backups' myBackupTrimList
+        trimsaves "$myBackupDir" "$backupPreserve" '.app.tgz' 'app backups' myBackupTrimList
     else
         
         # create directory
@@ -164,7 +182,7 @@ if [[ "$epiAction" != 'build' ]] ; then
     [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='-'
     
     # set up path to backup file
-    updateBackupFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction.tgz"
+    updateBackupFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction.app.tgz"
     
     # back up app
     try /usr/bin/tar czf "$updateBackupFile" --cd "$updateAppPath/.." "${updateAppPath##*/}" \
