@@ -40,51 +40,41 @@ const AUTOICON_IMAGE_TIMEOUT = 3;
 
 // auto-icon URL transforms
 const AUTOICON_URL_TRANSFORMS = [
-    [
+    [ 'Google Calendar',
         [
             ['/(^|\.)calendar\.google\.com$/i'],
             ['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
             
         ],
-        'https://www.google.com/calendar/about/'
+        'https://www.google.com/calendar/about/',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/1024px-Google_Calendar_icon_%282020%29.svg.png'
     ],
-    [
+    [ 'Google Drive',
         [
             ['/(^|\.)drive\.google\.com$/i']
         ],
-        'https://www.google.com/drive/'
+        'https://www.google.com/drive/',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/1147px-Google_Drive_icon_%282020%29.svg.png'
     ],
-    [
+    [ 'Gmail',
         [
             ['/(^|\.)gmail\.com$/i'],
             ['/(^|\.)g?mail\.google\.com$/i'],
             ['/(^|\.)google.com$/i', '#^/g?mail($|/)#i'],
             
         ],
-        'https://www.google.com/gmail/about/#'
+        'https://www.google.com/gmail/about/#',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png'
     ],
-    [
+    [ 'Google Photos',
         [
             ['/(^|\.)photos\.google\.com$/i'],
             ['/(^|\.)google.com$/i', '/^\/photos($|\/)/i'],
             
         ],
-        'https://www.google.com/photos/about/'
+        'https://www.google.com/photos/about/',
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Photos_icon_%282020%29.svg/1024px-Google_Photos_icon_%282020%29.svg.png'
     ]
-];
-
-https://www.google.com/photos/about/
-
-// static best-known icons for certain sites
-CONST AUTOICON_STATIC_ICONS = [
-    [['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/1024px-Google_Calendar_icon_%282020%29.svg.png', 'Google Calendar'],
-    [['/(^|\.)google.com$/i', '/^\/drive($|\/)/i'],
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/1147px-Google_Drive_icon_%282020%29.svg.png', 'Google Drive'],
-    [['/(^|\.)google.com$/i', '/^\/gmail($|\/)/i'],
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png', 'Gmail'],
-    [['/(^|\.)google.com$/i', '/^\/photos($|\/)/i'],
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Photos_icon_%282020%29.svg/1024px-Google_Photos_icon_%282020%29.svg.png', 'Google Photos']
 ];
 
 // auto-icon tag search
@@ -498,6 +488,9 @@ function actionAutoIcon($aOptions) {
     // base path for candidate icons
     $iIconTempFileBase = $aOptions->tempImageDir . '/iconsource_';
     
+    // initialize final icon list
+    $iFinalIcons = [];
+    
     
     // SET UP FOR AUTOICON WEB INTERACTION
     
@@ -505,7 +498,7 @@ function actionAutoIcon($aOptions) {
     
     
     // GET FINAL URL TO SEARCH
-
+    
     // normalize & parse URL
     $iUrl = $aOptions->url;
     if (!parse_url($iUrl, PHP_URL_SCHEME)) { $iUrl = 'http://'.$iUrl; }
@@ -514,7 +507,7 @@ function actionAutoIcon($aOptions) {
     // apply transforms for sites with hard-to-get icons
     $iMatchFound = false;
     foreach (AUTOICON_URL_TRANSFORMS as $curTransform) {
-        foreach ($curTransform[0] as $curRule) {
+        foreach ($curTransform[1] as $curRule) {
             
             // get current regexes to match against URL
             $curHostMatch = $curRule[0]; if (!$curHostMatch) { $curHostMatch = '/.*/'; }
@@ -522,7 +515,7 @@ function actionAutoIcon($aOptions) {
             
             // try to match URL
             if (preg_match($curHostMatch, $iUrlParts['host']) &&
-            preg_match($curPathMatch, $iUrlParts['path'])) {
+                preg_match($curPathMatch, $iUrlParts['path'])) {
                 $iMatchFound = true;
                 break;
             }
@@ -530,40 +523,20 @@ function actionAutoIcon($aOptions) {
         
         if ($iMatchFound) {
             
+            // try to download any static icon
+            if ($curTransform[3]) {
+                $iDownloadResult = downloadAutoIcon($curTransform[3], $iIconTempFileBase);
+                if ($iDownloadResult) {
+                    $iFinalIcons = [$iDownloadResult];
+                }
+            }
+            
             // transform URL according to this rule
-            $iUrl = $curTransform[1];
+            $iUrl = $curTransform[2];
             $iUrlParts = parse_url($iUrl);
+            
+            // and we're done
             break;
-        }
-    }
-    
-    
-    // TRY TO LOAD ANY STATIC ICONS
-    
-    // try to match URL to a static icon rule
-    $iMatchFound = false;
-    foreach (AUTOICON_STATIC_ICONS as $curStaticIcon) {
-        
-        // get current regexes to match against URL
-        $curHostMatch = $curStaticIcon[0][0]; if (!$curHostMatch) { $curHostMatch = '/.*/'; }
-        $curPathMatch = $curStaticIcon[0][1]; if (!$curPathMatch) { $curPathMatch = '/.*/'; }
-        
-        // try to match URL
-        if (preg_match($curHostMatch, $iUrlParts['host']) &&
-        preg_match($curPathMatch, $iUrlParts['path'])) {
-            $iMatchFound = true;
-            break;
-        }
-    }
-    
-    // if a static icon was found, try to download it
-    $iFinalIcons = [];
-    if ($iMatchFound) {
-        
-        // try to download this static icon
-        $iDownloadResult = downloadAutoIcon($curStaticIcon[1], $iIconTempFileBase);
-        if ($iDownloadResult) {
-            $iFinalIcons = [$iDownloadResult];
         }
     }
     
@@ -706,16 +679,19 @@ function actionTestStaticAutoIcons() {
     $iResult = [];
     
     // try downloading each static auto-icon
-    foreach (AUTOICON_STATIC_ICONS as $curStaticIcon) {
-        $iIconData = file_get_contents($curStaticIcon[1]);
-        if (!$iIconData) {
-            $iResult[] = $curStaticIcon[2];
+    foreach (AUTOICON_URL_TRANSFORMS as $curTransform) {
+        if ($curTransform[3]) {
+            $iIconData = file_get_contents($curTransform[3]);
+            if (!$iIconData) {
+                $iResult[] = $curTransform[0];
+            }
         }
     }
     
     // report any errors
     if (count($iResult) > 0) {
-        throw new EpiException('STATICAUTOICONS|' . implode('|', $iResult));
+        fwrite(STDERR, 'STATICAUTOICONS|' . implode('|', $iResult));
+        exit(1);
     }
 }
 

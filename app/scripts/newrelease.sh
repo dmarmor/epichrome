@@ -131,6 +131,48 @@ function check_repository {
 }
 
 
+# CHECK_STATIC_AUTOICONS: check that all static auto-icons download properly
+function check_static_autoicons {
+    
+    # notify user
+    echo '## Checking static auto-icons...' 1>&2
+    
+    # check all static auto-icons
+    local iAutoIconErr=
+    local iErrPrompt=
+    try 'iAutoIconErr=(|)&' /usr/bin/php "$epipath/src/makeicon.php" '[ { "action": "testautoicon" } ]' ''
+    if [[ ! "$ok" ]] ; then
+        if [[ "${iAutoIconErr[0]}" = 'STATICAUTOICONS' ]] ; then
+            echo 'The following static auto-icons failed to download:' 1>&2
+            local curIcon
+            for curIcon in "${iAutoIconErr[@]:1}" ; do
+                echo "  * $curIcon"
+            done
+        else
+            if [[ "${iAutoIconErr[0]}" = 'PHPERR' ]] ; then
+                echo "${iAutoIconErr[*]:1}" 1>&2
+            else
+                echo "${iAutoIconErr[*]}" 1>&2
+            fi
+            iErrPrompt='Unable to check static auto-icons. '
+        fi
+        
+        # ask user to continue
+        ok=1 ; errmsg=
+        if ! prompt "${iErrPrompt}Would you like to continue this release?" ; then
+            if [[ ! "$ok" ]] ; then
+                ok= ; errmsg='Unable to ask whether to continue after static auto-icon error.' ; errlog ; return 1
+            else
+                # user elected not to continue
+                ok= ; errmsg='Process canceled.' ; errlog ; return 1
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
+
 # UPDATE_BRAVE: get latest Brave version
 braveVersion=
 oldBraveVersion=
@@ -687,6 +729,7 @@ function prompt {
 # run doc updates
 read_version
 check_repository
+check_static_autoicons
 update_brave
 update_version
 update_welcome
