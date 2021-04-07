@@ -42,15 +42,6 @@ const AUTOICON_IMAGE_TIMEOUT = 3;
 const AUTOICON_URL_TRANSFORMS = [
     [
         [
-            ['/(^|\.)gmail\.com$/i'],
-            ['/(^|\.)g?mail\.google\.com$/i'],
-            ['/(^|\.)google.com$/i', '#^/g?mail($|/)#i'],
-            
-        ],
-        'https://www.google.com/gmail/about/#'
-    ],
-    [
-        [
             ['/(^|\.)calendar\.google\.com$/i'],
             ['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
             
@@ -62,13 +53,38 @@ const AUTOICON_URL_TRANSFORMS = [
             ['/(^|\.)drive\.google\.com$/i']
         ],
         'https://www.google.com/drive/'
+    ],
+    [
+        [
+            ['/(^|\.)gmail\.com$/i'],
+            ['/(^|\.)g?mail\.google\.com$/i'],
+            ['/(^|\.)google.com$/i', '#^/g?mail($|/)#i'],
+            
+        ],
+        'https://www.google.com/gmail/about/#'
+    ],
+    [
+        [
+            ['/(^|\.)photos\.google\.com$/i'],
+            ['/(^|\.)google.com$/i', '/^\/photos($|\/)/i'],
+            
+        ],
+        'https://www.google.com/photos/about/'
     ]
 ];
+
+https://www.google.com/photos/about/
 
 // static best-known icons for certain sites
 CONST AUTOICON_STATIC_ICONS = [
     [['/(^|\.)google.com$/i', '/^\/calendar($|\/)/i'],
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/1024px-Google_Calendar_icon_%282020%29.svg.png']
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Google_Calendar_icon_%282020%29.svg/1024px-Google_Calendar_icon_%282020%29.svg.png', 'Google Calendar'],
+    [['/(^|\.)google.com$/i', '/^\/drive($|\/)/i'],
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/1147px-Google_Drive_icon_%282020%29.svg.png', 'Google Drive'],
+    [['/(^|\.)google.com$/i', '/^\/gmail($|\/)/i'],
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1280px-Gmail_icon_%282020%29.svg.png', 'Gmail'],
+    [['/(^|\.)google.com$/i', '/^\/photos($|\/)/i'],
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Photos_icon_%282020%29.svg/1024px-Google_Photos_icon_%282020%29.svg.png', 'Google Photos']
 ];
 
 // auto-icon tag search
@@ -144,6 +160,13 @@ function runActions($aAction, $aInput = null) {
             
             // we immediately exit after this
             actionAutoIcon($curAction->options);
+            
+        } elseif ($curAction->action == 'testautoicon') {
+            
+            // ACTION: FIND AUTO-ICON
+            
+            // we immediately exit after this
+            actionTestStaticAutoIcons();
             
         } else {
             
@@ -478,20 +501,7 @@ function actionAutoIcon($aOptions) {
     
     // SET UP FOR AUTOICON WEB INTERACTION
     
-    // set user agent
-    ini_set('user_agent', AUTOICON_USER_AGENT);
-    
-    // set timeout (https://stackoverflow.com/questions/21497561/domdocumentload-timeout)
-    libxml_set_streams_context(stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'timeout' => strval(AUTOICON_IMAGE_TIMEOUT)
-        ]
-    ]));
-    ini_set('default_socket_timeout', AUTOICON_IMAGE_TIMEOUT);  // overriding timeout
-    
-    // turn off the many warnings emitted when reading HTML
-    error_reporting(error_reporting() & ~E_WARNING);
+    setupAutoIconSettings();
     
     
     // GET FINAL URL TO SEARCH
@@ -687,51 +697,30 @@ function actionAutoIcon($aOptions) {
 }
 
 
-// --- UTILITY FUNCTIONS ---
-
-// DOWNLOADAUTOICON -- download & check a potential autoicon
-function downloadAutoIcon($aURL, $aIconTempFileBase) {
+// ACTIONTESTSTATICAUTOICONS -- try downloading all static auto-icons and list any that fail to download
+function actionTestStaticAutoIcons() {
     
-    // get file extension, if any
-    $iExt = end(explode('.', explode('?', $aURL)[0]));
-    if ($iExt) { $iExt = '.' . $iExt; }
+    // set up for auto-icon downloading
+    setupAutoIconSettings();
     
-    // create unique output file name
-    do {
-        $iOutPath = $aIconTempFileBase . sprintf('%03d', rand(0,999)) . $iExt;
-    } while (file_exists($iOutPath));
-            
-    // download icon
-    $iIconData = file_get_contents($aURL);
+    $iResult = [];
     
-    if ($iIconData) {
-        
-        if (file_put_contents($iOutPath, $iIconData)) {
-            
-            // run sips on downloaded file
-            exec("/usr/bin/sips --getProperty format --getProperty pixelWidth ".escapeshellarg($iOutPath),
-                    $iSipsOutput, $iResult);
-            
-            if ($iResult == 0) {
-                
-                // collapse output into a single string
-                $iSipsOutput = implode(" ", $iSipsOutput);
-                
-                // parse out image format & pixelWidth
-                if (preg_match('/format: ([^ ]+).*pixelWidth: ([0-9]+)/i',
-                        $iSipsOutput, $iSipsMatch, PREG_OFFSET_CAPTURE) &&
-                    (intval($iSipsMatch[2][0]) >= AUTOICON_SIZE_MIN)) {
-                    
-                    // good image above minimum size, so add to list
-                    return [intval($iSipsMatch[2][0]), $iSipsMatch[1][0], $iOutPath];
-                }
-            }
+    // try downloading each static auto-icon
+    foreach (AUTOICON_STATIC_ICONS as $curStaticIcon) {
+        $iIconData = file_get_contents($curStaticIcon[1]);
+        if (!$iIconData) {
+            $iResult[] = $curStaticIcon[2];
         }
     }
     
-    return null;
+    // report any errors
+    if (count($iResult) > 0) {
+        throw new EpiException('STATICAUTOICONS|' . implode('|', $iResult));
+    }
 }
 
+
+// --- UTILITY FUNCTIONS ---
 
 // COMPOSITEIMAGE -- resize an image to arbitrary dimensions & composite over another
 function compositeImage($aTopInput, $aCanvasInput, $aCanvasSize, $aClipToCanvas,
@@ -916,6 +905,26 @@ function newInput($aImage = null, $aPath = null, $aOrigPath = null) {
 }
 
 
+// SETUPAUTOICONSETTINGS -- set up PHP settings and timeouts for downloading auto-icons
+function setupAutoIconSettings() {
+
+    // set user agent
+    ini_set('user_agent', AUTOICON_USER_AGENT);
+    
+    // set timeout (https://stackoverflow.com/questions/21497561/domdocumentload-timeout)
+    libxml_set_streams_context(stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => strval(AUTOICON_IMAGE_TIMEOUT)
+        ]
+    ]));
+    ini_set('default_socket_timeout', AUTOICON_IMAGE_TIMEOUT);  // overriding timeout
+    
+    // turn off the many warnings emitted when reading HTML
+    error_reporting(error_reporting() & ~E_WARNING);
+}
+
+
 // ABSOLUTEURLPATH -- convert an URL and possibly-relative path to an absolute URL
 function absoluteUrlPath($aUrlParts, $aPath)
 {
@@ -952,6 +961,7 @@ function absoluteUrlPath($aUrlParts, $aPath)
 }
 
 
+// LOADURL -- load a URL while keeping track of redirects
 function loadUrl($aUrl) {
     
     // initialize cURL
@@ -978,6 +988,50 @@ function loadUrl($aUrl) {
     curl_close($iCurl);
     
     return $iResult;
+}
+
+
+// DOWNLOADAUTOICON -- download & check a potential autoicon
+function downloadAutoIcon($aURL, $aIconTempFileBase) {
+    
+    // get file extension, if any
+    $iExt = end(explode('.', explode('?', $aURL)[0]));
+    if ($iExt) { $iExt = '.' . $iExt; }
+    
+    // create unique output file name
+    do {
+        $iOutPath = $aIconTempFileBase . sprintf('%03d', rand(0,999)) . $iExt;
+    } while (file_exists($iOutPath));
+            
+    // download icon
+    $iIconData = file_get_contents($aURL);
+    
+    if ($iIconData) {
+        
+        if (file_put_contents($iOutPath, $iIconData)) {
+            
+            // run sips on downloaded file
+            exec("/usr/bin/sips --getProperty format --getProperty pixelWidth ".escapeshellarg($iOutPath),
+                    $iSipsOutput, $iResult);
+            
+            if ($iResult == 0) {
+                
+                // collapse output into a single string
+                $iSipsOutput = implode(" ", $iSipsOutput);
+                
+                // parse out image format & pixelWidth
+                if (preg_match('/format: ([^ ]+).*pixelWidth: ([0-9]+)/i',
+                        $iSipsOutput, $iSipsMatch, PREG_OFFSET_CAPTURE) &&
+                    (intval($iSipsMatch[2][0]) >= AUTOICON_SIZE_MIN)) {
+                    
+                    // good image above minimum size, so add to list
+                    return [intval($iSipsMatch[2][0]), $iSipsMatch[1][0], $iOutPath];
+                }
+            }
+        }
+    }
+    
+    return null;
 }
 
 
