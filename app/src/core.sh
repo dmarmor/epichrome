@@ -1668,42 +1668,33 @@ function trimsaves {
     local aMaxFiles="$1" ; shift
     local aFileExt="$1" ; shift
     local aFileDesc="$1" ; shift ; [[ "$aFileDesc" ]] || aFileDesc='files'
-    local aTrimVar="$1" ; shift
+    local aTrimVar="$1" ; shift ; [[ "$aTrimVar" ]] && eval "$aTrimVar=()"
     
     # break pattern up
     
-    
     # get all files in directory
-    local myShoptState=
-    shoptset myShoptState nullglob
-    local oldFiles=( "$aSaveDir"/*"$aFileExt" )
-    shoptrestore myShoptState
+    local iShoptState=
+    shoptset iShoptState nullglob
+    local iOldFiles=( "$aSaveDir"/*"$aFileExt" )
+    shoptrestore iShoptState
     
-    # if we got any files, sort them oldest-to-newest
-    if [[ "${#oldFiles[@]}" -gt 0 ]] ; then
-        try '!2' 'oldFiles=(n)' /bin/ls -tUr "$aSaveDir"/*"$aFileExt" ''
-        ok=1 ; errmsg=
-    fi
+    # if we're below the limit, we're done
+    [[ "${#iOldFiles[@]}" -le "$aMaxFiles" ]] && return 0
     
-    # if more than the max number of files exist, delete the oldest ones
-    if [[ "${#oldFiles[@]}" -gt "$aMaxFiles" ]] ; then
-        
-        # get list of files to trim
-        local trimFiles=( "${oldFiles[@]::$((${#oldFiles[@]} - $aMaxFiles))}" )
-        
-        if [[ "$aTrimVar" ]] ; then
-            
-            # save list into aTrimVar
-            eval "$aTrimVar=( \"\${trimFiles[@]}\" )"
-            
-            
-        else
-            # delete the files now
-            try /bin/rm -f "${oldFiles[@]::$((${#oldFiles[@]} - $aMaxFiles))}" \
-                    "Unable to remove old $aFileDesc."
-        fi
-    elif [[ "$aTrimVar" ]] ; then
-        eval "$aTrimVar=()"
+    # sort files oldest-to-newest
+    try '!2' 'iOldFiles=(n)' /bin/ls -tUr "$aSaveDir"/*"$aFileExt" \
+            "Unable to get list of $aFileDesc for trimming."
+    [[ "$ok" ]] || return 1
+    
+    # get list of oldest files to trim
+    local iTrimFiles=( "${iOldFiles[@]::$((${#iOldFiles[@]} - $aMaxFiles))}" )
+    
+    if [[ "$aTrimVar" ]] ; then
+        # save list into aTrimVar
+        eval "$aTrimVar=( \"\${iTrimFiles[@]}\" )"
+    else
+        # delete the files now
+        try /bin/rm -f "${iTrimFiles[@]}" "Unable to remove old $aFileDesc."
     fi
     
     # return code
