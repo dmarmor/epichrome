@@ -110,10 +110,20 @@ function cleanup {
 
 # --- MAIN BODY ---
 
-# if we're doing a backup with data, change starting message
-if [[ ( "$epiAction" != 'build' ) && "$SSBBackupData" ]] ; then
-    saveProgressAction="$progressAction"
-    progressAction="Backing up ${progressAction##* \"}"
+# if we're doing a backup with data, set up initial settings
+if [[ "$epiAction" != 'build' ]] ; then
+    
+    # if ID is changing, make sure to put backups in old directory (may be duplicative with core.sh)
+    [[ "$epiOldIdentifier" ]] && myBackupDir="$appDataPathBase/$epiOldIdentifier/$appDataBackupDir"
+    
+    # get data path for the app
+    iDataPath="$myBackupDir/.."
+    
+    # change starting progress message if we're backing up browser data
+    if [[ "$SSBBackupData" && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
+        saveProgressAction="$progressAction"
+        progressAction="Backing up ${progressAction##* \"}"
+    fi
 fi
 
 progress 'stepStart'
@@ -157,9 +167,6 @@ if [[ "$epiAction" != 'build' ]] ; then
         myAction='edit-update'
         myActionText='edit & update'
     fi
-    
-    # if ID is changing, make sure to put backups in old directory (may be duplicative with core.sh)
-    [[ "$epiOldIdentifier" ]] && myBackupDir="$appDataPathBase/$epiOldIdentifier/$appDataBackupDir"
     
     # make sure backup directory exists
     if [[ -d "$myBackupDir" ]] ; then
@@ -226,19 +233,17 @@ if [[ "$epiAction" != 'build' ]] ; then
     progress 'step02'
     
     # back up data if set to
-    if [[ "$SSBBackupData" ]] ; then
+    if [[ "$SSBBackupData" && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
         
-        iDataPath="$myBackupDir/.."
-        if [[ -d "$iDataPath/$appDataProfileDir" ]] ; then
-            try /usr/bin/tar czf "$updateBackupDataFile" --cd "$iDataPath" "$appDataProfileDir" \
-                    "Unable to back up app browser data prior to $myActionText."
-                
-            # ignore any errors
-            if [[ "$ok" ]] ; then
-                debuglog "Created backup of app browser data at \"$updateBackupDataFile\""
-            else
-                ok=1 ; errmsg=
-            fi
+        # $$$ I AM HERE -- ADD PROGRESS
+        try /usr/bin/tar czf "$updateBackupDataFile" --cd "$iDataPath" "$appDataProfileDir" \
+        "Unable to back up app browser data prior to $myActionText."
+        
+        # ignore any errors
+        if [[ "$ok" ]] ; then
+            debuglog "Created backup of app browser data at \"$updateBackupDataFile\""
+        else
+            ok=1 ; errmsg=
         fi
         
         # put back original progress message
