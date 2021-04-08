@@ -74,7 +74,8 @@ updateEpichromeRuntime="$updateEpichromeResources/Runtime"
 # WORKING PATHS FOR CLEANUP
 
 updateContentsTmp=
-updateBackupFile=
+updateBackupAppFile=
+updateBackupDataFile=
 
 
 # FUNCTION DEFINITIONS
@@ -82,26 +83,38 @@ updateBackupFile=
 # CLEANUP: clean up any incomplete update prior to exit
 function cleanup {
     
-    local cleaned=1
+    local iAppIsClean=1
     
     debuglog "Cleaning up..."
     
     # clean up any temporary contents folder
     if [[ "$updateContentsTmp" && -d "$updateContentsTmp" ]] ; then
         rmtemp "$updateContentsTmp" 'Contents folder'
-        [[ "$?" != 0 ]] && cleaned=
+        [[ "$?" != 0 ]] && iAppIsClean=
     fi
     updateContentsTmp=
     
-    # clean up any app backup
-    if [[ "$cleaned" && "$updateBackupFile" && -f "$updateBackupFile" ]] ; then
-        tryalways /bin/rm -f "$updateBackupFile" 'Unable to remove app backup.'
+    # clean up any app backup, unless we failed to restore the app
+    if [[ "$iAppIsClean" && "$updateBackupAppFile" && -f "$updateBackupAppFile" ]] ; then
+        tryalways /bin/rm -f "$updateBackupAppFile" 'Unable to remove app backup.'
     fi
-    updateBackupFile=
+    updateBackupAppFile=
+
+    # clean up any data backup
+    if [[ "$updateBackupDataFile" && -f "$updateBackupDataFile" ]] ; then
+        tryalways /bin/rm -f "$updateBackupDataFile" 'Unable to remove app browser data backup.'
+    fi
+    updateBackupDataFile=
 }
 
 
 # --- MAIN BODY ---
+
+# if we're doing a backup with data, change starting message
+if [[ ( "$epiAction" != 'build' ) && "$SSBBackupData" ]] ; then
+    saveProgressAction="$progressAction"
+    progressAction="Backing up ${progressAction##* \"}"
+fi
 
 progress 'stepStart'
 
@@ -132,7 +145,8 @@ myAppBundleID="$appIDBase.$SSBIdentifier"
 
 # BACK UP APP
 
-myBackupTrimList=()
+myBackupAppTrimList=()
+myBackupDataTrimList=()
 if [[ "$epiAction" != 'build' ]] ; then
     
     # set up action postfix
@@ -144,7 +158,7 @@ if [[ "$epiAction" != 'build' ]] ; then
         myActionText='edit & update'
     fi
     
-    # if ID is changing, put backups in old directory
+    # if ID is changing, make sure to put backups in old directory (may be duplicative with core.sh)
     [[ "$epiOldIdentifier" ]] && myBackupDir="$appDataPathBase/$epiOldIdentifier/$appDataBackupDir"
     
     # make sure backup directory exists
@@ -165,11 +179,18 @@ if [[ "$epiAction" != 'build' ]] ; then
                             'Unable to rename old backups. These may have to be deleted manually.'
                 fi
             done
-            ok=1 ; errmsg
+            ok=1 ; errmsg=
         fi
         
-        # trim backup directory to make room for new backup
-        trimsaves "$myBackupDir" "$backupPreserve" '.app.tgz' 'app backups' myBackupTrimList
+        # trim backup directory to make room for new app backup
+        trimsaves "$myBackupDir" "$backupPreserve" \
+                '.app.tgz' 'app backups' myBackupAppTrimList
+        
+        # trim backup directory to make room for new data backup if set to
+        if [[ "$SSBBackupData" ]] ; then
+            trimsaves "$myBackupDir" "$backupPreserve" \
+                    '.data.tgz' 'app browser data backups' myBackupDataTrimList
+        fi
     else
         
         # create directory
@@ -181,22 +202,49 @@ if [[ "$epiAction" != 'build' ]] ; then
     myBackupTimestamp="${myRunTimestamp#_}"
     [[ "$myBackupTimestamp" ]] && myBackupTimestamp+='-'
     
-    # set up path to backup file
-    updateBackupFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction.app.tgz"
+    # set up path to stem of both backup files
+    updateBackupAppFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction"
+    
+    # set up path to data backup file
+    [[ "$SSBBackupData" ]] && \
+        updateBackupDataFile="$updateBackupAppFile.data.tgz"
+    
+    # finish app backup filename
+    updateBackupAppFile+='.app.tgz'
     
     # back up app
-    try /usr/bin/tar czf "$updateBackupFile" --cd "$updateAppPath/.." "${updateAppPath##*/}" \
+    try /usr/bin/tar czf "$updateBackupAppFile" --cd "$updateAppPath/.." "${updateAppPath##*/}" \
             "Unable to back up app prior to $myActionText."
     
     # ignore any errors
     if [[ "$ok" ]] ; then
-        debuglog "Created backup of app at \"$updateBackupFile\""
+        debuglog "Created backup of app at \"$updateBackupAppFile\""
     else
         ok=1 ; errmsg=
     fi
+    
+    progress 'step02'
+    
+    # back up data if set to
+    if [[ "$SSBBackupData" ]] ; then
+        
+        iDataPath="$myBackupDir/.."
+        if [[ -d "$iDataPath/$appDataProfileDir" ]] ; then
+            try /usr/bin/tar czf "$updateBackupDataFile" --cd "$iDataPath" "$appDataProfileDir" \
+                    "Unable to back up app browser data prior to $myActionText."
+                
+            # ignore any errors
+            if [[ "$ok" ]] ; then
+                debuglog "Created backup of app browser data at \"$updateBackupDataFile\""
+            else
+                ok=1 ; errmsg=
+            fi
+        fi
+        
+        # put back original progress message
+        progressAction="$saveProgressAction"
+    fi
 fi
-
-progress 'step02'
 
 
 # SET APP VERSION
@@ -499,18 +547,22 @@ fi
 
 if [[ "$ok" ]] ; then
 
-    # no matter what happens now, we'll keep the backup, so trim old backups, ignoring errors
-    backupContentsTmp=
-    if [[ "${myBackupTrimList[*]}" ]] ; then
-        try /bin/rm -f "${myBackupTrimList[@]}" 'Unable to remove old app backups.'
+    # no matter what happens now, we'll keep backup(s), so trim old backups, ignoring errors
+    updateBackupAppFile=
+    if [[ "${myBackupAppTrimList[*]}" ]] ; then
+        try /bin/rm -f "${myBackupAppTrimList[@]}" 'Unable to remove old app backups.'
+        ok=1 ; errmsg=
+    fi
+    updateBackupDataFile=
+    if [[ "${myBackupDataTrimList[*]}" ]] ; then
+        try /bin/rm -f "${myBackupDataTrimList[@]}" 'Unable to remove old app browser data backups.'
         ok=1 ; errmsg=
     fi
     
     # make the contents permanent
     permanent "$updateContentsTmp" "$updateAppPath/Contents" 'app bundle Contents directory'
-    updateBackupFile=
-    updateContentsTmp=
     [[ "$ok" ]] || abortreport
+    updateContentsTmp=
 else
     abortreport
 fi
