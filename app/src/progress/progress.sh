@@ -120,7 +120,7 @@ function progress {
     ok=1 ; errmsg=
     iCurTime="${iCurTime/./}"
     
-    # decide whether to show this message (if forced, if status changes, or every 1/4 sec)
+    # decide whether to show this message (if forced, if status changes, or every .15 sec)
     if [[ "$iForce" || ( "$iStatus" != "$progressPrevStatus" ) || \
             ( $(( $iCurTime - $progressPrevTime )) -ge 15 ) ]] ; then
         echo "$iDetail$progressAction$iPercent$iStatus"

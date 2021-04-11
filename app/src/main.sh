@@ -471,7 +471,7 @@ elif [[ ( "${SSBEngineType%%|*}" != internal ) && \
     # new version of external engine
     doCreateEngine=1
     debuglog "Updating external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
-    createEngineAction1='Updating engine' ; createEngineAction2="to ${SSBEngineSourceInfo[$iDisplayName]} version ${SSBEngineSourceInfo[$iVersion]}."
+    createEngineAction1='Updating engine' ; createEngineAction2="to ${SSBEngineSourceInfo[$iDisplayName]} ${SSBEngineSourceInfo[$iVersion]}."
     createEngineErrMsg="Unable to update external ${SSBEngineSourceInfo[$iDisplayName]} engine to version ${SSBEngineSourceInfo[$iVersion]}."
 
 elif ! checkenginepayload ; then

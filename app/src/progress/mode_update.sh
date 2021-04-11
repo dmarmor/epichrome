@@ -25,29 +25,34 @@
 
 # step calibration
 stepStart=0
-step01=500
-step02=224
-step03=604
-step04=738
-step05=936
-step06=1179
-step07=1732
+step01=250
+step02=2200
+step03=700
+step04=570
+step05=730
+step06=500
+step07=800
 stepIconA1=850
 stepIconA2=20000
 stepIconA3=1164
-stepIconB1=783
-stepIconB2=930
+stepIconB1=840
+stepIconB2=820
 stepIconB3=1230
-stepIconB4=269
-stepIconB5=782
-stepIconB6=221
-step08=1100
-step09=750
-step10=450
+stepIconB4=310
+stepIconB5=740
+stepIconB6=250
+step08=690
+step09=610
+step10=510
 stepIEng1=835
 stepIEng2=863
 stepIEng3=860
 stepIEng4=15000
+
+# data backup step calibration
+dbTimePerStep=2500 # 1 second == 10000
+dbItemsPerStep=60  # based on calibrated avg of .004166 ticks / item
+dbStepName='stepDB'
 
 # set up progress total based on what we're doing in this update
 progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 + $step06 + $step07 + $step08 + $step09 + $step10 ))
@@ -108,9 +113,52 @@ function cleanup {
 }
 
 
+# DATABACKUPPROGRESS: display progress updates during data backup
+#   databackupprogress(aStepStem aNumSteps aNumLines)
+function databackupprogress {
+    
+    [[ "$ok" ]] || return 1
+    
+    # arguments
+    local aStepStem="$1" ; shift
+    local aNumSteps="$1" ; shift
+    local aNumLines="$1" ; shift ; aNumLines=$(( $aNumLines * 1000 ))
+    
+    # calculate
+    
+    # loop through lines, sending progress at proper intervals
+    local curLine=0
+    local curStep=1
+    local nextStepLine=$(( $aNumLines / $aNumSteps ))
+    local iIgnore
+    while read iIgnore ; do
+        if [[ ( $curLine -ge $nextStepLine ) && ( $curStep -le $aNumSteps ) ]] ; then
+            progress "$aStepStem$curStep"
+            curStep=$(( $curStep + 1 ))
+            nextStepLine=$(( ( $aNumLines * $curStep ) / $aNumSteps ))
+        fi
+        curLine=$(( $curLine + 1000 ))
+    done
+    
+    # emit any remaining steps
+    while [[ $curStep -le $aNumSteps ]] ; do
+        progress "$aStepStem$curStep"
+        curStep=$(( $curStep + 1 ))
+    done
+    
+    # if calibrating, write out calibration time
+    if [[ "$progressDoCalibrate" ]] ; then
+        try "$stdoutTempFile<" echo "$progressCalibrateEndTime" \
+                'Unable to write out progress calibration time.'
+        ok=1 ; errmsg=
+    fi
+}
+
+
 # --- MAIN BODY ---
 
-# if we're doing a backup with data, set up initial settings
+# set up initial settings for backup
+doDataBackup=
 if [[ "$epiAction" != 'build' ]] ; then
     
     # if ID is changing, make sure to put backups in old directory (may be duplicative with core.sh)
@@ -119,14 +167,46 @@ if [[ "$epiAction" != 'build' ]] ; then
     # get data path for the app
     iDataPath="$myBackupDir/.."
     
-    # change starting progress message if we're backing up browser data
+    # set up for a separate backup progress message if we're backing up browser data
     if [[ "$SSBBackupData" && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
-        saveProgressAction="$progressAction"
-        progressAction="Backing up ${progressAction##* \"}"
+        
+        doDataBackup=1
+        
+        # set backup progress action
+        dbSaveProgressAction="$progressAction"
+        progressAction="Backing up \"${progressAction##* \"}"
+        
+        # pre-start progress bar to set message
+        progress 'stepStart'
+        
+        # get number of files/directories in UserData
+        try 'dbNumItems=(n)' /usr/bin/find "$iDataPath/$appDataProfileDir" \
+                'Unable to list contents of UserData.'
+        if [[ "$ok" ]] ; then
+            dbNumItems="${#dbNumItems[@]}"
+        else
+            dbNumItems=2000  # fallback: average number of files/directories in UserData
+            ok=1 ; errmsg=
+        fi
+        
+        # determine number of steps
+        dbNumSteps=$(( ( ( ( $dbNumItems * 10 ) / $dbItemsPerStep ) + 5 ) / 10 ))
+        [[ "$dbNumSteps" -gt 1 ]] || dbNumSteps=2
+        
+        # set backup step variable values
+        for (( i = 1; $i <= $dbNumSteps; i++)) ; do
+            eval "$dbStepName$i=$dbTimePerStep"
+        done
+        # save progress total for update steps
+        dbSaveProgressTotal=$(( $progressTotal - ( $step01 + $step02 ) ))
+        
+        # set progress total for backup steps only
+        progressTotal=$(( $stepStart + $step01 + $step02 + ( $dbNumSteps * $dbTimePerStep ) ))
     fi
 fi
 
-progress 'stepStart'
+[[ "$doDataBackup" ]] || progress 'stepStart'
+
 
 # check for app path
 if [[ ! "$updateAppPath" ]] ; then
@@ -233,11 +313,34 @@ if [[ "$epiAction" != 'build' ]] ; then
     progress 'step02'
     
     # back up data if set to
-    if [[ "$SSBBackupData" && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
+    if [[ "$doDataBackup" ]] ; then
         
-        # $$$ I AM HERE -- ADD PROGRESS
-        try /usr/bin/tar czf "$updateBackupDataFile" --cd "$iDataPath" "$appDataProfileDir" \
-        "Unable to back up app browser data prior to $myActionText."
+        # run data backup and pipe to progress counter
+        try '-2' /usr/bin/tar czvf "$updateBackupDataFile" --cd "$iDataPath" "$appDataProfileDir" \
+                "Unable to back up app browser data prior to $myActionText." 2>&1 | \
+            databackupprogress "$dbStepName" "$dbNumSteps" "$dbNumItems"
+        
+        if [[ "$progressDoCalibrate" ]] ; then
+            
+            # calibrating, so set calibration variables (lost because of pipe)
+            
+            # set calibration time
+            try 'progressCalibrateEndTime=' /bin/cat "$stdoutTempFile" \
+                    'Unable to read in progress calibration time.'
+            ok=1 ; errmsg=
+            
+            # set progress ID variables
+            progressLastId="$dbStepName$dbNumSteps"
+            for ((i = 1 ; i <= $dbNumSteps ; i++)) ; do
+                progressIdList+=( "$dbStepName$i" )
+            done
+        else
+            # revert to update progress & reset progress bar
+            progressAction="$dbSaveProgressAction"
+            progressTotal="$dbSaveProgressTotal"
+            progressCumulative=0
+            progress '!stepStart'
+        fi
         
         # ignore any errors
         if [[ "$ok" ]] ; then
@@ -246,8 +349,6 @@ if [[ "$epiAction" != 'build' ]] ; then
             ok=1 ; errmsg=
         fi
         
-        # put back original progress message
-        progressAction="$saveProgressAction"
     fi
 fi
 
