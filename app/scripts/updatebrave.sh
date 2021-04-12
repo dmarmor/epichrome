@@ -15,6 +15,15 @@ elif [[ "$mypath" ]] ; then
 fi
 epipath="$mypath/.."
 
+# ARGUMENTS
+
+# only check for new version, don't try to download
+checkOnly=
+if [[ "$1" = '--checkonly' ]] ; then
+    checkOnly=1
+    shift
+fi
+
 # path to engines directory
 [[ "$1" ]] && enginepath="$1" || enginepath="$epipath/Engines"
 
@@ -40,6 +49,12 @@ else
 fi
 
 if [[ "$curVersion" != "$latestVersion" ]] ; then
+    
+    # if we're in check-only mode, we're done
+    if [[ "$checkOnly" ]] ; then
+        echo "New Brave $latestVersion found (current Brave engine is $curVersion)."
+        cleanexit 1
+    fi
     
     # get direct link to latest version
     try '!2' 'enginelink=' /usr/bin/curl "$engineUrl" \
@@ -83,14 +98,18 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
         echo "$latestVersion"
     fi
 else
-    echo "Current Brave engine $curVersion is the latest!" 1>&2
-    
-    if [[ "$1" ]] ; then
-        # running from Makefile so spit out filename & version
-        echo "$curBrave|$curVersion"
+    if [[ "$checkOnly" ]] ; then
+        echo "Current Brave engine $curVersion is the latest!"
     else
-        # running from newrelease.sh, so just spit out current version
-        echo "$curVersion"
+        echo "Current Brave engine $curVersion is the latest!" 1>&2
+    
+        if [[ "$1" ]] ; then
+            # running from Makefile so spit out filename & version
+            echo "$curBrave|$curVersion"
+        else
+            # running from newrelease.sh, so just spit out current version
+            echo "$curVersion"
+        fi
     fi
 fi
 
