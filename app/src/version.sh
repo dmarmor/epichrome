@@ -1,7 +1,7 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.3
-epiBuildNum=4
+epiBuildNum=5
 epiMinorChangeList=( \
         'Improved auto icon downloading to be compatible with more sites' \
         'Added advanced setting to allow app browser data to be backed up on update or edit' \

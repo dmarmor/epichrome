@@ -41,7 +41,7 @@ function runprogress {
     # export basic app settings
     export SSBVersion SSBIdentifier CFBundleDisplayName CFBundleName \
             SSBRegisterBrowser SSBCustomIcon SSBEngineType \
-            SSBUpdateAction SSBEdited
+            SSBUpdateAction SSBBackupData SSBEdited
     
     # run progress app in background and wait for it to quit (to suppress any signal termination messages)
     "$aProgressAppPath/EpichromeProgress.app/Contents/MacOS/EpichromeProgress" >& /dev/null &

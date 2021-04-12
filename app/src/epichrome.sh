@@ -503,6 +503,13 @@ elif [[ "$epiAction" = 'read' ]] ; then
         SSBUpdateAction='prompt'
     fi
     
+    # adapt data-backup value
+    if [[ "$SSBBackupData" = 'Yes' ]] ; then
+        SSBBackupData='true'
+    else
+        SSBBackupData='false'
+    fi
+    
     # export JSON
     echo "{$myAppIcon
    \"version\": \"$(escapejson "$SSBVersion")\",
@@ -516,6 +523,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
       \"id\": \"$(escapejson "${SSBEngineType#*|}")\"
    },
    \"updateAction\": \"$(escapejson "$SSBUpdateAction")\",
+   \"doDataBackup\": $SSBBackupData,
    \"commandLine\": [
       "$(jsonarray $',\n      ' "${SSBCommandLine[@]}")"
    ]

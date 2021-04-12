@@ -168,7 +168,7 @@ if [[ "$epiAction" != 'build' ]] ; then
     iDataPath="$myBackupDir/.."
     
     # set up for a separate backup progress message if we're backing up browser data
-    if [[ "$SSBBackupData" && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
+    if [[ ( "$SSBBackupData" = 'Yes' ) && ( -d "$iDataPath/$appDataProfileDir" ) ]] ; then
         
         doDataBackup=1
         
@@ -274,7 +274,7 @@ if [[ "$epiAction" != 'build' ]] ; then
                 '.app.tgz' 'app backups' myBackupAppTrimList
         
         # trim backup directory to make room for new data backup if set to
-        if [[ "$SSBBackupData" ]] ; then
+        if [[ "$doDataBackup" ]] ; then
             trimsaves "$myBackupDir" "$backupPreserve" \
                     '.data.tgz' 'app browser data backups' myBackupDataTrimList
         fi
@@ -293,7 +293,7 @@ if [[ "$epiAction" != 'build' ]] ; then
     updateBackupAppFile="$myBackupDir/${myBackupTimestamp}$CFBundleDisplayName-${SSBVersion}-$myAction"
     
     # set up path to data backup file
-    [[ "$SSBBackupData" ]] && \
+    [[ "$doDataBackup" ]] && \
         updateBackupDataFile="$updateBackupAppFile.data.tgz"
     
     # finish app backup filename
@@ -434,6 +434,7 @@ filterfile "$updateEpichromeRuntime/Filter/main.sh" \
         APPENGINETYPE "$(formatscalar "$SSBEngineType")" \
         APPENGINESOURCE "$iEngineSource" \
         APPUPDATEACTION "$(formatscalar "$SSBUpdateAction")" \
+        APPBACKUPDATA "$(formatscalar "$SSBBackupData")" \
         APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
         APPEDITED "$(formatscalar "$editedTimestamp")"
 try /bin/chmod 755 "$iMainScript" 'Unable to set permissions for main app script.'

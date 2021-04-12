@@ -64,7 +64,8 @@ const kAppInfoKeys = {
     icon: 'Icon',
     engine: 'App Engine',
     id: kDotGear + ' App ID / Data Directory',
-    updateAction: kDotGear + ' Update Action'
+    updateAction: kDotGear + ' Update Action',
+    doDataBackup: kDotGear + ' Backup App Data'
 };
 
 // app defaults & settings
@@ -203,7 +204,8 @@ let gAppInfoDefault = {
     registerBrowser: false,
     icon: kIconAUTO,
     engine: kEngines[0],
-    updateAction: 'prompt'
+    updateAction: 'prompt',
+    doDataBackup: false
 };
 
 let gFirstDialogOptMsg = '\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)';
@@ -998,6 +1000,17 @@ function readProperties() {
     } else {
         gAppInfoDefault.icon = kIconAUTO;
     }
+    
+    // updateAction
+    // if ((typeof myProperties["updateAction"] === 'string') &&
+    //     kUpdateActions.hasOwnProperty(myProperties["updateAction"])) {
+    //     gAppInfoDefault.updateAction = myProperties["updateAction"];
+    // }
+    
+    // doDataBackup
+    // if (typeof myProperties["doDataBackup"] === 'boolean') {
+    //     gAppInfoDefault.doDataBackup = myProperties["doDataBackup"];
+    // }
 }
 
 
@@ -1272,6 +1285,15 @@ function writeProperties() {
         //         value: gAppInfoDefault.updateAction
         //     })
         // );
+
+        // myProperties.propertyListItems.push(
+        //     kSysEvents.PropertyListItem({
+        //         kind: "boolean",
+        //         name: "doDataBackup",
+        //         value: gAppInfoDefault.doDataBackup
+        //     })
+        // );
+        
     } catch(myErr) {
         // ignore errors, we just won't have persistent properties
         errlog('Unable to write properties: ' + myErr.message);
@@ -1767,196 +1789,6 @@ function stepShortName(aInfo) {
     if (!aInfo.appInfo.id) {
         createAppID(aInfo);
     }
-    
-    // move on
-    return 1;
-}
-
-
-// STEPID: step function for setting app ID
-function stepID(aInfo) {
-
-    // status variables
-    let myTryAgain, myErr, myDlgResult;
-    let myDlgMessage, myDlgOptions;
-
-
-    // SET UP DIALOG
-
-    // ID warnings & limits
-    const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, resulting in possible data corruption and inability to run.";
-    const myActionWarningGeneral = 'Unless you are SURE you know what you are doing, you should not continue.';
-
-    const myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
-    
-    // start building dialog message & buttons
-    myDlgMessage = ' a custom app ID (' + myIDLimits + ')';
-    myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK'] };
-    
-    // customize dialog message & buttons
-    if (aInfo.stepInfo.action == kActionCREATE) {
-        if (aInfo.stepInfo.isCustomID) {
-            myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
-        } else {
-            myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
-            myDlgOptions.defaultButton = 2;
-        }
-        myDlgMessage = 'Enter' + myDlgMessage + '.';
-    } else if (aInfo.stepInfo.action == kActionEDIT) {
-        if (aInfo.stepInfo.autoID) {
-            if (aInfo.stepInfo.isCustomID) {
-                myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
-            } else {
-                myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
-                myDlgOptions.defaultButton = 2;
-            }
-        } else {
-            myDlgOptions.buttons.push('Create Default');
-        }
-        if (aInfo.appInfoStatus.shortName.changed && (!aInfo.appInfoStatus.id.changed)) {
-            myDlgMessage = kDotWarning + " The app's short name has changed, but its ID has not.\n\nYou may enter" + myDlgMessage;
-        } else {
-            myDlgMessage = 'Enter' + myDlgMessage;
-        }
-        myDlgMessage += ', or click "' + myDlgOptions.buttons[1] + '" to let Epichrome create one.';
-    }
-
-
-    // LOOP TILL WE HAVE AN ACCEPTABLE ID
-    
-    while (true) {
-        
-        // display dialog
-        myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary, myDlgOptions);
-        
-        if (myDlgResult.buttonIndex == 0) {
-
-            // NEW CUSTOM ID CHOSEN
-
-            // error-check new ID
-            let myHasErrors = false;
-            myDlgMessage = [];
-            let myIDDefault = myDlgResult.textReturned;
-            if (myDlgResult.textReturned.length < 1) {
-                myHasErrors = true;
-                myDlgMessage.push('is empty');
-                myIDDefault = aInfo.appInfo.id;
-            } else {
-                if (kAppIDIllegalCharsRe.test(myDlgResult.textReturned)) {
-                    myHasErrors = true;
-                    myDlgMessage.push('contains illegal characters');
-                    myIDDefault = myIDDefault.replace(kAppIDIllegalCharsRe, '');
-                }
-                if (myDlgResult.textReturned.length > kAppIDMaxLength) {
-                    myHasErrors = true;
-                    myDlgMessage.unshift('is too long');
-                    myIDDefault = myIDDefault.slice(0, kAppIDMaxLength);
-                }
-            }
-
-            // build error message and try again
-            if (myHasErrors) {
-                myDlgMessage = kDotWarning + ' The entered ID ' +
-                    myDlgMessage.join(' and ') +
-                    '.\n\nPlease enter a new ID using ' + myIDLimits + '.';
-                myDlgOptions.defaultAnswer = myIDDefault;
-                continue;
-            }
-
-            // if we got here, we have a legal ID
-
-            // if we already know this ID, we're done
-            if ((myDlgResult.textReturned == aInfo.appInfo.id) ||
-                ((aInfo.stepInfo.action == kActionEDIT) &&
-                    (myDlgResult.textReturned == aInfo.oldAppInfo.id))) {
-                break;
-            }
-
-            // this is a new ID, so separately check for a unique app & data directory
-            let myAppExists = appIDAppExists(myDlgResult.textReturned);
-            let myDataDirExists = appIDDataDirExists(myDlgResult.textReturned);
-            
-            // if nothing found, we are all set
-            if ((myAppExists === false) && (myDataDirExists === false)) { break; }
-            
-            let myConfirmMessage = '';
-            let myActionWarning = myActionWarningGeneral;
-            
-            // another app found, or error checking
-            if (myAppExists === true) {
-                
-                // if an app exists with this ID, we only need this confirmation message
-                myConfirmMessage = 'THAT ID IS NOT UNIQUE. There is already an app with ID "' +
-                    myDlgResult.textReturned + '" on the system.\n\n' +
-                    myIDWarning;
-                
-            } else if (myAppExists instanceof Error) {
-                
-                // we got an error checking for an app already on the system
-                myConfirmMessage = 'THAT ID MAY NOT BE UNIQUE. There was an error checking the system for apps with the same ID. (' +
-                    myAppExists.message + ')\n\n' + myIDWarning;
-                
-                // if no data dir found, override general action warning
-                if (myDataDirExists === false) {
-                    myActionWarning = 'Unless you are SURE this ID is in fact unique, you should select another.';
-                }
-            }
-            
-            // data directory found, or error checking
-            if (myDataDirExists !== false) {
-                if (myDataDirExists === true) {
-                    
-                    myConfirmMessage += (myConfirmMessage ? '\n\nThere is also ' : 'There is ') +
-                        'already a data directory for ' +
-                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
-                        '.\n\nIf you use this ID, ';
-                    
-                } else if (myDataDirExists instanceof Error) {
-                    
-                    myConfirmMessage += (myConfirmMessage ? '\n\nThere was also ' : 'There was ') +
-                        'an error checking for a data directory for ' +
-                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
-                        '. (' + myDataDirExists.message +
-                        ')\n\nIf you use this ID and the directory already exists, ';
-                }
-                myConfirmMessage += 'the app will switch to using that directory, and will NOT migrate its existing data.';
-            }
-            
-            // finish confirm message
-            myConfirmMessage += '\n\n' + myActionWarning + '\n\nDo you want to use this ID anyway?';
-            
-            // display confirm dialog
-            if (dialog(myConfirmMessage, {
-                withTitle: 'Duplicate ID',
-                withIcon: 'caution',
-                buttons: ['Cancel', 'OK'],
-                defaultButton: 1,
-                cancelButton: 1
-            }).buttonIndex == 0) {
-                // Cancel -- try again
-                myDlgMessage = 'Enter a new app ID (' + myIDLimits + ')';
-                myDlgOptions.defaultAnswer = myDlgResult.textReturned;
-                continue;
-            } else {
-                // OK
-                break;
-            }
-        
-        } else if (myDlgResult.buttonIndex == 1) {
-            // DEFAULT ID button
-            createAppID(aInfo);
-            return 1;
-        } else {
-            // Back
-            return -1;
-        }
-        
-        // we should never get here
-        return 0;
-    }
-    
-    // if we got here, we have chosen an ID
-    updateAppInfo(aInfo, 'id', myDlgResult.textReturned);
     
     // move on
     return 1;
@@ -2982,8 +2814,198 @@ function stepEngine(aInfo) {
 }
 
 
-// STEPUPDATE: step function to set updating options
-function stepUpdate(aInfo) {
+// ADVSTEPID: step function for setting app ID
+function advStepID(aInfo) {
+
+    // status variables
+    let myTryAgain, myErr, myDlgResult;
+    let myDlgMessage, myDlgOptions;
+
+
+    // SET UP DIALOG
+
+    // ID warnings & limits
+    const myIDWarning = "It is STRONGLY recommended not to have multiple apps with the same ID. They will interfere with each other's engine and data directories, resulting in possible data corruption and inability to run.";
+    const myActionWarningGeneral = 'Unless you are SURE you know what you are doing, you should not continue.';
+
+    const myIDLimits = '12 characters or less with only unaccented letters, numbers, and the symbols - and _';
+    
+    // start building dialog message & buttons
+    myDlgMessage = ' a custom app ID (' + myIDLimits + ')';
+    myDlgOptions = { defaultAnswer: aInfo.appInfo.id, buttons: ['OK'] };
+    
+    // customize dialog message & buttons
+    if (aInfo.stepInfo.action == kActionCREATE) {
+        if (aInfo.stepInfo.isCustomID) {
+            myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
+        } else {
+            myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
+            myDlgOptions.defaultButton = 2;
+        }
+        myDlgMessage = 'Enter' + myDlgMessage + '.';
+    } else if (aInfo.stepInfo.action == kActionEDIT) {
+        if (aInfo.stepInfo.autoID) {
+            if (aInfo.stepInfo.isCustomID) {
+                myDlgOptions.buttons.push('Use Default (' + aInfo.stepInfo.autoID + ')');
+            } else {
+                myDlgOptions.buttons.push('Keep Default (' + aInfo.stepInfo.autoID + ')');
+                myDlgOptions.defaultButton = 2;
+            }
+        } else {
+            myDlgOptions.buttons.push('Create Default');
+        }
+        if (aInfo.appInfoStatus.shortName.changed && (!aInfo.appInfoStatus.id.changed)) {
+            myDlgMessage = kDotWarning + " The app's short name has changed, but its ID has not.\n\nYou may enter" + myDlgMessage;
+        } else {
+            myDlgMessage = 'Enter' + myDlgMessage;
+        }
+        myDlgMessage += ', or click "' + myDlgOptions.buttons[1] + '" to let Epichrome create one.';
+    }
+
+
+    // LOOP TILL WE HAVE AN ACCEPTABLE ID
+    
+    while (true) {
+        
+        // display dialog
+        myDlgResult = stepDialog(aInfo, myDlgMessage + aInfo.appInfoStatus.id.stepSummary, myDlgOptions);
+        
+        if (myDlgResult.buttonIndex == 0) {
+
+            // NEW CUSTOM ID CHOSEN
+
+            // error-check new ID
+            let myHasErrors = false;
+            myDlgMessage = [];
+            let myIDDefault = myDlgResult.textReturned;
+            if (myDlgResult.textReturned.length < 1) {
+                myHasErrors = true;
+                myDlgMessage.push('is empty');
+                myIDDefault = aInfo.appInfo.id;
+            } else {
+                if (kAppIDIllegalCharsRe.test(myDlgResult.textReturned)) {
+                    myHasErrors = true;
+                    myDlgMessage.push('contains illegal characters');
+                    myIDDefault = myIDDefault.replace(kAppIDIllegalCharsRe, '');
+                }
+                if (myDlgResult.textReturned.length > kAppIDMaxLength) {
+                    myHasErrors = true;
+                    myDlgMessage.unshift('is too long');
+                    myIDDefault = myIDDefault.slice(0, kAppIDMaxLength);
+                }
+            }
+
+            // build error message and try again
+            if (myHasErrors) {
+                myDlgMessage = kDotWarning + ' The entered ID ' +
+                    myDlgMessage.join(' and ') +
+                    '.\n\nPlease enter a new ID using ' + myIDLimits + '.';
+                myDlgOptions.defaultAnswer = myIDDefault;
+                continue;
+            }
+
+            // if we got here, we have a legal ID
+
+            // if we already know this ID, we're done
+            if ((myDlgResult.textReturned == aInfo.appInfo.id) ||
+                ((aInfo.stepInfo.action == kActionEDIT) &&
+                    (myDlgResult.textReturned == aInfo.oldAppInfo.id))) {
+                break;
+            }
+
+            // this is a new ID, so separately check for a unique app & data directory
+            let myAppExists = appIDAppExists(myDlgResult.textReturned);
+            let myDataDirExists = appIDDataDirExists(myDlgResult.textReturned);
+            
+            // if nothing found, we are all set
+            if ((myAppExists === false) && (myDataDirExists === false)) { break; }
+            
+            let myConfirmMessage = '';
+            let myActionWarning = myActionWarningGeneral;
+            
+            // another app found, or error checking
+            if (myAppExists === true) {
+                
+                // if an app exists with this ID, we only need this confirmation message
+                myConfirmMessage = 'THAT ID IS NOT UNIQUE. There is already an app with ID "' +
+                    myDlgResult.textReturned + '" on the system.\n\n' +
+                    myIDWarning;
+                
+            } else if (myAppExists instanceof Error) {
+                
+                // we got an error checking for an app already on the system
+                myConfirmMessage = 'THAT ID MAY NOT BE UNIQUE. There was an error checking the system for apps with the same ID. (' +
+                    myAppExists.message + ')\n\n' + myIDWarning;
+                
+                // if no data dir found, override general action warning
+                if (myDataDirExists === false) {
+                    myActionWarning = 'Unless you are SURE this ID is in fact unique, you should select another.';
+                }
+            }
+            
+            // data directory found, or error checking
+            if (myDataDirExists !== false) {
+                if (myDataDirExists === true) {
+                    
+                    myConfirmMessage += (myConfirmMessage ? '\n\nThere is also ' : 'There is ') +
+                        'already a data directory for ' +
+                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
+                        '.\n\nIf you use this ID, ';
+                    
+                } else if (myDataDirExists instanceof Error) {
+                    
+                    myConfirmMessage += (myConfirmMessage ? '\n\nThere was also ' : 'There was ') +
+                        'an error checking for a data directory for ' +
+                        (myConfirmMessage ? 'this ID' : 'ID "' + myDlgResult.textReturned + '"') +
+                        '. (' + myDataDirExists.message +
+                        ')\n\nIf you use this ID and the directory already exists, ';
+                }
+                myConfirmMessage += 'the app will switch to using that directory, and will NOT migrate its existing data.';
+            }
+            
+            // finish confirm message
+            myConfirmMessage += '\n\n' + myActionWarning + '\n\nDo you want to use this ID anyway?';
+            
+            // display confirm dialog
+            if (dialog(myConfirmMessage, {
+                withTitle: 'Duplicate ID',
+                withIcon: 'caution',
+                buttons: ['Cancel', 'OK'],
+                defaultButton: 1,
+                cancelButton: 1
+            }).buttonIndex == 0) {
+                // Cancel -- try again
+                myDlgMessage = 'Enter a new app ID (' + myIDLimits + ')';
+                myDlgOptions.defaultAnswer = myDlgResult.textReturned;
+                continue;
+            } else {
+                // OK
+                break;
+            }
+        
+        } else if (myDlgResult.buttonIndex == 1) {
+            // DEFAULT ID button
+            createAppID(aInfo);
+            return 1;
+        } else {
+            // Back
+            return -1;
+        }
+        
+        // we should never get here
+        return 0;
+    }
+    
+    // if we got here, we have chosen an ID
+    updateAppInfo(aInfo, 'id', myDlgResult.textReturned);
+    
+    // move on
+    return 1;
+}
+
+
+// ADVSTEPUPDATE: step function to set updating options
+function advStepUpdate(aInfo) {
     
     // set up dialog message
     let myCurAction = kUpdateActions[aInfo.appInfo.updateAction];
@@ -3041,6 +3063,49 @@ function stepUpdate(aInfo) {
             updateAppInfo(aInfo, 'updateAction', myDlgResult.buttonValue);
         }
     }
+    
+    // move on
+    return 1;
+}
+
+
+// ADVSTEPDATABACKUP: step function to set whether to backup app data
+function advStepDataBackup(aInfo) {
+    
+    // display dialog
+    let myDlgResult = stepDialog(aInfo, "Back up app data when this app is updated or edited?", {
+        key: 'doDataBackup',
+        buttons: {
+            'No': false,
+            'Yes': true
+        }
+    });
+    
+    // process dialog result
+    if (myDlgResult.canceled) {
+        // BACK button
+        return -1;
+    }
+    
+    // if changing from not backing up data to backing up, get confirmation
+    if ((myDlgResult.buttonIndex == 1) && (!aInfo.appInfo.doDataBackup) &&
+        ((!aInfo.oldAppInfo) || !aInfo.oldAppInfo.doDataBackup)) {
+        
+        let myConfirmResult = dialog("App data can get very large. Backing it up may slow down app updates a lot. Are you sure you want to do this?", {
+            withTitle: 'Confirm Backup App Data',
+            withIcon: 'caution',
+            buttons: ['Cancel', 'OK'],
+            defaultButton: 1
+        }).buttonReturned;
+        
+        if (myConfirmResult != 'OK') {
+            // repeat this step
+            return 0;
+        }
+    }
+    
+    // update app info
+    updateAppInfo(aInfo, 'doDataBackup', myDlgResult.buttonValue);
     
     // move on
     return 1;
@@ -3129,8 +3194,9 @@ function stepBuild(aInfo) {
             // ADVANCED button
             aInfo.stepInfo.showAdvanced = true;
             doSteps([
-                stepID,
-                stepUpdate
+                advStepID,
+                advStepUpdate,
+                advStepDataBackup
             ], aInfo, {
                 abortSilent: true,
                 abortBackButton: 'Back',
@@ -3166,7 +3232,8 @@ function stepBuild(aInfo) {
         'SSBCustomIcon=' + ((myIconType == kIconAUTO) ? 'Auto' : ((myIconType == kIconCUSTOM) ? 'Yes' : 'No')),
         'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
         'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
-        'SSBUpdateAction=' + kUpdateActions[aInfo.appInfo.updateAction].value
+        'SSBUpdateAction=' + kUpdateActions[aInfo.appInfo.updateAction].value,
+        'SSBBackupData=' + (aInfo.appInfo.doDataBackup ? 'Yes' : 'No')
     ];
     
     // add app command line
@@ -3680,22 +3747,7 @@ function updateAppInfo(aInfo, aKey, aValue) {
                     curStatus.buildSummary += aInfo.appInfo.urls.join('\n' + myUrlPrefix);
                 }
             }
-        } else if (curKey == 'registerBrowser') {
-
-            // REGISTERBROWSER
-
-            // set common summary
-            let curSummary = dot() +
-                (aInfo.appInfo.registerBrowser ? 'Yes' : 'No');
-
-            // no step summary needed, but we'll set one for safety
-            if (aInfo.stepInfo.action == kActionEDIT) {
-                curStatus.stepSummary = '\n\n' + kIndent + curSummary;
-            }
-
-            // set build summary
-            curStatus.buildSummary = kAppInfoKeys.registerBrowser + ':\n' + kIndent + curSummary;
-
+            
         } else if (curKey == 'icon') {
 
             // ICON
@@ -3778,8 +3830,11 @@ function updateAppInfo(aInfo, aKey, aValue) {
             // ALL OTHER KEYS
 
             // set common summary
-            let curSummary = dot() + aInfo.appInfo[curKey];
-
+            let curSummary = dot() +
+                ((typeof aInfo.appInfo[curKey] == 'boolean') ?
+                    (aInfo.appInfo[curKey] ? 'Yes' : 'No') :
+                    aInfo.appInfo[curKey]);
+            
             // set step summary
             if (aInfo.stepInfo.action == kActionEDIT) {
                 curStatus.stepSummary = '\n\n' + kIndent + curSummary;
