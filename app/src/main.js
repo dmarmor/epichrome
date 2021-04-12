@@ -42,6 +42,7 @@ const kAppIDIllegalCharsRe = /[^-a-zA-Z0-9_]/g;
 // status dots
 const kDotSelected = '▪️'; //❇️
 const kDotUnselected = '▫️';
+const kDotAdvanced = '♦️';
 const kDotCurrent = '🔹';
 const kDotChanged = '🔸';
 const kDotNeedsUpdate = '🔺';
@@ -76,6 +77,12 @@ const kAppDefaultURL = "https://www.google.com/mail/";
 const kIconDEFAULT = 0;
 const kIconCUSTOM  = 1;
 const kIconAUTO    = 2;
+
+const kAdvancedDefaults = {
+    id: null,
+    updateAction: 'prompt',
+    doDataBackup: false
+};
 
 const kBrowserInfo = {
     'com.microsoft.edgemac': {
@@ -204,8 +211,8 @@ let gAppInfoDefault = {
     registerBrowser: false,
     icon: kIconAUTO,
     engine: kEngines[0],
-    updateAction: 'prompt',
-    doDataBackup: false
+    updateAction: kAdvancedDefaults.updateAction,
+    doDataBackup: kAdvancedDefaults.doDataBackup
 };
 
 let gFirstDialogOptMsg = '\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)';
@@ -1002,15 +1009,15 @@ function readProperties() {
     }
     
     // updateAction
-    // if ((typeof myProperties["updateAction"] === 'string') &&
-    //     kUpdateActions.hasOwnProperty(myProperties["updateAction"])) {
-    //     gAppInfoDefault.updateAction = myProperties["updateAction"];
-    // }
+    if ((typeof myProperties["updateAction"] === 'string') &&
+        kUpdateActions.hasOwnProperty(myProperties["updateAction"])) {
+        gAppInfoDefault.updateAction = myProperties["updateAction"];
+    }
     
     // doDataBackup
-    // if (typeof myProperties["doDataBackup"] === 'boolean') {
-    //     gAppInfoDefault.doDataBackup = myProperties["doDataBackup"];
-    // }
+    if (typeof myProperties["doDataBackup"] === 'boolean') {
+        gAppInfoDefault.doDataBackup = myProperties["doDataBackup"];
+    }
 }
 
 
@@ -1278,21 +1285,21 @@ function writeProperties() {
             })
         );
         
-        // myProperties.propertyListItems.push(
-        //     kSysEvents.PropertyListItem({
-        //         kind: "string",
-        //         name: "updateAction",
-        //         value: gAppInfoDefault.updateAction
-        //     })
-        // );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind: "string",
+                name: "updateAction",
+                value: gAppInfoDefault.updateAction
+            })
+        );
 
-        // myProperties.propertyListItems.push(
-        //     kSysEvents.PropertyListItem({
-        //         kind: "boolean",
-        //         name: "doDataBackup",
-        //         value: gAppInfoDefault.doDataBackup
-        //     })
-        // );
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind: "boolean",
+                name: "doDataBackup",
+                value: gAppInfoDefault.doDataBackup
+            })
+        );
         
     } catch(myErr) {
         // ignore errors, we just won't have persistent properties
@@ -3119,40 +3126,31 @@ function stepBuild(aInfo) {
     let myErr;
 
     let myScriptAction;
-
+    
     if (aInfo.stepInfo.action != kActionUPDATE) {
 
         let myDlgResult, myAppSummary, myActionButton;
         let myDoBuild = true;
 
+        // get ordered array of all items with summaries
+        let mySummaryItems = Object.entries(aInfo.appInfoStatus).filter(x => Boolean(x[1].buildSummary)).map(x => x[1]);
+        
         if (aInfo.stepInfo.action == kActionCREATE) {
 
             myScriptAction = 'build';
 
             // create summary of the app
             myAppSummary = 'Ready to create!\n\n' +
-                Object.entries(aInfo.appInfoStatus).filter(x => x[1].buildSummary && (aInfo.stepInfo.showAdvanced || (typeof(kAppInfoKeys[x[0]]) != 'string') || !kAppInfoKeys[x[0]].startsWith(kDotGear))).map(x => x[1].buildSummary).join('\n\n');
+                mySummaryItems.map(x => x.buildSummary).join('\n\n');
             myActionButton = 'Create';
         } else {
 
             myScriptAction = 'edit';
 
             // edit summary of app & look for changes
-            let myChangedSummary = [];
-            let myUnchangedSummary = [];
-            for (let [curKey, curItem] of Object.entries(aInfo.appInfoStatus).filter(x => Boolean(x[1].buildSummary))) {
-                if (curItem.buildSummary &&
-                    (aInfo.stepInfo.showAdvanced ||
-                        typeof(kAppInfoKeys[curKey]) != 'string') ||
-                        !kAppInfoKeys[curKey].startsWith(kDotGear)) {
-                    if (curItem.changed) {
-                        myChangedSummary.push(curItem.buildSummary);
-                    } else {
-                        myUnchangedSummary.push(curItem.buildSummary);
-                    }
-                }
-            }
-
+            let myChangedSummary = mySummaryItems.filter(x => x.changed).map(x => x.buildSummary);
+            let myUnchangedSummary = mySummaryItems.filter(x => !x.changed).map(x => x.buildSummary);
+            
             // set up dialog message and action
             if (myChangedSummary.length == 0) {
                 myDoBuild = false;
@@ -3639,6 +3637,8 @@ function updateAppInfo(aInfo, aKey, aValue) {
                 } else {
                     return kDotCurrent + ' ';
                 }
+            } else if (kAdvancedDefaults.hasOwnProperty(curKey)) {
+                return kDotAdvanced + ' ';
             } else {
                 return kDotSelected + ' ';
             }
@@ -3684,7 +3684,7 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
         } else if (curKey == 'id') {
 
-            // ID
+            // ID -- ADVANCED
             
             // set isCustomID
             aInfo.stepInfo.isCustomID = (aInfo.appInfo.id != aInfo.stepInfo.autoID);
@@ -3698,9 +3698,14 @@ function updateAppInfo(aInfo, aKey, aValue) {
             }
             
             // build summary
-            curStatus.buildSummary = kAppInfoKeys.id + ':\n' +
-                kIndent + dot() + aInfo.appInfo.id + '\n' +
-                kIndent + dot() + '~/Library/Application Support/Epichrome/Apps/' + aInfo.appInfo.id;
+            if (aInfo.stepInfo.isCustomID ||
+                ((aInfo.stepInfo.action == kActionEDIT) && curStatus.changed)) {
+                curStatus.buildSummary = kAppInfoKeys.id + ':\n' +
+                    kIndent + dot() + aInfo.appInfo.id + '\n' +
+                    kIndent + dot() + '~/Library/Application Support/Epichrome/Apps/' + aInfo.appInfo.id;
+            } else {
+                curStatus.buildSummary = null;
+            }
 
         } else if (curKey == 'urls') {
             
@@ -3801,7 +3806,7 @@ function updateAppInfo(aInfo, aKey, aValue) {
 
         } else if (curKey == 'updateAction') {
             
-            // UPDATEACTION
+            // UPDATEACTION -- ADVANCED
             
             // need two step summaries for the two levels of dialogs
             curStatus.stepSummary = ['', ''];
@@ -3822,8 +3827,14 @@ function updateAppInfo(aInfo, aKey, aValue) {
             }
             
             // set build summary
-            curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + dot() +
-                kUpdateActions[aInfo.appInfo.updateAction].button;
+            if ((aInfo.appInfo.updateAction != kAdvancedDefaults.updateAction) ||
+                ((aInfo.stepInfo.action == kActionEDIT) && curStatus.changed)) {
+                
+                curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + dot() +
+                    kUpdateActions[aInfo.appInfo.updateAction].button;
+            } else {
+                curStatus.buildSummary = null;
+            }
             
         } else {
 
@@ -3841,7 +3852,13 @@ function updateAppInfo(aInfo, aKey, aValue) {
             }
 
             // set build summary
-            curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + curSummary;
+            if ((!kAdvancedDefaults.hasOwnProperty(curKey)) ||
+                (kAdvancedDefaults[curKey] != aInfo.appInfo[curKey]) ||
+                ((aInfo.stepInfo.action == kActionEDIT) && curStatus.changed)) {
+                curStatus.buildSummary = kAppInfoKeys[curKey] + ':\n' + kIndent + curSummary;
+            } else {
+                curStatus.buildSummary = null;
+            }
         }
     }
 }
@@ -4438,7 +4455,10 @@ function dialogButtonMap(aInfo, aKey, aButtonInfo) {
         
         // put a dot on the selected button
         if (curButtonValueList.reduce((acc, val) => (acc || objEquals(val, iKeyValue)), false)) {
-            let curDot = (((!iIsAppMap) || (aInfo.stepInfo.action == kActionCREATE)) ? kDotSelected :
+            let curDot = (((!iIsAppMap) || (aInfo.stepInfo.action == kActionCREATE)) ?
+                                            ((kAdvancedDefaults.hasOwnProperty(aKey) &&
+                                                (iKeyValue != kAdvancedDefaults[aKey])) ?
+                                                kDotAdvanced : kDotSelected) :
                             ((objEquals(iKeyValue, aInfo.oldAppInfo[aKey])) ?
                             kDotCurrent : kDotChanged));
             curButtonTitle = curDot + ' ' + curButtonName;
