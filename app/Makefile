@@ -589,10 +589,10 @@ $(PROGRESS_CT)/MacOS/EpichromeProgress \
 	$(PROGRESS_CT)/Resources/MainMenu.nib \
 	$(PROGRESS_CT)/Resources/AppSettings.plist: progress-core
 	
-progress-core:
+progress-core: build/platypus
 	@rm -rf $(PROGRESS_APP)
 	@touch build/fake.icns build/fake.sh
-	platypus --name 'EpichromeProgress' \
+	scripts/platypus.sh --name 'EpichromeProgress' \
 		--interface-type 'Progress Bar' \
 		--app-icon build/fake.icns \
 		--interpreter /bin/bash \
@@ -632,10 +632,10 @@ $(APP_RNTM)/Exec/Epichrome \
 $(APP_RNTM)/Contents/Resources/MainMenu.nib \
 $(APP_RNTM)/Contents/Resources/AppSettings.plist: runtime
 
-runtime:
+runtime: build/platypus
 	@rm -rf build/runtime.app build/runtime
 	@touch build/fake.icns build/fake.sh
-	platypus --name Epichrome \
+	scripts/platypus.sh --name Epichrome \
 		 --interface-type None \
 		 --app-icon build/fake.icns \
 		 --document-icon build/fake.icns \
@@ -985,10 +985,10 @@ $(SCAN_CT)/MacOS/EpichromeScan \
 	$(SCAN_CT)/Resources/MainMenu.nib \
 	$(SCAN_CT)/Resources/AppSettings.plist: scan-core
 
-scan-core:
+scan-core: build/platypus
 	@rm -rf $(SCAN_APP)
 	@touch build/fake.icns build/fake.sh
-	platypus --name 'EpichromeScan' \
+	scripts/platypus.sh --name 'EpichromeScan' \
 		--interface-type 'Progress Bar' \
 		--app-icon build/fake.icns \
 		--interpreter /bin/bash \
@@ -1043,3 +1043,20 @@ $(LOGIN_CT)/Resources/Scripts/%.sh: $(APP_RNTM)/Contents/Resources/Scripts/%.sh
 $(SCAN_CT)/Resources/Scripts/apputil.js $(LOGIN_CT)/Resources/Scripts/apputil.js: $(APP_RNTM)/Contents/Resources/Scripts/apputil.js
 	@dir='$@' ; mkdir -p "$${dir%/*}"
 	cp -a '$<' '$@'
+
+
+# PLATYPUS
+
+build/platypus:
+	rm -rf '$@'
+	xcodebuild -parallelizeTargets -project ../modules/platypus/Platypus.xcodeproj -target Platypus -configuration 'Deployment' -arch x86_64 -arch arm64 CONFIGURATION_BUILD_DIR=../../app/build/platypus DEVELOPMENT_TEAM='$(CODESIGN_IDENTITY)' clean build
+	rm -f $@/platypus_clt
+	gzcat $@/Platypus.app/Contents/Resources/platypus_clt.gz > $@/platypus
+	chmod 755 $@/platypus
+	mkdir $@/library
+	cp $@/ScriptExec.app/Contents/MacOS/ScriptExec $@/library
+	rm -rf $@/Platypus.app $@/ScriptExec.app
+	mkdir $@/library/MainMenu.nib
+	gunzip $@/designable.nib.gz $@/keyedobjects.nib.gz
+	chmod 755 $@/designable.nib $@/keyedobjects.nib
+	mv $@/designable.nib $@/keyedobjects.nib $@/library/MainMenu.nib
