@@ -1,3 +1,6 @@
 [submodule "modules/fileicon"]
 	path = modules/fileicon
 	url = https://github.com/mklement0/fileicon
+[submodule "modules/platypus"]
+	path = modules/platypus
+	url = https://github.com/sveinbjornt/Platypus

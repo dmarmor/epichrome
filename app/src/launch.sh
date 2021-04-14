@@ -401,7 +401,7 @@ function checkappupdate {
 		# basic update message
 		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
 		
-		# add any description for this version  $$$ I AM HERE, FIX/CHANGE THIS
+		# add any description for this version
 		local iDelim=$'\n\n   ▪️ '
 		local iChangeList="$(join_array "$iDelim" "${epiUpdateChangeList[@]}")"
 		local iFixList="$(join_array "$iDelim" "${epiUpdateFixList[@]}")"

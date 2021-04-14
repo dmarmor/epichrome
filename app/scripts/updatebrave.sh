@@ -1,4 +1,25 @@
 #!/bin/bash
+#
+#  updatebrave.sh: check for a new version of Brave, download, and manage old versions
+#
+#  Copyright (C) 2021  David Marmor
+#
+#  https://github.com/dmarmor/epichrome
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 # URLs
 latestUrl='https://brave.com/latest/'
@@ -14,6 +35,15 @@ elif [[ "$mypath" ]] ; then
     mypath="$(cd "$mypath" ; pwd)"
 fi
 epipath="$mypath/.."
+
+# ARGUMENTS
+
+# only check for new version, don't try to download
+checkOnly=
+if [[ "$1" = '--checkonly' ]] ; then
+    checkOnly=1
+    shift
+fi
 
 # path to engines directory
 [[ "$1" ]] && enginepath="$1" || enginepath="$epipath/Engines"
@@ -40,6 +70,12 @@ else
 fi
 
 if [[ "$curVersion" != "$latestVersion" ]] ; then
+    
+    # if we're in check-only mode, we're done
+    if [[ "$checkOnly" ]] ; then
+        echo "New Brave $latestVersion found (current Brave engine is $curVersion)."
+        cleanexit 1
+    fi
     
     # get direct link to latest version
     try '!2' 'enginelink=' /usr/bin/curl "$engineUrl" \
@@ -83,14 +119,18 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
         echo "$latestVersion"
     fi
 else
-    echo "Current Brave engine $curVersion is the latest!" 1>&2
-    
-    if [[ "$1" ]] ; then
-        # running from Makefile so spit out filename & version
-        echo "$curBrave|$curVersion"
+    if [[ "$checkOnly" ]] ; then
+        echo "Current Brave engine $curVersion is the latest!"
     else
-        # running from newrelease.sh, so just spit out current version
-        echo "$curVersion"
+        echo "Current Brave engine $curVersion is the latest!" 1>&2
+    
+        if [[ "$1" ]] ; then
+            # running from Makefile so spit out filename & version
+            echo "$curBrave|$curVersion"
+        else
+            # running from newrelease.sh, so just spit out current version
+            echo "$curVersion"
+        fi
     fi
 fi
 
