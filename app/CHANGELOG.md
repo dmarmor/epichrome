@@ -2,6 +2,18 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.3] - 2021-04-14
+### Changed
+- Improved auto icon downloading to be compatible with more sites
+- Added advanced setting to allow app browser data to be backed up on update or edit
+- Preferences for advanced settings are now remembered for future app creation
+- Improved how advanced settings are shown in the summary dialog
+- Changed schedule to check GitHub for new versions every other day instead of once a week
+- Added version information to package
+- Added version numbers to GitHub error reporting
+- Built-in engine updated to Brave 1.22.72
+
+
 ## [2.4.2] - 2021-04-02
 ### Changed
 - Built-in engine updated to Brave 1.22.71
