@@ -177,6 +177,7 @@ function makeicon {
             local iAppIconCompCmd='
         {
             "action": "composite",
+            "progress": "stepMakeiconB",
             "options": {
                 "crop": '"$aCrop"',
                 "size": '"$iAppIconCompSize"',
@@ -192,6 +193,7 @@ function makeicon {
         },
         {
             "action": "composite",
+            "progress": "stepMakeiconC",
             "options": {
                 "with": [ {
                     "action": "read",
@@ -208,6 +210,7 @@ function makeicon {
             local iAppIconCompCmd='
         {
             "action": "composite",
+            "progress": "stepMakeiconD",
             "options": {
                 "crop": '"$aCrop"'
             }
@@ -234,6 +237,7 @@ function makeicon {
         [
             {
                 "action": "composite",
+                "progress": "stepMakeiconF",
                 "options": {
                     "crop": '"$aCrop"',
                     "size": 0.5,
@@ -251,6 +255,7 @@ function makeicon {
             },
             {
                 "action": "composite",
+                "progress": "stepMakeiconG",
                 "options": {
                     "compUnder": true,
                     "with": [
@@ -266,7 +271,10 @@ function makeicon {
             },
             {
                 "action": "write_iconset",
-                "path": "'"$(escapejson "$iDocIconset")"'"'"$iSizeLimitCmd"'
+                "path": "'"$(escapejson "$iDocIconset")"'"'"$iSizeLimitCmd"',
+                "options": {
+                    "progressStem": "stepMakeiconH"
+                }
             }
         ]'
         fi
@@ -276,6 +284,7 @@ function makeicon {
 [
     {
         "action": "read",
+        "progress": "stepMakeiconA",
         "options": {
             "format": "'"$iPHPSourceFormat"'",
             "path": "'"$(escapejson "$iPHPSource")"'"'"$iOrigSourcePath"'
@@ -284,7 +293,10 @@ function makeicon {
     ['"$iAppIconCompCmd"'
         {
             "action": "write_iconset",
-            "path": "'"$(escapejson "$iAppIconset")"'"'"$iSizeLimitCmd"'
+            "path": "'"$(escapejson "$iAppIconset")"'"'"$iSizeLimitCmd"',
+            "options": {
+                "progressStem": "stepMakeiconE"
+            }
         }
     ]'"$iDocIconCmd"'
 ]'
@@ -293,7 +305,8 @@ function makeicon {
         # RUN PHP SCRIPT TO CONVERT IMAGE INTO APP (AND MAYBE DOC ICONS)
         
         local iMakeIconErr=
-        try 'iMakeIconErr=&' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
+        try '-1' 'iMakeIconErr=2' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' | \
+               makeiconprogress
         
         # log any stderr output
         local iMakeIconOutput="${iMakeIconErr%PHPERR|*}"
@@ -359,4 +372,28 @@ function makeicon {
     [[ "$aDoProgress" ]] && progress 'stepIconA3'
     
     [[ "$ok" ]] && return 0 || return 1
+}
+
+
+# MAKEICONPROGRESS: display progress updates while making an icon
+#   makeiconprogress()
+function makeiconprogress {
+    
+    [[ "$ok" ]] || return 1
+    
+    # for this pipe, turn off stderr logging  $$$ TEMPORARY?
+    logNoStderr=1
+    
+    # send any progress steps that come through
+    local iStep
+    while read iStep ; do
+        errlog FATAL "GOT PROGRESS: $iStep"
+    done
+    
+    # if calibrating, write out calibration time  $$$$
+    # if [[ "$progressDoCalibrate" ]] ; then
+    #     try "$stdoutTempFile<" echo "$progressCalibrateEndTime" \
+    #             'Unable to write out progress calibration time.'
+    #     ok=1 ; errmsg=
+    # fi
 }

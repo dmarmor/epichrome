@@ -28,6 +28,8 @@ const ICON_SIZE_MAX = 1024;
 const ICON_SIZE_MIN = 16;
 const AUTOICON_SIZE_MIN = 48;
 
+const ICONSET_PROGRESS = [1024, 512, 128, 16];
+
 
 // AUTO-ICON INFO
 
@@ -173,6 +175,11 @@ function runActions($aAction, $aInput = null) {
                     
         // update current input
         $curInput = $nextInput;
+        
+        // emit any requested progress
+        if ($curAction->progress) {
+            print($curAction->progress . "\n");
+        }
     }
     
     // turn off preservation for this input
@@ -450,6 +457,16 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
     // get biggest icon size
     $curSize = $iBiggestSize;
     
+    // handle any progress sizes bigger than writing out
+    if ($aOptions->progressStem) {
+        $iProgressStep = 0;
+        while (($iProgressStep < count(ICONSET_PROGRESS)) &&
+                ($curSize < ICONSET_PROGRESS[$iProgressStep])) {
+            print($aOptions->progressStem . ($iProgressStep + 1) . "\n");
+            $iProgressStep++;
+        }
+    }
+    
     while ($curSize >= $iSmallestSize) {
         
         // get next size down
@@ -478,6 +495,23 @@ function actionWriteIconset($aInput, $aPath, $aOptions) {
         }
         
         $curSize = $nextSize;
+        
+        // handle progress
+        if ($aOptions->progressStem) {
+            if (($iProgressStep < count(ICONSET_PROGRESS)) &&
+                ($curSize < ICONSET_PROGRESS[$iProgressStep])) {
+                print($aOptions->progressStem . ($iProgressStep + 1) . "\n");
+                $iProgressStep++;
+            }
+        }
+    }
+    
+    // handle any progress sizes smaller than we're writing out
+    if ($aOptions->progressStem) {
+        while ($iProgressStep < count(ICONSET_PROGRESS)) {
+            print($aOptions->progressStem . ($iProgressStep + 1) . "\n");
+            $iProgressStep++;
+        }
     }
 }
 
