@@ -74,7 +74,7 @@ if [[ "$curVersion" != "$latestVersion" ]] ; then
     # if we're in check-only mode, we're done
     if [[ "$checkOnly" ]] ; then
         echo "New Brave $latestVersion found (current Brave engine is $curVersion)."
-        cleanexit 1
+        cleanexit 2
     fi
     
     # get direct link to latest version
