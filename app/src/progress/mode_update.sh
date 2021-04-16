@@ -320,6 +320,14 @@ if [[ "$epiAction" != 'build' ]] ; then
                 "Unable to back up app browser data prior to $myActionText." 2>&1 | \
             databackupprogress "$dbStepName" "$dbNumSteps" "$dbNumItems"
         
+        # ignore any errors
+        if [[ "$ok" ]] ; then
+            debuglog "Created backup of app browser data at \"$updateBackupDataFile\""
+        else
+            ok=1 ; errmsg=
+        fi
+        
+        # update progress variables lost in the pipe
         if [[ "$progressDoCalibrate" ]] ; then
             
             # calibrating, so set calibration variables (lost because of pipe)
@@ -341,14 +349,6 @@ if [[ "$epiAction" != 'build' ]] ; then
             progressCumulative=0
             progress '!stepStart'
         fi
-        
-        # ignore any errors
-        if [[ "$ok" ]] ; then
-            debuglog "Created backup of app browser data at \"$updateBackupDataFile\""
-        else
-            ok=1 ; errmsg=
-        fi
-        
     fi
 fi
 

@@ -134,40 +134,40 @@ function progress {
 
 # PROGRESS: CALIBRATE progress bar
 #  progress(aStepId)
-# --- UNCOMMENT BELOW TO CALIBRATE ---
-# progressCalibrateEndTime=
-# progressLastId=
-# progressDoCalibrate=1
-# progressIdList=()
-# function progress {
-#
-#     # arguments
-#     local aStepId="${1/\!/}" ; shift  # ignore force flag
-#
-#     # only calibrate once per ID
-#     [[ "$aStepId" = "$progressLastId" ]] && return
-#     if [[ "$aStepId" != 'end' ]] ; then
-#         progressLastId="$aStepId"
-#         progressIdList+=( $aStepId )
-#     fi
-#
-#     # update times
-#     local curTime=$(/usr/bin/perl -MTime::HiRes=time -e 'printf "%d\n", time * 10000')
-#     [[ "$progressCalibrateEndTime" ]] || progressCalibrateEndTime="$curTime"
-#
-#     # calculate the increment
-#     if [[ "$aStepId" != 'end' ]] ; then
-#         # output code to set this step's increment
-#         local iStepCode="# $aStepId=$(($curTime - $progressCalibrateEndTime))"
-#         echo "$iStepCode"
-#         errlog_raw "$iStepCode"
-#     else
-#         # last step, so output expression to calculate total
-#         local iEndCode="# progressTotal=\$(( \$$(join_array ' + $' "${progressIdList[@]}" ) ))"
-#         echo "$iEndCode"
-#         errlog_raw "$iEndCode"
-#     fi
-#
-#     # update end time
-#     progressCalibrateEndTime="$curTime"
-# }
+# --- UNCOMMENT BELOW TO CALIBRATE --- $$$$$
+progressCalibrateEndTime=
+progressLastId=
+progressDoCalibrate=1
+progressIdList=()
+function progress {
+
+    # arguments
+    local aStepId="${1/\!/}" ; shift  # ignore force flag
+
+    # only calibrate once per ID
+    [[ "$aStepId" = "$progressLastId" ]] && return
+    if [[ "$aStepId" != 'end' ]] ; then
+        progressLastId="$aStepId"
+        progressIdList+=( $aStepId )
+    fi
+
+    # update times
+    local curTime=$(/usr/bin/perl -MTime::HiRes=time -e 'printf "%d\n", time * 10000')
+    [[ "$progressCalibrateEndTime" ]] || progressCalibrateEndTime="$curTime"
+
+    # calculate the increment
+    if [[ "$aStepId" != 'end' ]] ; then
+        # output code to set this step's increment
+        local iStepCode="# $aStepId=$(($curTime - $progressCalibrateEndTime))"
+        echo "$iStepCode"
+        errlog_raw "$iStepCode"
+    else
+        # last step, so output expression to calculate total
+        local iEndCode="# progressTotal=\$(( \$$(join_array ' + $' "${progressIdList[@]}" ) ))"
+        echo "$iEndCode"
+        errlog_raw "$iEndCode"
+    fi
+
+    # update end time
+    progressCalibrateEndTime="$curTime"
+}
