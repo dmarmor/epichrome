@@ -154,6 +154,8 @@ function check_repository {
 # CHECK_STATIC_AUTOICONS: check that all static auto-icons download properly
 function check_static_autoicons {
     
+    [[ "$ok" ]] || return 1
+    
     # notify user
     echo '## Checking static auto-icons...' 1>&2
     
