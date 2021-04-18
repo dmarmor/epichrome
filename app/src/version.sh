@@ -10,7 +10,7 @@ epiMinorChangeList=( \
         'Changed schedule to check GitHub for new versions every other day instead of once a week' \
         'Added version information to package' \
         'Added version numbers to GitHub error reporting' \
-        'Built-in engine updated to Brave 1.22.72' \
+        'Built-in engine updated to Brave 1.23.71' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
