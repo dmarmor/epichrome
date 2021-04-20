@@ -152,7 +152,7 @@ function makeicon {
         
         # set up progress info in case it's requested
         if [[ "$aDoProgress" ]] ; then
-            function iStepJson { echo $'\n            "progress": "stepMakeicon'"$1"'",' }
+            function iStepJson { echo $'\n            "progress": "stepMakeicon'"$1"'",' ; }
         else
             function iStepJson { : ; }
         fi
@@ -323,6 +323,9 @@ function makeicon {
 
         
         # RUN PHP SCRIPT TO CONVERT IMAGE INTO APP (AND MAYBE DOC ICONS)
+        
+        # disable makeiconprogress if not emitting progress
+        [[ "$aDoProgress" ]] || function makeiconprogress { : ; }
         
         local iMakeIconErr=
         try '-1' 'iMakeIconErr=2' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' | \

@@ -512,6 +512,7 @@ main:
 	cat src/libreporterr.js >> build/main.js
 	cat src/vcmp.js >> build/main.js
 	osacompile -l JavaScript -x -o build/main.app build/main.js
+	codesign --remove-signature build/main.app
 	chmod 444 build/main.app/Contents/Resources/Scripts/main.scpt  # lock main.scpt so it doesn't get altered with each run
 	@mv build/main.app build/main
 	@rm -f build/main.js
@@ -524,6 +525,7 @@ main:
 	mv -f build/main/Contents/Resources/droplet.rsrc $(APP_CT)/Resources/droplet.rsrc
 	@touch $(APP_CT)/PkgInfo $(APP_CT)/MacOS/droplet $(APP_CT)/Resources/droplet.rsrc
 	rmdir build/main/Contents/MacOS
+	if [[ -d build/main/Contents/_CodeSignature ]] ; then rmdir build/main/Contents/_CodeSignature ; fi
 	@cd build && if ! rmdir -p main/Contents/Resources/Scripts ; then \
 		echo "*** Unexpected files found in main app (check build/main)." 1>&2 ; false ; fi
 	@touch $(APP)
