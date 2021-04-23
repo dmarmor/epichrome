@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.4] - 2021-04-23
+### Changed
+- Built-in engine updated to Brave 1.23.73
+
+
 ## [2.4.3] - 2021-04-18
 ### Changed
 - Improved auto icon downloading to be compatible with more sites

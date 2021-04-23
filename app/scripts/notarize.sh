@@ -108,7 +108,7 @@ else
 fi
 
 
-# CHECK FOR SUCCESS OR FAILURE FOR 5 MINUTES
+# CHECK FOR SUCCESS OR FAILURE FOR 10 MINUTES
 
 # get RequestUUID & URL
 request_uuid="$(sed -En 's/RequestUUID *= *([^ ]+) *$/\1/p' "$request_file")" || abort 'Unable to get request UUID.'
@@ -116,7 +116,7 @@ check_file="${request_file%.txt}.check.txt"
 json_file="${request_file%.txt}.json"
 status_re=$'(^|\n) *Status: *([a-zA-Z][a-zA-Z ]*[a-zA-Z]) *(\n|$)'
 
-for ((i=0; i<5; i++)) ; do
+for ((i=0; i<10; i++)) ; do
     
     # check status
     echo "Checking $request_file..."
