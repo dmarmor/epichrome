@@ -1,16 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.3
-epiBuildNum=6
+epiVersion=2.4.4
+epiBuildNum=1
 epiMinorChangeList=( \
-        'Improved auto icon downloading to be compatible with more sites' \
-        'Added advanced setting to allow app browser data to be backed up on update or edit' \
-        'Preferences for advanced settings are now remembered for future app creation' \
-        'Improved how advanced settings are shown in the summary dialog' \
-        'Changed schedule to check GitHub for new versions every other day instead of once a week' \
-        'Added version information to package' \
-        'Added version numbers to GitHub error reporting' \
-        'Built-in engine updated to Brave 1.23.71' \
+        'Built-in engine updated to Brave 1.23.73' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \

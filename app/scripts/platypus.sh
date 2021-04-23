@@ -26,6 +26,26 @@ function abort {
     exit 1
 }
 
+
+# status variables
+statusOurShareLinked=
+
+# set SIGEXIT handler
+function handleexitsignal {
+    
+    # remove link to our library
+    if [[ "$statusOurShareLinked" ]] ; then
+        /bin/rm -f "$platypusShare" || echo 'Unable to remove link to Epichrome Platypus library.' 1>&2
+    fi
+    
+    # attempt to reactivate any turned-off installed share library
+    if [[ -e "$platypusShareOff" ]] ; then
+        /bin/mv -f "$platypusShareOff" "$platypusShare" || echo 'Unable to reactivate installed Platypus library.' 1>&2
+    fi
+}
+trap handleexitsignal EXIT
+
+
 # path to installed platypus library
 platypusShare='/usr/local/share/platypus'
 platypusShareOff="$platypusShare.INSTALLED"
@@ -49,41 +69,18 @@ platypusLib="$platypusPath/library"
 # make sure the installed library isn't already deactivated
 [[ -e "$platypusShareOff" ]] && abort 'Unable to run! Installed Platypus library is already deactivated.'
 
-# deactivate any installed library
+# deactivate any installed share library
 if [[ -e "$platypusShare" ]] ; then
     /bin/mv -f "$platypusShare" "$platypusShareOff" || abort 'Unable to deactivate installed Platypus library.'
+    statusInstalledShareOff=1
 fi
 
 # link to our library
-if ! /bin/ln -s "$platypusLib" "$platypusShare" ; then
-    # failed -- attempt to reactivate installed libary
-    errmsg=
-    if [[ -e "$platypusShareOff" ]] ; then
-        /bin/mv -f "$platypusShareOff" "$platypusShare" || errmsg=' Also unable to reactivate installed library.'
-    fi
-    abort "Unable to activate Epichrome Platypus library.$errmsg"
-fi
+/bin/ln -s "$platypusLib" "$platypusShare" || abort 'Unable to activate Epichrome Platypus library.'
+statusOurShareLinked=1
 
 # run our platypus
-errmsg=
-"$platypusExec" "$@" || errmsg='Platypus returned an error!'
-
-# remove link to our library
-if ! /bin/rm -f "$platypusShare" ; then
-    [[ "$errmsg" ]] && errmsg+=' Also unable' || errmsg='Unable'
-    abort "$errmsg to remove link to Epichrome Platypus library."
-fi
-
-# reactivate installed library
-if [[ -e "$platypusShareOff" ]] ; then
-    if ! /bin/mv -f "$platypusShareOff" "$platypusShare" ; then
-        [[ "$errmsg" ]] && errmsg+=' Also unable' || errmsg='Unable'
-        abort "$errmsg to reactivate installed Platypus library."
-    fi
-fi
-
-# handle platypus error
-[[ "$errmsg" ]] && abort $errmsg
+"$platypusExec" "$@" || abort 'Platypus returned an error!'
 
 # if we got here, all went smoothly
 exit 0
