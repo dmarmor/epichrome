@@ -139,7 +139,7 @@ function makeicon {
         
         # add origPath argument to PHP
         iOrigSourcePath=',
-        "origPath": "'"$(escapejson "$aIconSource")"'"'
+            "origPath": "'"$(escapejson "$aIconSource")"'"'
     fi
     
     # create empty iconset directories
@@ -152,7 +152,9 @@ function makeicon {
         
         # set up progress info in case it's requested
         if [[ "$aDoProgress" ]] ; then
-            function iStepJson { echo $'\n            "progress": "stepMakeicon'"$1"'",' ; }
+            function iStepJson {
+                local iComma= ; [[ "$2" ]] || iComma=','
+                echo "$iComma"$'\n            "progress'"$2"'": "stepMakeicon'"$1"'"' ; }
         else
             function iStepJson { : ; }
         fi
@@ -187,7 +189,7 @@ function makeicon {
             # create comp commands
             local iAppIconCompCmd='
         {
-            "action": "composite",'"$(iStepJson B)"'
+            "action": "composite"'"$(iStepJson B)"',
             "options": {
                 "crop": '"$aCrop"',
                 "size": '"$iAppIconCompSize"',
@@ -202,7 +204,7 @@ function makeicon {
             }
         },
         {
-            "action": "composite",'"$(iStepJson C)"'
+            "action": "composite"'"$(iStepJson C)"',
             "options": {
                 "with": [ {
                     "action": "read",
@@ -214,41 +216,45 @@ function makeicon {
             }
         },'
             
-            [[ "$progressDoCalibrate" ]] && local iAppSteps=( 'stepMakeiconB' 'stepMakeiconC' )
+            # steps specific to compositing an app icon
+            local iAppSteps=( 'stepMakeiconB' 'stepMakeiconC' )
         else
             
             # don't comp this in any way, just use the straight image
             local iAppIconCompCmd='
         {
-            "action": "composite",'"$(iStepJson D)"'
+            "action": "composite"'"$(iStepJson D)"',
             "options": {
                 "crop": '"$aCrop"'
             }
         },'
             
-            [[ "$progressDoCalibrate" ]] && local iAppSteps=( 'stepMakeiconD' )
+            # steps specific to an making an old-style icon
+            local iAppSteps=( 'stepMakeiconD' )
         fi
         
         # build options for icon max & min sizes
-        local iSizeLimitCmd=
         if [[ "$aMaxSize" || "$aMinSize" ]] ; then
             local iLimitOpts=()
             [[ "$aMaxSize" ]] && iLimitOpts+=( '"maxSize": '"$aMaxSize" )
             [[ "$aMinSize" ]] && iLimitOpts+=( '"minSize": '"$aMinSize" )
-            iSizeLimitCmd=',
-                "options": {
-                    '"$(join_array ",
-                    " "${iLimitOpts[@]}")"'
-                }'
         fi
+        
+        # option list for write_iconset command
+        local iWriteIconsetOpts
         
         # build doc icon command
         local iDocIconCmd=
         if [[ "$aDocIcon" ]] ; then
+            
+            # set write_iconset options
+            iWriteIconsetOpts=( "${iLimiOpts[@]}" )
+            [[ "$aDoProgress" ]] && iWriteIconsetOpts+=( "$(iStepJson H Stem)" )
+            
             iDocIconCmd=',
         [
             {
-                "action": "composite",'"$(iStepJson F)"'
+                "action": "composite"'"$(iStepJson F)"',
                 "options": {
                     "crop": '"$aCrop"',
                     "size": 0.5,
@@ -265,7 +271,7 @@ function makeicon {
                 }
             },
             {
-                "action": "composite",'"$(iStepJson G)"'
+                "action": "composite"'"$(iStepJson G)"',
                 "options": {
                     "compUnder": true,
                     "with": [
@@ -281,22 +287,24 @@ function makeicon {
             },
             {
                 "action": "write_iconset",
-                "path": "'"$(escapejson "$iDocIconset")"'"'"$iSizeLimitCmd"',
+                "path": "'"$(escapejson "$iDocIconset")"'",
                 "options": {
-                    "progressStem": "stepMakeiconH"
+                    '"$(join_array ",
+                    " "${iWriteIconsetOpts[@]}")"'
                 }
             }
         ]'
         fi
         
-        # $$$$ reconcile iSizeLimitCmd & iSizeJson for stem...
-    
+        # set write_iconset options
+        iWriteIconsetOpts=( "${iLimiOpts[@]}" )
+        [[ "$aDoProgress" ]] && iWriteIconsetOpts+=( "$(iStepJson E Stem)" )
+
         # build final makeicon.php command
         local iMakeIconCmd='
 [
     {
-        "action": "read",
-        "progress": "stepMakeiconA",
+        "action": "read"'"$(iStepJson A)"',
         "options": {
             "format": "'"$iPHPSourceFormat"'",
             "path": "'"$(escapejson "$iPHPSource")"'"'"$iOrigSourcePath"'
@@ -305,50 +313,70 @@ function makeicon {
     ['"$iAppIconCompCmd"'
         {
             "action": "write_iconset",
-            "path": "'"$(escapejson "$iAppIconset")"'"'"$iSizeLimitCmd"',
+            "path": "'"$(escapejson "$iAppIconset")"'",
             "options": {
-                "progressStem": "stepMakeiconE"
+                '"$(join_array ",
+                " "${iWriteIconsetOpts[@]}")"'
             }
         }
     ]'"$iDocIconCmd"'
 ]'
         
-        if [[ "$progressDoCalibrate" ]] ; then
-            local iSteps=( 'stepMakeiconA' "${iAppSteps[@]}" \
+        # set list of steps for current icon creation
+        local iSteps=( 'stepMakeiconA' "${iAppSteps[@]}" \
                 'stepMakeiconE1' 'stepMakeiconE2' 'stepMakeiconE3' 'stepMakeiconE4' )
-            [[ "$iDocIconCmd" ]] && \
-                iSteps+=( 'stepMakeiconF' 'stepMakeiconG' \
-                        'stepMakeiconH1' 'stepMakeiconH2' 'stepMakeiconH3' 'stepMakeiconH4' )
-        fi
-
+        [[ "$iDocIconCmd" ]] && \
+            iSteps+=( 'stepMakeiconF' 'stepMakeiconG' \
+                    'stepMakeiconH1' 'stepMakeiconH2' 'stepMakeiconH3' 'stepMakeiconH4' )
+        
         
         # RUN PHP SCRIPT TO CONVERT IMAGE INTO APP (AND MAYBE DOC ICONS)
         
-        # disable makeiconprogress if not emitting progress
-        [[ "$aDoProgress" ]] || function makeiconprogress { : ; }
-        
         local iMakeIconErr=
-        try '-1' 'iMakeIconErr=2' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' | \
-               makeiconprogress
+        
+        if [[ "$aDoProgress" ]] ; then
+            # run through a pipe for progress updates
+            try '-12' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
+            
+            # retrieve any output
+            try 'iMakeIconErr=' /bin/cat "$stdoutTempFile" 'Unable to read output from makeicon.'
+            if [[ "$ok" ]] ; then
+                if [[ "$iMakeIconErr" = 'PROGRESSERR|'* ]] ; then
+                    iMakeIconErr="${iMakeIconErr#PROGRESSERR|}"
+                    ok=
+                fi
+            elif [[ ! "$progressDoCalibrate" ]] ; then
+                # if not calibrating, we don't really need these messages
+                ok=1 ; errmsg=
+            fi
+            
+            if [[ "$ok" ]] ; then
+                if [[ "$progressDoCalibrate" ]] ; then
+                    
+                    # calibrating, so set calibration variables (lost because of pipe)
+                    
+                    # set calibration time
+                    progressCalibrateEndTime="$iMakeIconErr"
+                    iMakeIconErr=
+                    
+                    # set progress ID variables
+                    progressLastId="${iSteps[@]:$((${#iSteps[@]}-1))}"
+                    progressIdList+=( "${iSteps[@]}" )
+                else
+                    # add in times from makeicon steps we just ran
+                    local iCurStep=
+                    for iCurStep in "${iSteps[@]}" ; do
+                        eval "progressCumulative=\$(( \$progressCumulative + \$$iCurStep ))"
+                    done
+                fi
+            fi
+        else
+            try '-1' 'iMakeIconErr=2' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
+        fi
         
         # log any stderr output
         local iMakeIconOutput="${iMakeIconErr%PHPERR|*}"
         [[ "$iMakeIconOutput" ]] && errlog STDERR "$iMakeIconOutput"
-        
-        # update progress variables lost in the pipe
-        if [[ "$ok" && "$progressDoCalibrate" ]] ; then
-            
-            # calibrating, so set calibration variables (lost because of pipe)
-            
-            # set calibration time
-            try 'progressCalibrateEndTime=' /bin/cat "$stdoutTempFile" \
-                    'Unable to read in progress calibration time.'
-            ok=1 ; errmsg=
-            
-            # set progress ID variables
-            progressLastId="${iSteps[@]:$((${#iSteps[@]}-1))}"
-            progressIdList+=( "${iSteps[@]}" )
-        fi
         
         if [[ "$ok" ]] ; then
             
@@ -420,17 +448,26 @@ function makeiconprogress {
     
     [[ "$ok" ]] || return 1
     
-    # for this pipe, turn off stderr logging  $$$ TEMPORARY?
-    logNoStderr=1
+    local iErrOutput=
     
     # send any progress steps that come through
     local iStep
     while read iStep ; do
-        progress "$iStep"
+        
+        if [[ "$iStep" = 'step'* ]] ; then
+            progress "$iStep"
+        else
+            if [[ ! "$iErrOutput" ]] ; then
+                iStep="PROGRESSERR|$iStep"
+                iErrOutput=1
+            fi
+            try "$stdoutTempFile<<" echo "$iStep" \
+                    'Unable to write out makeicon.php error.'
+        fi
     done
     
-    # if calibrating, write out calibration time  $$$$
-    if [[ "$progressDoCalibrate" ]] ; then
+    # if calibrating, write out calibration time
+    if [[ "$progressDoCalibrate" && ( ! "$iErrOutput" ) ]] ; then
         try "$stdoutTempFile<" echo "$progressCalibrateEndTime" \
                 'Unable to write out progress calibration time.'
         ok=1 ; errmsg=

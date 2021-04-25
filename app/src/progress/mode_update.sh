@@ -33,7 +33,21 @@ step05=730
 step06=500
 step07=800
 stepIconA1=850
-stepIconA2=20000
+stepMakeiconA=4360
+stepMakeiconB=11200
+stepMakeiconC=1080
+stepMakeiconD=1290
+stepMakeiconE1=1395
+stepMakeiconE2=1055
+stepMakeiconE3=645
+stepMakeiconE4=565
+stepMakeiconF=585
+stepMakeiconG=815
+stepMakeiconH1=795
+stepMakeiconH2=860
+stepMakeiconH3=615
+stepMakeiconH4=625
+stepIconA2=2800
 stepIconA3=1164
 stepIconB1=840
 stepIconB2=820
@@ -60,8 +74,18 @@ progressTotal=$(( $stepStart + $step01 + $step02 + $step03 + $step04 + $step05 +
 # custom icon progress
 if [[ "$SSBCustomIcon" != 'No' ]] ; then
     if [[ "$epiIconSource" ]] ; then
-        progressTotal=$(( $progressTotal + $stepIconA1 + $stepIconA2 + $stepIconA3 ))
+        
+        # add steps for app and doc icon-creation
+        progressTotal=$(( $progressTotal + $stepIconA1 + $stepMakeiconA + $stepMakeiconE1 + $stepMakeiconE2 + $stepMakeiconE3 + $stepMakeiconE4 + $stepMakeiconF + $stepMakeiconG + $stepMakeiconH1 + $stepMakeiconH2 + $stepMakeiconH3 + $stepMakeiconH4 + $stepIconA2 + $stepIconA3 ))
+        
+        # add steps specific to Big Sur vs. old-style icons
+        if [[ "$epiIconCompSize" ]] ; then
+            progressTotal=$(( $progressTotal + $stepMakeiconB + $stepMakeiconC ))
+        else
+            progressTotal=$(( $progressTotal + $stepMakeiconD ))
+        fi
     else
+        # add steps for default icon
         progressTotal=$(( $progressTotal + $stepIconB1 + $stepIconB2 + $stepIconB3 + $stepIconB4 + $stepIconB5 + $stepIconB6 ))
     fi
 fi

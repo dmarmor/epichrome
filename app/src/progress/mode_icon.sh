@@ -43,6 +43,8 @@ if [[ "$epiAutoIconURL" ]] ; then
     
     # SEARCH URL FOR AUTO-ICON
     
+    debuglog "Searching URL \"$epiAutoIconURL\" for icons."
+    
     echo 'Searching URL for icons...'
     
     # remove any leftover temp directory
@@ -101,6 +103,8 @@ if [[ ! -e "$epiIconSource" ]] ; then
     fi
     abort
 fi
+
+debuglog "Creating icon preview."
 
 echo 'Creating icon preview...'
 
