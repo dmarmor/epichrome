@@ -160,22 +160,27 @@ NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_
 endif
 
 
-# BETA CONDITIONAL INFO
+# BETA/INTERNAL CONDITIONAL INFO
 
-ifeq ($(BETA),_beta)
+ifeq ($(shell if [[ '$(filter release package,$(MAKECMDGOALS))' || ( '$(BETA)' = '' ) ]] ; then \
+			echo DEBUG ; \
+		else \
+			echo NODEBUG ; \
+		fi),DEBUG)
 
 DEBUG_SH:=1
 LOGPRESERVE_SH:=9
 BACKUPPRESERVE_SH:=9
 
+ifeq ($(BETA),_beta)
 EPICHROME_DISPNAME:=$(EPICHROME_DISPNAME) Beta
 EPICHROME_SHORTNAME:=$(EPICHROME_SHORTNAME) Beta
 SCAN_DISPNAME:=$(SCAN_DISPNAME) Beta
 SCAN_SHORTNAME:=$(SCAN_SHORTNAME) ß
 LOGIN_DISPNAME:=$(LOGIN_DISPNAME) Beta
 LOGIN_SHORTNAME:=$(LOGIN_SHORTNAME) ß
-
 INSTALL_FOLDER:=$(INSTALL_FOLDER) Beta
+endif
 
 else
 
@@ -184,6 +189,7 @@ LOGPRESERVE_SH:=4
 BACKUPPRESERVE_SH:=4
 
 endif
+
 
 
 # META-TARGETS
