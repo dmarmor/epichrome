@@ -459,6 +459,7 @@ filterfile "$updateEpichromeRuntime/Filter/main.sh" \
         APPENGINESOURCE "$iEngineSource" \
         APPUPDATEACTION "$(formatscalar "$SSBUpdateAction")" \
         APPBACKUPDATA "$(formatscalar "$SSBBackupData")" \
+        APPSKIPWELCOME "$(formatscalar "$SSBSkipWelcome")" \
         APPCOMMANDLINE "$(formatarray "${SSBCommandLine[@]}")" \
         APPEDITED "$(formatscalar "$editedTimestamp")"
 try /bin/chmod 755 "$iMainScript" 'Unable to set permissions for main app script.'

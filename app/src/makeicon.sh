@@ -49,6 +49,8 @@ function makeicon {
     local aMinSize="$1" ; shift
     local aSourceSizeVar="$1" ; shift
     
+    debuglog 'Starting makeicon.'  # $$$
+    
     [[ "$aDoProgress" ]] && progress '!stepIconA1'
     
     # makeicon script location
@@ -75,6 +77,8 @@ function makeicon {
     [[ -e "$iAppIconset" ]] && iExistingIconsets+=( "$iAppIconset" )
     [[ "$aDocIcon" && -d "$iAppIconset" ]] && iExistingIconsets+=( "$iDocIconset" )
     if [[ "${iExistingIconsets[*]}" ]] ; then
+        debuglog 'Deleting existing iconsets.'  # $$$
+        
         try /bin/rm -rf "${iExistingIconsets[@]}" \
             'Unable to delete existing iconset directories.'
     fi
@@ -92,6 +96,8 @@ function makeicon {
     # source for PHP script (assume just the original source)
     local iPHPSource="$aIconSource"
     local iPHPSourceFormat=
+    
+    debuglog "Getting image properties for \"$aIconSource\"."  # $$$
     
     # check format of icon source
     local iSourceInfo=
@@ -132,6 +138,8 @@ function makeicon {
         iPHPSource="$(tempname "${aAppIcon%.icns}" ".png")"
         iPHPSourceFormat='png'
         
+        debuglog "Converting \"$aIconSource\" to PNG."  # $$$
+        
         # convert input source
         try '!1' /usr/bin/sips --setProperty format png --out "$iPHPSource" "$aIconSource" \
             'Unable to create temporary PNG for processing.'
@@ -142,6 +150,8 @@ function makeicon {
             "origPath": "'"$(escapejson "$aIconSource")"'"'
     fi
     
+    debuglog 'Creating empty iconset directories.'  # $$$
+    
     # create empty iconset directories
     local iNewIconsets=( "$iAppIconset" )
     [[ "$aDocIcon" ]] && iNewIconsets+=( "$iDocIconset" )
@@ -149,6 +159,8 @@ function makeicon {
         'Unable to create temporary iconset directories.'
     
     if [[ "$ok" ]] ; then
+        
+        debuglog 'Building makeicon.php command.'  # $$$
         
         # set up progress info in case it's requested
         if [[ "$aDoProgress" ]] ; then
@@ -180,10 +192,6 @@ function makeicon {
                     ok= ; errmsg="Unable to find Big Sur icon background ${iAppIconCompBG##*/}."
                     errlog
                 fi
-            fi
-            
-            if [[ "$aDoProgress" ]] ; then
-                local i
             fi
             
             # create comp commands
@@ -334,6 +342,8 @@ function makeicon {
         
         local iMakeIconErr=
         
+        debuglog 'Running makeicon.php.'  # $$$
+        
         if [[ "$aDoProgress" ]] ; then
             # run through a pipe for progress updates
             try '-12' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
@@ -380,6 +390,8 @@ function makeicon {
         
         if [[ "$ok" ]] ; then
             
+            debuglog 'Converting iconset to ICNS.'  # $$$
+            
             # convert iconsets to ICNS
             try /usr/bin/iconutil -c icns -o "$aAppIcon" "$iAppIconset" \
                 'Unable to create app icon from temporary iconset.'
@@ -403,9 +415,13 @@ function makeicon {
         local iWelcomeIconSrc="$iAppIconset/icon_128x128.png"
         
         if [[ -f "$iWelcomeIconSrc" ]] ; then
+            debuglog 'Copying 128x128 icon to welcome page.'  # $$$
+            
             permanent "$iWelcomeIconSrc" "$aWelcomeIcon" \
                 'welcome page icon'
         else
+            debuglog 'Resizing icon to 128x128 for welcome page.'  # $$$
+
             # 128x128 not found, so scale progressively smaller ones
             local curSize
             for curSize in 512 256 64 32 16 ; do
@@ -428,6 +444,8 @@ function makeicon {
         # error is nonfatal, we'll just use the default from boilerplate
         if [[ ! "$ok" ]] ; then ok=1 ; errmsg= ; fi
     fi
+    
+    debuglog 'Removing temporary iconset directories.'  # $$$
     
     # destroy iconset directories
     tryalways /bin/rm -rf "${iNewIconsets[@]}" \

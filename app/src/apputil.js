@@ -35,10 +35,15 @@ kApp.includeStandardAdditions = true;
 ObjC.import('stdlib');
 
 function print(aStr, aToStderr=false) {
-    let myStream = (aToStderr ?
-        $.NSFileHandle.fileHandleWithStandardError :
-        $.NSFileHandle.fileHandleWithStandardOutput);
-    myStream.writeDataError($(aStr + '\n').dataUsingEncoding($.NSUTF8StringEncoding), null);
+    let iErr;
+    try {
+        let myStream = (aToStderr ?
+            $.NSFileHandle.fileHandleWithStandardError :
+            $.NSFileHandle.fileHandleWithStandardOutput);
+        myStream.writeDataError($(aStr + '\n').dataUsingEncoding($.NSUTF8StringEncoding), null);
+    } catch (iErr) {
+        // fail silently
+    }
 }
 
 function run(aArgv) {

@@ -52,6 +52,8 @@ if [[ "$epiAutoIconURL" ]] ; then
         saferm 'Unable to remove old auto-icon directory.' "$epiAutoIconTempDir"
     fi
     
+    debuglog "Removing leftover icon source & creating temp directory."  # $$$
+    
     # remove any leftover icon source image
     try /bin/rm -f "$epiIconSource" 'Unable to remove old auto-icon source image.'
     
@@ -72,6 +74,8 @@ if [[ "$epiAutoIconURL" ]] ; then
     }
 ]'
     
+    debuglog 'Running makeicon.'  # $$$
+    
     autoIconErr=
     try 'autoIconErr=&' /usr/bin/php "$myScriptPathEpichrome/makeicon.php" \
             "$autoIconCmd" ''
@@ -79,6 +83,8 @@ if [[ "$epiAutoIconURL" ]] ; then
         errmsg="${autoIconErr#*PHPERR|}"
         errlog
     fi
+    
+    debuglog 'Removing temporary auto-icon directory.'  # $$$
     
     # remove temp directory no matter what
     myTry=tryalways

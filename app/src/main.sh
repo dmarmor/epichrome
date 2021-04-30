@@ -36,6 +36,7 @@ SSBEngineType=APPENGINETYPE
 APPENGINESOURCE
 SSBUpdateAction=APPUPDATEACTION
 SSBBackupData=APPBACKUPDATA
+SSBSkipWelcome=APPSKIPWELCOME
 SSBCommandLine=APPCOMMANDLINE
 SSBEdited=APPEDITED
 
@@ -591,6 +592,17 @@ if [[ ! "$ok" ]] ; then
         errPostLaunch="$(msg)"
     fi
     ok=1 ; errmsg=
+fi
+
+
+# DETERMINE IF WE SHOULD SHOW WELCOME PAGE
+
+# if we've been told to skip welcome and this is a minor update or edit, skip it
+if [[ "$myStatusWelcomeURL" && ( "$SSBSkipWelcome" = 'Yes' ) && \
+        ( "$myStatusEdited" || "$myStatusNewVersion" ) ]] ; then
+    if [[ ! "$myStatusNewVersion" ]] || vcmp "$myStatusNewVersion" '==' "$SSBVersion" 2 ; then
+        myStatusWelcomeURL=
+    fi
 fi
 
 

@@ -510,6 +510,13 @@ elif [[ "$epiAction" = 'read' ]] ; then
         SSBBackupData='false'
     fi
     
+    # adapt skip-welcome value
+    if [[ "$SSBSkipWelcome" = 'Yes' ]] ; then
+        SSBSkipWelcome='true'
+    else
+        SSBSkipWelcome='false'
+    fi
+    
     # export JSON
     echo "{$myAppIcon
    \"version\": \"$(escapejson "$SSBVersion")\",
@@ -524,6 +531,7 @@ elif [[ "$epiAction" = 'read' ]] ; then
    },
    \"updateAction\": \"$(escapejson "$SSBUpdateAction")\",
    \"doDataBackup\": $SSBBackupData,
+   \"skipWelcome\": $SSBSkipWelcome,
    \"commandLine\": [
       "$(jsonarray $',\n      ' "${SSBCommandLine[@]}")"
    ]

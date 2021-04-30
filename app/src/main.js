@@ -66,7 +66,8 @@ const kAppInfoKeys = {
     engine: 'App Engine',
     id: kDotGear + ' App ID / Data Directory',
     updateAction: kDotGear + ' Update Action',
-    doDataBackup: kDotGear + ' Backup App Data'
+    doDataBackup: kDotGear + ' Backup App Data',
+    skipWelcome: kDotGear + ' Skip Welcome Page After Minor Update or Edit'
 };
 
 // app defaults & settings
@@ -81,7 +82,8 @@ const kIconAUTO    = 2;
 const kAdvancedDefaults = {
     id: null,
     updateAction: 'prompt',
-    doDataBackup: false
+    doDataBackup: false,
+    skipWelcome: false
 };
 
 const kBrowserInfo = {
@@ -212,7 +214,8 @@ let gAppInfoDefault = {
     icon: kIconAUTO,
     engine: kEngines[0],
     updateAction: kAdvancedDefaults.updateAction,
-    doDataBackup: kAdvancedDefaults.doDataBackup
+    doDataBackup: kAdvancedDefaults.doDataBackup,
+    skipWelcome: kAdvancedDefaults.skipWelcome
 };
 
 let gFirstDialogOptMsg = '\n\n(' + kDotGear + ' To edit Epichrome preferences, hold down Option during launch.)';
@@ -1018,6 +1021,11 @@ function readProperties() {
     if (typeof myProperties["doDataBackup"] === 'boolean') {
         gAppInfoDefault.doDataBackup = myProperties["doDataBackup"];
     }
+
+    // skipWelcome
+    if (typeof myProperties["skipWelcome"] === 'boolean') {
+        gAppInfoDefault.skipWelcome = myProperties["skipWelcome"];
+    }
 }
 
 
@@ -1298,6 +1306,14 @@ function writeProperties() {
                 kind: "boolean",
                 name: "doDataBackup",
                 value: gAppInfoDefault.doDataBackup
+            })
+        );
+        
+        myProperties.propertyListItems.push(
+            kSysEvents.PropertyListItem({
+                kind: "boolean",
+                name: "skipWelcome",
+                value: gAppInfoDefault.skipWelcome
             })
         );
         
@@ -3119,6 +3135,32 @@ function advStepDataBackup(aInfo) {
 }
 
 
+// ADVSTEPSKIPWELCOME: step function to set whether to skip the welcome screen
+function advStepSkipWelcome(aInfo) {
+    
+    // display dialog
+    let myDlgResult = stepDialog(aInfo, "Skip the welcome page after minor updates and app edits?\n\n" + kDotWarning + ' Note: It will still be shown when the app is run for the first time, all settings are reset, or a major update occurs, and the log of changes will still be available in the bookmark folder.', {
+        key: 'skipWelcome',
+        buttons: {
+            'No': false,
+            'Yes': true
+        }
+    });
+    
+    // process dialog result
+    if (myDlgResult.canceled) {
+        // BACK button
+        return -1;
+    }
+    
+    // update app info
+    updateAppInfo(aInfo, 'skipWelcome', myDlgResult.buttonValue);
+    
+    // move on
+    return 1;
+}
+
+
 // STEPBUILD: step function to build app
 function stepBuild(aInfo) {
 
@@ -3194,7 +3236,8 @@ function stepBuild(aInfo) {
             doSteps([
                 advStepID,
                 advStepUpdate,
-                advStepDataBackup
+                advStepDataBackup,
+                advStepSkipWelcome
             ], aInfo, {
                 abortSilent: true,
                 abortBackButton: 'Back',
@@ -3231,7 +3274,8 @@ function stepBuild(aInfo) {
         'SSBRegisterBrowser=' + (aInfo.appInfo.registerBrowser ? 'Yes' : 'No'),
         'SSBEngineType=' + aInfo.appInfo.engine.type + '|' + aInfo.appInfo.engine.id,
         'SSBUpdateAction=' + kUpdateActions[aInfo.appInfo.updateAction].value,
-        'SSBBackupData=' + (aInfo.appInfo.doDataBackup ? 'Yes' : 'No')
+        'SSBBackupData=' + (aInfo.appInfo.doDataBackup ? 'Yes' : 'No'),
+        'SSBSkipWelcome=' + (aInfo.appInfo.skipWelcome ? 'Yes' : 'No'),
     ];
     
     // add app command line
