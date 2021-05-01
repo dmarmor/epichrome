@@ -2,6 +2,16 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.5] - 2021-05-01
+### Changed
+- Added advanced setting to suppress welcome page after minor updates and edits
+- Added prompt for URL when automatic icon requested and app has no URLs
+- Built-in engine updated to Brave 1.23.75
+### Fixed
+- Changed launch code to make multiple attempts to try and prevent occasional failed app launches
+- Changed first launch of a new app from Epichrome so the app is registered first
+
+
 ## [2.4.4] - 2021-04-23
 ### Changed
 - Built-in engine updated to Brave 1.23.73

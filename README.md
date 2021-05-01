@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.4</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.5</span></h1>
 
 ## Overview
 
@@ -60,9 +60,20 @@ Epichrome is open source and a labor of love, made possible by the generosity of
 
 
 <!-- CHANGES_START -->
-## New in version <span id="epiversion">2.4.4</span>
+## New in version <span id="epiversion">2.4.5</span>
 
-- Built-in engine updated to Brave 1.23.73
+- Added advanced setting to suppress welcome page after minor updates and edits
+
+- Added prompt for URL when automatic icon requested and app has no URLs
+
+- Built-in engine updated to Brave 1.23.75
+
+
+## Fixed in version <span id="epiversion">2.4.5</span>
+
+- Changed launch code to make multiple attempts to try and prevent occasional failed app launches
+
+- Changed first launch of a new app from Epichrome so the app is registered first
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
@@ -112,7 +123,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS <span id="osname">Big Sur</span> <span id="osversion">11.2.3</span> and Google Chrome version <span id="chromeversion">90.0.4430.85</span>.
+- Built and tested on macOS <span id="osname">Big Sur</span> <span id="osversion">11.3</span> and Google Chrome version <span id="chromeversion">90.0.4430.93</span>.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 
