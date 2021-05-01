@@ -36,6 +36,8 @@ function runprogress {
     
     # set up errmsg file & export to subapp
     local subappErrFile="$myDataPath/errmsg.txt"
+    try rm -f "$subappErrFile" 'Unable to remove progress bar message file.'
+    [[ "$ok" ]] || return 1
     export subappErrFile
     
     # export basic app settings
@@ -50,35 +52,48 @@ function runprogress {
     # get result of subapp
     local iUpdateResult="$?"
     
+    local myErrMsg=
+    
+    if [[ "$iUpdateResult" = 143 ]] ; then
+        # TERM signal: CANCEL button (ignores any returned message)
+        myErrMsg='CANCEL'
+    else
+        
+        # retrieve any message from subapp
+        
+        # if error returned, expect a message
+        if [[ "$iUpdateResult" != 0 ]] && \
+                ! waitforcondition "progress bar message to appear" 2 .5 test -f "$subappErrFile" ; then
+            myErrMsg='An unknown error occurred (no error message found).'
+        fi
+        if [[ -f "$subappErrFile" ]] ; then
+            
+            # read error message file
+            local mySubappMsg=
+            try 'mySubappMsg=' /bin/cat "$subappErrFile" 'Unable to read progress bar message.'
+            
+            if [[ "$ok" ]] ; then
+                myErrMsg="$mySubappMsg"
+            elif [[ "$iUpdateResult" != 0 ]] ; then
+                # error reading message & subapp returned an error, so report that
+                myErrMsg="An unknown error occurred (unable to read error message)."
+            fi
+            ok=1
+        fi
+    fi
+    
+    # remove any message file
+    try /bin/rm -f "$subappErrFile" 'Unable to remove error message file.'
+    ok=1
+    
+    # set errmsg
+    errmsg="$myErrMsg"
+
+    # return result
     if [[ "$iUpdateResult" = 0 ]] ; then
         return 0
     else
-        # aborted or canceled
         ok=
-        
-        # try to retrieve error message from subapp
-        if [[ "$iUpdateResult" = 143 ]] ; then
-            # TERM signal: CANCEL button
-            errmsg='CANCEL'
-        else
-            local myErrMsg=
-            ok=1 ; errmsg=
-            if waitforcondition "error message file to appear" 2 .5 \
-                    test -f "$subappErrFile" ; then
-                try 'myErrMsg=' /bin/cat "$subappErrFile" 'Unable to read error message file.'
-            else
-                ok= ; errmsg='No error message found.'
-                errlog
-            fi
-            if [[ "$ok" ]] ; then
-                errmsg="$myErrMsg"
-                ok=
-            else
-                errmsg="An unknown error occurred. Unable to read error message file."
-            fi
-            tryalways /bin/rm -f "$subappErrFile" 'Unable to remove error message file.'
-        fi
-        
         return "$iUpdateResult"
     fi
 }

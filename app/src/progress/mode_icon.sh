@@ -119,5 +119,10 @@ makeicon "$epiIconSource" "$epiIconPreviewPath" '' '' \
         sourceSize
 [[ "$ok" ]] || abort
 
-# simulate abort to transmit source size
-abort "SOURCESIZE|${sourceSize[0]},${sourceSize[1]}"
+# transmit source size
+try "$subappErrFile<" echo "SOURCESIZE|${sourceSize[0]},${sourceSize[1]}" \
+        'Unable to write icon source dimensions.'
+ok=1 ; errmsg=
+
+# success!
+cleanexit

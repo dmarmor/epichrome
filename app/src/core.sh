@@ -1216,7 +1216,7 @@ readyToExit=
 function handleexitsignal {
     
     # send any final error messages
-    if [[ "$coreErrFile" ]] ; then
+    if [[ "$coreErrFile" && ( ( ! "$ok" ) || "$errmsg" ) ]] ; then
         
         # save error message
         local iErrMsg="$errmsg"
