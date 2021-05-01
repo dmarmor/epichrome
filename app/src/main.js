@@ -3471,7 +3471,7 @@ function stepBuild(aInfo) {
         if (myDlgResult == 0) {
             delay(1);
             try {
-                launchApp(aInfo.appInfo.file.path);
+                launchApp(aInfo.appInfo.file.path, [], [], {registerFirst: true});
             } catch(myErr) {
                 dialog(myErr.message + ' Please try launching from the Finder.', {
                     withTitle: 'Unable to Launch',
@@ -4376,7 +4376,10 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
     // show file selection dialog
     while (true) {
         try {
-
+            
+            // try to stop weird situation where dialog isn't active $$$
+            kApp.activate();
+            
             // show the chosen type of dialog
             if ((typeof(aType) == 'string') && (aType.toLowerCase() == 'save')) {
                 myResult = kApp.chooseFileName(aOptions).toString();

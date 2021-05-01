@@ -81,7 +81,7 @@ function registerApp(aPath) {
 
 // LAUNCHAPP: launch an app with arguments & URLs
 function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
-
+    
     // prepare args for Obj-C
     aArgs = aArgs.map(x => $(x));
     
@@ -99,7 +99,7 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
             throw Error('No apps found with ID ' + aSpec);
         }
         aSpec = myAppList[0];
-
+        
     }
     
     // if we're supposed to register the app first, do that now
@@ -107,27 +107,34 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
         registerApp(aSpec);
     }
     
+    // set number of attempts before throwing an error
+    let iMaxAttempts = 2;
+    if (aOptions.maxAttempts) {
+        iMaxAttempts = aOptions.maxAttempts;
+    }
+    
     // prepare app spec for Obj-C
     aSpec = $.NSURL.fileURLWithPath($(aSpec));
-
+    
     // name of app for errors
     let myAppName = aSpec.pathComponents.js;
     myAppName = ((myAppName.length > 0) ? '"' + myAppName[myAppName.length - 1].js + '"' : '<unknown app>');
-
+    
     // launch info
-    let myErr = undefined, myApp = undefined;
-
+    let myLaunchErr = undefined, myApp = undefined;
+    let myConfig;
+    
     // determine whether to use openApplicationAtURL or launchApplicationAtURL
     let myOSVersion = kApp.systemInfo().systemVersion.split('.').map(x => parseInt(x));
     let myUseOpen = ((myOSVersion.length >= 2) &&
         ((myOSVersion[0] > 10) || (myOSVersion[0] == 10) && (myOSVersion[1] >= 15)));
-
+    
     if (myUseOpen) {
 
-        // 10.15+
+        // setup for 10.15+
 
         // set up open configuration
-        let myConfig = $.NSWorkspaceOpenConfiguration.configuration;
+        myConfig = $.NSWorkspaceOpenConfiguration.configuration;
         
         // make sure engine doesn't fail to launch due to another similar engine
         myConfig.allowsRunningApplicationSubstitution = false;
@@ -138,28 +145,11 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
         // launch
         function myCompletionHandler(aApp, aErr) {
             myApp = aApp;
-            myErr = aErr;
-        }
-        if (aUrls) {
-            $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLConfigurationCompletionHandler(
-                aUrls, aSpec, myConfig, myCompletionHandler);
-        } else {
-            $.NSWorkspace.sharedWorkspace.openApplicationAtURLConfigurationCompletionHandler(
-                aSpec, myConfig, myCompletionHandler);
-        }
-
-        // wait for completion handler
-        let myWait = 0.0;
-        while ((myErr === undefined) && (myWait < 15.0)) {
-            delay(0.1);
-            myWait += 0.1;
-        }
-        if (myErr === undefined) {
-            throw Error('Timed out waiting for ' + myAppName + ' to open.');
+            myLaunchErr = aErr;
         }
     } else {
-
-        // 10.14-
+        
+        // setup for 10.14-
 
         // set up launch configuration
         let myConfigKeys = [], myConfigValues = [];
@@ -168,29 +158,79 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
             myConfigValues.push($(aArgs));
         }
         
-        let myConfig = $.NSMutableDictionary.dictionaryWithObjectsForKeys(
-            $(myConfigValues), $(myConfigKeys));
-        
-        // launch (error arg causes a crash, so ignore it)
-        if (aUrls) {
-            myApp = $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLOptionsConfigurationError(
-                aUrls, aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null);
-        } else {
-            myApp = $.NSWorkspace.sharedWorkspace.launchApplicationAtURLOptionsConfigurationError(
-                aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null);
-        }
-
-        // create generic error
-        if (!myApp.js) {
-            throw Error('The application ' + myAppName + ' could not be launched.');
-        }
-    }
-
-    // throw any error encountered
-    if (myErr && myErr.js) {
-        throw Error(myErr.localizedDescription.js);
+        myConfig = $.NSMutableDictionary.dictionaryWithObjectsForKeys(
+            $(myConfigValues), $(myConfigKeys)
+        );
     }
     
-    // if we got here, we launched successfully
-    return myApp;
+    // try to launch up to iMaxAttempts times
+    let curAttempt = 1;
+    while (true) {
+        
+        let iErr;
+        try {
+            
+            if (myUseOpen) {
+                
+                // launch for 10.15+
+                
+                if (aUrls) {
+                    $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLConfigurationCompletionHandler(
+                        aUrls, aSpec, myConfig, myCompletionHandler
+                    );
+                } else {
+                    $.NSWorkspace.sharedWorkspace.openApplicationAtURLConfigurationCompletionHandler(
+                        aSpec, myConfig, myCompletionHandler
+                    );
+                }
+                
+                // wait for completion handler
+                let myWait = 0.0;
+                while ((myLaunchErr === undefined) && (myWait < 15.0)) {
+                    delay(0.1);
+                    myWait += 0.1;
+                }
+                if (myLaunchErr === undefined) {
+                    throw Error('Timed out waiting for ' + myAppName + ' to open.');
+                }
+            } else {
+                
+                // launch for 10.14-
+                
+                // launch (error arg causes a crash, so ignore it)
+                if (aUrls) {
+                    myApp = $.NSWorkspace.sharedWorkspace.openURLsWithApplicationAtURLOptionsConfigurationError(
+                        aUrls, aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null
+                    );
+                } else {
+                    myApp = $.NSWorkspace.sharedWorkspace.launchApplicationAtURLOptionsConfigurationError(
+                        aSpec, $.NSWorkspaceLaunchDefault | $.NSWorkspaceLaunchNewInstance, myConfig, null
+                    );
+                }
+                
+                // create generic error
+                if (!myApp.js) {
+                    throw Error('The application ' + myAppName + ' could not be launched.');
+                }
+            }
+            
+            // throw any error encountered
+            if (myLaunchErr && myLaunchErr.js) {
+                throw Error(myLaunchErr.localizedDescription.js);
+            }
+        } catch (iErr) {
+            
+            // this was our final attempt, so throw the error
+            if (curAttempt == iMaxAttempts) {
+                throw iErr;
+            }
+            
+            // increment attempt counter and try again
+            curAttempt++;
+            continue;
+        }
+        
+        // if we got here, we launched successfully
+        return myApp;
+    }
 }

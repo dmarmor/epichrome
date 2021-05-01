@@ -1,12 +1,15 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.5
-epiBuildNum=7
+epiBuildNum=8
 epiMinorChangeList=( \
     'Added advanced setting to suppress welcome page after minor updates and edits' \
     'Added prompt for URL when automatic icon requested and app has no URLs' \
     )  # END_epiMinorChangeList
-epiMinorFixList=()  # END_epiMinorFixList
+epiMinorFixList=( \
+    'Changed launch code to make multiple attempts to try and prevent occasional failed app launches' \
+    'Changed first launch of a new app from Epichrome so the app is registered first' \
+    )  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \

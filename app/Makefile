@@ -422,6 +422,7 @@ notarize-staple:
 	codesign --verify --deep --strict --verbose=2 '$@'
 	spctl --assess --type execute --verbose=4 '$@'
 	touch '$@'
+	osascript $(APP_RNTM)/Contents/Resources/Scripts/apputil.js '{"action": "register", "path": "$@"}'
 
 verify:
 	codesign --verify --deep --strict --verbose=2 '$(APP)'

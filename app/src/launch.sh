@@ -2851,7 +2851,7 @@ function writeconfig {  # ( myConfigFile force )
 }
 
 
-# LAUNCHAPP: launch an app by directly running its executable
+# LAUNCHAPP: launch an app using apputil.js
 #   launchapp(aPath aDoRegister [aAppDesc aArgsVar aResultPIDVar])
 #     if aResultPIDVar not set, ignore PID result from Launch Services & don't
 #     check that the app is running
