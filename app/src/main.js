@@ -805,7 +805,10 @@ function runEdit(aApps) {
 
             // change appInfo to oldAppInfo
             curApp.oldAppInfo = objCopy(curApp.appInfo);
-
+            
+            // consider the app's current ID to be an autoID
+            curApp.stepInfo.autoID = curApp.appInfo.id
+            
             // initialize relevant info
             updateAppInfo(curApp, Object.keys(kAppInfoKeys));
 
