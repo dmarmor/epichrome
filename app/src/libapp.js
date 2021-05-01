@@ -222,6 +222,9 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
             
             // this was our final attempt, so throw the error
             if (curAttempt == iMaxAttempts) {
+                if (curAttempt > 1) {
+                    iErr.message = 'After ' + curAttempt.toString() + ' attempts: ' + iErr.message;
+                }
                 throw iErr;
             }
             
