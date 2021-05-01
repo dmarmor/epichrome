@@ -162,7 +162,7 @@ endif
 
 # BETA/INTERNAL CONDITIONAL INFO
 
-ifeq ($(shell if [[ '$(filter release package,$(MAKECMDGOALS))' || ( '$(BETA)' = '' ) ]] ; then \
+ifeq ($(shell if [[ ( ! '$(filter release package,$(MAKECMDGOALS))' ) || ( '$(BETA)' != '' ) ]] ; then \
 			echo DEBUG ; \
 		else \
 			echo NODEBUG ; \
