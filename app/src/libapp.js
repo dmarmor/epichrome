@@ -191,6 +191,8 @@ function launchApp(aSpec, aArgs=[], aUrls=[], aOptions={}) {
                     myWait += 0.1;
                 }
                 if (myLaunchErr === undefined) {
+                    // don't reattempt launch after this
+                    iMaxAttempts = curAttempt;
                     throw Error('Timed out waiting for ' + myAppName + ' to open.');
                 }
             } else {
