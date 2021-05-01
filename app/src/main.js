@@ -2260,120 +2260,142 @@ function stepIconSelectAuto(aInfo) {
     
     let myAutoUrl;
     
-    if (aInfo.stepInfo.numUrls > 0) {
-        
-        // set up map object
-        let myMapObject = {
-            defaultToAuto: (getIconType(aInfo.appInfo.icon) == kIconAUTO)
-        };
-        
-        myDlgResult = stepDialog(aInfo,
-            "Do you want to try to automatically find an icon at " +
-            ((aInfo.stepInfo.numUrls > 1) ? "one of the app's URLs" : "the app's URL") + ', or select your own icon?\n\n' +
-            kDotInfo + ' The automatic check may take several seconds.', {
-                mapObject: myMapObject,
-                key: 'defaultToAuto',
-                buttons: {
-                    'Auto': true,
-                    'Select': false
-                }
+    // set up map object
+    let myMapObject = {
+        defaultToAuto: (getIconType(aInfo.appInfo.icon) == kIconAUTO)
+    };
+    
+    myDlgResult = stepDialog(aInfo,
+        "Do you want to try to automatically find an icon at " +
+        ((aInfo.stepInfo.numUrls > 1) ? "one of the app's URLs" :
+            ((aInfo.stepInfo.numUrls > 1) ? "the app's URL" : 'a URL you choose')) +
+        ', or select your own icon?\n\n' +
+        kDotInfo + ' The automatic check may take several seconds.', {
+            mapObject: myMapObject,
+            key: 'defaultToAuto',
+            buttons: {
+                'Auto': true,
+                'Select': false
             }
-        );
-        
-        if (myDlgResult.canceled) {
-            // Back button
-            return -1;
         }
+    );
+    
+    if (myDlgResult.canceled) {
+        // Back button
+        return -1;
+    }
+    
+    if (myDlgResult.buttonValue) {
         
-        if (myDlgResult.buttonValue) {
-
-            if (aInfo.stepInfo.numUrls > 1) {
+        if (aInfo.stepInfo.numUrls > 1) {
+            
+            // we have multiple URLs, so ask user to choose
+            myAutoUrl = kApp.chooseFromList(aInfo.appInfo.urls, {
+                withTitle: 'Select URL',
+                withPrompt: 'Please select the URL you wish to check for an icon.',
+                defaultItems: [(aInfo.appInfo.urls.includes(aInfo.appInfo.autoIconUrl) ?
+                    aInfo.appInfo.autoIconUrl : aInfo.appInfo.urls[0])],
+                okButtonName: 'Select',
+                multipleSelectionsAllowed: false,
+                emptySelectionAllowed: false
+            });
+            
+            // handle Cancel button
+            if (!myAutoUrl) {
+                return 0;
+            }
+            
+            // get string
+            myAutoUrl = myAutoUrl[0];
+            
+        } else if (aInfo.stepInfo.numUrls == 1) {
+            
+            // we only have one URL
+            myAutoUrl = aInfo.appInfo.urls[0];
+            
+        } else {
+            
+            // we have no URLs so select an arbitrary one
+            while (true) {
                 
-                // we have multiple URLs, so ask user to choose
-                myAutoUrl = kApp.chooseFromList(aInfo.appInfo.urls, {
-                    withTitle: 'Select URL',
-                    withPrompt: 'Please select the URL you wish to check for an icon.',
-                    defaultItems: [(aInfo.appInfo.urls.includes(aInfo.appInfo.autoIconUrl) ?
-                        aInfo.appInfo.autoIconUrl : aInfo.appInfo.urls[0])],
-                    okButtonName: 'Select',
-                    multipleSelectionsAllowed: false,
-                    emptySelectionAllowed: false
+                // show dialog
+                myAutoUrl = dialog('Please enter a URL to search:', {
+                    withTitle: 'Choose Icon URL',
+                    defaultAnswer: kAppDefaultURL,
+                    buttons: ['OK', 'Cancel'],
+                    defaultButton: 1,
+                    cancelButton: 2
                 });
+                if (myAutoUrl.canceled) {
+                    // Cancel button
+                    return 0;
+                }
                 
-                // handle Cancel button
+                myAutoUrl = myAutoUrl.textReturned
                 if (!myAutoUrl) {
-                    return 0;
+                    // empty
+                    continue;
                 }
                 
-                // get string
-                myAutoUrl = myAutoUrl[0];
-                
-            } else {
-                // we only have one URL
-                myAutoUrl = aInfo.appInfo.urls[0];
+                // if we got here we have a URL
+                break;
             }
-            
-            // check for an auto icon
-            let iErr;
-            try {
-                iconPreview(aInfo.appInfo.icon, null, myAutoUrl);
-                
-            } catch(iErr) {
-                
-                if (errIsReportable(iErr.message)[0]) {
-                    
-                    // fatal error in auto-icon code
-                    return {
-                        message: errIsReportable(iErr.message)[1],
-                        title: 'Icon Creation Error',
-                        error: iErr,
-                        reportError: true,
-                        backStep: 0
-                    }
-                }
-                
-                if (iErr.message.startsWith('CANCEL')) {
-                    return 0;
-                }
-                
-                // show error & try a new image file
-                dialog(iErr.message + ' You will need to create an icon manually.', {
-                    withTitle: 'No Automatic Icon',
-                    withIcon: 'caution',
-                    buttons: ['OK'],
-                    defaultButton: 1
-                });
-                
-                // if we haven't yet set an icon, make sure default is no longer auto
-                if (aInfo.appInfo.icon == kIconAUTO) {
-                    aInfo.appInfo.icon = kIconCUSTOM;
-                } else if (aInfo.appInfo.icon.autoIconUrl) {
-                    // we were trying to change from an existing auto-icon, so go back and ask again
-                    return -1;
-                }
-                
-                // all other cases, move on to custom/default dialog
-                return 1;
-            }
-            
-            // update app icon info
-            aInfo.stepInfo.prevIcon = aInfo.appInfo.icon;
-            aInfo.appInfo.icon = {
-                autoIconUrl: myAutoUrl
-            }
-            
-            // update summaries
-            updateAppInfo(aInfo, 'icon');
-            
-            // move on to style
-            return 4;
         }
-    } else {
         
-        // this step was silent, so if we're backing out, keep going
-        if (aInfo.stepInfo.prevStepNumber > aInfo.stepInfo.curStepNumber) {
-            return -1;
+        // check for an auto icon
+        let iErr;
+        try {
+            iconPreview(aInfo.appInfo.icon, null, myAutoUrl);
+            
+        } catch(iErr) {
+            
+            if (errIsReportable(iErr.message)[0]) {
+                
+                // fatal error in auto-icon code
+                return {
+                    message: errIsReportable(iErr.message)[1],
+                    title: 'Icon Creation Error',
+                    error: iErr,
+                    reportError: true,
+                    backStep: 0
+                }
+            }
+            
+            if (iErr.message.startsWith('CANCEL')) {
+                return 0;
+            }
+            
+            // show error & try a new image file
+            dialog(iErr.message + ' You will need to create an icon manually.', {
+                withTitle: 'No Automatic Icon',
+                withIcon: 'caution',
+                buttons: ['OK'],
+                defaultButton: 1
+            });
+            
+            // if we haven't yet set an icon, make sure default is no longer auto
+            if (aInfo.appInfo.icon == kIconAUTO) {
+                aInfo.appInfo.icon = kIconCUSTOM;
+            } else if (aInfo.appInfo.icon.autoIconUrl) {
+                // we were trying to change from an existing auto-icon, so go back and ask again
+                return -1;
+            }
+            
+            // all other cases, move on to custom/default dialog
+            return 1;
         }
+        
+        // update app icon info
+        aInfo.stepInfo.prevIcon = aInfo.appInfo.icon;
+        aInfo.appInfo.icon = {
+            autoIconUrl: myAutoUrl
+        }
+        
+        // update summaries
+        updateAppInfo(aInfo, 'icon');
+        
+        // move on to style
+        return 4;
     }
     
     // if we got here, we're not doing an auto-icon, so move on to selecting custom icon

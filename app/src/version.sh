@@ -1,9 +1,10 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
 epiVersion=2.4.5
-epiBuildNum=6
+epiBuildNum=7
 epiMinorChangeList=( \
     'Added advanced setting to suppress welcome page after minor updates and edits' \
+    'Added prompt for URL when automatic icon requested and app has no URLs' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
