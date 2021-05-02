@@ -215,7 +215,10 @@ function buildPage() {
     // ACTION ITEM: RUNTIME EXTENSION
 
     const statusRuntime = urlParams.get('rt');
-    if (statusRuntime == 1) {
+    if (statusRuntime == 0) {
+        // already installed
+        runtimeAction = null;
+    } else if (statusRuntime == 1) {
         runtimeAction = 'rt_update';
         alertExtras.push('al_update_runtime');
     } else if (statusRuntime == 2) {
@@ -320,7 +323,7 @@ function buildPage() {
     }
     
     // set appropriate runtime extension message
-    setDisplayGroup('group_rt', runtimeAction);
+    if (runtimeAction != null) { setDisplayGroup('group_rt', runtimeAction); }
     
     // show passwords message if needed
     if (activePassword != null) { setDisplayGroup('group_pw', activePassword); }
@@ -339,8 +342,8 @@ function buildPage() {
     const actionsList = document.getElementById('actions_list').getElementsByClassName('item');
     let firstActionItem;
     
-    var nextNum = 1;
-    var lastItemNum = null;
+    let nextNum = 1;
+    let lastItemNum = null;
     for (let curAction of actionsList) {
 
         // check if this action is visible
@@ -359,14 +362,20 @@ function buildPage() {
         }
     }
         
-    // special case: only one visible, so hide number
-    if (nextNum == 2) { lastItemNum.style.display = 'none'; }
-
-
+    // special cases
+    if (nextNum == 1) {
+        // no actions! hide the whole shebang
+        setDisplay('#actions', false);
+    } else if (nextNum == 2) {
+        // only one visible, so hide number
+        lastItemNum.style.display = 'none';
+    }
+    
     // possibly flash first action item
-    if (urlParams.get('fa') == '1') {
+    if ((nextNum > 1) && (urlParams.get('fa') == '1')) {
         firstActionItem.classList.add('flash');
     }
+    
     
     // SHOW PAGE CONTENTS
     setDisplay('.contents');

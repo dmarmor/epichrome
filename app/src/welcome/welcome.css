@@ -377,8 +377,8 @@ h2#major_update_title {
     margin: 0;
 }
 
-.actions {
-    margin-top: 1em;
+#main_margin {
+    height: 1em;
 }
 
 .actions_header {
@@ -617,6 +617,10 @@ transition-duration:0.1s;
 transition-property:transform;
 transition-timing-function:ease-in-out;
 text-decoration: none;
+}
+
+#farewell {
+    margin-top: .5em;
 }
 
 .sidebar {

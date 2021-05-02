@@ -709,7 +709,7 @@ $(APP_RNTM)/Contents/Resources/Scripts/core.sh: src/core.sh src/version.sh
 
 $(APP_RNTM)/Contents/Resources/Scripts/launch.sh: src/launch.sh
 	@mkdir -p '$(dir $@)'
-	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
+	sed 's/EPIEXTIDRELEASE/$(EXTN_ID_RELEASE)/g; s/EPIEXTIDBETA/$(EXTN_ID_BETA)/g; s/GITHUBUPDATEURL/$(GITHUB_UPDATE_URL)/g' '$<' > '$@'
 
 $(APP_RNTM)/Contents/Resources/Scripts/apputil.js: src/apputil.js src/libapp.js
 	@mkdir -p '$(dir $@)'

@@ -1045,7 +1045,10 @@ function updateprofiledir {
 	# check on runtime extension status
 	
 	# implicit argument to signal welcome page to offer a new install of the extension
-	local runtimeExtArg=0
+	local runtimeExtArg=
+	
+	# path to extensions directory
+	local iExtsDir="$myProfilePath/Default/Extensions"
 	
 	# remove old External Extensions directory
 	local externalExtsDir="$myProfilePath/External Extensions"
@@ -1055,7 +1058,7 @@ function updateprofiledir {
 			[[ -e "$externalExtsManifest" ]] ; then
 		
 		# if the runtime extension is still installed, save its settings
-		if [[ -d "$myProfilePath/Default/Extensions/EPIEXTIDRELEASE" ]] ; then
+		if [[ -d "$iExtsDir/EPIEXTIDRELEASE" ]] ; then
 			
 			debuglog "Saving Epichrome Helper settings."
 			
@@ -1087,6 +1090,19 @@ function updateprofiledir {
 		if [[ ! "$ok" ]] ; then
 			ok=1 ; errmsg=
 		fi
+	else
+		
+		# check if any version of the runtime extension appears to already be installed
+		# $$$ I AM HERE
+		local iRuntimeIDs=( EPIEXTIDRELEASE EPIEXTIDBETA )
+		local curID
+		for curID in "${iRuntimeIDs[@]}" ; do
+			if [[ -d "$iExtsDir/$curID" ]] ; then
+				debuglog "Found runtime extension ($curID) installed."  # $$$
+				runtimeExtArg=0
+				break
+			fi
+		done
 	fi
 	
 	# error states
@@ -1153,7 +1169,7 @@ function updateprofiledir {
 			myStatusWelcomeURL+='&r=1'
 			
 			# update runtime extension argument if not already set for update warning
-			[[ "$runtimeExtArg" = 0 ]] && runtimeExtArg=2
+			[[ "$runtimeExtArg" ]] || runtimeExtArg=2
 			
 		else
 			
@@ -1203,7 +1219,7 @@ function updateprofiledir {
 		
 		# LET WELCOME PAGE KNOW ABOUT RUNTIME EXTENSION
 		
-		[[ "$runtimeExtArg" != 0 ]] && \
+		[[ "$runtimeExtArg" ]] && \
 			myStatusWelcomeURL+="&rt=$runtimeExtArg"
 		
 		
