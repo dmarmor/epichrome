@@ -59,15 +59,21 @@ IMAGES_INPLACE:=$(IMAGES:%=src/%)
 
 .PHONY: release beta inplace build-release build-beta
 .PHONY: store store-dir clean clean-inplace clean-store clean-all
-.PHONY: link-icon-src
+.PHONY: test-nmh
 
-UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
-UGLIFY_RELEASE_FLAGS=--define RELEASE=true
+TERSER_VERSION=5.7.0
+TERSER_FLAGS=--compress --comments '/^!/'
+TERSER_RELEASE_FLAGS=--define RELEASE=true
 
+TEST_ID_INPLACE=nhlnhgkagbiplaohhpmnhekngkckccfh
+TEST_ID_BETA=mefikciklogeeblmbldhgdgiajknnfgj
+TEST_ID_RELEASE=dlllionallabdpiibkkgigpkhgmofogp
+TEST_ID_SED:=s/(chrome-extension:\/\/[a-z]+\/")$$/\1,\'$$'\n''        "chrome-extension:\/\/TESTID\/"/;
 
+	
 # BUILD TARGETS
 
-release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
+release: TERSER_FLAGS+=$(TERSER_RELEASE_FLAGS)
 release: $(BUILDDIR)/release $(BUILDDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
 $(BUILDDIR)/release/manifest.json: src/manifest.json
 $(CP_RELEASE) $(JS_RELEASE): $(BUILDDIR)/release/%: src/%
@@ -108,6 +114,22 @@ clean-store:
 clean-all: clean clean-inplace clean-store
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 
+test-nmh: ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/org.epichrome.runtime.json
+	@if ! grep -q $(TEST_ID_INPLACE) '$<' ; then \
+		echo 'Adding in-place ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_INPLACE),$(TEST_ID_SED))' '$<' ; \
+	fi
+	@if ! grep -q $(TEST_ID_BETA) '$<' ; then \
+		echo 'Adding beta ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_BETA),$(TEST_ID_SED))' '$<' ; \
+	fi
+	@if ! grep -q $(TEST_ID_RELEASE) '$<' ; then \
+		echo 'Adding release ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_RELEASE),$(TEST_ID_SED))' '$<' ; \
+	fi
 
 $(TARGETS:%=$(BUILDDIR)/%):
 	mkdir -p $@
@@ -140,11 +162,11 @@ store/icon_%.png:
 $(CP_RELEASE) $(CP_BETA):
 	cp -p $< $@
 
-# compression relies on node.js package uglify-js
-# > brew install node
-# > mkdir -p node ; cd node ; npm install uglify-js
+# compression relies on node.js package terser
 $(JS_RELEASE) $(JS_BETA):
-	node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS)
+	@if ! which -s node ; then echo 'Unable to find node.js. Please install via homebrew or https://nodejs.org/ and add to your environment.' 1>&2 ; false ; fi
+	@if [[ ( ! -d node/node_modules/terser ) || ( ! -x node/node_modules/.bin/terser ) || ( "$$(node/node_modules/.bin/terser --version)" != "terser $(TERSER_VERSION)" ) ]] ; then echo 'You must install terser $(TERSER_VERSION): mkdir -p node && cd node && npm install terser@$(TERSER_VERSION) && cd ..' 1>&2 ; false ; fi
+	node/node_modules/.bin/terser $< --output $@ $(TERSER_FLAGS)
 
 $(IMAGES_RELEASE) $(IMAGES_BETA) $(IMAGES_INPLACE):
 #	cp -p $< $@
