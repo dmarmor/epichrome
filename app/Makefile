@@ -33,7 +33,6 @@ NMH_ID:=org.epichrome.runtime
 
 EXTN_ID_RELEASE:=ngbmbabjgimgbfobhfhjpfhpmpnhbeea
 EXTN_ID_BETA:=cknkfdhlojihpopgbmoknioompcojicj
-EXTN_ID_INTERNAL:=nhlnhgkagbiplaohhpmnhekngkckccfh
 
 CODESIGN_IDENTITY:=$(shell cat private/codesign_identity.txt)
 
@@ -149,14 +148,6 @@ BRAVE:=$(BRAVE:.pkg=.tgz)
 else
 $(error Unrecognized file in Engines directory: $(BRAVE))
 endif
-endif
-
-
-# NATIVE MESSAGING HOST EXTENSION IDS
-
-NMH_EXTN_IDS:="chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"
-ifeq ($(VERSION),$(VERSION_INTERNAL))
-NMH_EXTN_IDS:=$(NMH_EXTN_IDS),'\\$$'\n''        "chrome-extension:\/\/$(EXTN_ID_INTERNAL)\/"
 endif
 
 
@@ -751,7 +742,7 @@ $(APP_RNTM)/Filter/Prefs/%.json: src/profile/%.json
 
 $(APP_CT)/Resources/NMH/$(NMH_ID).json: src/$(NMH_ID).json src/version.sh
 	@mkdir -p '$(dir $@)'
-	sed -E -e 's/EPIVERSION/$(VERSION)/g; s/EPIRUNTIMEIDS/$(NMH_EXTN_IDS)/' $< > $@
+	sed -E -e 's/EPIVERSION/$(VERSION)/g; s/EPIRUNTIMEIDS/"chrome-extension:\/\/$(EXTN_ID_RELEASE)\/",\'$$'\n''        "chrome-extension:\/\/$(EXTN_ID_BETA)\/"/' $< > $@
 
 
 # WELCOME PAGE
