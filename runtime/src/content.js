@@ -1,5 +1,5 @@
 /*! content.js
-(c) 2017 David Marmor
+(c) 2021 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
@@ -57,8 +57,12 @@ ssbContent.startup = function() {
                 ssbContent.isTopLevel = (window == window.top);
                 
                 if (ssbContent.isTopLevel) {
+                    
                     // log startup
                     ssb.log('starting up content script');
+                    
+                    // update context menu keyboard shortcuts
+                    ssbContent.keepalive.postMessage({type: 'updateCommands'});
                     
                     // $$$ testing
                     chrome.runtime.onMessage.addListener(function(msg, sender, response) {
@@ -235,14 +239,6 @@ ssbContent.interactionHandler = function(evt) {
                 }
             } else if (evt.code == 'Space') {
                 send = true;
-            } else if (
-                (evt.code == 'KeyL') &&
-                evt.metaKey && evt.shiftKey &&
-                (! evt.altKey) && (! evt.ctrlKey)
-            ) {
-                // Command-Shift-L
-                ssb.debug('hotKey', 'sending window switch message');
-                ssbContent.keepalive.postMessage({type: 'windowSwitch'});
             }
         } else if (evt.target && (evt.type == 'click')) {
             info = ssbContent.getInteractionInfo(evt.target);
@@ -250,8 +246,9 @@ ssbContent.interactionHandler = function(evt) {
             if (info.link) {
                 return ssbContent.linkHandler(evt, info);
             }
-        } else // mousedown || mouseup || contextmenu
-        send = true;
+        } else {  // mousedown || mouseup || contextmenu
+            send = true;
+        }
         
         if (send) {
             if (!info && evt.target)

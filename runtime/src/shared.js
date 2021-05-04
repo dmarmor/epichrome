@@ -1,5 +1,5 @@
 /*! shared.js
-(c) 2017 David Marmor
+(c) 2021 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*

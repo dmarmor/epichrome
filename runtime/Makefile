@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the Epichrome Runtime extension.
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -59,15 +59,21 @@ IMAGES_INPLACE:=$(IMAGES:%=src/%)
 
 .PHONY: release beta inplace build-release build-beta
 .PHONY: store store-dir clean clean-inplace clean-store clean-all
-.PHONY: link-icon-src
+.PHONY: test-nmh
 
-UGLIFY_FLAGS=--screw-ie8 --mangle --compress --comments '/^!/' --lint --verbose
-UGLIFY_RELEASE_FLAGS=--define RELEASE=true
+TERSER_VERSION=5.7.0
+TERSER_FLAGS=--compress --comments '/^!/'
+TERSER_RELEASE_FLAGS=--define RELEASE=true
 
+TEST_ID_INPLACE=nhlnhgkagbiplaohhpmnhekngkckccfh
+TEST_ID_BETA=mefikciklogeeblmbldhgdgiajknnfgj
+TEST_ID_RELEASE=dlllionallabdpiibkkgigpkhgmofogp
+TEST_ID_SED:=s/(chrome-extension:\/\/[a-z]+\/")$$/\1,\'$$'\n''        "chrome-extension:\/\/TESTID\/"/;
 
+	
 # BUILD TARGETS
 
-release: UGLIFY_FLAGS+=$(UGLIFY_RELEASE_FLAGS)
+release: TERSER_FLAGS+=$(TERSER_RELEASE_FLAGS)
 release: $(BUILDDIR)/release $(BUILDDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
 $(BUILDDIR)/release/manifest.json: src/manifest.json
 $(CP_RELEASE) $(JS_RELEASE): $(BUILDDIR)/release/%: src/%
@@ -81,7 +87,6 @@ beta: EXTVERSION:=$(EXTVERSION_BETA)
 beta: EXTNAME:=$(EXTNAME) BETA
 beta: $(BUILDDIR)/beta $(BUILDDIR)/beta/manifest.json $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
 $(BUILDDIR)/beta/manifest.json: src/manifest.json
-$(CP_BETA) $(JS_BETA): $(BUILDDIR)/beta/%: src/%
 $(BUILDDIR)/beta/icon128.png: ../images/icons/app_core_beta.psd
 $(BUILDDIR)/beta/icon48.png $(BUILDDIR)/beta/icon16.png: images/icons/beta16.psd
 $(IMAGES_BETA): $(BUILDDIR)/beta/%.png: images/%.png
@@ -108,6 +113,22 @@ clean-store:
 clean-all: clean clean-inplace clean-store
 	find . \( -name '*~' -or -name '.DS_Store' \) -exec rm {} \;
 
+test-nmh: ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/org.epichrome.runtime.json
+	@if ! grep -q $(TEST_ID_INPLACE) '$<' ; then \
+		echo 'Adding in-place ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_INPLACE),$(TEST_ID_SED))' '$<' ; \
+	fi
+	@if ! grep -q $(TEST_ID_BETA) '$<' ; then \
+		echo 'Adding beta ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_BETA),$(TEST_ID_SED))' '$<' ; \
+	fi
+	@if ! grep -q $(TEST_ID_RELEASE) '$<' ; then \
+		echo 'Adding release ID to NMH manifest' 1>&2 ; \
+		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_RELEASE),$(TEST_ID_SED))' '$<' ; \
+	fi
 
 $(TARGETS:%=$(BUILDDIR)/%):
 	mkdir -p $@
@@ -137,17 +158,19 @@ store/icon_%.png:
 	-e "s/src directory/$(EXTVERSIONNAME)/" \
 	$< > $@
 
-$(CP_RELEASE) $(CP_BETA):
-	cp -p $< $@
+$(CP_RELEASE):
+	cp $< $@
 
-# compression relies on node.js package uglify-js
-# > brew install node
-# > mkdir -p node ; cd node ; npm install uglify-js
-$(JS_RELEASE) $(JS_BETA):
-	node/node_modules/uglify-js/bin/uglifyjs $< --output $@ $(UGLIFY_FLAGS)
+# compression relies on node.js package terser
+$(JS_RELEASE):
+	@if ! which -s node ; then echo 'Unable to find node.js. Please install via homebrew or https://nodejs.org/ and add to your environment.' 1>&2 ; false ; fi
+	@if [[ ( ! -d node/node_modules/terser ) || ( ! -x node/node_modules/.bin/terser ) || ( "$$(node/node_modules/.bin/terser --version)" != "terser $(TERSER_VERSION)" ) ]] ; then echo 'You must install terser $(TERSER_VERSION): mkdir -p node && cd node && npm install terser@$(TERSER_VERSION) && cd ..' 1>&2 ; false ; fi
+	node/node_modules/.bin/terser $< --output $@ $(TERSER_FLAGS)
+
+$(CP_BETA) $(JS_BETA): $(BUILDDIR)/beta/%: src/%
+	cp $< $@
 
 $(IMAGES_RELEASE) $(IMAGES_BETA) $(IMAGES_INPLACE):
-#	cp -p $< $@
 	sips -s format png $< --out $@
 
 $(ICONS_RELEASE) $(ICONS_BETA) $(ICONS_INPLACE):

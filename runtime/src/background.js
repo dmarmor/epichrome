@@ -1,5 +1,5 @@
 /*! background.js
-(c) 2017 David Marmor
+(c) 2021 David Marmor
 https://github.com/dmarmor/epichrome
 http://www.gnu.org/licenses/ (GPL V3,6/29/2007) */
 /*
@@ -49,6 +49,15 @@ ssbBG.events = {
 //ssbBG.lastWebNav = undefined;
 
 
+// COMMANDS
+
+ssbBG.commands = {};
+ssbBG.commands.windowSwitch = {
+    command: 'toggle-window-style',
+    menu: 'Show/Hide Address Bar'
+};
+
+
 // STARTUP/SHUTDOWN -- handle startup, shutdown & installation
 // -----------------------------------------------------------
 
@@ -81,8 +90,17 @@ ssbBG.startup = function() {
             // status change listener (we don't need to do anything)
             //window.addEventListener('storage', function() { ssb.debug('storage', 'got a status change!'); });
             
-            // create context menus
+            // add handler for Chrome commands
+            chrome.commands.onCommand.addListener(function(command, tab) {
+                if (command == ssbBG.commands.windowSwitch.command) {
+                    ssbBG.actionHandler('windowSwitch', tab);
+                }
+            });
+            
+            // create context menu
             ssbBG.contextMenuCreate(undefined, 'epichrome', 'Epichrome');
+            
+            // add menu items
             ssbBG.contextMenuCreate(
                 'epichrome', 'urlDefaultBrowser',
                 'Open in Default Browser (⌘⇧-click)', ['link']
@@ -109,7 +127,7 @@ ssbBG.startup = function() {
             );
             ssbBG.contextMenuCreate(
                 'epichrome', 'windowSwitch',
-                'Show/Hide Address Bar (⌘⇧L)'
+                ssbBG.commands.windowSwitch.menu
             );
             ssbBG.contextMenuCreate(
                 'epichrome', 'separator3',
@@ -708,60 +726,112 @@ ssbBG.actionHandler = function(action, tab, info) {
     
     switch (action) {
         
-        case 'windowSwitch': {
+        case 'updateCommands': {
             
-            chrome.tabs.get(tab.id, function(curTab) {
+            // $$$ if more than one command, add code so info can contain a single command name to update
+            
+            // get current keyboard shortcut for our commands & update menu items
+            chrome.commands.getAll(function(commands) {
                 
-                if (!chrome.runtime.lastError) {
+                // get shortcut string for window-switch command
+                let iShortcut = commands.filter(x => x.name == ssbBG.commands.windowSwitch.command)[0].shortcut;
+                if (iShortcut != ssbBG.commands.windowSwitch.shortcut) {
                     
-                    // find the tab's window
-                    chrome.windows.get(curTab.windowId, function(win) {
-                        if (!chrome.runtime.lastError) {
-                            
-                            var newType = undefined;
-                            
-                            if (info && (info != win.type)) {
-                                newType = info;
-                            } else {
-                                newType = (win.type == 'popup') ? 'normal' : 'popup';
+                    // update stored shortcut
+                    ssbBG.commands.windowSwitch.shortcut = iShortcut;
+                    
+                    // create shortcut text
+                    if (iShortcut) {
+                        iShortcut = (
+                            ' (' +
+                            (iShortcut.includes('⌘')?'⌘':'') +
+                            (iShortcut.includes('⌥')?'⌥':'') +
+                            (iShortcut.includes('⌃')?'⌃':'') +
+                            (iShortcut.includes('⇧')?'⇧':'') +
+                            '-' +
+                            iShortcut.split('').filter(x => (!'⌘⌥⌃⇧'.includes(x)))[0] +
+                            ')'
+                        );
+                    }
+                    
+                    // update context menu
+                    chrome.contextMenus.update(
+                        'windowSwitch',
+                        { title: ssbBG.commands.windowSwitch.menu + iShortcut },
+                        function() {
+                            if (chrome.runtime.lastError) {
+                                ssb.warn(
+                                    'Error updating context menu item "' +
+                                    ssbBG.commands.windowSwitch.menu + '":',
+                                    chrome.runtime.lastError.message
+                                );
                             }
-                            
-                            if (newType) {
-                                ssb.debug('setWindowType', 'setting window', win.id, 'to', newType);
-                                
-                                // switch the window style
-                                chrome.windows.create({
-                                    tabId: curTab.id,
-                                    type: newType,
-                                    left: win.left,
-                                    top: win.top,
-                                    width: win.width,
-                                    height: win.height
-                                }, function() {
-                                    if (chrome.runtime.lastError) {
-                                        // window not found
-                                        ssb.warn(
-                                            'unable to set window type for tab',
-                                            curTab.id, '('+chrome.runtime.lastError.message+')'
-                                        );
-                                    }
-                                });
-                            } else {
-                                ssb.debug('setWindowType', 'ignoring -- window is already', win.type);
-                            }
-                        } else {
-                            // window not found
-                            ssb.warn(
-                                'unable to find window for tab',
-                                tab.id, '('+chrome.runtime.lastError.message+')'
-                            );
                         }
-                    });
-                } else {
-                    // tab not found
-                    ssb.warn('unable to find tab', tab.id, '('+chrome.runtime.lastError.message+')');
+                    );
                 }
             });
+        }
+        break;
+        
+        case 'windowSwitch': {
+            
+            if (tab.id >= 0) {
+                chrome.tabs.get(tab.id, function(curTab) {
+                    
+                    if (!chrome.runtime.lastError) {
+                        
+                        // find the tab's window
+                        chrome.windows.get(curTab.windowId, function(win) {
+                            if (!chrome.runtime.lastError) {
+                                
+                                var newType = undefined;
+                                
+                                if (info && (info != win.type)) {
+                                    newType = info;
+                                } else {
+                                    newType = (win.type == 'popup') ? 'normal' : 'popup';
+                                }
+                                
+                                if (newType) {
+                                    ssb.debug('setWindowType', 'setting window', win.id, 'to', newType);
+                                    
+                                    // switch the window style
+                                    chrome.windows.create({
+                                        tabId: curTab.id,
+                                        type: newType,
+                                        left: win.left,
+                                        top: win.top,
+                                        width: win.width,
+                                        height: win.height
+                                    }, function() {
+                                        if (chrome.runtime.lastError) {
+                                            // window not found
+                                            ssb.warn(
+                                                'unable to set window type for tab',
+                                                curTab.id, '('+chrome.runtime.lastError.message+')'
+                                            );
+                                        }
+                                    });
+                                } else {
+                                    ssb.debug('setWindowType', 'ignoring -- window is already', win.type);
+                                }
+                            } else {
+                                // window not found
+                                ssb.warn(
+                                    'unable to find window for tab',
+                                    tab.id, '('+chrome.runtime.lastError.message+')'
+                                );
+                            }
+                        });
+                    } else {
+                        // tab not found
+                        ssb.warn('unable to find tab', tab.id, '('+chrome.runtime.lastError.message+')');
+                    }
+                });
+            } else {
+                // tab not found
+                ssb.warn('[windowSwitch]:', 'Not a switchable tab:', tab);
+            }
         }
         break;
         
@@ -998,6 +1068,9 @@ ssbBG.contextMenuCreate = function(parent, id, title, contexts, type) {
         if (chrome.runtime.lastError) {
             ssb.warn('Error creating context menu item "'+title+'":',
             chrome.runtime.lastError.message);
+        } else if (id == 'windowSwitch') {
+            // add keyboard shortcut to menu item
+            ssbBG.actionHandler('updateCommands', null, 'windowSwitch');
         }
     });
 }
