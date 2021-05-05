@@ -1,5 +1,14 @@
 <h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.5</span></h1>
 
+## IMPORTANT NOTE
+
+I'm sad to announce I'm ending development of Epichrome.
+
+After more than five years of development, I no longer have time to do the major work that will be needed to keep Epichrome working with coming changes to macOS and the Chrome extension ecosystem.
+
+I will continue doing updates to stay current with the Brave browser engine until the end of 2021. If you rely on Epichrome for your workflow, you should begin looking for an alternative as soon as possible to minimize disruption. There are many options out there, each with their own pros and cons, including [Chromeless](https://chromeless.app/ "Chromeless"), [WebCatalog](https://webcatalog.app/ "WebCatalog"), [Flotato](https://www.flotato.com/ "Flotato"), [Unite](https://www.bzgapps.com/unite "Unite"), and [Coherence](https://www.bzgapps.com/coherence "Coherence").
+
+
 ## Overview
 
 Epichrome lets you create web-based Mac applications compatible with the full range of extensions available in the Chrome Web Store. It includes an extension to route links to your default browser.
@@ -7,11 +16,9 @@ Epichrome lets you create web-based Mac applications compatible with the full ra
 Download the latest release **[here](https://github.com/dmarmor/epichrome/releases "Download")**, and please check out the important notes below. If you find a bug or have a feature request, please submit it **[here](https://github.com/dmarmor/epichrome/issues "Issues")**.
 
 
-## How To Support Epichrome
+## Epichrome Supporters
 
-<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162" target="_blank"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>
-
-Epichrome is open source and a labor of love, made possible by the generosity of our Patreon patrons. If you find it useful, please consider supporting its continued development by joining them!
+Epichrome is open source and has been a labor of love, made possible by the generosity of our Patreon patrons. I can't thank you all enough!
 
 <h4 align="center"><ins>Rock Star Patrons</ins></h4>
 <b>

@@ -318,6 +318,18 @@ a:active {
     /* padding-top: 1em; */
 }
 
+#farewell {
+    padding: 1em;
+    padding-bottom: 0;
+    margin-top: 1em;
+    border: 2px solid #000000;
+    background: #ffa0a0;
+}
+#farewell .important {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
 .footnote {
     text-align: center;
     font-size: 85%;
@@ -619,7 +631,7 @@ transition-timing-function:ease-in-out;
 text-decoration: none;
 }
 
-#farewell {
+#epilogue {
     margin-top: .5em;
 }
 

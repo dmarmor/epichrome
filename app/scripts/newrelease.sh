@@ -614,7 +614,7 @@ function create_release_post {
     
     if [[ ! "$epiIsBeta" ]] ; then
         # build list for GitHub-check dialog
-        iPostBody="$(build_both_lists $'<!--<epichrome>\n' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
+        iPostBody=$'⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.\n\n<!--<epichrome>\n'"$(build_both_lists '' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
                 $'\n\n' $'\n\n   ▪️ ' '' '' '')"
         [[ "$iPostBody" ]] && iPostBody+=$'\n'
     else
@@ -625,6 +625,9 @@ You can download Epichrome '"$iBetaLabel"' with [**this link [UPDATE]**](https:/
 '
     fi
     
+    # add farewell message
+    iPostBody+=$'⚠️ **IMPORTANT NOTE:** Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement [here](https://github.com/dmarmor/epichrome/blob/master/README.md#important-note).\n\n'
+    
     # build list for release notes
     local iChangeList="$(build_both_lists '' "$iChangeHeader" "$iFixHeader" $'\n\n' \
             $'\n\n' $'\n- ' "$iListAfterEach" escapehtml 'No changes in this release.')"
@@ -632,8 +635,8 @@ You can download Epichrome '"$iBetaLabel"' with [**this link [UPDATE]**](https:/
     
     if [[ ! "$epiIsBeta" ]] ; then
         # add Patreon footer
-        [[ "$iPostBody" ]] && iPostBody+=$'\n\n---\n\n'
-        iPostBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
+        # [[ "$iPostBody" ]] && iPostBody+=$'\n\n---\n\n'
+        # iPostBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
     else
         #[[ "$iChangeList" ]] && iPostBody="${iPostBody%|}"$'\n'
         [[ "$iChangeList" ]] && iPostBody+=$'\n\n'

@@ -401,6 +401,9 @@ function checkappupdate {
 		# basic update message
 		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
 		
+		# add farewell
+		updateMsg+=$'\n\n⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.'
+		
 		# add any description for this version
 		local iDelim=$'\n\n   ▪️ '
 		local iChangeList="$(join_array "$iDelim" "${epiUpdateChangeList[@]}")"
@@ -415,7 +418,7 @@ function checkappupdate {
 		if vcmp "$epiUpdateVersion" '>' "$SSBVersion" 2 ; then
 			
 			# add major update header
-			iUpdateDesc=$'\n\n'"🚀 MAJOR UPDATE!$iUpdateDesc"
+			iUpdateDesc=$'\n\n'"🚀 MAJOR UPDATE$iUpdateDesc"
 			
 			# add any description for the major version
 			if [[ "${epiUpdateDescMajor[*]}" ]] ; then
@@ -433,7 +436,7 @@ function checkappupdate {
 		
 		# update dialog info if the new version is beta
 		if ! visrelease "$epiUpdateVersion" ; then
-			updateMsg="$updateMsg"$'\n\n'"⚠️ IMPORTANT NOTE: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
+			updateMsg="$updateMsg"$'\n\n'"⚠️ Note: This is a BETA release, and may be unstable. If anything goes wrong, you can find a backup of the app in your Backups folder ($myBackupDir)."
 			# updateButtonList=( "+$updateBtnLater" "$updateBtnUpdate" )
 		fi
 		
