@@ -2,7 +2,7 @@
 
 ## IMPORTANT NOTE
 
-I'm sad to announce I'm ending development of Epichrome.
+***I'm sad to announce I'm ending development of Epichrome.***
 
 After more than five years of development, I no longer have time to do the major work that will be needed to keep Epichrome working with coming changes to macOS and the Chrome extension ecosystem.
 
