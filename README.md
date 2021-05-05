@@ -8,6 +8,7 @@ After more than five years of development, I no longer have time to do the major
 
 I will continue doing updates to stay current with the Brave browser engine until the end of 2021. If you rely on Epichrome for your workflow, you should begin looking for an alternative as soon as possible to minimize disruption. There are many options out there, each with their own pros and cons, including [Chromeless](https://chromeless.app/ "Chromeless"), [WebCatalog](https://webcatalog.app/ "WebCatalog"), [Flotato](https://www.flotato.com/ "Flotato"), [Unite](https://www.bzgapps.com/unite "Unite"), and [Coherence](https://www.bzgapps.com/coherence "Coherence").
 
+If you are a developer with the skills and interest to continue this project, please [contact me](mailto:info@epichrome.org). I would love to find a good home for Epichrome.
 
 ## Overview
 
