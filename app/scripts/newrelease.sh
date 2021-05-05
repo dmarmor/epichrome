@@ -753,8 +753,6 @@ function prompt {
 
 # run doc updates
 read_version
-create_release_post
-[[ "$ok" ]] && cleanexit || abort
 check_repository
 check_static_autoicons
 update_brave
