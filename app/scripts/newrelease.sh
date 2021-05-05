@@ -635,7 +635,7 @@ You can download Epichrome '"$iBetaLabel"' with [**this link [UPDATE]**](https:/
     
     if [[ ! "$epiIsBeta" ]] ; then
         # add Patreon footer
-        # [[ "$iPostBody" ]] && iPostBody+=$'\n\n---\n\n'
+        :# [[ "$iPostBody" ]] && iPostBody+=$'\n\n---\n\n'
         # iPostBody+=$'<p align="center"><a href="https://www.patreon.com/bePatron?u=27108162"><img src="https://github.com/dmarmor/epichrome/blob/master/images/readme/patreon_button.svg" width="176" height="35" alt="Become a patron"/></a></p>\n<p align="center">This release was made possible by our Patreon patrons.<br />\nIf Epichrome is useful to you, please consider joining them!</p>'
     else
         #[[ "$iChangeList" ]] && iPostBody="${iPostBody%|}"$'\n'
