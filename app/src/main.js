@@ -4380,9 +4380,6 @@ function fileDialog(aType, aDirObj, aDirKey, aOptions={}) {
     while (true) {
         try {
             
-            // try to stop weird situation where dialog isn't active $$$
-            kApp.activate();
-            
             // show the chosen type of dialog
             if ((typeof(aType) == 'string') && (aType.toLowerCase() == 'save')) {
                 myResult = kApp.chooseFileName(aOptions).toString();

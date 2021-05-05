@@ -399,10 +399,7 @@ function checkappupdate {
 	else
 		
 		# basic update message
-		local updateMsg="Do you want to update this app from version $SSBVersion to version $epiUpdateVersion?"
-		
-		# add farewell
-		updateMsg+=$'\n\n⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.'
+		local updateMsg=$'⚠️⚠️⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.\n\n---------------------------------------------------------------\n\nDo you want to update this app from version '"$SSBVersion to version $epiUpdateVersion?"
 		
 		# add any description for this version
 		local iDelim=$'\n\n   ▪️ '
@@ -1096,12 +1093,11 @@ function updateprofiledir {
 	else
 		
 		# check if any version of the runtime extension appears to already be installed
-		# $$$ I AM HERE
 		local iRuntimeIDs=( EPIEXTIDRELEASE EPIEXTIDBETA )
 		local curID
 		for curID in "${iRuntimeIDs[@]}" ; do
 			if [[ -d "$iExtsDir/$curID" ]] ; then
-				debuglog "Found runtime extension ($curID) installed."  # $$$
+				debuglog "Found runtime extension ($curID) installed."
 				runtimeExtArg=0
 				break
 			fi
