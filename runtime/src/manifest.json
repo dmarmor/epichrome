@@ -1,39 +1,51 @@
 {
     "manifest_version": 2,
     
-    "name": "Epichrome Runtime DEV",
+    "version_name": "1.2.0b1[1]",
+
+    "name": "Epichrome Runtime SRC BETA",
     "short_name": "EpichromeRun",
     "description": "Runtime component of Mac apps created with Epichrome. Currently handles link redirection.",
-    "version": "0.0.0",
-    "version_name": "src directory",
+    "version": "1.2.0.101",
     
     "background": {
-    	"scripts": ["shared.js", "background.js"]
+        "scripts": ["shared.js", "background.js"]
     },
-
+    
     "content_scripts": [
-    	{
-    	    "matches": ["*://*/*"],
-    	    "match_about_blank": true,
-    	    "all_frames": true,
-    	    "js": ["shared.js", "content.js"]
-    	}
+        {
+            "matches": ["*://*/*"],
+            "match_about_blank": true,
+            "all_frames": true,
+            "js": ["shared.js", "content.js"]
+        }
     ],
     
-    "icons": { "16": "icon16.png",
-               "48": "icon48.png",
-               "128": "icon128.png" },
+    "commands": {
+        "toggle-window-style": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+L"
+            },
+            "description": "Show/hide the address and tab bar"
+        }
+    },
+    
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    },
     
     "options_page": "options.html",
-
+    
     "permissions": [
-	"nativeMessaging",
-	"storage",
-	"tabs",
-	"contextMenus",
-	"webNavigation",
-	"webRequest",
-	"webRequestBlocking",
-	"<all_urls>"
+        "nativeMessaging",
+        "storage",
+        "tabs",
+        "contextMenus",
+        "webNavigation",
+        "webRequest",
+        "webRequestBlocking",
+        "<all_urls>"
     ]
 }

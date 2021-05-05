@@ -1,6 +1,6 @@
 #
 #  Makefile: Build rules for the Epichrome Runtime extension.
-#  Copyright (C) 2019  David Marmor
+#  Copyright (C) 2021  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -21,92 +21,110 @@
 #
 
 
-# EXTENSION INFO
-EXTNAME:=Epichrome Runtime
-EXTVERSION:=1.2.0
-EXTVERSION_BETA:=1.1.99.2
+# EXTENSION VERSION
+EXTVERSION:=$(shell scripts/version.sh $(filter bump,$(MAKECMDGOALS)))
+EXTVERSIONZIP:=$(shell v='$(EXTVERSION)' ; echo "$${v%[*}")
+EXTVERSIONCODE:=$(shell scripts/version.sh code)
+EXTISBETA:=$(shell if [[ '$(EXTVERSION)' =~ b ]] ; then echo TRUE ; else echo '' ; fi)
 
-EXTVERSIONNAME:=$(EXTVERSION)
+# EXTENSION BUILD DIRECTORY
+BUILDDIR:=build/epichrome_runtime
 
-BUILDDIR:=build
-ZIPDIR:=$(BUILDDIR)/zip
 
-TARGETS=release beta
-
-ZIP_RELEASE:=$(ZIPDIR)/epichrome-runtime-$(EXTVERSION).zip
-ZIP_BETA:=$(ZIPDIR)/epichrome-runtime-beta-$(EXTVERSION_BETA).zip
-
+# SOURCE & BUILD PATHS
 CP_SRC:=$(wildcard src/*.html) $(wildcard src/*.css) $(wildcard src/jquery*.js)
 JS_SRC:=$(patsubst src/jquery%,,$(wildcard src/*.js))
+ifeq ($(EXTISBETA),TRUE)
+CP_SRC:=$(CP_SRC) $(JS_SRC)
+JS_SRC:=
+endif
+CP_BUILD:=$(CP_SRC:src/%=$(BUILDDIR)/%)
+JS_BUILD:=$(JS_SRC:src/%=$(BUILDDIR)/%)
 
-CP_RELEASE:=$(CP_SRC:src/%=$(BUILDDIR)/release/%)
-JS_RELEASE:=$(JS_SRC:src/%=$(BUILDDIR)/release/%)
+# ICONS & IMAGES
+ICON16_BUILD:=$(BUILDDIR)/icon16.png
+ICON48_BUILD:=$(BUILDDIR)/icon48.png
+ICON128_BUILD:=$(BUILDDIR)/icon128.png
+ICONS_BUILD:=$(ICON16_BUILD) $(ICON48_BUILD) $(ICON128_BUILD)
 
-CP_BETA:=$(CP_SRC:src/%=$(BUILDDIR)/beta/%)
-JS_BETA:=$(JS_SRC:src/%=$(BUILDDIR)/beta/%)
+ICON16_SRC:=$(ICON16_BUILD:$(BUILDDIR)/%=src/%)
+ICON48_INPLACE:=$(ICON48_BUILD:$(BUILDDIR)/%=src/%)
+ICON128_INPLACE:=$(ICON128_BUILD:$(BUILDDIR)/%=src/%)
+ICONS_INPLACE:=$(ICON16_INPLACE) $(ICON48_INPLACE) $(ICON128_INPLACE)
 
-ICONS:=icon16.png icon48.png icon128.png
-IMAGES:=install-bg.png
+ifeq ($(EXTISBETA),TRUE)
+ICON16_SRC:=images/icons/beta16.psd
+ICON48_SRC:=images/icons/beta16.psd
+ICON128_SRC:=../images/icons/app_core_beta.psd
+else
+ICON16_SRC:=../images/icons/app_core.psd
+ICON48_SRC:=$(ICON16_SRC)
+ICON128_SRC:=$(ICON16_SRC)
+endif
 
-ICONS_RELEASE:=$(ICONS:%=$(BUILDDIR)/release/%)
-IMAGES_RELEASE:=$(IMAGES:%=$(BUILDDIR)/release/%)
+# ZIP FILE
+ifeq ($(EXTISBETA),TRUE)
+ZIP:=build/epichrome-runtime-beta-$(EXTVERSIONZIP).zip
+else
+ZIP:=build/epichrome-runtime-$(EXTVERSIONZIP).zip
+endif
 
-ICONS_BETA:=$(ICONS:%=$(BUILDDIR)/beta/%)
-IMAGES_BETA:=$(IMAGES:%=$(BUILDDIR)/beta/%)
-
-ICONS_INPLACE:=$(ICONS:%=src/%)
-IMAGES_INPLACE:=$(IMAGES:%=src/%)
-
-.PHONY: release beta inplace build-release build-beta
-.PHONY: store store-dir clean clean-inplace clean-store clean-all
+# PHONY TARGETS
+.PHONY: build package zip inplace
+.PHONY: store store-dir
+.PHONY: clean clean-inplace clean-store clean-all
 .PHONY: test-nmh
 
+# TERSER INFO
 TERSER_VERSION=5.7.0
-TERSER_FLAGS=--compress --comments '/^!/'
-TERSER_RELEASE_FLAGS=--define RELEASE=true
+TERSER_FLAGS:=--compress --comments '/^!/'
+ifeq ($(EXTISBETA),)
+TERSER_FLAGS:=$(TERSER_FLAGS) --define RELEASE=true
+endif
 
+# EXTENSION IDS
 TEST_ID_INPLACE=nhlnhgkagbiplaohhpmnhekngkckccfh
-TEST_ID_BETA=mefikciklogeeblmbldhgdgiajknnfgj
-TEST_ID_RELEASE=dlllionallabdpiibkkgigpkhgmofogp
+TEST_ID_UNPACKED=nkomgphegnjbinlnadabeacplpdfdiee
 TEST_ID_SED:=s/(chrome-extension:\/\/[a-z]+\/")$$/\1,\'$$'\n''        "chrome-extension:\/\/TESTID\/"/;
 
+# MANIFEST FILTERING
+EXTNAME_RE=^(.*"name": ")(.*[^A-Z])( [A-Z ]+)?(".*)$$
 	
-# BUILD TARGETS
+ifeq ($(EXTISBETA),TRUE)
+EXTNAME_UNPACKED_EXT=BETA
+EXTNAME_ZIP_EXT=\ $(EXTNAME_UNPACKED_EXT)
+else
+EXTNAME_UNPACKED_EXT=RELEASE
+EXTNAME_ZIP_EXT=
+endif
 
-release: TERSER_FLAGS+=$(TERSER_RELEASE_FLAGS)
-release: $(BUILDDIR)/release $(BUILDDIR)/release/manifest.json $(CP_RELEASE) $(JS_RELEASE) $(ICONS_RELEASE) $(IMAGES_RELEASE) $(ZIP_RELEASE)
-$(BUILDDIR)/release/manifest.json: src/manifest.json
-$(CP_RELEASE) $(JS_RELEASE): $(BUILDDIR)/release/%: src/%
-$(ICONS_RELEASE): ../images/icons/app_core.psd
-$(IMAGES_RELEASE): $(BUILDDIR)/release/%.png: images/%.png
-store/icon_release.png: ../images/icons/app_core.psd
-$(ZIP_RELEASE): $(BUILDDIR)/release
+	
+# MAIN BUILD TARGETS
 
-beta: EXTVERSIONNAME:=$(EXTVERSION) beta $(shell x="$(EXTVERSION_BETA)" ; echo "$${x##*.}")
-beta: EXTVERSION:=$(EXTVERSION_BETA)
-beta: EXTNAME:=$(EXTNAME) BETA
-beta: $(BUILDDIR)/beta $(BUILDDIR)/beta/manifest.json $(CP_BETA) $(JS_BETA) $(ICONS_BETA) $(IMAGES_BETA) $(ZIP_BETA)
-$(BUILDDIR)/beta/manifest.json: src/manifest.json
-$(CP_BETA) $(JS_BETA): $(BUILDDIR)/beta/%: src/%
-$(BUILDDIR)/beta/icon128.png: ../images/icons/app_core_beta.psd
-$(BUILDDIR)/beta/icon48.png $(BUILDDIR)/beta/icon16.png: images/icons/beta16.psd
-$(IMAGES_BETA): $(BUILDDIR)/beta/%.png: images/%.png
-store/icon_beta.png: ../images/icons/app_core_beta.psd
-$(ZIP_BETA): $(BUILDDIR)/beta
+build: clean $(BUILDDIR) $(BUILDDIR)/manifest.json $(CP_BUILD) $(JS_BUILD) $(ICONS_BUILD)
 
-inplace: $(ICONS_INPLACE) $(IMAGES_INPLACE)
-src/icon128.png: images/icons/inplace.psd
-src/icon48.png src/icon16.png: images/icons/inplace16.psd
-$(IMAGES_INPLACE): src/%.png: images/%.psd
+package: $(ZIP)
+zip: package
+
+inplace: clean-inplace $(ICONS_INPLACE)
 
 
-# BUILD RULES
+# STORE ICONS
+
+store: store/icon_release.png store/icon_beta.png
+
+store/icon_%.png:
+	@mkdir -p store
+	sips -s format png -z 122 122 -p 128 128 $< --out $@
+
+
+# UTILITY TARGETS
 
 clean:
-	rm -rf $(BUILDDIR)
+	rm -rf build
 
 clean-inplace:
-	rm -f $(ICONS_INPLACE) $(IMAGES_INPLACE)
+	rm -f $(ICONS_INPLACE)
 
 clean-store:
 	rm -rf store
@@ -116,63 +134,68 @@ clean-all: clean clean-inplace clean-store
 
 test-nmh: ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/org.epichrome.runtime.json
 	@if ! grep -q $(TEST_ID_INPLACE) '$<' ; then \
-		echo 'Adding in-place ID to NMH manifest' 1>&2 ; \
+		echo 'Adding in-place ID to NMH manifest...' 1>&2 ; \
 		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
 		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_INPLACE),$(TEST_ID_SED))' '$<' ; \
 	fi
-	@if ! grep -q $(TEST_ID_BETA) '$<' ; then \
-		echo 'Adding beta ID to NMH manifest' 1>&2 ; \
+	@if ! grep -q $(TEST_ID_UNPACKED) '$<' ; then \
+		echo 'Adding unpacked ID to NMH manifest...' 1>&2 ; \
 		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
-		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_BETA),$(TEST_ID_SED))' '$<' ; \
-	fi
-	@if ! grep -q $(TEST_ID_RELEASE) '$<' ; then \
-		echo 'Adding release ID to NMH manifest' 1>&2 ; \
-		if [[ -f '$<.orig' ]] ; then ext= ; else ext=.orig ; fi ; \
-		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_RELEASE),$(TEST_ID_SED))' '$<' ; \
+		sed -i "$$ext" -E '$(subst TESTID,$(TEST_ID_UNPACKED),$(TEST_ID_SED))' '$<' ; \
 	fi
 
-$(TARGETS:%=$(BUILDDIR)/%):
+
+# INTERMEDIATE DEPENDENCIES
+
+$(CP_BUILD) $(JS_BUILD): $(BUILDDIR)/%: src/%
+
+$(ICON16_BUILD): $(ICON16_SRC)
+$(ICON48_BUILD): $(ICON48_SRC)
+$(ICON128_BUILD): $(ICON128_SRC)
+
+$(ICON16_INPLACE) $(ICON48_INPLACE): images/icons/inplace16.psd
+$(ICON128_INPLACE): images/icons/inplace.psd
+
+store/icon_release.png: ../images/icons/app_core.psd
+store/icon_beta.png: ../images/icons/app_core_beta.psd
+
+
+# BUILD RULES
+
+$(BUILDDIR):
 	mkdir -p $@
 
-%.zip:
-	@mkdir -p $(ZIPDIR)
-	rm -f $@
-	zip --recurse-paths $@ $< --exclude '*/.*' '*~'
+$(ZIP): build
+	mv $(BUILDDIR)/manifest.json build
+	sed -E -e 's/$(EXTNAME_RE)/\1\2$(EXTNAME_ZIP_EXT)\4/' \
+		-e 's/^(.*"version_name": ")(.*)(".*)$$/\1$(EXTVERSIONZIP)\3/' \
+		build/manifest.json > $(BUILDDIR)/manifest.json
+	cd build && zip --recurse-paths $(notdir $@) $(notdir $(BUILDDIR)) --exclude '*/.*' '*~'
+	rm -rf $(BUILDDIR)/manifest.json
+	mv build/manifest.json $(BUILDDIR)
+	
+$(BUILDDIR)/manifest.json: src/manifest.json
+	sed -E 's/$(EXTNAME_RE)/\1\2 BUILD $(EXTNAME_UNPACKED_EXT)\4/' $< > $@
 
-
-# STORE ICONS
-
-store: store-dir store/icon_release.png store/icon_beta.png
-
-store-dir:
-	@mkdir -p store
-
-store/icon_%.png:
-	sips -s format png -z 122 122 -p 128 128 $< --out $@
-
-# $(BUILDDIR)/%.html: src/%.html
-# 	@echo htmlminify $< $@
-
-%.json:
-	sed -e 's/Epichrome Runtime DEV/$(EXTNAME)/' \
-	-e 's/0\.0\.0/$(EXTVERSION)/' \
-	-e "s/src directory/$(EXTVERSIONNAME)/" \
-	$< > $@
-
-$(CP_RELEASE) $(CP_BETA):
-	cp -p $< $@
+$(CP_BUILD):
+	cp $< $@
 
 # compression relies on node.js package terser
-$(JS_RELEASE) $(JS_BETA):
-	@if ! which -s node ; then echo 'Unable to find node.js. Please install via homebrew or https://nodejs.org/ and add to your environment.' 1>&2 ; false ; fi
-	@if [[ ( ! -d node/node_modules/terser ) || ( ! -x node/node_modules/.bin/terser ) || ( "$$(node/node_modules/.bin/terser --version)" != "terser $(TERSER_VERSION)" ) ]] ; then echo 'You must install terser $(TERSER_VERSION): mkdir -p node && cd node && npm install terser@$(TERSER_VERSION) && cd ..' 1>&2 ; false ; fi
+$(JS_BUILD):
+	@if ! which -s node ; then \
+		echo 'Unable to find node.js. Please install via homebrew or https://nodejs.org/ and add to your environment.' 1>&2 ; \
+		false ; \
+	fi
+	@if [[ ( ! -d node/node_modules/terser ) || \
+		( ! -x node/node_modules/.bin/terser ) || \
+		( "$$(node/node_modules/.bin/terser --version)" != \
+			"terser $(TERSER_VERSION)" ) ]] ; then \
+		echo 'You must install terser $(TERSER_VERSION): mkdir -p node && cd node && npm install terser@$(TERSER_VERSION) && cd ..' 1>&2 ; \
+		false ; \
+	fi
 	node/node_modules/.bin/terser $< --output $@ $(TERSER_FLAGS)
 
-$(IMAGES_RELEASE) $(IMAGES_BETA) $(IMAGES_INPLACE):
-#	cp -p $< $@
-	sips -s format png $< --out $@
-
-$(ICONS_RELEASE) $(ICONS_BETA) $(ICONS_INPLACE):
+%.png:
 	@size="$@" ; size="$${size##*icon}" ; size="$${size%.png}" && \
 	cmd=( sips -s format png -z $$size $$size $< --out $@ ) && \
 	echo "$${cmd[*]}" && \
