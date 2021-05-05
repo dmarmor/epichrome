@@ -1,11 +1,12 @@
 {
     "manifest_version": 2,
     
-    "name": "Epichrome Runtime DEV",
+    "version_name": "1.2.0b1[1]",
+
+    "name": "Epichrome Runtime SRC BETA",
     "short_name": "EpichromeRun",
     "description": "Runtime component of Mac apps created with Epichrome. Currently handles link redirection.",
-    "version": "0.0.0",
-    "version_name": "src directory",
+    "version": "1.2.0.101",
     
     "background": {
         "scripts": ["shared.js", "background.js"]

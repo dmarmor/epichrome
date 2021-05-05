@@ -217,11 +217,6 @@ button {
 #dialog_bar.install #install_content {
     display: block;
 }
-#dialog_bar.install {
-    background-image: url("install-bg.png");
-    background-position: 150px;
-    background-repeat: no-repeat;
-}
 
 #install_content li {
     font-style: italic;
