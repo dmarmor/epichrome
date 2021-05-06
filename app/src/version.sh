@@ -3,7 +3,8 @@
 epiVersion=2.4.6
 epiBuildNum=1
 epiMinorChangeList=( \
-    'Now hides Epichrome Runtime extension action item in welcome page if app already has it installed' \
+        'Now hides Epichrome Runtime extension action item in welcome page if app already has it installed' \
+        'Built-in engine updated to Brave 1.24.82' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \

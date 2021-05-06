@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.6] - 2021-05-05
+### Changed
+- Now hides Epichrome Runtime extension action item in welcome page if app already has it installed
+- Built-in engine updated to Brave 1.24.82
+
+
 ## [2.4.5] - 2021-05-01
 ### Changed
 - Added advanced setting to suppress welcome page after minor updates and edits

@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.5</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.6</span></h1>
 
 ## IMPORTANT NOTE
 
@@ -68,20 +68,11 @@ Epichrome is open source and has been a labor of love, made possible by the gene
 
 
 <!-- CHANGES_START -->
-## New in version <span id="epiversion">2.4.5</span>
+## New in version <span id="epiversion">2.4.6</span>
 
-- Added advanced setting to suppress welcome page after minor updates and edits
+- Now hides Epichrome Runtime extension action item in welcome page if app already has it installed
 
-- Added prompt for URL when automatic icon requested and app has no URLs
-
-- Built-in engine updated to Brave 1.23.75
-
-
-## Fixed in version <span id="epiversion">2.4.5</span>
-
-- Changed launch code to make multiple attempts to try and prevent occasional failed app launches
-
-- Changed first launch of a new app from Epichrome so the app is registered first
+- Built-in engine updated to Brave 1.24.82
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
