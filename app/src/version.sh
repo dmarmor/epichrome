@@ -1,10 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.6
+epiVersion=2.4.7
 epiBuildNum=1
 epiMinorChangeList=( \
-        'Now hides Epichrome Runtime extension action item in welcome page if app already has it installed' \
-        'Built-in engine updated to Brave 1.24.82' \
+        'Built-in engine updated to Brave 1.24.84' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
