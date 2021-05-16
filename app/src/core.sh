@@ -1087,6 +1087,9 @@ function abort {
         fi
     fi
     
+    # $$$ DISABLE ERROR REPORTING
+    iDoReport=
+    
     # log error message
     local myAbortLog="Aborting"
     [[ "$myErrMsg" ]] && myAbortLog+=": $myErrMsg" || myAbortLog+='.'

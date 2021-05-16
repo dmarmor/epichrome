@@ -261,11 +261,13 @@ function mainWrapper(aApps=[]) {
         if (dialog("Fatal error: " + myErr.message, {
             withTitle: 'Error',
             withIcon: 'stop',
-            buttons: ['Report Error & Quit', 'Quit'],
-            defaultButton: 1,
-            cancelButton: 2
+            // buttons: ['Report Error & Quit', 'Quit'],  // $$$ DISABLE REPORTING
+            buttons: ['Quit'],
+            // cancelButton: 2,  // $$$ DISABLE REPORTING
+            defaultButton: 1
         }).buttonIndex == 0) {
-            reportError('Epichrome ' + kVersion + ' reports fatal error: "' + myErr.message + '"');
+            // $$$ DISABLE REPORTING
+            // reportError('Epichrome ' + kVersion + ' reports fatal error: "' + myErr.message + '"');
         }
     }
     
@@ -854,7 +856,7 @@ function runEdit(aApps) {
             } else if (curApp.result == kStepResultREPORTERROR) {
                 myErrorText.push(kIndent + kDotError + ' ' + curApp.appInfo.displayName);
                 myHasError = true;
-                myReportErrors = true;
+                //myReportErrors = true;  // $$$ DISABLE REPORTING
             } else if ((curApp.result == kStepResultSKIP) || (curApp.result == kStepResultQUIT)) {
                 myAbortText.push(kIndent + kDotSkip + ' ' + curApp.appInfo.displayName);
                 myHasAbort = true;
@@ -877,7 +879,7 @@ function runEdit(aApps) {
                 myDlgMessage = 'No apps were processed!';
             }
         } else {
-
+            
             // if reportable errors encountered, add report error button
             if (myReportErrors) {
                 // this is now default, & Quit button is cancel
@@ -905,8 +907,8 @@ function runEdit(aApps) {
 
         // show summary
         if ((dialog(myDlgMessage, myDlgOptions).buttonIndex == 0) && (myDlgButtons.length == 2)) {
-            // report errors
-            reportError('Epichrome ' + kVersion + ' reports errors while ' + (myDoEdit ? 'editing' : 'updating') + ' multiple apps');
+            // report errors  $$$ DISABLE REPORTING
+            // reportError('Epichrome ' + kVersion + ' reports errors while ' + (myDoEdit ? 'editing' : 'updating') + ' multiple apps');
         }
     }
 }
@@ -1482,6 +1484,9 @@ function doSteps(aSteps, aInfo, aOptions={}) {
 
             // STEP RETURNED ERROR
             
+            // $$$ DISABLE REPORTING
+            myStepResult.reportError = false;
+            
             errlog(myStepResult.message, myStepResult.backStep ? 'ERROR' : 'FATAL');
             
             myResult = (myStepResult.reportError ? kStepResultREPORTERROR : kStepResultERROR);
@@ -1536,10 +1541,11 @@ function doSteps(aSteps, aInfo, aOptions={}) {
             
             if (aInfo.stepInfo.isOnlyApp && myStepResult.reportError && (myDlgResult == 0)) {
                 // user clicked 'Report Error & Quit'
-                reportError('Epichrome ' + kVersion + ' reports an error ' +
-                    ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
-                        ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
-                    ' an app: "' + errIsReportable(myStepResult.error.message)[1] + '"');
+                // $$$ DISABLE REPORTING
+                // reportError('Epichrome ' + kVersion + ' reports an error ' +
+                //     ((aInfo.stepInfo.action == kActionCREATE) ? 'creating' :
+                //         ((aInfo.stepInfo.action == kActionEDIT) ? 'editing' : 'updating')) +
+                //     ' an app: "' + errIsReportable(myStepResult.error.message)[1] + '"');
             }
         }
         
@@ -3612,16 +3618,19 @@ function loginScanSetState(aNewState) {
     } else {
         
         // error alert
+        // $$$ DON'T OFFER REPORTING:
+        //  + '\n\nIf the problem persists, please report it on GitHub.'
         let iNewStateVerb = (aNewState ? 'enable' : 'disable');
-        if (dialog('Unable to ' + iNewStateVerb + ' Epichrome login item.' + ((gEpiLoginScanEnabled == 'unset') ? ' You can try again to ' + iNewStateVerb + ' it by holding down the Option key next time you run Epichrome.' : '') + '\n\nIf the problem persists, please report it on GitHub.', {
+        if (dialog('Unable to ' + iNewStateVerb + ' Epichrome login item.' + ((gEpiLoginScanEnabled == 'unset') ? ' You can try again to ' + iNewStateVerb + ' it by holding down the Option key next time you run Epichrome.' : ''), {
             withTitle: 'Login Scan Not ' + iNewStateVerb.capitalized() + 'd',
             withIcon: 'caution',
-            buttons: ['OK', 'Report Error'],
-            defaultButton: 1
+            defaultButton: 1,
+            buttons: ['OK']  // , 'Report Error']  // $$$ DISABLE REPORTING
         }).buttonIndex == 1) {
             
             // report error
-            reportError('Epichrome ' + kVersion + ' unable to ' + iNewStateVerb + ' login scan');
+            // $$$ DISABLE REPORTING
+            // reportError('Epichrome ' + kVersion + ' unable to ' + iNewStateVerb + ' login scan');
         }
         gEpiLoginScanEnabled = loginScanGetState();
     }
