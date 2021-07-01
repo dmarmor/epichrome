@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.13] - 2021-07-01
+### Changed
+- Updated Platypus to latest build
+- Built-in engine updated to Brave 1.26.74
+
+
 ## [2.4.12] - 2021-06-23
 ### Changed
 - Built-in engine updated to Brave 1.26.67

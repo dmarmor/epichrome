@@ -4,6 +4,7 @@ epiVersion=2.4.13
 epiBuildNum=1
 epiMinorChangeList=( \
         'Updated Platypus to latest build' \
+        'Built-in engine updated to Brave 1.26.74' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
