@@ -1,13 +1,14 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.15
+epiVersion=2.4.16
 epiBuildNum=1
 epiMinorChangeList=( \
+        'Brave engine NO LONGER runs natively on Apple Silicon due to a change in how Brave is released as of 1.27.111' \
         'Built-in engine updated to Brave 1.27.108' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
-        'Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon' \
+        'Apps are now fully compatible with macOS 11 Big Sur' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \
         "Major update to icons, including automatic downloading of icons based on an app's URL, icon preview during the creation process, and an interface for creating Big Sur-compatible icons" \
         'Added advanced settings during app creation and editing to control how apps handle updates, and to customize their IDs' \

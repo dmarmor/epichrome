@@ -23,7 +23,9 @@
 
 # URLs
 latestUrl='https://brave.com/latest/'
-engineUrl='https://laptop-updates.brave.com/latest/osxarm64/release'
+engineUrl='https://laptop-updates.brave.com/latest/osx/release'
+# as of Brave 1.27.111, the ARM64 version no longer works on Intel!
+#engineUrl='https://laptop-updates.brave.com/latest/osxarm64/release'
 
 shopt -s nullglob
 
