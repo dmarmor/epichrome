@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.16] - 2021-08-05
+### Changed
+- Brave engine NO LONGER runs natively on Apple Silicon due to a change in how Brave is released as of 1.27.111
+- Built-in engine updated to Brave 1.27.111
+
+
 ## [2.4.15] - 2021-07-24
 ### Changed
 - Built-in engine updated to Brave 1.27.108
