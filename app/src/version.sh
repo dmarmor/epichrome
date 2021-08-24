@@ -1,10 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.16
+epiVersion=2.4.17
 epiBuildNum=1
 epiMinorChangeList=( \
-        'Brave engine NO LONGER runs natively on Apple Silicon due to a change in how Brave is released as of 1.27.111' \
-        'Built-in engine updated to Brave 1.27.111' \
+        'Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
