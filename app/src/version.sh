@@ -4,6 +4,7 @@ epiVersion=2.4.17
 epiBuildNum=1
 epiMinorChangeList=( \
         'Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements' \
+        'Built-in engine updated to Brave 1.28.106' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \

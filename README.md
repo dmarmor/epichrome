@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.16</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.17</span></h1>
 
 ## IMPORTANT NOTE
 
@@ -68,11 +68,11 @@ Epichrome is open source and has been a labor of love, made possible by the gene
 
 
 <!-- CHANGES_START -->
-## New in version <span id="epiversion">2.4.16</span>
+## New in version <span id="epiversion">2.4.17</span>
 
-- Brave engine NO LONGER runs natively on Apple Silicon due to a change in how Brave is released as of 1.27.111
+- Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements
 
-- Built-in engine updated to Brave 1.27.111
+- Built-in engine updated to Brave 1.28.106
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
@@ -122,7 +122,7 @@ If you're having trouble with an Epichrome app, please first check the [**troubl
 
 ## Technical Information & Limitations
 
-- Built and tested on macOS <span id="osname">Big Sur</span> <span id="osversion">11.5.1</span> and Google Chrome version <span id="chromeversion">92.0.4515.131</span>.
+- Built and tested on macOS <span id="osname">Big Sur</span> <span id="osversion">11.5.2</span> and Google Chrome version <span id="chromeversion">92.0.4515.159</span>.
 
 - Apps built with Epichrome are self-updating. If you install a new version of Epichrome on your system, the next time you run one of your apps, it will find the new version and ask if you want to update it.
 

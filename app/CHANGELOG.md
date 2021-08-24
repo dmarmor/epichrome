@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.17] - 2021-08-24
+### Changed
+- Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements
+- Built-in engine updated to Brave 1.28.106
+
+
 ## [2.4.16] - 2021-08-05
 ### Changed
 - Brave engine NO LONGER runs natively on Apple Silicon due to a change in how Brave is released as of 1.27.111
