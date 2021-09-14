@@ -1,10 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.17
+epiVersion=2.4.18
 epiBuildNum=1
 epiMinorChangeList=( \
-        'Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements' \
-        'Built-in engine updated to Brave 1.28.106' \
+        'Due to changes in Brave Browser, new apps will likely display a "Set Brave as default browser" window on first run' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
