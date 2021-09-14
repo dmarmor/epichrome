@@ -2,6 +2,12 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.18] - 2021-09-13
+### Changed
+- Due to changes in Brave Browser, new apps will likely display a "Set Brave as default browser" window on first run
+- Built-in engine updated to Brave 1.29.80
+
+
 ## [2.4.17] - 2021-08-24
 ### Changed
 - Removed new com.apple.developer.networking.vpn.api key from Brave engine entitlements
