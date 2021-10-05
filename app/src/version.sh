@@ -1,10 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.18
+epiVersion=2.4.19
 epiBuildNum=1
 epiMinorChangeList=( \
-        'Due to changes in Brave Browser, new apps will likely display a "Set Brave as default browser" window on first run' \
-        'Built-in engine updated to Brave 1.29.80' \
+        'Built-in engine updated to Brave 1.30.87' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \

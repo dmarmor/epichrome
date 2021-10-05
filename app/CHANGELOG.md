@@ -2,6 +2,11 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.19] - 2021-10-05
+### Changed
+- Built-in engine updated to Brave 1.30.87
+
+
 ## [2.4.18] - 2021-09-13
 ### Changed
 - Due to changes in Brave Browser, new apps will likely display a "Set Brave as default browser" window on first run
