@@ -861,10 +861,10 @@ build/engine_tmp/brave: build/engine_tmp/$(BRAVE_SRC) build/engine_tmp/brave_rec
 		echo '*** Unable to find Sparkle.framework' 1>&2 ; false ; fi
 	rm -rf '$(BRAVE_FRAMEWORK)/Versions/Current/Frameworks/Sparkle.framework'
 	xattr -cr build/engine_tmp/brave
-	scripts/signmatch.sh '' \
+	shopt -s nullglob && scripts/signmatch.sh '' \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Helpers/'* \
 		'$(BRAVE_FRAMEWORK)/Versions/Current/Libraries/'*.dylib \
-		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/AlertNotificationService.xpc' \
+		'$(BRAVE_FRAMEWORK)/Versions/Current/XPCServices/'* \
 		'$(BRAVE_FRAMEWORK)'
 
 #flags="$${opts#*CodeDirectory}" && flags="$${flags%%Signature*}"
