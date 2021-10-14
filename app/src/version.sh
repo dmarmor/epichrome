@@ -1,9 +1,9 @@
 # Epichrome version (#.#.#[#] = release version, #.#.#b#[#] = beta)
 
-epiVersion=2.4.19
+epiVersion=2.4.20
 epiBuildNum=1
 epiMinorChangeList=( \
-        'Built-in engine updated to Brave 1.30.87' \
+        'Built-in engine updated to Brave 1.30.89' \
     )  # END_epiMinorChangeList
 epiMinorFixList=()  # END_epiMinorFixList
 epiDescMajor=( \
