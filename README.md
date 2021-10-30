@@ -1,4 +1,4 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.21</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.22</span></h1>
 
 ## IMPORTANT NOTE
 
@@ -68,9 +68,9 @@ Epichrome is open source and has been a labor of love, made possible by the gene
 
 
 <!-- CHANGES_START -->
-## New in version <span id="epiversion">2.4.21</span>
+## New in version <span id="epiversion">2.4.22</span>
 
-- Built-in engine updated to Brave 1.31.87
+- Built-in engine updated to Brave 1.31.88
 
 
 *Check out the [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md "CHANGELOG.md") for the full list.*
