@@ -162,7 +162,7 @@ function check_static_autoicons {
     # check all static auto-icons
     local iAutoIconErr=
     local iErrPrompt=
-    try 'iAutoIconErr=(|)&' /usr/bin/php "$epipath/src/makeicon.php" '[ { "action": "testautoicon" } ]' ''
+    try 'iAutoIconErr=(|)&' /usr/bin/env php "$epipath/src/makeicon.php" '[ { "action": "testautoicon" } ]' ''
     if [[ ! "$ok" ]] ; then
         if [[ "${iAutoIconErr[0]}" = 'STATICAUTOICONS' ]] ; then
             echo 'The following static auto-icons failed to download:' 1>&2

@@ -57,7 +57,7 @@ if ! source "$epipath/src/core.sh" ; then
 fi
 
 # get latest version number from Brave
-try 'latestVersion=' /usr/bin/php "$mypath/braveversion.php" "$latestUrl" \
+try 'latestVersion=' /usr/bin/env php "$mypath/braveversion.php" "$latestUrl" \
         "Unable to find latest Brave version at $latestUrl"
 [[ "$ok" ]] || abort
 

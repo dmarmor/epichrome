@@ -346,7 +346,7 @@ function makeicon {
         
         if [[ "$aDoProgress" ]] ; then
             # run through a pipe for progress updates
-            try '-12' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
+            try '-12' /usr/bin/env php "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
             
             # retrieve any output
             try 'iMakeIconErr=' /bin/cat "$stdoutTempFile" 'Unable to read output from makeicon.'
@@ -381,7 +381,7 @@ function makeicon {
                 fi
             fi
         else
-            try '-1' 'iMakeIconErr=2' /usr/bin/php "$iMakeIconScript" "$iMakeIconCmd" ''
+            try '-1' 'iMakeIconErr=2' /usr/bin/env php "$iMakeIconScript" "$iMakeIconCmd" ''
         fi
         
         # log any stderr output

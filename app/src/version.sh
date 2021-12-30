@@ -5,7 +5,9 @@ epiBuildNum=1
 epiMinorChangeList=( \
         'Built-in engine updated to Brave 1.32.115' \
     )  # END_epiMinorChangeList
-epiMinorFixList=()  # END_epiMinorFixList
+epiMinorFixList=( \
+        'Worked around removal of PHP in macOS 12 (Monterey) by changing PHP calls so users can try to limp by with a local PHP install' \
+)  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \

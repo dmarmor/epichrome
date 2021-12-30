@@ -77,7 +77,7 @@ if [[ "$epiAutoIconURL" ]] ; then
     debuglog 'Running makeicon.'  # $$$
     
     autoIconErr=
-    try 'autoIconErr=&' /usr/bin/php "$myScriptPathEpichrome/makeicon.php" \
+    try 'autoIconErr=&' /usr/bin/env php "$myScriptPathEpichrome/makeicon.php" \
             "$autoIconCmd" ''
     if [[ ! "$ok" ]] ; then
         errmsg="${autoIconErr#*PHPERR|}"
