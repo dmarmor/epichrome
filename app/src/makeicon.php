@@ -20,6 +20,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+// ---- ERROR REPORTING ---
+
+error_reporting(error_reporting() & ~E_NOTICE);
+
+
 // --- CONSTANTS ---
 
 // ICON SIZE LIMITS

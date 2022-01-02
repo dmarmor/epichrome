@@ -56,8 +56,15 @@ if ! source "$epipath/src/core.sh" ; then
     exit 1
 fi
 
+# load makeicon.sh
+if ! source "$epipath/src/makeicon.sh" ; then
+    ok= ; errmsg="Unable to load $epipath/src/makeicon.sh."
+    errlog
+    abort
+fi
+
 # get latest version number from Brave
-try 'latestVersion=' /usr/bin/env php "$mypath/braveversion.php" "$latestUrl" \
+try 'latestVersion=' "$myPHPPath" "$mypath/braveversion.php" "$latestUrl" \
         "Unable to find latest Brave version at $latestUrl"
 [[ "$ok" ]] || abort
 

@@ -29,6 +29,17 @@ if [[ ! "$coreVersion" ]] ; then
 fi
 
 
+# SET PHP PATH
+
+myPHPPath='/usr/bin/php'
+if [[ ! -x "$myPHPPath" ]] ; then
+    myPHPPath='/usr/local/bin/php@7.3'
+    if [[ ! -x "$myPHPPath" ]] ; then
+        abort "PHP not found! (PHP has been removed under macOS 12 or higher. If you are running one of these versions of macOS and wish to auto-create icons with Epichrome, please check the README page on Github for instructions on how to install the correct version of PHP.)"
+    fi
+fi
+
+
 # MAKEICON: use makeicon.php to build icons
 #  makeicon(aIconSource aAppIcon [aDocIcon aWelcomeIcon aCrop aCompSize aCompBG aDoProgress aMaxSize aMinSize aSourceSizeVar])
 function makeicon {
@@ -346,7 +357,7 @@ function makeicon {
         
         if [[ "$aDoProgress" ]] ; then
             # run through a pipe for progress updates
-            try '-12' /usr/bin/env php "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
+            try '-12' "$myPHPPath" "$iMakeIconScript" "$iMakeIconCmd" '' 2>&1 | makeiconprogress
             
             # retrieve any output
             try 'iMakeIconErr=' /bin/cat "$stdoutTempFile" 'Unable to read output from makeicon.'
@@ -381,7 +392,7 @@ function makeicon {
                 fi
             fi
         else
-            try '-1' 'iMakeIconErr=2' /usr/bin/env php "$iMakeIconScript" "$iMakeIconCmd" ''
+            try '-1' 'iMakeIconErr=2' "$myPHPPath" "$iMakeIconScript" "$iMakeIconCmd" ''
         fi
         
         # log any stderr output

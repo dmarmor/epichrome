@@ -37,6 +37,13 @@ if ! source "$epipath/src/core.sh" ; then
     exit 1
 fi
 
+# load makeicon.sh
+if ! source "$epipath/src/makeicon.sh" ; then
+    ok= ; errmsg="Unable to load $epipath/src/makeicon.sh."
+    errlog
+    abort
+fi
+
 
 # --- FUNCTIONS ---
 
@@ -162,7 +169,7 @@ function check_static_autoicons {
     # check all static auto-icons
     local iAutoIconErr=
     local iErrPrompt=
-    try 'iAutoIconErr=(|)&' /usr/bin/env php "$epipath/src/makeicon.php" '[ { "action": "testautoicon" } ]' ''
+    try 'iAutoIconErr=(|)&' "$myPHPPath" "$epipath/src/makeicon.php" '[ { "action": "testautoicon" } ]' ''
     if [[ ! "$ok" ]] ; then
         if [[ "${iAutoIconErr[0]}" = 'STATICAUTOICONS' ]] ; then
             echo 'The following static auto-icons failed to download:' 1>&2

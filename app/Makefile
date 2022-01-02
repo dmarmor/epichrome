@@ -871,7 +871,7 @@ build/engine_tmp/brave: build/engine_tmp/$(BRAVE_SRC) build/engine_tmp/brave_rec
 build/engine_tmp/brave_recodesign.sh:
 	@mkdir -p build/engine_tmp
 	printf "codesign -s '$(CODESIGN_IDENTITY)' -vv --identifier org.epichrome.engine.brave" > '$@'
-	opts="$$(codesign --display -v --entitlements - 'build/engine_tmp/$(BRAVE_SRC)/Contents/MacOS/Brave Browser' 2>&1)" && \
+	opts="$$(codesign --display -v --entitlements - --xml 'build/engine_tmp/$(BRAVE_SRC)/Contents/MacOS/Brave Browser' 2>&1)" && \
 	ents="<?xml$${opts##*<?xml}" && \
 	entfile='build/engine_tmp/brave_entitlements.plist' && \
 	touch "$$entfile" && \

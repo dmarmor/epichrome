@@ -1,4 +1,3 @@
-#!/usr/bin/env php
 <?php
 
 // braveversion.php: PHP script for finding the latest version of Brave at brave.com
