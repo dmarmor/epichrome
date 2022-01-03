@@ -2,7 +2,7 @@
 #
 #  newrelease.sh: update Brave, do basic tests, build, notarize, and create release docs for Epichrome
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -621,7 +621,7 @@ function create_release_post {
     
     if [[ ! "$epiIsBeta" ]] ; then
         # build list for GitHub-check dialog
-        iPostBody=$'<!--<epichrome>\n⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.\n\n'"$(build_both_lists '' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
+        iPostBody=$'<!--<epichrome>\n⚠️ IMPORTANT NOTE: This is the FINAL release of Epichrome. There will be no more updates after this. Please read the full statement on GitHub.\n\n'"$(build_both_lists '' 'NEW:' 'FIXED:' $'\n</epichrome>-->' \
                 $'\n\n' $'\n\n   ▪️ ' '' '' '')"
         [[ "$iPostBody" ]] && iPostBody+=$'\n'
     else
@@ -633,7 +633,7 @@ You can download Epichrome '"$iBetaLabel"' with [**this link [UPDATE]**](https:/
     fi
     
     # add farewell message
-    iPostBody+=$'## :warning:&nbsp;&nbsp;**IMPORTANT NOTE**\n### *Epichrome is no longer under active development, and there will be no<br/>more updates after the end of 2021. Please read the full statement [here](https://github.com/dmarmor/epichrome/blob/master/README.md#important-note).*\n\n---\n\n'
+    iPostBody+=$'## :warning:&nbsp;&nbsp;**IMPORTANT NOTE**\n### *This is the **final** release of Epichrome. There will be no more updates after this. Please read the full statement [here](https://github.com/dmarmor/epichrome/blob/master/README.md#important-note).*\n\n---\n\n'
     
     # build list for release notes
     local iChangeList="$(build_both_lists '' "$iChangeHeader" "$iFixHeader" $'\n\n' \

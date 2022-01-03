@@ -2,7 +2,7 @@
 #
 #  updatebrave.sh: check for a new version of Brave, download, and manage old versions
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

@@ -2,7 +2,7 @@
 
 // braveversion.php: PHP script for finding the latest version of Brave at brave.com
 //
-// Copyright (C) 2021  David Marmor
+// Copyright (C) 2022  David Marmor
 //
 // https://github.com/dmarmor/epichrome
 //

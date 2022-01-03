@@ -2,7 +2,7 @@
 
 // makeicon.php: PHP script for compositing images to make iconsets
 //
-// Copyright (C) 2021  David Marmor
+// Copyright (C) 2022  David Marmor
 //
 // https://github.com/dmarmor/epichrome
 //

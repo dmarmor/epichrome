@@ -1,14 +1,14 @@
-<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.26</span></h1>
+<h1><img src="https://github.com/dmarmor/epichrome/raw/master/images/readme/epichrome_icon.png" width="64" height="64" alt="Epichrome icon" /> Epichrome <span id="epiversion">2.4.26</span> (NO LONGER BEING UPDATED)</h1>
 
 ## IMPORTANT NOTE
 
-***I'm sad to announce I'm ending development of Epichrome.***
+***I'm sad to announce I have ended development of Epichrome.***
 
-After more than five years of development, I no longer have time to do the major work that will be needed to keep Epichrome working with coming changes to macOS and the Chrome extension ecosystem.
+After more than five years of development, I no longer had time to do the major work that would have been needed to keep Epichrome working with coming changes to macOS and the Chrome extension ecosystem.
 
-I will continue doing updates to stay current with the Brave browser engine until the end of 2021. If you rely on Epichrome for your workflow, you should begin looking for an alternative as soon as possible to minimize disruption. There are many options out there, each with their own pros and cons, including [Chromeless](https://chromeless.app/ "Chromeless"), [WebCatalog](https://webcatalog.app/ "WebCatalog"), [Flotato](https://www.flotato.com/ "Flotato"), [Unite](https://www.bzgapps.com/unite "Unite"), and [Coherence](https://www.bzgapps.com/coherence "Coherence").
+Version 2.4.27 is the final update, and I no longer be staying current with the Brave browser engine. If you rely on Epichrome for your workflow, you should switch to an alternative as soon as possible to minimize disruption. There are many options out there, each with their own pros and cons, including [WebCatalog](https://webcatalog.app/ "WebCatalog") (my personal favorite, and the one I switched my own apps to), [Chromeless](https://chromeless.app/ "Chromeless"), [Flotato](https://www.flotato.com/ "Flotato"), [Unite](https://www.bzgapps.com/unite "Unite"), and [Coherence](https://www.bzgapps.com/coherence "Coherence").
 
-If you are a developer with the skills and interest to continue this project, please [contact me](mailto:info@epichrome.org). I would love to find a good home for Epichrome.
+If you are a developer with the skills and interest to resurrect this project, please [contact me](mailto:info@epichrome.org). I would still love to find a good home for Epichrome.
 
 ## Overview
 
@@ -79,7 +79,7 @@ Epichrome is open source and has been a labor of love, made possible by the gene
 
 ## New in version 2.4
 
-- Apps are now fully compatible with macOS 11 Big Sur and run natively on Apple Silicon
+- Apps are now fully compatible with macOS 11 Big Sur
 
 - Epichrome apps can now be edited by dropping them on Epichrome.app!
 
@@ -100,6 +100,40 @@ Epichrome is open source and has been a labor of love, made possible by the gene
 - Both the GitHub update notification and the app update prompt now show info on changes in the new version
 
 - Many more improvements and bug fixes... (See [**change log**](https://github.com/dmarmor/epichrome/blob/master/app/CHANGELOG.md#240---2021-03-19 "CHANGELOG.md") for details)
+
+
+## Note For Users of macOS 12 or Later
+
+Icon creation in Epichrome relies on PHP, which has been removed from macOS as of version 12 (Monterey). It is still possible to make it work by installing your own php 7.3 via [homebrew](https://brew.sh "homebrew"). It *must* be installed into the exact path specified in these instructions:
+
+1. Edit the formula for `php@7.3` to allow installation of a versioned formula:
+
+```bash
+> brew edit php@7.3
+```
+This will open the formula in your default editor. Find and **remove** the line that looks like this:
+
+```
+disable! date: "XXXX-XX-XX", because: :versioned_formula
+```
+
+Then save and quit the editor.
+
+2. Install php 7.3:
+
+```bash
+> brew install php@7.3
+```
+
+3. Link php 7.3 to `/usr/local/bin/php@7.3` (it is crucial the `php` binary is at this **exact** path and has this **exact** name:
+  
+```bash
+> ln -s /usr/local/opt/php@7.3/bin/php /usr/local/bin/php@7.3
+```
+
+(Note that if you have set up `homebrew` to install to somewhere other than `/usr/local/opt` you will need to alter this command to compensate for that.)
+
+Now Epichrome 2.4.27 should be able to auto-create icons on macOS 12.
 
 
 ## Important Notes

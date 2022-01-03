@@ -2,7 +2,7 @@
 #
 #  makeicon.sh: function for creating app & doc icons
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -35,7 +35,7 @@ myPHPPath='/usr/bin/php'
 if [[ ! -x "$myPHPPath" ]] ; then
     myPHPPath='/usr/local/bin/php@7.3'
     if [[ ! -x "$myPHPPath" ]] ; then
-        abort "PHP not found! (PHP has been removed under macOS 12 or higher. If you are running one of these versions of macOS and wish to auto-create icons with Epichrome, please check the README page on Github for instructions on how to install the correct version of PHP.)"
+        abort "PHP not found! (PHP has been removed under macOS 12 or higher. If you are running one of these versions of macOS and wish to auto-create icons with Epichrome, please look at \"Note For Users of macOS 12 or Later\" in the README page on Github for instructions on how to install the correct version of PHP.)"
     fi
 fi
 

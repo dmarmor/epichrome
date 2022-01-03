@@ -2,7 +2,7 @@
 #
 #  progress.sh: utility functions for progress bar apps
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

@@ -2,7 +2,7 @@
 #
 #  mode_update.sh: mode script for updating/creating an app
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

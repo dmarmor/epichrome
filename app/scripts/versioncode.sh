@@ -2,7 +2,7 @@
 #
 #  versioncode.sh: create a numeric version code from an Epichrome version
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

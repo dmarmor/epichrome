@@ -2,7 +2,7 @@
 #
 #  launch.sh: utility functions for building and launching an Epichrome engine
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #
@@ -399,7 +399,7 @@ function checkappupdate {
 	else
 		
 		# basic update message
-		local updateMsg=$'⚠️⚠️⚠️ IMPORTANT NOTE: Epichrome is no longer under active development, and there will be no more updates after the end of 2021. Please read the full statement on GitHub.\n\n---------------------------------------------------------------\n\nDo you want to update this app from version '"$SSBVersion to version $epiUpdateVersion?"
+		local updateMsg=$'⚠️⚠️⚠️ IMPORTANT NOTE: This is the FINAL release of Epichrome. There will be no more updates after this. Please read the full statement on GitHub.\n\n---------------------------------------------------------------\n\nDo you want to update this app from version '"$SSBVersion to version $epiUpdateVersion?"
 		
 		# add any description for this version
 		local iDelim=$'\n\n   ▪️ '

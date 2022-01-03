@@ -2,7 +2,7 @@
 #
 #  legaciy.sh: functions for updating old (pre-2.3) apps
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

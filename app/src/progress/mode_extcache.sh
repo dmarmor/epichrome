@@ -2,7 +2,7 @@
 #
 #  mode_extcache.sh: mode script for creating a new extension cache
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

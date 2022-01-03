@@ -2,7 +2,7 @@
 #
 #  mode_icon.sh: mode script for building app icons in Epichrome.app
 #
-#  Copyright (C) 2021  David Marmor
+#  Copyright (C) 2022  David Marmor
 #
 #  https://github.com/dmarmor/epichrome
 #

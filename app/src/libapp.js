@@ -2,7 +2,7 @@
 //
 //  libapp.js: JXA/Obj-C bridge calls to register, find & launch apps
 //
-//  Copyright (C) 2021  David Marmor
+//  Copyright (C) 2022  David Marmor
 //
 //  https://github.com/dmarmor/epichrome
 //
