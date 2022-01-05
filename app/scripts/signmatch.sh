@@ -80,7 +80,7 @@ for path in "$@" ; do
 	    
 	    if [[ "$opts" =~ runtime ]] ; then
 		
-		disp="$(codesign --display --entitlements - --verbose=0 "$ref_app_path" 2>&1)"
+		disp="$(codesign --display --entitlements - --xml --verbose=0 "$ref_app_path" 2>&1)"
 		if [[ "$?" != 0 ]] ; then
 		    echo "$disp" 1>&2
 		    exit 1
