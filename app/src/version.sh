@@ -3,6 +3,7 @@
 epiVersion=2.4.27
 epiBuildNum=1
 epiMinorChangeList=( \
+        '💔 FINAL VERSION OF EPICHROME -- there will be no more updates after this' \
         'Built-in engine updated to Brave 1.32.115' \
     )  # END_epiMinorChangeList
 epiMinorFixList=( \
