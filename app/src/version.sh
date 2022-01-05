@@ -4,11 +4,11 @@ epiVersion=2.4.27
 epiBuildNum=1
 epiMinorChangeList=( \
         '💔 FINAL VERSION OF EPICHROME -- there will be no more updates after this' \
-        'Built-in engine updated to Brave 1.32.115' \
+        'Built-in engine updated to Brave 1.33.106' \
     )  # END_epiMinorChangeList
 epiMinorFixList=( \
         'Worked around removal of PHP in macOS 12 (Monterey) by changing PHP calls so users can try to limp by with a local PHP install' \
-)  # END_epiMinorFixList
+    )  # END_epiMinorFixList
 epiDescMajor=( \
         'Apps are now fully compatible with macOS 11 Big Sur' \
         'Epichrome apps can now be edited by dropping them on Epichrome.app!' \

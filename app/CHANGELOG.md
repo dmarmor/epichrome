@@ -2,6 +2,14 @@
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [2.4.27] - 2022-01-05
+### Changed
+- 💔 FINAL VERSION OF EPICHROME -- there will be no more updates after this
+- Built-in engine updated to Brave 1.33.106
+### Fixed
+- Worked around removal of PHP in macOS 12 (Monterey) by changing PHP calls so users can try to limp by with a local PHP install
+
+
 ## [2.4.26] - 2021-12-14
 ### Changed
 - Built-in engine updated to Brave 1.32.115
